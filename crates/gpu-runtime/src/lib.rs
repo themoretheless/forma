@@ -155,14 +155,16 @@ impl Instance {
                     let view_ptr = appkit.ns_view.as_ptr();
                     metal_layer =
                         unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) };
-                    metal_view = crate::metal::ObjCObject::from_unretained(view_ptr).map(Arc::new);
+                    metal_view = unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
+                        .map(Arc::new);
                 }
                 #[cfg(any(target_os = "macos", target_os = "ios"))]
                 raw_window_handle::RawWindowHandle::UiKit(uikit) => {
                     let view_ptr = uikit.ui_view.as_ptr();
                     metal_layer =
                         unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) };
-                    metal_view = crate::metal::ObjCObject::from_unretained(view_ptr).map(Arc::new);
+                    metal_view = unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
+                        .map(Arc::new);
                 }
                 _ => {}
             }
@@ -572,11 +574,11 @@ impl Device {
                 || (desc.usage.contains(BufferUsages::MAP_WRITE)
                     && !(desc.usage - BufferUsages::MAP_WRITE - BufferUsages::COPY_SRC)
                         .is_empty()));
-        if desc.usage.is_empty()
+        let invalid_descriptor = desc.usage.is_empty()
             || desc.size > self.limits.max_buffer_size
             || missing_ray_query
-            || missing_mappable_primary
-        {
+            || missing_mappable_primary;
+        if invalid_descriptor {
             let msg = format!(
                 "Invalid buffer descriptor: size={}, usage={:?}, enabled_features={:?}",
                 desc.size, desc.usage, self.features
@@ -589,11 +591,33 @@ impl Device {
                 description: msg,
             });
         }
-        if desc.mapped_at_creation || desc.size >= 1_048_576 {
+        if !invalid_descriptor && (desc.mapped_at_creation || desc.size >= 1_048_576) {
             self.metal.wait_idle();
         }
         let options = 0u64; // MTLResourceStorageModeShared: zero-copy UMA
-        let (raw, ptr) = self.metal.alloc_buffer(desc.size as usize, options);
+        let allocated = if desc.size > self.limits.max_buffer_size {
+            None
+        } else {
+            usize::try_from(desc.size)
+                .ok()
+                .and_then(|size| self.metal.alloc_buffer(size, options))
+        };
+        let (raw, ptr, stored_options) = match allocated {
+            Some((raw, ptr)) => (raw, ptr, options),
+            None => {
+                if desc.size <= self.limits.max_buffer_size {
+                    let msg = format!("Metal buffer allocation failed for size={}", desc.size);
+                    self.record_error(Error::OutOfMemory {
+                        source: Arc::new(std::io::Error::new(std::io::ErrorKind::OutOfMemory, msg)),
+                    });
+                }
+                (
+                    Arc::new(crate::metal::ObjCObject(std::ptr::null_mut())),
+                    std::ptr::null_mut(),
+                    0xFF,
+                )
+            }
+        };
         Buffer {
             inner: Arc::new(BufferInner {
                 device: self.metal.clone(),
@@ -601,13 +625,18 @@ impl Device {
                 ptr,
                 size: desc.size,
                 usage: desc.usage,
-                options,
+                options: stored_options,
                 mapped_ready: AtomicBool::new(desc.mapped_at_creation),
             }),
         }
     }
 
-    /// ASD (Accelerated Storage Direct / Apple Silicon Direct) zero-copy page-aligned buffer creation
+    /// ASD (Accelerated Storage Direct / Apple Silicon Direct) zero-copy page-aligned buffer creation.
+    ///
+    /// # Safety
+    ///
+    /// `page_aligned_ptr` must be page-aligned for Metal `newBufferWithBytesNoCopy` and remain
+    /// valid for `page_aligned_size` bytes until the returned `Buffer` is dropped on CPU and GPU.
     pub unsafe fn create_buffer_no_copy(
         &self,
         page_aligned_ptr: *mut u8,
@@ -847,12 +876,14 @@ impl Queue {
         offset: BufferAddress,
         size: BufferSize,
     ) -> Option<WriteOnly<'a, [u8]>> {
-        let len = size.get() as usize;
-        if offset as usize + len > buffer.inner.size as usize || buffer.inner.ptr.is_null() {
+        let end = offset.checked_add(size.get())?;
+        if end > buffer.inner.size || buffer.inner.ptr.is_null() {
             return None;
         }
+        let offset_usize = usize::try_from(offset).ok()?;
+        let len = usize::try_from(size.get()).ok()?;
         let slice =
-            unsafe { std::slice::from_raw_parts_mut(buffer.inner.ptr.add(offset as usize), len) };
+            unsafe { std::slice::from_raw_parts_mut(buffer.inner.ptr.add(offset_usize), len) };
         Some(WriteOnly::new(slice))
     }
 
@@ -1659,5 +1690,110 @@ mod device_loss_delivery_tests {
             *seen.lock().unwrap(),
             vec![(DeviceLostReason::Unknown, "removed".into())]
         );
+    }
+}
+
+#[cfg(test)]
+mod pipeline_cache_and_buffer_safety_tests {
+    use super::*;
+
+    fn block_on_ready<T>(fut: impl Future<Output = T>) -> T {
+        let mut pinned = std::pin::pin!(fut);
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        match pinned.as_mut().poll(&mut cx) {
+            std::task::Poll::Ready(val) => val,
+            std::task::Poll::Pending => panic!("expected immediate future completion"),
+        }
+    }
+
+    #[test]
+    fn pipeline_cache_keys_distinguish_blend_sample_count_and_threadgroup_multiple() {
+        let base_render = metal::RenderPipelineCacheKey {
+            vs_src: "vertex float4 vs_main() { return float4(0.0); }".into(),
+            fs_src: Some("fragment float4 fs_main() { return float4(1.0); }".into()),
+            vs_ep: "vs_main".into(),
+            fs_ep: "fs_main".into(),
+            vertex_buffers: vec![Some(metal::CachedVertexBufferLayout {
+                array_stride: 16,
+                step_mode: VertexStepMode::Vertex,
+                attributes: vec![VertexAttribute {
+                    format: VertexFormat::Float32x4,
+                    offset: 0,
+                    shader_location: 0,
+                }],
+            })],
+            targets: vec![Some(ColorTargetState {
+                format: TextureFormat::Bgra8Unorm,
+                blend: Some(BlendState::ALPHA_BLENDING),
+                write_mask: ColorWrites::ALL,
+            })],
+            depth_stencil: None,
+            sample_count: 1,
+        };
+
+        let mut premul_render = base_render.clone();
+        premul_render.targets[0].as_mut().unwrap().blend =
+            Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+        assert_ne!(base_render, premul_render);
+
+        let mut msaa_render = base_render.clone();
+        msaa_render.sample_count = 4;
+        assert_ne!(base_render, msaa_render);
+
+        let base_compute = metal::ComputePipelineCacheKey {
+            msl_source: "kernel void cs_main() {}".into(),
+            entry_point: "cs_main".into(),
+            threadgroup_multiple_of_32: true,
+        };
+        let mut non_multiple = base_compute.clone();
+        non_multiple.threadgroup_multiple_of_32 = false;
+        assert_ne!(base_compute, non_multiple);
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn oversized_buffer_and_overflowing_write_offsets_fail_safely() {
+        let Some(metal_dev) = MetalDevice::create_system_default() else {
+            return;
+        };
+        let adapter = Adapter::from_metal(metal_dev);
+        let (device, queue) = block_on_ready(adapter.request_device(&DeviceDescriptor::default()))
+            .expect("device creation must succeed");
+
+        // G-4: Oversized buffer creation records validation error and returns an inert buffer
+        // whose UMA/mapped views never dereference null pointers.
+        let validation_scope = device.push_error_scope(ErrorFilter::Validation);
+        let mut invalid_buf = device.create_buffer(&BufferDescriptor {
+            label: Some("oversized"),
+            size: u64::MAX,
+            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let err = block_on_ready(validation_scope.pop());
+        assert!(matches!(err, Some(Error::Validation { .. })));
+        assert!(invalid_buf.uma_slice().is_empty());
+        assert!(invalid_buf.uma_slice_mut().is_empty());
+        assert!(invalid_buf.slice(..).get_mapped_range().is_empty());
+        assert!(invalid_buf.slice(..).get_mapped_range_mut().is_empty());
+
+        // Direct MetalDevice::alloc_buffer overflow check returns None cleanly.
+        assert!(device.metal.alloc_buffer(usize::MAX, 0).is_none());
+
+        // G-5: Overflowing write offsets on a valid buffer are rejected instead of wrapping.
+        let valid_buf = device.create_buffer(&BufferDescriptor {
+            label: Some("valid"),
+            size: 64,
+            usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        assert!(
+            queue
+                .write_buffer_with(&valid_buf, u64::MAX - 3, BufferSize::new(8).unwrap())
+                .is_none()
+        );
+        let write_scope = device.push_error_scope(ErrorFilter::Validation);
+        queue.write_buffer(&valid_buf, u64::MAX - 3, &[1, 2, 3, 4, 5, 6, 7, 8]);
+        let write_err = block_on_ready(write_scope.pop());
+        assert!(matches!(write_err, Some(Error::Validation { .. })));
     }
 }

@@ -136,8 +136,9 @@ impl Quat {
         })
     }
 
+    /// Hamilton product `self * rhs`.
     #[inline]
-    pub fn mul(self, rhs: Self) -> Self {
+    pub fn hamilton_product(self, rhs: Self) -> Self {
         Self {
             x: self.w * rhs.x + self.x * rhs.w + self.y * rhs.z - self.z * rhs.y,
             y: self.w * rhs.y - self.x * rhs.z + self.y * rhs.w + self.z * rhs.x,
@@ -217,6 +218,15 @@ impl Quat {
     }
 }
 
+impl std::ops::Mul for Quat {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.hamilton_product(rhs)
+    }
+}
+
 /// Dual quaternion `real + eps * dual` representing a 3D rigid body transformation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DualQuat {
@@ -246,7 +256,7 @@ impl DualQuat {
             0.5 * translation[2],
             0.0,
         );
-        let dual = t_quat.mul(r);
+        let dual = t_quat * r;
         Self { real: r, dual }
     }
 
@@ -280,11 +290,12 @@ impl DualQuat {
         Some(Self { real, dual })
     }
 
+    /// Compose rigid transforms `self * rhs`.
     #[inline]
-    pub fn mul(self, rhs: Self) -> Self {
-        let r = self.real.mul(rhs.real);
-        let d1 = self.real.mul(rhs.dual);
-        let d2 = self.dual.mul(rhs.real);
+    pub fn compose(self, rhs: Self) -> Self {
+        let r = self.real * rhs.real;
+        let d1 = self.real * rhs.dual;
+        let d2 = self.dual * rhs.real;
         Self {
             real: r,
             dual: Quat::new(d1.x + d2.x, d1.y + d2.y, d1.z + d2.z, d1.w + d2.w),
@@ -295,7 +306,7 @@ impl DualQuat {
     #[inline]
     pub fn to_rotation_translation(self) -> (Quat, V3) {
         let dq = self.normalize().unwrap_or(Self::IDENTITY);
-        let t_quat = dq.dual.mul(dq.real.conjugate());
+        let t_quat = dq.dual * dq.real.conjugate();
         (dq.real, [2.0 * t_quat.x, 2.0 * t_quat.y, 2.0 * t_quat.z])
     }
 
@@ -329,6 +340,15 @@ impl DualQuat {
             ),
         };
         raw.normalize().unwrap_or(self)
+    }
+}
+
+impl std::ops::Mul for DualQuat {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.compose(rhs)
     }
 }
 

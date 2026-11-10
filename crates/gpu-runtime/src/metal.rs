@@ -513,13 +513,20 @@ unsafe impl Send for ObjCObject {}
 unsafe impl Sync for ObjCObject {}
 
 impl ObjCObject {
+    /// Wraps an already-retained Objective-C object pointer, releasing it on drop.
     #[inline]
     pub fn from_retained(ptr: *mut c_void) -> Option<Self> {
         if ptr.is_null() { None } else { Some(Self(ptr)) }
     }
 
+    /// Retains an unowned Objective-C object pointer and releases it on drop.
+    ///
+    /// # Safety
+    ///
+    /// When non-null, `ptr` must point to a valid Objective-C object capable of
+    /// receiving `retain` and `release`.
     #[inline]
-    pub fn from_unretained(ptr: *mut c_void) -> Option<Self> {
+    pub unsafe fn from_unretained(ptr: *mut c_void) -> Option<Self> {
         if ptr.is_null() {
             None
         } else {
@@ -567,6 +574,11 @@ impl Drop for ObjCObject {
     }
 }
 
+/// Creates an autoreleased `NSString` from `st`.
+///
+/// # Safety
+///
+/// Must be called with an active Objective-C runtime and autorelease pool context.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nsstring_from_str(st: &str) -> *mut c_void {
     let s = selectors();
@@ -576,6 +588,11 @@ pub unsafe fn nsstring_from_str(st: &str) -> *mut c_void {
     f(s.cls_ns_string, s.string_with_utf8, c.as_ptr())
 }
 
+/// Converts an `NSString` pointer to an owned Rust `String`.
+///
+/// # Safety
+///
+/// When non-null, `ns` must point to a valid `NSString` instance.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nsstring_to_string(ns: *mut c_void) -> String {
     if ns.is_null() {
@@ -592,6 +609,11 @@ pub unsafe fn nsstring_to_string(ns: *mut c_void) -> String {
     }
 }
 
+/// Formats an `NSError` pointer via its `localizedDescription`.
+///
+/// # Safety
+///
+/// When non-null, `err` must point to a valid `NSError` instance.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nserror_description(err: *mut c_void) -> String {
     if err.is_null() {
@@ -645,6 +667,48 @@ struct PendingCommand {
     sinks: Vec<crate::CommandErrorSink>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ComputePipelineCacheKey {
+    pub msl_source: String,
+    pub entry_point: String,
+    pub threadgroup_multiple_of_32: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CachedVertexBufferLayout {
+    pub array_stride: crate::BufferAddress,
+    pub step_mode: crate::VertexStepMode,
+    pub attributes: Vec<crate::VertexAttribute>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RenderPipelineCacheKey {
+    pub vs_src: String,
+    pub fs_src: Option<String>,
+    pub vs_ep: String,
+    pub fs_ep: String,
+    pub vertex_buffers: Vec<Option<CachedVertexBufferLayout>>,
+    pub targets: Vec<Option<crate::ColorTargetState>>,
+    pub depth_stencil: Option<(
+        crate::TextureFormat,
+        Option<bool>,
+        Option<crate::CompareFunction>,
+    )>,
+    pub sample_count: u32,
+}
+
+pub type CachedRenderPipelineState = (Arc<ObjCObject>, Option<Arc<ObjCObject>>);
+
+pub struct PooledMetalBuffer {
+    pub aligned_size: usize,
+    pub options: u64,
+    pub raw: Arc<ObjCObject>,
+    pub ptr: *mut u8,
+}
+
+unsafe impl Send for PooledMetalBuffer {}
+unsafe impl Sync for PooledMetalBuffer {}
+
 #[derive(Clone)]
 pub struct MetalDevice {
     pub raw: Arc<ObjCObject>,
@@ -654,10 +718,11 @@ pub struct MetalDevice {
     pub max_buffer_length: u64,
     pub recommended_working_set: u64,
     // Caches for zero-overhead pipeline and buffer reuse
-    pub compute_pipeline_cache: Arc<Mutex<std::collections::HashMap<u64, Arc<ObjCObject>>>>,
+    pub compute_pipeline_cache:
+        Arc<Mutex<std::collections::HashMap<ComputePipelineCacheKey, Arc<ObjCObject>>>>,
     pub render_pipeline_cache:
-        Arc<Mutex<std::collections::HashMap<u64, (Arc<ObjCObject>, Option<Arc<ObjCObject>>)>>>,
-    pub buffer_pool: Arc<Mutex<Vec<(usize, u64, Arc<ObjCObject>, *mut u8)>>>,
+        Arc<Mutex<std::collections::HashMap<RenderPipelineCacheKey, CachedRenderPipelineState>>>,
+    pub buffer_pool: Arc<Mutex<Vec<PooledMetalBuffer>>>,
     pub(crate) cmd_ops_pool: Arc<Mutex<Vec<Vec<crate::RecordedOp>>>>,
     pub(crate) render_cmds_pool: Arc<Mutex<Vec<Vec<crate::RenderCommand>>>>,
     pub(crate) color_atts_pool: Arc<Mutex<Vec<Vec<Option<crate::OwnedColorAttachment>>>>>,
@@ -744,20 +809,20 @@ impl MetalDevice {
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub fn alloc_buffer(&self, size: usize, options: u64) -> (Arc<ObjCObject>, *mut u8) {
-        let aligned_size = ((size.max(16) + 255) & !255).max(256);
+    pub fn alloc_buffer(&self, size: usize, options: u64) -> Option<(Arc<ObjCObject>, *mut u8)> {
+        let aligned_size = size.max(16).checked_add(255).map(|n| (n & !255).max(256))?;
         if let Ok(mut pool) = self.buffer_pool.lock() {
             if let Some(pos) = pool
                 .iter()
-                .position(|(sz, opt, _, _)| *sz == aligned_size && *opt == options)
+                .position(|entry| entry.aligned_size == aligned_size && entry.options == options)
             {
-                let (_, _, buf, ptr) = pool.swap_remove(pos);
-                if !ptr.is_null() {
+                let entry = pool.swap_remove(pos);
+                if !entry.ptr.is_null() {
                     unsafe {
-                        ptr::write_bytes(ptr, 0, size);
+                        ptr::write_bytes(entry.ptr, 0, size);
                     }
                 }
-                return (buf, ptr);
+                return Some((entry.raw, entry.ptr));
             }
         }
         unsafe {
@@ -772,13 +837,14 @@ impl MetalDevice {
                 aligned_size,
                 options,
             );
+            let raw = ObjCObject::from_retained(raw_buf)?;
             let ptr = if (options & 0xF0) == (2 << 4) {
                 // MTLStorageModePrivate has no CPU contents pointer
                 ptr::null_mut()
             } else {
-                f_contents(raw_buf, s.contents)
+                f_contents(raw.as_ptr(), s.contents)
             };
-            (Arc::new(ObjCObject(raw_buf)), ptr)
+            Some((Arc::new(raw), ptr))
         }
     }
 
@@ -787,20 +853,22 @@ impl MetalDevice {
         &self,
         bytes: &[u8],
         options: u64,
-    ) -> (Arc<ObjCObject>, *mut u8) {
+    ) -> Option<(Arc<ObjCObject>, *mut u8)> {
         if bytes.is_empty() {
             return self.alloc_buffer(16, options);
         }
-        let aligned_size = ((bytes.len() + 255) & !255).max(256);
+        let aligned_size = bytes.len().checked_add(255).map(|n| (n & !255).max(256))?;
         if let Ok(mut pool) = self.buffer_pool.lock() {
-            if let Some(pos) = pool.iter().position(|(sz, opt, _, ptr)| {
-                *sz == aligned_size && *opt == options && !ptr.is_null()
+            if let Some(pos) = pool.iter().position(|entry| {
+                entry.aligned_size == aligned_size
+                    && entry.options == options
+                    && !entry.ptr.is_null()
             }) {
-                let (_, _, buf, ptr) = pool.swap_remove(pos);
+                let entry = pool.swap_remove(pos);
                 unsafe {
-                    ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len());
+                    ptr::copy_nonoverlapping(bytes.as_ptr(), entry.ptr, bytes.len());
                 }
-                return (buf, ptr);
+                return Some((entry.raw, entry.ptr));
             }
         }
         unsafe {
@@ -815,15 +883,21 @@ impl MetalDevice {
                 aligned_size,
                 options,
             );
-            let ptr = f_contents(raw_buf, s.contents);
+            let raw = ObjCObject::from_retained(raw_buf)?;
+            let ptr = f_contents(raw.as_ptr(), s.contents);
             if !ptr.is_null() {
                 ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len());
             }
-            (Arc::new(ObjCObject(raw_buf)), ptr)
+            Some((Arc::new(raw), ptr))
         }
     }
 
-    /// ASD (Apple Silicon Direct / Accelerated Storage Direct) zero-copy page-aligned buffer creation
+    /// ASD (Apple Silicon Direct / Accelerated Storage Direct) zero-copy page-aligned buffer creation.
+    ///
+    /// # Safety
+    ///
+    /// `page_aligned_ptr` must be valid, page-aligned for Metal `newBufferWithBytesNoCopy`,
+    /// and remain live for `page_aligned_len` bytes until the returned `MTLBuffer` is dropped.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn alloc_buffer_no_copy(
         &self,
@@ -848,18 +922,22 @@ impl MetalDevice {
             options,
             ptr::null_mut(),
         );
-        if raw_buf.is_null() {
-            return None;
-        }
-        Some((Arc::new(ObjCObject(raw_buf)), page_aligned_ptr as *mut u8))
+        let raw = ObjCObject::from_retained(raw_buf)?;
+        Some((Arc::new(raw), page_aligned_ptr as *mut u8))
     }
 
     pub fn recycle_buffer(&self, size: usize, options: u64, buf: Arc<ObjCObject>, ptr: *mut u8) {
-        if Arc::strong_count(&buf) == 1 && !ptr.is_null() {
-            let aligned_size = ((size.max(16) + 255) & !255).max(256);
-            if let Ok(mut pool) = self.buffer_pool.lock() {
-                if pool.len() < 256 {
-                    pool.push((aligned_size, options, buf, ptr));
+        if Arc::strong_count(&buf) == 1 && !buf.as_ptr().is_null() && !ptr.is_null() {
+            if let Some(aligned_size) = size.max(16).checked_add(255).map(|n| (n & !255).max(256)) {
+                if let Ok(mut pool) = self.buffer_pool.lock() {
+                    if pool.len() < 256 {
+                        pool.push(PooledMetalBuffer {
+                            aligned_size,
+                            options,
+                            raw: buf,
+                            ptr,
+                        });
+                    }
                 }
             }
         }
@@ -956,11 +1034,12 @@ impl MetalDevice {
         entry_point: &str,
         wg_total: u32,
     ) -> Result<Arc<ObjCObject>, String> {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        msl_source.hash(&mut hasher);
-        entry_point.hash(&mut hasher);
-        let key = hasher.finish();
+        let threadgroup_multiple_of_32 = wg_total >= 32 && wg_total.is_multiple_of(32);
+        let key = ComputePipelineCacheKey {
+            msl_source: msl_source.to_string(),
+            entry_point: entry_point.to_string(),
+            threadgroup_multiple_of_32,
+        };
 
         if let Ok(cache) = self.compute_pipeline_cache.lock() {
             if let Some(pso) = cache.get(&key) {
@@ -1352,7 +1431,6 @@ impl MetalDevice {
         &self,
         desc: &crate::RenderPipelineDescriptor<'_>,
     ) -> crate::RenderPipeline {
-        use std::hash::{Hash, Hasher};
         let vs_ep_raw = desc.vertex.entry_point.unwrap_or("vs");
         let vs_ep = if vs_ep_raw == "main" {
             "_wgpu_entry_main"
@@ -1374,33 +1452,30 @@ impl MetalDevice {
         let fs_src = fs_state
             .map(|fs| msl_for_pipeline(&fs.module.msl_source, fs.compilation_options.constants));
 
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        vs_src.hash(&mut hasher);
-        fs_src.hash(&mut hasher);
-        vs_ep.hash(&mut hasher);
-        fs_ep.hash(&mut hasher);
-        for vb in desc.vertex.buffers.iter().flatten() {
-            vb.array_stride.hash(&mut hasher);
-            vb.step_mode.hash(&mut hasher);
-            for attr in vb.attributes {
-                attr.format.hash(&mut hasher);
-                attr.offset.hash(&mut hasher);
-                attr.shader_location.hash(&mut hasher);
-            }
-        }
-        if let Some(fs) = fs_state {
-            for target in fs.targets.iter().flatten() {
-                target.format.hash(&mut hasher);
-                target.write_mask.hash(&mut hasher);
-                target.blend.is_some().hash(&mut hasher);
-            }
-        }
-        if let Some(ds) = &desc.depth_stencil {
-            ds.format.hash(&mut hasher);
-            ds.depth_write_enabled.hash(&mut hasher);
-            ds.depth_compare.hash(&mut hasher);
-        }
-        let cache_key = hasher.finish();
+        let cache_key = RenderPipelineCacheKey {
+            vs_src: vs_src.as_ref().to_owned(),
+            fs_src: fs_src.as_ref().map(|s| s.as_ref().to_owned()),
+            vs_ep: vs_ep.to_owned(),
+            fs_ep: fs_ep.to_owned(),
+            vertex_buffers: desc
+                .vertex
+                .buffers
+                .iter()
+                .map(|vb_opt| {
+                    vb_opt.map(|vb| CachedVertexBufferLayout {
+                        array_stride: vb.array_stride,
+                        step_mode: vb.step_mode,
+                        attributes: vb.attributes.to_vec(),
+                    })
+                })
+                .collect(),
+            targets: fs_state.map(|fs| fs.targets.to_vec()).unwrap_or_default(),
+            depth_stencil: desc
+                .depth_stencil
+                .as_ref()
+                .map(|ds| (ds.format, ds.depth_write_enabled, ds.depth_compare)),
+            sample_count: desc.multisample.count,
+        };
 
         if let Ok(cache) = self.render_pipeline_cache.lock() {
             if let Some((pso, dss)) = cache.get(&cache_key) {
@@ -1837,6 +1912,42 @@ impl MetalDevice {
         if data.is_empty() {
             return;
         }
+        let Some(end) = offset.checked_add(data.len() as u64) else {
+            if let Some(sink) = error_sink {
+                let message = format!(
+                    "write_buffer offset overflow: offset={offset}, data_len={}",
+                    data.len()
+                );
+                sink.command_failure(crate::Error::Validation {
+                    source: Arc::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        message.clone(),
+                    )),
+                    description: message,
+                });
+            }
+            return;
+        };
+        if end > buffer.inner.size || buffer.inner.raw.as_ptr().is_null() {
+            if let Some(sink) = error_sink {
+                let message = format!(
+                    "write_buffer out of bounds or invalid buffer: offset={offset}, data_len={}, buffer_size={}",
+                    data.len(),
+                    buffer.inner.size
+                );
+                sink.command_failure(crate::Error::Validation {
+                    source: Arc::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        message.clone(),
+                    )),
+                    description: message,
+                });
+            }
+            return;
+        }
+        let Ok(offset_usize) = usize::try_from(offset) else {
+            return;
+        };
         self.flush_pending_compute();
         if !self.is_last_cmd_completed() {
             self.wait_idle();
@@ -1844,7 +1955,17 @@ impl MetalDevice {
         if buffer.inner.ptr.is_null() {
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             unsafe {
-                let (stg_raw, _) = self.alloc_buffer_with_bytes(data, 0);
+                let Some((stg_raw, _)) = self.alloc_buffer_with_bytes(data, 0) else {
+                    if let Some(sink) = error_sink {
+                        sink.command_failure(crate::Error::OutOfMemory {
+                            source: Arc::new(std::io::Error::new(
+                                std::io::ErrorKind::OutOfMemory,
+                                "Metal staging buffer allocation failed",
+                            )),
+                        });
+                    }
+                    return;
+                };
                 let s = selectors();
                 let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
                     std::mem::transmute(objc_msgSend as *const c_void);
@@ -1867,7 +1988,7 @@ impl MetalDevice {
                     stg_raw.as_ptr(),
                     0,
                     buffer.inner.raw.as_ptr(),
-                    offset as usize,
+                    offset_usize,
                     data.len(),
                 );
                 f_void(blit, s.end_encoding);
@@ -1893,7 +2014,7 @@ impl MetalDevice {
             return;
         }
         unsafe {
-            let dst = buffer.inner.ptr.add(offset as usize);
+            let dst = buffer.inner.ptr.add(offset_usize);
             ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
         }
     }
@@ -2325,6 +2446,12 @@ impl MetalDevice {
         SubmissionIndex(idx)
     }
 
+    /// Returns or attaches a `CAMetalLayer` on `view_ptr`.
+    ///
+    /// # Safety
+    ///
+    /// When non-null, `view_ptr` must be a valid AppKit `NSView` (`is_appkit == true`)
+    /// or UIKit `UIView` (`is_appkit == false`) pointer accessed on an allowed thread.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn ensure_metal_layer_for_view(
         view_ptr: *mut c_void,
@@ -2396,6 +2523,12 @@ impl MetalDevice {
         ObjCObject::from_unretained(new_layer).map(Arc::new)
     }
 
+    /// Configures `layer_ptr` with the surface format, presentation mode, size, and color space.
+    ///
+    /// # Safety
+    ///
+    /// When non-null, `layer_ptr` must point to a valid `CAMetalLayer` and `view_ptr`
+    /// (if non-null) must point to the hosting `NSView`/`UIView`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn configure_metal_layer(
         &self,
@@ -2516,6 +2649,11 @@ impl MetalDevice {
         let _ = f_set_bool;
     }
 
+    /// Acquires the next `CAMetalDrawable` and wraps its texture.
+    ///
+    /// # Safety
+    ///
+    /// When non-null, `layer_ptr` must point to a valid configured `CAMetalLayer`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn acquire_drawable(
         &self,
@@ -2570,6 +2708,12 @@ impl MetalDevice {
         Some((drawable, tex))
     }
 
+    /// Presents `drawable_ptr`, honoring transactional presentation on `layer_ptr` when enabled.
+    ///
+    /// # Safety
+    ///
+    /// When non-null, `drawable_ptr` must point to a valid `CAMetalDrawable` and `layer_ptr`
+    /// (if non-null) must point to its owning `CAMetalLayer`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn present_drawable(&self, layer_ptr: *mut c_void, drawable_ptr: *mut c_void) {
         if drawable_ptr.is_null() {
@@ -2603,7 +2747,7 @@ impl MetalDevice {
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 impl MetalDevice {
-    pub fn alloc_buffer(&self, _size: usize, _options: u64) -> (Arc<ObjCObject>, *mut u8) {
+    pub fn alloc_buffer(&self, _size: usize, _options: u64) -> Option<(Arc<ObjCObject>, *mut u8)> {
         unimplemented!("Metal buffers are only available on macOS and iOS")
     }
 
@@ -2611,10 +2755,13 @@ impl MetalDevice {
         &self,
         _bytes: &[u8],
         _options: u64,
-    ) -> (Arc<ObjCObject>, *mut u8) {
+    ) -> Option<(Arc<ObjCObject>, *mut u8)> {
         unimplemented!("Metal buffers are only available on macOS and iOS")
     }
 
+    /// # Safety
+    ///
+    /// Only supported on macOS and iOS; panics on non-Apple targets.
     pub unsafe fn alloc_buffer_no_copy(
         &self,
         _page_aligned_ptr: *mut c_void,

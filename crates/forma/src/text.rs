@@ -1043,44 +1043,77 @@ thread_local! {
     static CPU_SCRATCH: RefCell<CpuRasterScratch> = RefCell::new(CpuRasterScratch::default());
 }
 
+/// Straight-alpha RGBA raster destination in logical/physical canvas space.
+pub struct RasterCanvas<'a> {
+    pub pixels: &'a mut [u8],
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+    pub region: [u32; 4],
+}
+
+impl<'a> RasterCanvas<'a> {
+    #[inline]
+    pub fn full(pixels: &'a mut [u8], width: u32, height: u32, scale: f32) -> Self {
+        Self {
+            pixels,
+            width,
+            height,
+            scale,
+            region: [0, 0, width, height],
+        }
+    }
+
+    #[inline]
+    pub fn subregion(
+        pixels: &'a mut [u8],
+        width: u32,
+        height: u32,
+        scale: f32,
+        region: [u32; 4],
+    ) -> Self {
+        Self {
+            pixels,
+            width,
+            height,
+            scale,
+            region,
+        }
+    }
+}
+
 /// Draw a centered, single-line label into a straight-alpha RGBA pixel buffer.
-/// `rect = [x, y, width, height]` and font size are logical pixels; `scale` is
+/// `rect = [x, y, width, height]` and font size are logical pixels; `canvas.scale` is
 /// device pixels per logical pixel. Coverage is clipped to both rect and canvas.
 pub fn draw_text(
-    pixels: &mut [u8],
-    width: u32,
-    height: u32,
-    scale: f32,
+    canvas: &mut RasterCanvas<'_>,
     text: &str,
     font_size: f32,
     rect: [f32; 4],
     color: [u8; 4],
 ) {
     draw_text_region(
-        pixels,
-        width,
-        height,
-        scale,
+        &mut RasterCanvas::full(canvas.pixels, canvas.width, canvas.height, canvas.scale),
         text,
         font_size,
         rect,
         color,
-        [0, 0, width, height],
     );
 }
 
 /// Draw into a physical subregion while retaining global contour coordinates.
 pub(crate) fn draw_text_region(
-    pixels: &mut [u8],
-    width: u32,
-    height: u32,
-    scale: f32,
+    canvas: &mut RasterCanvas<'_>,
     text: &str,
     font_size: f32,
     rect: [f32; 4],
     color: [u8; 4],
-    region: [u32; 4],
 ) {
+    let pixels: &mut [u8] = canvas.pixels;
+    let width = canvas.width;
+    let height = canvas.height;
+    let scale = canvas.scale;
+    let region = canvas.region;
     let Some(required) = (region[2] as usize)
         .checked_mul(region[3] as usize)
         .and_then(|size| size.checked_mul(4))

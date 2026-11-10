@@ -62,6 +62,14 @@ pub(crate) struct Editor {
     dirty: bool,
     pub semantic_revision: u32,
 }
+struct VisualRowContext<'a> {
+    out: &'a mut Vec<Content>,
+    focused: bool,
+    selection: &'a std::ops::Range<usize>,
+    px: f32,
+    lh: f32,
+}
+
 impl Editor {
     pub fn new(spec: Input, base: Vec<Content>) -> Result<Self, String> {
         let model = TextEdit::with_multiline(spec.value.clone(), spec.multiline)
@@ -428,39 +436,29 @@ impl Editor {
             self.phase = 0.;
         }
     }
-    fn push_visual_row(
-        &self,
-        out: &mut Vec<Content>,
-        focused: bool,
-        selection: &std::ops::Range<usize>,
-        px: f32,
-        py: f32,
-        lh: f32,
-        start: usize,
-        line: &str,
-    ) {
-        if focused && !selection.is_empty() {
-            let a = selection.start.max(start);
-            let b = selection.end.min(start + line.len());
-            if a <= b && selection.end > start && selection.start <= start + line.len() {
+    fn push_visual_row(&self, ctx: &mut VisualRowContext<'_>, py: f32, start: usize, line: &str) {
+        if ctx.focused && !ctx.selection.is_empty() {
+            let a = ctx.selection.start.max(start);
+            let b = ctx.selection.end.min(start + line.len());
+            if a <= b && ctx.selection.end > start && ctx.selection.start <= start + line.len() {
                 let left = self.width(&line[..a.saturating_sub(start).min(line.len())]);
                 let right = self.width(&line[..b.saturating_sub(start).min(line.len())]);
-                out.push(rect(
-                    px + left,
+                ctx.out.push(rect(
+                    ctx.px + left,
                     py,
-                    (right - left).max(if selection.end > start + line.len() {
+                    (right - left).max(if ctx.selection.end > start + line.len() {
                         5.
                     } else {
                         0.
                     }),
-                    lh,
+                    ctx.lh,
                     [222, 106, 25, 90],
                 ));
             }
         }
         if self.fades.is_empty() {
-            out.push(Content::Text {
-                bounds: [px, py, self.width(line), lh],
+            ctx.out.push(Content::Text {
+                bounds: [ctx.px, py, self.width(line), ctx.lh],
                 text: Text {
                     text: line.into(),
                     font_size: self.spec.font_size,
@@ -488,8 +486,13 @@ impl Editor {
                     let t = (*age / 220.).clamp(0., 1.);
                     color[3] = (color[3] as f32 * t * t * (3. - 2. * t)).round() as u8;
                 }
-                out.push(Content::Text {
-                    bounds: [px + self.width(&line[..run[0]]), py, self.width(text), lh],
+                ctx.out.push(Content::Text {
+                    bounds: [
+                        ctx.px + self.width(&line[..run[0]]),
+                        py,
+                        self.width(text),
+                        ctx.lh,
+                    ],
                     text: Text {
                         text: text.into(),
                         font_size: self.spec.font_size,
@@ -533,32 +536,37 @@ impl Editor {
         let value = self.model.value();
         let selection = self.model.selection();
         let px = x - self.offset[0];
-        if let Some(wrapped) = &wrapped {
-            for (row, (byte_range, _)) in wrapped.iter().enumerate() {
-                let py = y + self.top() + row as f32 * lh - self.offset[1];
-                self.push_visual_row(
-                    &mut out,
-                    focused,
-                    &selection,
-                    px,
-                    py,
-                    lh,
-                    byte_range.start,
-                    &value[byte_range.clone()],
-                );
-            }
-        } else {
-            let mut start = 0;
-            for (row, line) in value.split('\n').enumerate() {
-                let raw_len = line.len();
-                let line = if start + raw_len < value.len() {
-                    line.strip_suffix('\r').unwrap_or(line)
-                } else {
-                    line
-                };
-                let py = y + self.top() + row as f32 * lh - self.offset[1];
-                self.push_visual_row(&mut out, focused, &selection, px, py, lh, start, line);
-                start += raw_len + 1;
+        {
+            let mut row_ctx = VisualRowContext {
+                out: &mut out,
+                focused,
+                selection: &selection,
+                px,
+                lh,
+            };
+            if let Some(wrapped) = &wrapped {
+                for (row, (byte_range, _)) in wrapped.iter().enumerate() {
+                    let py = y + self.top() + row as f32 * lh - self.offset[1];
+                    self.push_visual_row(
+                        &mut row_ctx,
+                        py,
+                        byte_range.start,
+                        &value[byte_range.clone()],
+                    );
+                }
+            } else {
+                let mut start = 0;
+                for (row, line) in value.split('\n').enumerate() {
+                    let raw_len = line.len();
+                    let line = if start + raw_len < value.len() {
+                        line.strip_suffix('\r').unwrap_or(line)
+                    } else {
+                        line
+                    };
+                    let py = y + self.top() + row as f32 * lh - self.offset[1];
+                    self.push_visual_row(&mut row_ctx, py, start, line);
+                    start += raw_len + 1;
+                }
             }
         }
         if value.is_empty() && self.preedit.is_empty() {

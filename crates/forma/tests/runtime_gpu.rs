@@ -314,9 +314,7 @@ fn read(renderer: &mut Renderer, model: &Runtime, scale: f32) -> Vec<u8> {
         .draw(
             model,
             &target.create_view(&Default::default()),
-            w,
-            h,
-            scale,
+            forma::gpu::Viewport::new(w, h, scale),
             true,
             false,
         )

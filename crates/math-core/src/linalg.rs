@@ -394,15 +394,15 @@ mod banded_tests {
     fn banded_full_bandwidth_matches_dense() {
         const N: usize = 6;
         let mut state = 42;
-        let mut dense = [[0.; N]; N];
-        for i in 0..N {
-            for j in 0..=i {
-                let v = lcg(&mut state) - 0.5;
-                dense[i][j] = v;
-                dense[j][i] = v;
-            }
-            dense[i][i] += N as f64;
-        }
+        let lower: [[f64; N]; N] = std::array::from_fn(|i| {
+            std::array::from_fn(|j| if j <= i { lcg(&mut state) - 0.5 } else { 0.0 })
+        });
+        let dense: [[f64; N]; N] = std::array::from_fn(|i| {
+            std::array::from_fn(|j| {
+                let sym = if j <= i { lower[i][j] } else { lower[j][i] };
+                if i == j { sym + N as f64 } else { sym }
+            })
+        });
         let rhs: [f64; N] = std::array::from_fn(|_| lcg(&mut state));
         let expected = solve(dense, rhs).unwrap();
         let mut packed = vec![0.; N * N];

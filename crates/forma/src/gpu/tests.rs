@@ -174,11 +174,10 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
             initial.buffer_count as u64
         );
         assert_eq!(initial.bind_group_count, 0);
+        let vp96 = Viewport::new(96, 64, 1.);
         let mut uploaded_once = None;
         for _ in 0..2 {
-            renderer
-                .draw(&model, &target, 96, 64, 1., true, true)
-                .unwrap();
+            renderer.draw(&model, &target, vp96, true, true).unwrap();
             assert!(
                 model.raster_cache.borrow().is_none(),
                 "GPU submission must release CPU rasters"
@@ -245,7 +244,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
 
         // Same tile grid: viewport pixels change, no tile upload or allocation.
         renderer
-            .draw(&model, &target, 95, 63, 1., true, true)
+            .draw(&model, &target, Viewport::new(95, 63, 1.), true, true)
             .unwrap();
         let sub_tile = renderer.resource_stats();
         assert_eq!(sub_tile.tile_uploads_total, stats.tile_uploads_total);
@@ -263,9 +262,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
                 "component Demo { Frame { width:64; height:64; padding:0; Button { width:64; height:64; } } }",
                 "component Button { Rectangle { radius:8; background:#ffffff; } }",
             ).unwrap();
-        renderer
-            .draw(&smaller, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&smaller, &target, vp96, true, true).unwrap();
         let shrunk = renderer.resource_stats();
         assert_eq!(shrunk.buffer_bytes, stats.buffer_bytes);
         assert_eq!(
@@ -276,9 +273,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
             shrunk.bind_group_creations_total,
             stats.bind_group_creations_total
         );
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         let restored = renderer.resource_stats();
         assert_eq!(restored.buffer_bytes, stats.buffer_bytes);
         assert_eq!(
@@ -310,9 +305,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
             .draw(
                 &model,
                 &large_texture.create_view(&Default::default()),
-                1024,
-                1024,
-                1.,
+                Viewport::new(1024, 1024, 1.),
                 true,
                 true,
             )
@@ -327,9 +320,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
             stats.bind_group_creations_total + 1
         );
         assert!(grown.tile_bytes > stats.tile_bytes);
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         let back = renderer.resource_stats();
         assert_eq!(back.buffer_bytes, grown.buffer_bytes);
         assert_eq!(
@@ -344,9 +335,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
         model.pointer(100., 90., 0);
         model.focus(true);
         model.tick(16.);
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         assert_eq!(renderer.uploads, stable_uploads);
         assert!(Arc::ptr_eq(
             renderer.geometry.as_ref().unwrap(),
@@ -356,30 +345,30 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
         let mut expected_uploads = stable_uploads;
         for (scale, background) in [(2., true), (2., false), (1., true)] {
             renderer
-                .draw(&model, &target, 96, 64, scale, background, true)
+                .draw(
+                    &model,
+                    &target,
+                    Viewport::new(96, 64, scale),
+                    background,
+                    true,
+                )
                 .unwrap();
             expected_uploads += 1;
             assert_eq!(renderer.uploads, expected_uploads);
         }
         model.load_source(crate::EXAMPLE).unwrap();
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         expected_uploads += 1;
         assert_eq!(renderer.uploads, expected_uploads);
         model
             .load_component(crate::EXAMPLE, crate::BUTTON_COMPONENT)
             .unwrap();
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         expected_uploads += 1;
         assert_eq!(renderer.uploads, expected_uploads);
         let held = Arc::clone(renderer.geometry.as_ref().unwrap());
         model = Button::new();
-        renderer
-            .draw(&model, &target, 96, 64, 1., true, true)
-            .unwrap();
+        renderer.draw(&model, &target, vp96, true, true).unwrap();
         expected_uploads += 1;
         assert_eq!(renderer.uploads, expected_uploads);
         assert!(!Arc::ptr_eq(&held, renderer.geometry.as_ref().unwrap()));
@@ -388,14 +377,14 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
                 "component Demo { Frame { width:40; height:30; Scroll { Button { width:80; height:60; text:'О'; } } } }",
             ).unwrap();
         renderer
-            .draw(&scrolling, &target, 96, 64, 1., true, true)
+            .draw(&scrolling, &target, vp96, true, true)
             .unwrap();
         let before_scroll = renderer.uploads;
         let tiles_before_scroll = renderer.resource_stats().tile_uploads_total;
         let params_before_scroll = renderer.resource_stats().uploaded_bytes_total;
         scrolling.scroll(5., 5.);
         renderer
-            .draw(&scrolling, &target, 96, 64, 1., true, true)
+            .draw(&scrolling, &target, vp96, true, true)
             .unwrap();
         // Scrolling re-bins tiles and updates the uniform; geometry stays resident.
         assert_eq!(renderer.uploads, before_scroll);
@@ -407,7 +396,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
         scrolling.scroll(0., 0.);
         let bytes = renderer.resource_stats().uploaded_bytes_total;
         renderer
-            .draw(&scrolling, &target, 96, 64, 1., true, true)
+            .draw(&scrolling, &target, vp96, true, true)
             .unwrap();
         assert_eq!(renderer.uploads, before_scroll);
         assert_eq!(renderer.resource_stats().uploaded_bytes_total, bytes);
@@ -458,7 +447,7 @@ fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
         assert_eq!(renderer.check_health().unwrap_err(), first_error);
         assert_eq!(
             renderer
-                .draw(&model, &target, 96, 64, 1., true, true)
+                .draw(&model, &target, vp96, true, true)
                 .unwrap_err(),
             first_error
         );

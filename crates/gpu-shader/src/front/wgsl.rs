@@ -37,6 +37,26 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+fn parse_error_at(clean: &str, fragment: &str, message: impl Into<String>) -> ParseError {
+    let base = clean.as_ptr() as usize;
+    let end = base + clean.len();
+    let ptr = fragment.as_ptr() as usize;
+    let offset = if ptr >= base && ptr <= end {
+        ptr - base
+    } else {
+        0
+    };
+    let prefix = &clean[..offset];
+    let line = prefix.bytes().filter(|&b| b == b'\n').count() + 1;
+    let line_start = prefix.rfind('\n').map_or(0, |pos| pos + 1);
+    let column = prefix[line_start..].chars().count() + 1;
+    ParseError {
+        message: message.into(),
+        line,
+        column,
+    }
+}
+
 pub fn parse_str(source: &str) -> Result<Module, ParseError> {
     let clean = strip_comments(source);
     validate_syntax(&clean)?;
@@ -57,7 +77,7 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
         if trimmed.is_empty() {
             continue;
         }
-        let (_, rest) = parse_leading_attributes(trimmed)?;
+        let (_, rest) = parse_leading_attributes(&clean, trimmed)?;
         let rest = rest.trim();
         if let Some(after_alias) = strip_keyword(rest, "alias") {
             let after_alias = after_alias.trim().trim_end_matches(';').trim();
@@ -104,20 +124,24 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
         if trimmed.is_empty() {
             continue;
         }
-        let (_, rest) = parse_leading_attributes(trimmed)?;
+        let (_, rest) = parse_leading_attributes(&clean, trimmed)?;
         let rest = rest.trim();
         if let Some(after_struct) = strip_keyword(rest, "struct") {
             let after_struct = after_struct.trim();
-            let brace_pos = after_struct.find('{').ok_or_else(|| ParseError {
-                message: format!("expected '{{' in struct definition: {after_struct}"),
-                line: 1,
-                column: 1,
+            let brace_pos = after_struct.find('{').ok_or_else(|| {
+                parse_error_at(
+                    &clean,
+                    after_struct,
+                    format!("expected '{{' in struct definition: {after_struct}"),
+                )
             })?;
             let struct_name = after_struct[..brace_pos].trim().to_string();
-            let close_brace = after_struct.rfind('}').ok_or_else(|| ParseError {
-                message: format!("expected '}}' in struct definition: {struct_name}"),
-                line: 1,
-                column: 1,
+            let close_brace = after_struct.rfind('}').ok_or_else(|| {
+                parse_error_at(
+                    &clean,
+                    after_struct,
+                    format!("expected '}}' in struct definition: {struct_name}"),
+                )
             })?;
             let body = &after_struct[brace_pos + 1..close_brace];
             let fields = split_comma_top_level(body);
@@ -130,11 +154,13 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
                 if field.is_empty() {
                     continue;
                 }
-                let (attrs, field_rest) = parse_leading_attributes(field)?;
-                let colon_pos = field_rest.find(':').ok_or_else(|| ParseError {
-                    message: format!("expected ':' in struct member `{field}`"),
-                    line: 1,
-                    column: 1,
+                let (attrs, field_rest) = parse_leading_attributes(&clean, field)?;
+                let colon_pos = field_rest.find(':').ok_or_else(|| {
+                    parse_error_at(
+                        &clean,
+                        field_rest,
+                        format!("expected ':' in struct member `{field}`"),
+                    )
                 })?;
                 let field_name = field_rest[..colon_pos].trim().to_string();
                 let field_ty_str = field_rest[colon_pos + 1..].trim();
@@ -174,10 +200,11 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
         if trimmed.is_empty() {
             continue;
         }
-        let (attrs, rest) = parse_leading_attributes(trimmed)?;
+        let (attrs, rest) = parse_leading_attributes(&clean, trimmed)?;
         let rest = rest.trim();
         if rest.starts_with("var<") || rest.starts_with("var ") || rest.starts_with("var\t") {
             let g = parse_global_var(
+                &clean,
                 &mut module,
                 &mut type_map,
                 &const_values,
@@ -198,10 +225,11 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
         if trimmed.is_empty() {
             continue;
         }
-        let (attrs, rest) = parse_leading_attributes(trimmed)?;
+        let (attrs, rest) = parse_leading_attributes(&clean, trimmed)?;
         let rest = rest.trim();
         if let Some(after_fn) = strip_keyword(rest, "fn") {
             let func = parse_function(
+                &clean,
                 &mut module,
                 &mut type_map,
                 &const_values,
@@ -267,34 +295,40 @@ impl ParsedAttributes {
     }
 }
 
-fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str), ParseError> {
+fn parse_leading_attributes<'a>(
+    clean: &str,
+    mut input: &'a str,
+) -> Result<(ParsedAttributes, &'a str), ParseError> {
     let mut attrs = ParsedAttributes::default();
     loop {
         input = input.trim_start();
         if !input.starts_with('@') {
             break;
         }
+        let attr_token = input;
         input = &input[1..];
         input = input.trim_start();
         let ident_len = input
             .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
             .unwrap_or(input.len());
         if ident_len == 0 {
-            return Err(ParseError {
-                message: "expected attribute name after '@'".to_string(),
-                line: 1,
-                column: 1,
-            });
+            return Err(parse_error_at(
+                clean,
+                attr_token,
+                "expected attribute name after '@'",
+            ));
         }
         let attr_name = &input[..ident_len];
         input = input[ident_len..].trim_start();
 
         let mut args_str = "";
         if input.starts_with('(') {
-            let close = find_matching_delim(input, '(', ')').ok_or_else(|| ParseError {
-                message: format!("unclosed '(' in attribute @{attr_name}"),
-                line: 1,
-                column: 1,
+            let close = find_matching_delim(input, '(', ')').ok_or_else(|| {
+                parse_error_at(
+                    clean,
+                    input,
+                    format!("unclosed '(' in attribute @{attr_name}"),
+                )
             })?;
             args_str = input[1..close].trim();
             input = &input[close + 1..];
@@ -312,24 +346,18 @@ fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str),
                     .collect();
             }
             "group" => {
-                attrs.group = Some(parse_u32_literal(args_str).ok_or_else(|| ParseError {
-                    message: format!("invalid @group({args_str})"),
-                    line: 1,
-                    column: 1,
+                attrs.group = Some(parse_u32_literal(args_str).ok_or_else(|| {
+                    parse_error_at(clean, args_str, format!("invalid @group({args_str})"))
                 })?);
             }
             "binding" => {
-                attrs.binding = Some(parse_u32_literal(args_str).ok_or_else(|| ParseError {
-                    message: format!("invalid @binding({args_str})"),
-                    line: 1,
-                    column: 1,
+                attrs.binding = Some(parse_u32_literal(args_str).ok_or_else(|| {
+                    parse_error_at(clean, args_str, format!("invalid @binding({args_str})"))
                 })?);
             }
             "location" => {
-                attrs.location = Some(parse_u32_literal(args_str).ok_or_else(|| ParseError {
-                    message: format!("invalid @location({args_str})"),
-                    line: 1,
-                    column: 1,
+                attrs.location = Some(parse_u32_literal(args_str).ok_or_else(|| {
+                    parse_error_at(clean, args_str, format!("invalid @location({args_str})"))
                 })?);
             }
             "builtin" => {
@@ -345,11 +373,11 @@ fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str),
                     "workgroup_id" => BuiltIn::WorkGroupId,
                     "num_workgroups" => BuiltIn::NumWorkGroups,
                     other => {
-                        return Err(ParseError {
-                            message: format!("unknown builtin `{other}`"),
-                            line: 1,
-                            column: 1,
-                        });
+                        return Err(parse_error_at(
+                            clean,
+                            args_str,
+                            format!("unknown builtin `{other}`"),
+                        ));
                     }
                 });
             }
@@ -380,11 +408,11 @@ fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str),
             }
             "must_use" | "invariant" | "diagnostic" => {}
             other => {
-                return Err(ParseError {
-                    message: format!("unknown attribute `@{other}`"),
-                    line: 1,
-                    column: 1,
-                });
+                return Err(parse_error_at(
+                    clean,
+                    attr_token,
+                    format!("unknown attribute `@{other}`"),
+                ));
             }
         }
     }
@@ -392,6 +420,7 @@ fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str),
 }
 
 fn parse_global_var(
+    clean: &str,
     module: &mut Module,
     type_map: &mut BTreeMap<String, Handle<Type>>,
     const_values: &BTreeMap<String, u32>,
@@ -400,18 +429,12 @@ fn parse_global_var(
 ) -> Result<GlobalVariable, ParseError> {
     let after_var = rest
         .strip_prefix("var")
-        .ok_or_else(|| ParseError {
-            message: format!("expected `var` in `{rest}`"),
-            line: 1,
-            column: 1,
-        })?
+        .ok_or_else(|| parse_error_at(clean, rest, format!("expected `var` in `{rest}`")))?
         .trim_start();
 
     let (space_opt, after_space) = if after_var.starts_with('<') {
-        let close = find_matching_delim(after_var, '<', '>').ok_or_else(|| ParseError {
-            message: format!("unclosed '<' in `{after_var}`"),
-            line: 1,
-            column: 1,
+        let close = find_matching_delim(after_var, '<', '>').ok_or_else(|| {
+            parse_error_at(clean, after_var, format!("unclosed '<' in `{after_var}`"))
         })?;
         let spec = after_var[1..close].trim();
         let parts: Vec<&str> = spec.split(',').map(|s| s.trim()).collect();
@@ -423,11 +446,11 @@ fn parse_global_var(
                     "write" => StorageAccess::Write,
                     "read_write" => StorageAccess::ReadWrite,
                     other => {
-                        return Err(ParseError {
-                            message: format!("invalid storage access mode `{other}`"),
-                            line: 1,
-                            column: 1,
-                        });
+                        return Err(parse_error_at(
+                            clean,
+                            other,
+                            format!("invalid storage access mode `{other}`"),
+                        ));
                     }
                 };
                 AddressSpace::Storage { access }
@@ -437,11 +460,11 @@ fn parse_global_var(
             "function" => AddressSpace::Function,
             "immediate" | "push_constant" => AddressSpace::Immediate,
             other => {
-                return Err(ParseError {
-                    message: format!("unknown address space `{other}`"),
-                    line: 1,
-                    column: 1,
-                });
+                return Err(parse_error_at(
+                    clean,
+                    other,
+                    format!("unknown address space `{other}`"),
+                ));
             }
         };
         (Some(space), after_var[close + 1..].trim_start())
@@ -458,10 +481,12 @@ fn parse_global_var(
         (after_space.trim(), None)
     };
 
-    let colon_pos = decl_part.find(':').ok_or_else(|| ParseError {
-        message: format!("expected ':' in global variable declaration `{rest}`"),
-        line: 1,
-        column: 1,
+    let colon_pos = decl_part.find(':').ok_or_else(|| {
+        parse_error_at(
+            clean,
+            decl_part,
+            format!("expected ':' in global variable declaration `{rest}`"),
+        )
     })?;
     let name = decl_part[..colon_pos].trim().to_string();
     let ty_str = decl_part[colon_pos + 1..].trim();
@@ -487,46 +512,51 @@ fn parse_global_var(
 }
 
 fn parse_function(
+    clean: &str,
     module: &mut Module,
     type_map: &mut BTreeMap<String, Handle<Type>>,
     const_values: &BTreeMap<String, u32>,
     global_names: &BTreeMap<String, Handle<GlobalVariable>>,
     after_fn: &str,
 ) -> Result<Function, ParseError> {
-    let open_paren = after_fn.find('(').ok_or_else(|| ParseError {
-        message: format!("expected '(' in function declaration `{after_fn}`"),
-        line: 1,
-        column: 1,
+    let open_paren = after_fn.find('(').ok_or_else(|| {
+        parse_error_at(
+            clean,
+            after_fn,
+            format!("expected '(' in function declaration `{after_fn}`"),
+        )
     })?;
     let fn_name = after_fn[..open_paren].trim().to_string();
     if fn_name.is_empty() {
-        return Err(ParseError {
-            message: "empty function name".to_string(),
-            line: 1,
-            column: 1,
-        });
+        return Err(parse_error_at(clean, after_fn, "empty function name"));
     }
     let close_paren = find_matching_delim(&after_fn[open_paren..], '(', ')')
         .map(|i| open_paren + i)
-        .ok_or_else(|| ParseError {
-            message: format!("unclosed '(' in function `{fn_name}`"),
-            line: 1,
-            column: 1,
+        .ok_or_else(|| {
+            parse_error_at(
+                clean,
+                &after_fn[open_paren..],
+                format!("unclosed '(' in function `{fn_name}`"),
+            )
         })?;
     let args_src = &after_fn[open_paren + 1..close_paren];
     let after_args = after_fn[close_paren + 1..].trim_start();
 
-    let open_brace = find_top_level_char(after_args, '{').ok_or_else(|| ParseError {
-        message: format!("expected '{{' in function `{fn_name}`"),
-        line: 1,
-        column: 1,
+    let open_brace = find_top_level_char(after_args, '{').ok_or_else(|| {
+        parse_error_at(
+            clean,
+            after_args,
+            format!("expected '{{' in function `{fn_name}`"),
+        )
     })?;
     let ret_part = after_args[..open_brace].trim();
     let body_block = &after_args[open_brace..];
-    let close_brace = find_matching_delim(body_block, '{', '}').ok_or_else(|| ParseError {
-        message: format!("unclosed '{{' in function `{fn_name}`"),
-        line: 1,
-        column: 1,
+    let close_brace = find_matching_delim(body_block, '{', '}').ok_or_else(|| {
+        parse_error_at(
+            clean,
+            body_block,
+            format!("unclosed '{{' in function `{fn_name}`"),
+        )
     })?;
     let body_src = body_block[1..close_brace].to_string();
 
@@ -536,11 +566,13 @@ fn parse_function(
         if arg.is_empty() {
             continue;
         }
-        let (arg_attrs, arg_rest) = parse_leading_attributes(arg)?;
-        let colon = arg_rest.find(':').ok_or_else(|| ParseError {
-            message: format!("expected ':' in argument `{arg}` of `{fn_name}`"),
-            line: 1,
-            column: 1,
+        let (arg_attrs, arg_rest) = parse_leading_attributes(clean, arg)?;
+        let colon = arg_rest.find(':').ok_or_else(|| {
+            parse_error_at(
+                clean,
+                arg_rest,
+                format!("expected ':' in argument `{arg}` of `{fn_name}`"),
+            )
         })?;
         let arg_name = arg_rest[..colon].trim().to_string();
         let arg_ty_str = arg_rest[colon + 1..].trim();
@@ -554,7 +586,7 @@ fn parse_function(
     }
 
     let result = if let Some(after_arrow) = ret_part.strip_prefix("->") {
-        let (ret_attrs, ret_ty_str) = parse_leading_attributes(after_arrow.trim())?;
+        let (ret_attrs, ret_ty_str) = parse_leading_attributes(clean, after_arrow.trim())?;
         let ret_ty_str = ret_ty_str.trim();
         let ret_ty = resolve_or_insert_type(module, type_map, const_values, ret_ty_str);
         Some(FunctionResult {
@@ -563,11 +595,11 @@ fn parse_function(
             raw_ty_src: ret_ty_str.to_string(),
         })
     } else if !ret_part.is_empty() {
-        return Err(ParseError {
-            message: format!("unexpected return specifier `{ret_part}` in `{fn_name}`"),
-            line: 1,
-            column: 1,
-        });
+        return Err(parse_error_at(
+            clean,
+            ret_part,
+            format!("unexpected return specifier `{ret_part}` in `{fn_name}`"),
+        ));
     } else {
         None
     };
@@ -995,7 +1027,7 @@ fn validate_syntax(clean: &str) -> Result<(), ParseError> {
     Ok(())
 }
 
-fn split_top_level_items(clean: &str) -> Result<Vec<String>, ParseError> {
+fn split_top_level_items(clean: &str) -> Result<Vec<&str>, ParseError> {
     let mut items = Vec::new();
     let mut start = 0usize;
     let mut brace_depth = 0i32;
@@ -1018,7 +1050,7 @@ fn split_top_level_items(clean: &str) -> Result<Vec<String>, ParseError> {
                     if end < bytes.len() && bytes[end] == b';' {
                         end += 1;
                     }
-                    items.push(clean[start..end].to_string());
+                    items.push(&clean[start..end]);
                     start = end;
                     i = end;
                     continue;
@@ -1026,7 +1058,7 @@ fn split_top_level_items(clean: &str) -> Result<Vec<String>, ParseError> {
             }
             b';' if brace_depth == 0 && paren_depth == 0 => {
                 let end = i + 1;
-                items.push(clean[start..end].to_string());
+                items.push(&clean[start..end]);
                 start = end;
             }
             _ => {}
@@ -1036,11 +1068,11 @@ fn split_top_level_items(clean: &str) -> Result<Vec<String>, ParseError> {
 
     let tail = clean[start..].trim();
     if !tail.is_empty() {
-        return Err(ParseError {
-            message: format!("unexpected trailing tokens: `{tail}`"),
-            line: 1,
-            column: 1,
-        });
+        return Err(parse_error_at(
+            clean,
+            tail,
+            format!("unexpected trailing tokens: `{tail}`"),
+        ));
     }
 
     Ok(items)
@@ -1146,5 +1178,30 @@ fn strip_keyword<'a>(s: &'a str, kw: &str) -> Option<&'a str> {
         Some(rest)
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_str;
+
+    #[test]
+    fn parse_errors_report_exact_line_and_column() {
+        let missing_colon =
+            "struct Good {\n    x: f32,\n}\n\nstruct Bad {\n    first: u32,\n    missing_type\n}\n";
+        let err = parse_str(missing_colon).unwrap_err();
+        assert_eq!((err.line, err.column), (7, 5), "{err}");
+
+        let bad_attr = "// header comment\nconst K: u32 = 4u;\n   @unknown_attr(1)\n@compute @workgroup_size(1)\nfn main() {}\n";
+        let err = parse_str(bad_attr).unwrap_err();
+        assert_eq!((err.line, err.column), (3, 4), "{err}");
+
+        let bad_space = "/* multi\n   line */\n@group(0) @binding(0) var<bogus> data: u32;\n";
+        let err = parse_str(bad_space).unwrap_err();
+        assert_eq!((err.line, err.column), (3, 27), "{err}");
+
+        let bad_fn = "\n\nfn broken(a: f32, no_colon) {}\n";
+        let err = parse_str(bad_fn).unwrap_err();
+        assert_eq!((err.line, err.column), (3, 19), "{err}");
     }
 }

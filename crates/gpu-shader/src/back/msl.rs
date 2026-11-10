@@ -1101,8 +1101,7 @@ fn rewrite_statements(
         if let Some(after_if) = strip_kw_token(rest, "if") {
             let cond_len = find_block_open(after_if).unwrap_or(0);
             let cond = after_if[..cond_len].trim();
-            let cond_msl =
-                translate_expr_with_ctx(module, cond, ptr_params, func_globals, binding_map);
+            let cond_msl = translate_expr_with_ctx(module, cond, func_globals, binding_map);
             let cond_wrapped = if cond_msl.starts_with('(')
                 && find_matching_delim(&cond_msl, '(', ')') == Some(cond_msl.len() - 1)
             {
@@ -1140,8 +1139,7 @@ fn rewrite_statements(
         if let Some(after_while) = strip_kw_token(rest, "while") {
             let cond_len = find_block_open(after_while).unwrap_or(0);
             let cond = after_while[..cond_len].trim();
-            let cond_msl =
-                translate_expr_with_ctx(module, cond, ptr_params, func_globals, binding_map);
+            let cond_msl = translate_expr_with_ctx(module, cond, func_globals, binding_map);
             let cond_wrapped = if cond_msl.starts_with('(')
                 && find_matching_delim(&cond_msl, '(', ')') == Some(cond_msl.len() - 1)
             {
@@ -1204,13 +1202,7 @@ fn rewrite_statements(
                     let cond_msl = if cond_str.is_empty() {
                         String::new()
                     } else {
-                        translate_expr_with_ctx(
-                            module,
-                            cond_str,
-                            ptr_params,
-                            func_globals,
-                            binding_map,
-                        )
+                        translate_expr_with_ctx(module, cond_str, func_globals, binding_map)
                     };
                     let update_msl = if update_str.is_empty() {
                         String::new()
@@ -1237,13 +1229,8 @@ fn rewrite_statements(
                 let expr_str = after_switch[..open_off].trim();
                 let block_str = &after_switch[open_off..];
                 if let Some(close_off) = find_matching_delim(block_str, '{', '}') {
-                    let expr_msl = translate_expr_with_ctx(
-                        module,
-                        expr_str,
-                        ptr_params,
-                        func_globals,
-                        binding_map,
-                    );
+                    let expr_msl =
+                        translate_expr_with_ctx(module, expr_str, func_globals, binding_map);
                     let switch_body = &block_str[1..close_off];
                     let msl_cases = rewrite_switch_body(
                         module,
@@ -1380,8 +1367,7 @@ fn rewrite_switch_body(
                 if sel == "default" {
                     out.push_str("default:\n");
                 } else if !sel.is_empty() {
-                    let sel_msl =
-                        translate_expr_with_ctx(module, sel, ptr_params, func_globals, binding_map);
+                    let sel_msl = translate_expr_with_ctx(module, sel, func_globals, binding_map);
                     out.push_str(&format!("case {sel_msl}:\n"));
                 }
             }
@@ -1429,7 +1415,7 @@ fn rewrite_switch_body(
 fn translate_simple_stmt(
     module: &Module,
     stmt: &str,
-    ptr_params: &BTreeSet<String>,
+    _ptr_params: &BTreeSet<String>,
     func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
     binding_map: &BindingMap,
     direct_out_struct: Option<&str>,
@@ -1442,13 +1428,7 @@ fn translate_simple_stmt(
         return s.to_string();
     }
     if let Some(after_ret) = strip_kw_token(s, "return") {
-        let expr_msl = translate_expr_with_ctx(
-            module,
-            after_ret.trim(),
-            ptr_params,
-            func_globals,
-            binding_map,
-        );
+        let expr_msl = translate_expr_with_ctx(module, after_ret.trim(), func_globals, binding_map);
         if let Some(out_struct) = direct_out_struct {
             return format!("return {out_struct}{{{expr_msl}}}");
         } else {
@@ -1461,8 +1441,7 @@ fn translate_simple_stmt(
         if let Some(eq_pos) = find_top_level_char(after_let, '=') {
             let lhs = after_let[..eq_pos].trim();
             let rhs = after_let[eq_pos + 1..].trim();
-            let rhs_msl =
-                translate_expr_with_ctx(module, rhs, ptr_params, func_globals, binding_map);
+            let rhs_msl = translate_expr_with_ctx(module, rhs, func_globals, binding_map);
             if let Some(colon) = lhs.find(':') {
                 let name = msl_escape_ident(lhs[..colon].trim());
                 let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
@@ -1490,8 +1469,7 @@ fn translate_simple_stmt(
         if let Some(eq_pos) = find_top_level_char(after_var, '=') {
             let lhs = after_var[..eq_pos].trim();
             let rhs = after_var[eq_pos + 1..].trim();
-            let rhs_msl =
-                translate_expr_with_ctx(module, rhs, ptr_params, func_globals, binding_map);
+            let rhs_msl = translate_expr_with_ctx(module, rhs, func_globals, binding_map);
             if let Some(colon) = lhs.find(':') {
                 let name = msl_escape_ident(lhs[..colon].trim());
                 let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
@@ -1507,13 +1485,13 @@ fn translate_simple_stmt(
         }
     }
 
-    translate_expr_with_ctx(module, s, ptr_params, func_globals, binding_map)
+    translate_expr_with_ctx(module, s, func_globals, binding_map)
 }
 
 pub fn translate_expr(
     module: &Module,
     expr: &str,
-    ptr_params: &BTreeSet<String>,
+    _ptr_params: &BTreeSet<String>,
     func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
 ) -> String {
     let empty_map = BindingMap {
@@ -1523,13 +1501,12 @@ pub fn translate_expr(
         immediate_slot: None,
         array_length_slots: BTreeMap::new(),
     };
-    translate_expr_with_ctx(module, expr, ptr_params, func_globals, &empty_map)
+    translate_expr_with_ctx(module, expr, func_globals, &empty_map)
 }
 
 fn translate_expr_with_ctx(
     module: &Module,
     expr: &str,
-    ptr_params: &BTreeSet<String>,
     func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
     binding_map: &BindingMap,
 ) -> String {
@@ -1550,13 +1527,8 @@ fn translate_expr_with_ctx(
                     if after_angle.starts_with('(') {
                         if let Some(close_paren) = find_matching_delim(after_angle, '(', ')') {
                             let arg = &after_angle[1..close_paren];
-                            let arg_msl = translate_expr_with_ctx(
-                                module,
-                                arg,
-                                ptr_params,
-                                func_globals,
-                                binding_map,
-                            );
+                            let arg_msl =
+                                translate_expr_with_ctx(module, arg, func_globals, binding_map);
                             out.push_str(&format!("as_type<{msl_ty}>({arg_msl})"));
                             i = expr.len() - after_angle.len() + close_paren + 1;
                             continue;
@@ -1580,13 +1552,7 @@ fn translate_expr_with_ctx(
                         .into_iter()
                         .filter(|a| !a.trim().is_empty())
                         .map(|a| {
-                            translate_expr_with_ctx(
-                                module,
-                                a.trim(),
-                                ptr_params,
-                                func_globals,
-                                binding_map,
-                            )
+                            translate_expr_with_ctx(module, a.trim(), func_globals, binding_map)
                         })
                         .collect();
                     if is_array_ctor {
@@ -1631,13 +1597,7 @@ fn translate_expr_with_ctx(
                             .into_iter()
                             .filter(|a| !a.trim().is_empty())
                             .map(|a| {
-                                translate_expr_with_ctx(
-                                    module,
-                                    a.trim(),
-                                    ptr_params,
-                                    func_globals,
-                                    binding_map,
-                                )
+                                translate_expr_with_ctx(module, a.trim(), func_globals, binding_map)
                             })
                             .collect()
                     };

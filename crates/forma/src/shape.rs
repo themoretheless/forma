@@ -1,7 +1,7 @@
 //! Shared native/WASM polygon coverage rasterizer for composed vector content.
 //! Uses the same exact-area rasterizer as text, so CPU shapes match the GPU
 //! path; simple polygons give the same result under nonzero and even-odd.
-use crate::text::{Point, rasterize_region};
+use crate::text::{Point, RasterCanvas, rasterize_region};
 use std::cell::RefCell;
 
 thread_local! {
@@ -19,26 +19,18 @@ pub fn draw(
     color: [u8; 4],
 ) {
     draw_region(
-        out,
-        width,
-        height,
-        scale,
+        &mut RasterCanvas::full(out, width, height, scale),
         points,
         origin,
         color,
-        [0, 0, width, height],
     );
 }
 
 pub(crate) fn draw_region(
-    out: &mut [u8],
-    width: u32,
-    height: u32,
-    scale: f32,
+    canvas: &mut RasterCanvas<'_>,
     points: &[[f32; 2]],
     origin: [f32; 2],
     color: [u8; 4],
-    region: [u32; 4],
 ) {
     if points.len() < 3 || color[3] == 0 {
         return;
@@ -46,6 +38,7 @@ pub(crate) fn draw_region(
     let mut edges = SHAPE_EDGES.with(|cell| std::mem::take(&mut *cell.borrow_mut()));
     edges.clear();
     edges.reserve(points.len());
+    let scale = canvas.scale;
     let to_pt = |p: &[f32; 2]| Point {
         x: (p[0] + origin[0]) * scale,
         y: (p[1] + origin[1]) * scale,
@@ -59,12 +52,12 @@ pub(crate) fn draw_region(
     }
     edges.push((prev, first));
     rasterize_region(
-        out,
-        width,
-        height,
-        region,
+        canvas.pixels,
+        canvas.width,
+        canvas.height,
+        canvas.region,
         &edges,
-        [0., 0., width as f32, height as f32],
+        [0., 0., canvas.width as f32, canvas.height as f32],
         color,
     );
     SHAPE_EDGES.with(|cell| *cell.borrow_mut() = edges);

@@ -451,10 +451,13 @@ impl Cache {
         cache.frame = frame_runs(model, key);
         if let Some(t) = &model.template.text {
             text::draw_text_region(
-                &mut cache.content,
-                width,
-                height,
-                scale,
+                &mut text::RasterCanvas::subregion(
+                    &mut cache.content,
+                    width,
+                    height,
+                    scale,
+                    content_region,
+                ),
                 &t.text,
                 t.font_size,
                 [
@@ -464,7 +467,6 @@ impl Cache {
                     b.height - r * 0.6,
                 ],
                 t.color,
-                content_region,
             );
         }
         let mut groups = Vec::new();
@@ -474,25 +476,29 @@ impl Cache {
         for c in model.template.content.iter().filter(|_| has_content) {
             match c {
                 Content::Text { bounds, text: t } => text::draw_text_region(
-                    &mut cache.content,
-                    width,
-                    height,
-                    scale,
+                    &mut text::RasterCanvas::subregion(
+                        &mut cache.content,
+                        width,
+                        height,
+                        scale,
+                        content_region,
+                    ),
                     &t.text,
                     t.font_size,
                     [bx + bounds[0], by + bounds[1], bounds[2], bounds[3]],
                     t.color,
-                    content_region,
                 ),
                 Content::Shape { points, color } => shape::draw_region(
-                    &mut cache.content,
-                    width,
-                    height,
-                    scale,
+                    &mut text::RasterCanvas::subregion(
+                        &mut cache.content,
+                        width,
+                        height,
+                        scale,
+                        content_region,
+                    ),
                     points,
                     [bx, by],
                     *color,
-                    content_region,
                 ),
                 Content::Clip { bounds, radius } => {
                     let layer = match layers.pop() {

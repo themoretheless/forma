@@ -17,6 +17,18 @@ impl SceneWalk {
     }
 }
 
+struct SceneSequenceEnv<'a> {
+    prefix: &'a str,
+    scope: &'a Properties,
+    depth: usize,
+}
+
+pub(super) struct ScenePositionTarget<'a> {
+    pub(super) instances: &'a mut Vec<(Node, Option<Node>)>,
+    pub(super) logical_end: &'a mut [f64; 2],
+    pub(super) scroll_content: bool,
+}
+
 impl Document {
     pub(super) fn scene_properties(
         &self,
@@ -89,15 +101,13 @@ impl Document {
         &self,
         child: &Node,
         state: &mut std::borrow::Cow<'_, Properties>,
-        prefix: &str,
-        scope: &Properties,
-        depth: usize,
+        env: SceneSequenceEnv<'_>,
         walk: &mut SceneWalk,
         out: &mut Vec<Node>,
     ) -> Result<(), String> {
         if child.kind == "Let" {
             let mut child_node_index = walk.node_index;
-            count_scene_subtree(child, &mut child_node_index, depth)?;
+            count_scene_subtree(child, &mut child_node_index, env.depth)?;
             if walk.budget == 0 {
                 return Err("Scene exceeds 16384 nodes".into());
             }
@@ -108,19 +118,19 @@ impl Document {
             };
             walk.node_index = child_node_index;
             if let Some((name, value, expression)) =
-                control_flow::evaluate_let_binding(child, scope, state)?
+                control_flow::evaluate_let_binding(child, env.scope, state)?
             {
                 if child.children.is_empty() {
-                    insert_scene_lexical(scope_mut(state), name, value, expression, scope);
+                    insert_scene_lexical(scope_mut(state), name, value, expression, env.scope);
                 } else {
                     let mut block_state = state.as_ref().scoped_clone();
-                    insert_scene_lexical(&mut block_state, name, value, expression, scope);
+                    insert_scene_lexical(&mut block_state, name, value, expression, env.scope);
                     out.extend(self.scene_expand_sequence(
                         &child.children,
                         &block_state,
-                        prefix,
-                        scope,
-                        depth + 1,
+                        env.prefix,
+                        env.scope,
+                        env.depth + 1,
                         &mut inner_walk,
                     )?);
                 }
@@ -128,15 +138,15 @@ impl Document {
                 out.extend(self.scene_expand_sequence(
                     &child.children,
                     state,
-                    prefix,
-                    scope,
-                    depth + 1,
+                    env.prefix,
+                    env.scope,
+                    env.depth + 1,
                     &mut inner_walk,
                 )?);
             }
             walk.budget = inner_walk.budget;
         } else {
-            out.extend(self.scene_expand(child, state, prefix, scope, depth, walk)?);
+            out.extend(self.scene_expand(child, state, env.prefix, env.scope, env.depth, walk)?);
         }
         Ok(())
     }
@@ -154,7 +164,15 @@ impl Document {
         let mut out = Vec::new();
         for child in children {
             self.scene_expand_sequence_step(
-                child, &mut state, prefix, scope, depth, walk, &mut out,
+                child,
+                &mut state,
+                SceneSequenceEnv {
+                    prefix,
+                    scope,
+                    depth,
+                },
+                walk,
+                &mut out,
             )?;
         }
         Ok(out)
@@ -232,9 +250,11 @@ impl Document {
                             self.scene_expand_sequence_step(
                                 child,
                                 &mut seq_state,
-                                prefix,
-                                &scope,
-                                depth + 1,
+                                SceneSequenceEnv {
+                                    prefix,
+                                    scope: &scope,
+                                    depth: depth + 1,
+                                },
                                 &mut child_walk,
                                 &mut out,
                             )?;
@@ -410,9 +430,11 @@ impl Document {
                             self.scene_expand_sequence_step(
                                 body_child,
                                 &mut iter_state,
-                                &prefix,
-                                &scope,
-                                depth + 1,
+                                SceneSequenceEnv {
+                                    prefix: &prefix,
+                                    scope: &scope,
+                                    depth: depth + 1,
+                                },
                                 &mut iter_walk,
                                 &mut out,
                             )?;
@@ -576,11 +598,10 @@ impl Document {
         mut node: Node,
         precomputed_visual: Option<Node>,
         bounds: [f64; 4],
-        instances: &mut Vec<(Node, Option<Node>)>,
         root_legacy: bool,
-        logical_end: &mut [f64; 2],
-        scroll_content: bool,
+        target: &mut ScenePositionTarget<'_>,
     ) -> Result<(), String> {
+        let scroll_content = target.scroll_content;
         // Oversized scroll content must overflow toward positive offsets; centering
         // it at a negative origin makes the leading half unreachable by scrolling.
         let align = |available: f64, size: f64| {
@@ -592,8 +613,8 @@ impl Document {
             }
         };
         if is_layout(&node.kind) {
-            logical_end[0] = logical_end[0].max(bounds[0] + bounds[2]);
-            logical_end[1] = logical_end[1].max(bounds[1] + bounds[3]);
+            target.logical_end[0] = target.logical_end[0].max(bounds[0] + bounds[2]);
+            target.logical_end[1] = target.logical_end[1].max(bounds[1] + bounds[3]);
         }
         if !is_layout(&node.kind) {
             let visual = match precomputed_visual {
@@ -613,7 +634,7 @@ impl Document {
             for key in ["cell", "row", "column"] {
                 node.props.remove(key);
             }
-            instances.push((node, Some(visual)));
+            target.instances.push((node, Some(visual)));
             return Ok(());
         }
         if !root_legacy && boolean(&node.props, "clip", false)? {
@@ -665,25 +686,9 @@ impl Document {
                 let h = dimension(&child_visual, 1, ch)?;
                 cx += align(cw, w);
                 cy += align(ch, h);
-                self.position_scene(
-                    child,
-                    Some(child_visual),
-                    [cx, cy, w, h],
-                    instances,
-                    false,
-                    logical_end,
-                    scroll_content,
-                )?;
+                self.position_scene(child, Some(child_visual), [cx, cy, w, h], false, target)?;
             } else {
-                self.position_scene(
-                    child,
-                    Some(child_visual),
-                    [cx, cy, cw, ch],
-                    instances,
-                    false,
-                    logical_end,
-                    scroll_content,
-                )?;
+                self.position_scene(child, Some(child_visual), [cx, cy, cw, ch], false, target)?;
             }
         }
         Ok(())

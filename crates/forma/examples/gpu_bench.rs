@@ -39,7 +39,8 @@ fn main() {
                 view_formats: &[],
             });
             let view = texture.create_view(&Default::default());
-            renderer.draw(&model, &view, w, h, 2., true, true).unwrap();
+            let vp = forma::gpu::Viewport::new(w, h, 2.);
+            renderer.draw(&model, &view, vp, true, true).unwrap();
             renderer
                 .device
                 .poll(wgpu::PollType::wait_indefinitely())
@@ -53,7 +54,7 @@ fn main() {
                 }
                 model.tick(16.);
                 let t = std::time::Instant::now();
-                renderer.draw(&model, &view, w, h, 2., true, true).unwrap();
+                renderer.draw(&model, &view, vp, true, true).unwrap();
                 submit += t.elapsed().as_secs_f64();
                 renderer
                     .device
