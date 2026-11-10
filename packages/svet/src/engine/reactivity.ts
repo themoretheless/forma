@@ -803,7 +803,8 @@ function finishOwnerScope(current: OwnerScope): void {
     }
   }
   current.disposables.length = 0;
-  const rootCell = rootDisposerCells.get(current);
+  // Only parentless scopes can be roots; skip the lookup for nested ones.
+  const rootCell = current.parent === null ? rootDisposerCells.get(current) : undefined;
   if (rootCell) {
     rootCell.core = null;
     rootCell.scope = null;
@@ -911,6 +912,44 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
     ctx.ownerDepth--;
     if (generation === ctx.generation) ctx.currentOwner = previousStoredOwner;
   }
+}
+
+/**
+ * @internal Runs `fn` in a new parentless scope, like `createRoot`, but hands
+ * the scope itself to the caller instead of a public disposer. For callers
+ * that are the only holder of the scope (list rows) and dispose it with
+ * `disposeDetachedScope`.
+ */
+export function runInDetachedScope<T>(fn: (scope: OwnerScope) => T): T {
+  const core = getWasmCore();
+  const ctx = getJsContext(core);
+  const previousStoredOwner = ctx.currentOwner;
+  const prevOwner = resolveCurrentOwner(ctx, core);
+  const generation = ctx.generation;
+  const scope: OwnerScope = {
+    disposables: [],
+    children: null,
+    parent: null,
+    disposed: false,
+    context: prevOwner?.context ? new Map(prevOwner.context) : undefined,
+  };
+  ctx.currentOwner = scope;
+  ctx.ownerDepth++;
+  try {
+    return fn(scope);
+  } catch (error) {
+    disposeOwnerScope(scope);
+    throw error;
+  } finally {
+    ctx.ownerDepth--;
+    if (generation === ctx.generation) ctx.currentOwner = previousStoredOwner;
+  }
+}
+
+/** @internal Disposes a scope from `runInDetachedScope` in the core that created it. */
+export function disposeDetachedScope(core: SvetWasmExports, scope: OwnerScope): void {
+  if (scope.disposed) return;
+  runUntrackedInCore(core, () => disposeOwnerScope(scope));
 }
 
 /** @internal True when the running owner scope has collected no cleanups or child scopes. */
@@ -1744,6 +1783,24 @@ for (const [name, makeMethod] of Object.entries(signalMethods)) {
       own(this, value);
     },
   });
+}
+
+/**
+ * @internal Disposes a signal through its state, without binding the public
+ * `dispose` method onto the handle. Hot paths that own the signal privately
+ * (list rows) use these to avoid one property definition per handle.
+ */
+export function disposeSignalNow<T>(handle: Signal<T>): void {
+  const st = (handle as unknown as { [SIGNAL_STATE]?: SignalState })[SIGNAL_STATE];
+  if (st) disposeSignal(st);
+  else handle.dispose();
+}
+
+/** @internal `handle.set(next)` without binding `set` onto the handle. */
+export function setSignalNow<T>(handle: Signal<T>, next: T | ((prev: T) => T)): void {
+  const st = (handle as unknown as { [SIGNAL_STATE]?: SignalState })[SIGNAL_STATE];
+  if (st) writeSignal(st, next);
+  else handle.set(next as T);
 }
 
 export function signal<T>(

@@ -32,6 +32,11 @@ import {
   untrack,
   adoptCurrentOwnerIntoRoot,
   currentOwnerIsEmpty,
+  disposeSignalNow,
+  disposeDetachedScope,
+  runInDetachedScope,
+  type OwnerScope,
+  setSignalNow,
 } from './reactivity.ts';
 import { computeLisWasm, getWasmCore, withWasmCore } from './wasm-bridge.ts';
 
@@ -2322,7 +2327,7 @@ export function For<T, K = T>(props: {
             oldIndices[i] = NEW_ITEM_MARKER;
             anyMovedOrNew = true;
             displacedCount = 999;
-            let rowDispose: (() => void) | undefined,
+            let rowScope: OwnerScope | undefined,
               rowDisposed = false;
             const rec: MappedRecord = {
               key,
@@ -2333,12 +2338,12 @@ export function For<T, K = T>(props: {
                 if (rowDisposed) return;
                 rowDisposed = true;
                 try {
-                  rowDispose?.();
+                  if (rowScope) disposeDetachedScope(core, rowScope);
                 } finally {
                   try {
-                    rec.indexSig?.dispose();
+                    if (rec.indexSig) disposeSignalNow(rec.indexSig);
                   } finally {
-                    rec.itemSig?.dispose();
+                    if (rec.itemSig) disposeSignalNow(rec.itemSig);
                   }
                 }
               },
@@ -2360,9 +2365,11 @@ export function For<T, K = T>(props: {
               }
               return rec.itemSig();
             };
+            // A row owns a detached scope rather than a public root: the record
+            // is the only holder, so it needs no disposer closure or cell.
             rec.node = untrack(() =>
-              createRoot(dispose => {
-                rowDispose = dispose;
+              runInDetachedScope(scope => {
+                rowScope = scope;
                 const node = render(item, index, current);
                 assertViewCurrent();
                 if (node.nodeType === 11) {
@@ -2448,9 +2455,9 @@ export function For<T, K = T>(props: {
           const rec = nextRecords[i];
           rec.index = i;
           rec.item = items[i];
-          rec.indexSig?.set(i);
+          if (rec.indexSig) setSignalNow(rec.indexSig, i);
           // A function-valued item is data, never a signal updater.
-          rec.itemSig?.set(() => rec.item);
+          if (rec.itemSig) setSignalNow(rec.itemSig, () => rec.item);
         }
         for (const rec of removed) {
           if (isIntKey(rec.key)) intKeyTable[rec.key as number] = undefined;
