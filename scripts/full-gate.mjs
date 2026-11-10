@@ -260,6 +260,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
             },
           ]
         : []),
+      // gpu-kit stays outside the workspace for the same reason and has its own lockfile.
+      {
+        id: 'crates-gpu-kit',
+        name: 'gpu-kit builds and passes on its own lockfile',
+        argv: 'cargo',
+        args: ['test', '--locked', '--manifest-path', 'crates/gpu-kit/Cargo.toml'],
+      },
       // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
       {
         id: 'crates-gpu-compute',
