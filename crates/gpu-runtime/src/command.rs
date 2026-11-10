@@ -434,8 +434,7 @@ impl CommandEncoder {
             dst_offset: destination.layout.offset,
             bytes_per_row: destination
                 .layout
-                .bytes_per_row
-                .unwrap_or(copy_size.width * source.texture.format.bytes_per_pixel()),
+                .row_stride(copy_size.width, source.texture.format),
             rows_per_image: destination.layout.rows_per_image,
             size: copy_size,
         });
@@ -452,8 +451,7 @@ impl CommandEncoder {
             src_offset: source.layout.offset,
             bytes_per_row: source
                 .layout
-                .bytes_per_row
-                .unwrap_or(copy_size.width * destination.texture.format.bytes_per_pixel()),
+                .row_stride(copy_size.width, destination.texture.format),
             rows_per_image: source.layout.rows_per_image,
             dst_tex: destination.texture.clone(),
             dst_mip: destination.mip_level,
@@ -936,20 +934,19 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 MTLOrigin,
             ) = std::mem::transmute(metal_msg_send as *const c_void);
-            let is_3d = dst_tex.dimension == crate::TextureDimension::D3;
+            let slices = crate::texture::CopySlices::new(
+                dst_tex.dimension,
+                dst_origin.z,
+                size.depth_or_array_layers,
+            );
             let (bpr, bpi) = metal_copy_strides(
                 bytes_per_row,
                 rows_per_image,
                 size,
                 dst_tex.format,
-                is_3d || size.depth_or_array_layers > 1,
+                slices.is_3d() || size.depth_or_array_layers > 1,
             );
-            let (slices, depth) = if is_3d {
-                (1, size.depth_or_array_layers.max(1) as usize)
-            } else {
-                (size.depth_or_array_layers.max(1) as usize, 1)
-            };
-            for slice in 0..slices {
+            for slice in 0..slices.count {
                 f_b2t(
                     blit,
                     s.copy_from_buffer_to_texture,
@@ -960,19 +957,15 @@ pub(crate) unsafe fn encode_non_compute_op(
                     MTLSize {
                         width: size.width as usize,
                         height: size.height as usize,
-                        depth,
+                        depth: slices.depth,
                     },
                     dst_tex.raw.as_ptr(),
-                    if is_3d {
-                        0
-                    } else {
-                        dst_origin.z as usize + slice
-                    },
+                    slices.array_slice(slice),
                     dst_mip as usize,
                     MTLOrigin {
                         x: dst_origin.x as usize,
                         y: dst_origin.y as usize,
-                        z: if is_3d { dst_origin.z as usize } else { 0 },
+                        z: slices.region_z(),
                     },
                 );
             }
