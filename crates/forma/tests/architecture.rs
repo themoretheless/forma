@@ -10,7 +10,9 @@ use std::path::Path;
 
 /// Module name and layer, lowest first. `lib` stands for items defined in the crate root.
 const LAYERS: &[(&str, u8)] = &[
+    ("blend", 0),
     ("frame_stats", 0),
+    ("geometry", 0),
     ("markup", 0),
     ("control_state", 1),
     ("reveal", 1),
@@ -37,11 +39,7 @@ const LAYERS: &[(&str, u8)] = &[
 ];
 
 /// Upward edges that exist today, as `from -> to`. Remove an entry when its edge is gone.
-const KNOWN_VIOLATIONS: &[&str] = &[
-    "display_list -> lib",
-    "form_document -> runtime",
-    "raster_cache -> lib",
-];
+const KNOWN_VIOLATIONS: &[&str] = &["display_list -> lib", "raster_cache -> lib"];
 
 /// Names in the crate root that are re-exports of a module rather than root items.
 const ROOT_REEXPORTS: &[(&str, &str)] = &[("Runtime", "runtime")];
@@ -135,6 +133,11 @@ fn collect(dir: &Path, root: &Path, edges: &mut BTreeSet<String>, unknown: &mut 
             continue;
         }
         if path.extension().is_none_or(|extension| extension != "rs") {
+            continue;
+        }
+        // Unit-test files may reach across layers to set up fixtures, like inline test modules.
+        let file = path.file_stem().unwrap().to_string_lossy();
+        if file == "tests" || file.ends_with("_tests") {
             continue;
         }
         let from = module_of(path.strip_prefix(root).unwrap());

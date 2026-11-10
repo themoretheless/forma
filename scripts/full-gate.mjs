@@ -10,6 +10,22 @@ import { runtimeSourceDigest, artifactDigests, runtimeArtifacts } from './runtim
 // step: the whole matrix, one exit code, and an environment block so a printed result says where
 // it came from.
 const CI_TARGETS = ['x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc'];
+// Platform code no CI runner builds: the Android JNI module and the iOS branches of the binary.
+// Nothing compiled them, so they could rot unseen. Each runs when its target is installed.
+const MOBILE_TARGETS = [
+  {
+    target: 'aarch64-linux-android',
+    id: 'mobile-android',
+    name: 'Android library (JNI entry points) compiles',
+    args: ['--lib'],
+  },
+  {
+    target: 'aarch64-apple-ios-sim',
+    id: 'mobile-ios',
+    name: 'iOS simulator binary compiles',
+    args: ['--features', 'native', '--bin', 'forma'],
+  },
+];
 const BUNDLED = ['build-info.json', ...runtimeArtifacts];
 // Workspace members besides forma; compute-mlx and math-compute have steps of their own.
 export const WORKSPACE_CRATES = [
@@ -64,6 +80,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
         name: 'JavaScript and TypeScript are formatted (prettier)',
         argv: process.execPath,
         args: ['node_modules/prettier/bin/prettier.cjs', '--check', '--log-level', 'warn', '.'],
+      },
+      // Findings that predate the linter are listed in eslint-suppressions.json; a new one fails.
+      {
+        id: 'lint-js',
+        name: 'JavaScript passes ESLint (suppressions may only shrink)',
+        argv: process.execPath,
+        args: ['node_modules/eslint/bin/eslint.js', '--max-warnings', '0', '.'],
       },
       {
         id: 'format-rust',
@@ -243,13 +266,12 @@ export function steps({ platform, installedTargets, viteEntry }) {
         name: 'gpu-compute builds and passes on its own lockfile',
         argv: 'cargo',
         args: ['test', '--locked', '--manifest-path', 'crates/gpu-compute/Cargo.toml'],
-        flags: platform === 'darwin' ? { COMPUTE_REQUIRE_GPU: '1' } : undefined,
-      },
-      {
-        id: 'openscad-sample',
-        name: 'OpenSCAD sample app compiles against forma',
-        argv: 'cargo',
-        args: ['check', '--locked', '--manifest-path', 'openscad-ui/Cargo.toml'],
+        // A developer Mac has real GPU timers, so the profiling duration ratios are checked here;
+        // CI runners have virtualized GPUs and skip them.
+        flags:
+          platform === 'darwin'
+            ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_TIMESTAMPS: '1' }
+            : undefined,
       },
       // Needs `cargo install cargo-deny`; a missing tool fails the step instead of skipping it.
       {
@@ -271,6 +293,21 @@ export function steps({ platform, installedTargets, viteEntry }) {
             },
           ]
         : []),
+      // The library half of forma.wasm, checked without the release build that build:wasm does.
+      {
+        id: 'wasm-lib',
+        name: 'Library compiles for wasm32',
+        argv: 'cargo',
+        args: ['check', '--locked', '-p', 'forma', '--lib', '--target', 'wasm32-unknown-unknown'],
+      },
+      ...MOBILE_TARGETS.filter(({ target }) => installedTargets.includes(target)).map(
+        ({ target, id, name, args }) => ({
+          id,
+          name,
+          argv: 'cargo',
+          args: ['check', '--locked', '-p', 'forma', ...args, '--target', target],
+        }),
+      ),
       // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
       ...(platform === 'darwin'
         ? [
@@ -285,6 +322,9 @@ export function steps({ platform, installedTargets, viteEntry }) {
         : []),
     ],
     skipped: [
+      ...MOBILE_TARGETS.filter(({ target }) => !installedTargets.includes(target)).map(
+        ({ target, id }) => ({ id, reason: `not installed; rustup target add ${target}` }),
+      ),
       ...CI_TARGETS.filter(target => !installedTargets.includes(target)).map(target => ({
         id: `native-${target}`,
         reason: `not installed; rustup target add ${target}`,

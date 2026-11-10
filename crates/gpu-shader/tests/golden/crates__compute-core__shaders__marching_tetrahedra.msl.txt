@@ -1,0 +1,319 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct GridUniform {
+    uint nx;
+    uint ny;
+    uint nz;
+    uint total_cells;
+    float min_x;
+    float min_y;
+    float min_z;
+    float iso_level;
+    float step_x;
+    float step_y;
+    float step_z;
+    uint max_triangles;
+};
+
+constant _wgpu_arr<uint3, 8> CORNER_OFFSET = _wgpu_arr<uint3, 8>{{ uint3(0u, 0u, 0u), uint3(1u, 0u, 0u), uint3(0u, 1u, 0u), uint3(1u, 1u, 0u), uint3(0u, 0u, 1u), uint3(1u, 0u, 1u), uint3(0u, 1u, 1u), uint3(1u, 1u, 1u) }};
+constant _wgpu_arr<uint4, 6> CUBE_TETS = _wgpu_arr<uint4, 6>{{ uint4(0u, 1u, 3u, 7u), uint4(0u, 3u, 2u, 7u), uint4(0u, 2u, 6u, 7u), uint4(0u, 6u, 4u, 7u), uint4(0u, 4u, 5u, 7u), uint4(0u, 5u, 1u, 7u) }};
+constant uint WG = 256;
+
+uint field_index(uint x, uint y, uint z, constant GridUniform& grid);
+float3 corner_pos(uint x, uint y, uint z, uint c, constant GridUniform& grid);
+float3 interpolate_point(float3 p0, float v0, float3 p1, float v1, constant GridUniform& grid);
+void emit_tri(float3 v0, float3 v1_in, float3 v2_in, float3 hint, constant GridUniform& grid, device _wgpu_arr<atomic_uint, 1>& tri_counter, device float* out_vertices, device uint* out_indices);
+
+uint field_index(uint x, uint y, uint z, constant GridUniform& grid) {
+
+  const auto row = grid.nx + 1u;
+  const auto slice = row * (grid.ny + 1u);
+  return x + y * row + z * slice;
+}
+
+float3 corner_pos(uint x, uint y, uint z, uint c, constant GridUniform& grid) {
+
+  const auto off = CORNER_OFFSET[c];
+  return float3(grid.min_x + float(x + off.x) * grid.step_x, grid.min_y + float(y + off.y) * grid.step_y, grid.min_z + float(z + off.z) * grid.step_z);
+}
+
+float3 interpolate_point(float3 p0, float v0, float3 p1, float v1, constant GridUniform& grid) {
+
+  const auto denom = v1 - v0;
+  if (abs(denom) < 1e-6) {
+    return (p0 + p1) * 0.5;
+  }
+  const auto t = clamp((grid.iso_level - v0) / denom, 0.0, 1.0);
+  return p0 + t * (p1 - p0);
+}
+
+void emit_tri(float3 v0, float3 v1_in, float3 v2_in, float3 hint, constant GridUniform& grid, device _wgpu_arr<atomic_uint, 1>& tri_counter, device float* out_vertices, device uint* out_indices) {
+
+  const auto slot = atomic_fetch_add_explicit(&tri_counter[0], 1u, memory_order_relaxed);
+  if (slot >= grid.max_triangles) {
+    return;
+  }
+
+  auto v1 = v1_in;
+  auto v2 = v2_in;
+  const auto d1 = v1 - v0;
+  const auto d2 = v2 - v0;
+  auto norm = cross(d1, d2);
+  if (dot(norm, hint) < 0.0) {
+    const auto tmp = v1;
+    v1 = v2;
+    v2 = tmp;
+    norm = -norm;
+  }
+  const auto len_sq = dot(norm, norm);
+  if (len_sq > 1e-12) {
+    norm = norm * rsqrt(len_sq);
+  } else {
+    norm = float3(0.0, 0.0, 1.0);
+  }
+
+  const auto base_v = slot * 3u;
+  const auto v_off = base_v * 6u;
+
+             
+  out_vertices[v_off + 0u] = v0.x;
+  out_vertices[v_off + 1u] = v0.y;
+  out_vertices[v_off + 2u] = v0.z;
+  out_vertices[v_off + 3u] = norm.x;
+  out_vertices[v_off + 4u] = norm.y;
+  out_vertices[v_off + 5u] = norm.z;
+
+             
+  out_vertices[v_off + 6u] = v1.x;
+  out_vertices[v_off + 7u] = v1.y;
+  out_vertices[v_off + 8u] = v1.z;
+  out_vertices[v_off + 9u] = norm.x;
+  out_vertices[v_off + 10u] = norm.y;
+  out_vertices[v_off + 11u] = norm.z;
+
+             
+  out_vertices[v_off + 12u] = v2.x;
+  out_vertices[v_off + 13u] = v2.y;
+  out_vertices[v_off + 14u] = v2.z;
+  out_vertices[v_off + 15u] = norm.x;
+  out_vertices[v_off + 16u] = norm.y;
+  out_vertices[v_off + 17u] = norm.z;
+
+  const auto i_off = slot * 3u;
+  out_indices[i_off + 0u] = base_v + 0u;
+  out_indices[i_off + 1u] = base_v + 1u;
+  out_indices[i_off + 2u] = base_v + 2u;
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], constant GridUniform& grid [[buffer(0)]], const device float* field [[buffer(1)]], device _wgpu_arr<atomic_uint, 1>& tri_counter [[buffer(2)]], device float* out_vertices [[buffer(3)]], device uint* out_indices [[buffer(4)]]) {
+
+  const auto cell_idx = id.x;
+  if (cell_idx >= grid.total_cells) {
+    return;
+  }
+
+  const auto x = cell_idx % grid.nx;
+  const auto y = (cell_idx / grid.nx) % grid.ny;
+  const auto z = cell_idx / (grid.nx * grid.ny);
+
+                       
+  _wgpu_arr<float, 8> cv = {};
+  auto has_neg = false;
+  auto has_pos = false;
+  for (auto c = 0u; c < 8u; c++) {
+    const auto off = CORNER_OFFSET[c];
+    const auto val = field[field_index(x + off.x, y + off.y, z + off.z, grid)];
+    cv[c] = val;
+    if (val < grid.iso_level) { has_neg = true; } else { has_pos = true; }
+  }
+
+                                                  
+  if (!has_neg || !has_pos) {
+    return;
+  }
+
+  _wgpu_arr<float3, 8> cp = {};
+  for (auto c = 0u; c < 8u; c++) {
+    cp[c] = corner_pos(x, y, z, c, grid);
+  }
+
+                                     
+  for (auto t = 0u; t < 6u; t++) {
+    const auto tet = CUBE_TETS[t];
+    const auto v0 = cv[tet.x];
+    const auto v1 = cv[tet.y];
+    const auto v2 = cv[tet.z];
+    const auto v3 = cv[tet.w];
+
+    const auto p0 = cp[tet.x];
+    const auto p1 = cp[tet.y];
+    const auto p2 = cp[tet.z];
+    const auto p3 = cp[tet.w];
+
+                                                                     
+    _wgpu_arr<uint, 4> neg = {};
+    _wgpu_arr<uint, 4> pos = {};
+    auto neg_len = 0u;
+    auto pos_len = 0u;
+
+    if (v0 < grid.iso_level) { neg[neg_len] = 0u; neg_len++; } else { pos[pos_len] = 0u; pos_len++; }
+    if (v1 < grid.iso_level) { neg[neg_len] = 1u; neg_len++; } else { pos[pos_len] = 1u; pos_len++; }
+    if (v2 < grid.iso_level) { neg[neg_len] = 2u; neg_len++; } else { pos[pos_len] = 2u; pos_len++; }
+    if (v3 < grid.iso_level) { neg[neg_len] = 3u; neg_len++; } else { pos[pos_len] = 3u; pos_len++; }
+
+    if (neg_len == 0u || pos_len == 0u) {
+      continue;
+    }
+
+    const auto p_arr = _wgpu_arr<float3, 4>{{ p0, p1, p2, p3 }};
+    const auto v_arr = _wgpu_arr<float, 4>{{ v0, v1, v2, v3 }};
+
+    auto hint = float3(0.0);
+    const auto inv_pos = 1.0 / float(pos_len);
+    for (auto i = 0u; i < pos_len; i++) {
+      hint += p_arr[pos[i]] * inv_pos;
+    }
+    const auto inv_neg = 1.0 / float(neg_len);
+    for (auto i = 0u; i < neg_len; i++) {
+      hint -= p_arr[neg[i]] * inv_neg;
+    }
+
+    if (neg_len == 1u && pos_len == 3u) {
+      const auto a = neg[0];
+      const auto c0 = pos[0];
+      const auto c1 = pos[1];
+      const auto c2 = pos[2];
+      emit_tri(interpolate_point(p_arr[a], v_arr[a], p_arr[c0], v_arr[c0], grid), interpolate_point(p_arr[a], v_arr[a], p_arr[c1], v_arr[c1], grid), interpolate_point(p_arr[a], v_arr[a], p_arr[c2], v_arr[c2], grid), hint, grid, tri_counter, out_vertices, out_indices);
+    } else if (neg_len == 3u && pos_len == 1u) {
+      const auto a = pos[0];
+      const auto c0 = neg[0];
+      const auto c1 = neg[1];
+      const auto c2 = neg[2];
+      emit_tri(interpolate_point(p_arr[a], v_arr[a], p_arr[c0], v_arr[c0], grid), interpolate_point(p_arr[a], v_arr[a], p_arr[c1], v_arr[c1], grid), interpolate_point(p_arr[a], v_arr[a], p_arr[c2], v_arr[c2], grid), hint, grid, tri_counter, out_vertices, out_indices);
+    } else if (neg_len == 2u && pos_len == 2u) {
+      const auto a = neg[0];
+      const auto b = neg[1];
+      const auto c = pos[0];
+      const auto d = pos[1];
+
+      const auto ac = interpolate_point(p_arr[a], v_arr[a], p_arr[c], v_arr[c], grid);
+      const auto bc = interpolate_point(p_arr[b], v_arr[b], p_arr[c], v_arr[c], grid);
+      const auto ad = interpolate_point(p_arr[a], v_arr[a], p_arr[d], v_arr[d], grid);
+      const auto bd = interpolate_point(p_arr[b], v_arr[b], p_arr[d], v_arr[d], grid);
+
+      emit_tri(ac, bc, bd, hint, grid, tri_counter, out_vertices, out_indices);
+      emit_tri(ac, bd, ad, hint, grid, tri_counter, out_vertices, out_indices);
+    }
+  }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "field": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "out_indices": (
+            4,
+            0,
+            4,
+            4,
+        ),
+        "out_vertices": (
+            3,
+            0,
+            4,
+            3,
+        ),
+    },
+}

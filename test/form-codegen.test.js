@@ -195,7 +195,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
       checks += `let mut f=Generated${i}::new(std::rc::Rc::new(Vm)).expect("${section.id}");assert!(f.runtime().unwrap().control_count()>0);assert!(!f.runtime().unwrap().pixels(320,${section.height},1.).is_empty());\n`;
     }
     writeFileSync(join(directory, 'catalog.rs'), program + 'fn main(){' + checks + '}');
-    let catalogBuild = spawnSync(
+    const catalogBuild = spawnSync(
       'rustc',
       [
         '--edition=2021',

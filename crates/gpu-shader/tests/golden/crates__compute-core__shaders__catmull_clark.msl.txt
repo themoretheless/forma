@@ -1,0 +1,295 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct SubdivParams {
+    uint mode;
+    uint num_items;
+    uint brush_falloff;
+    uint brush_kind;
+    float brush_cx;
+    float brush_cy;
+    float brush_cz;
+    float brush_radius;
+    float brush_dx;
+    float brush_dy;
+    float brush_dz;
+    float brush_strength;
+};
+
+constant uint WG = 256;
+
+float3 get_pos(uint buf_idx, const device float* in_positions);
+float3 get_aux(uint buf_idx, const device float* aux_positions);
+void write_out(uint idx, float3 p, device float* out_positions);
+float eval_falloff(float dist, float radius, uint kind);
+
+float3 get_pos(uint buf_idx, const device float* in_positions) {
+
+  const auto b = buf_idx * 3u;
+  return float3(in_positions[b + 0u], in_positions[b + 1u], in_positions[b + 2u]);
+}
+
+float3 get_aux(uint buf_idx, const device float* aux_positions) {
+
+  const auto b = buf_idx * 3u;
+  return float3(aux_positions[b + 0u], aux_positions[b + 1u], aux_positions[b + 2u]);
+}
+
+void write_out(uint idx, float3 p, device float* out_positions) {
+
+  const auto b = idx * 3u;
+  out_positions[b + 0u] = p.x;
+  out_positions[b + 1u] = p.y;
+  out_positions[b + 2u] = p.z;
+}
+
+float eval_falloff(float dist, float radius, uint kind) {
+
+  if (dist >= radius || radius <= 1e-9) {
+    return 0.0;
+  }
+  if (kind == 2u) {
+    return 1.0;
+  }
+  const auto u = 1.0 - dist / radius;
+  if (kind == 1u) {
+    return u;
+  }
+                                       
+  return u * u * (3.0 - 2.0 * u);
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], constant SubdivParams& params [[buffer(0)]], const device float* in_positions [[buffer(1)]], const device float* aux_positions [[buffer(2)]], const device uint* stencil_meta [[buffer(3)]], const device uint* stencil_indices [[buffer(4)]], device float* out_positions [[buffer(5)]]) {
+
+  const auto idx = id.x;
+  if (idx >= params.num_items) {
+    return;
+  }
+
+  if (params.mode == 0u) {
+                                                       
+    const auto start = stencil_meta[idx * 2u + 0u];
+    const auto count = stencil_meta[idx * 2u + 1u];
+    auto sum = float3(0.0, 0.0, 0.0);
+    if (count > 0u) {
+      const auto inv_n = 1.0 / float(count);
+      for (auto i = 0u; i < count; i++) {
+        const auto v_idx = stencil_indices[start + i];
+        sum += get_pos(v_idx, in_positions) * inv_n;
+      }
+    }
+    write_out(idx, sum, out_positions);
+    return;
+  }
+
+  if (params.mode == 1u) {
+                                                                 
+    const auto v0 = stencil_meta[idx * 4u + 0u];
+    const auto v1 = stencil_meta[idx * 4u + 1u];
+    const auto f0 = stencil_meta[idx * 4u + 2u];
+    const auto f1 = stencil_meta[idx * 4u + 3u];
+
+    const auto p0 = get_pos(v0, in_positions);
+    const auto p1 = get_pos(v1, in_positions);
+    if (f1 == 0xFFFFFFFFu) {
+      write_out(idx, (p0 + p1) * 0.5, out_positions);
+    } else {
+      const auto fp0 = get_aux(f0, aux_positions);
+      const auto fp1 = get_aux(f1, aux_positions);
+      write_out(idx, (p0 + p1 + fp0 + fp1) * 0.25, out_positions);
+    }
+    return;
+  }
+
+  if (params.mode == 2u) {
+                         
+                                          
+                                                               
+    const auto p = get_pos(idx, in_positions);
+    const auto nbr_off = stencil_meta[idx * 6u + 0u];
+    const auto nbr_cnt = stencil_meta[idx * 6u + 1u];
+    const auto face_off = stencil_meta[idx * 6u + 2u];
+    const auto face_cnt = stencil_meta[idx * 6u + 3u];
+    const auto b0 = stencil_meta[idx * 6u + 4u];
+    const auto b1 = stencil_meta[idx * 6u + 5u];
+
+    if (b0 != 0xFFFFFFFFu && b1 != 0xFFFFFFFFu) {
+                                             
+      const auto pb0 = get_pos(b0, in_positions);
+      const auto pb1 = get_pos(b1, in_positions);
+      write_out(idx, (6.0 * p + pb0 + pb1) * 0.125, out_positions);
+    } else if (nbr_cnt > 0u && face_cnt > 0u) {
+                                                     
+      auto f_avg = float3(0.0, 0.0, 0.0);
+      const auto inv_f = 1.0 / float(face_cnt);
+      for (auto i = 0u; i < face_cnt; i++) {
+        const auto fi = stencil_indices[face_off + i];
+        f_avg += get_aux(fi, aux_positions) * inv_f;
+      }
+
+      auto r_avg = float3(0.0, 0.0, 0.0);
+      const auto inv_n = 1.0 / float(nbr_cnt);
+      for (auto i = 0u; i < nbr_cnt; i++) {
+        const auto ni = stencil_indices[nbr_off + i];
+        r_avg += 0.5 * (p + get_pos(ni, in_positions)) * inv_n;
+      }
+
+      const auto n_f = float(nbr_cnt);
+      write_out(idx, (f_avg + 2.0 * r_avg + (n_f - 3.0) * p) / n_f, out_positions);
+    } else {
+      write_out(idx, p, out_positions);
+    }
+    return;
+  }
+
+                                                
+  const auto p = get_pos(idx, in_positions);
+  const auto center = float3(params.brush_cx, params.brush_cy, params.brush_cz);
+  const auto diff = p - center;
+  const auto dist = length(diff);
+  const auto w = eval_falloff(dist, params.brush_radius, params.brush_falloff);
+
+  if (w <= 0.0) {
+    write_out(idx, p, out_positions);
+    return;
+  }
+
+  if (params.brush_kind == 0u) {
+                             
+    const auto disp = float3(params.brush_dx, params.brush_dy, params.brush_dz);
+    write_out(idx, p + w * disp, out_positions);
+  } else if (params.brush_kind == 1u) {
+                                                          
+    const auto n = get_aux(idx, aux_positions);
+    write_out(idx, p + (w * params.brush_strength) * n, out_positions);
+  } else {
+                                
+    write_out(idx, p - (w * params.brush_strength) * diff, out_positions);
+  }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+        (
+            0,
+            5,
+        ): 5,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "aux_positions": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "in_positions": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "out_positions": (
+            5,
+            0,
+            4,
+            5,
+        ),
+        "stencil_indices": (
+            4,
+            0,
+            4,
+            4,
+        ),
+        "stencil_meta": (
+            3,
+            0,
+            4,
+            3,
+        ),
+    },
+}

@@ -5,7 +5,7 @@ import {
   isOwnerScopeDisposed,
   runUntrackedInCore,
 } from './reactivity.ts';
-import { getWasmCore, type SvetWasmExports } from './wasm-bridge.ts';
+import { getWasmCore } from './wasm-bridge.ts';
 import {
   gpuState,
   tensorRecords,
@@ -37,9 +37,9 @@ export interface GpuResidentComputeOptions {
   wgsl: string;
   inputs: readonly (GpuTensorSignal | GpuResidentTensor)[];
   outputLength: number;
-  entryPoint?: string;
+  entryPoint?: string | undefined;
   workgroups?: [number, number?, number?];
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
 }
 export class GpuResidentCapacityError extends Error {
   constructor(
@@ -251,7 +251,8 @@ function publishResident(
     lifetime: new AbortController(),
     readSnapshot: readGpuResidentSnapshot,
   };
-  const lifetimeSignals = [ctx.signals[1], ctx.signals[2]];
+  // The device and context lifetimes are always the second and third signals.
+  const lifetimeSignals = [ctx.signals[1]!, ctx.signals[2]!];
   const subscriptions: Array<() => void> = [];
   const dispose = () => {
     // Also unlink registrations added during reentrant lifetime cancellation.

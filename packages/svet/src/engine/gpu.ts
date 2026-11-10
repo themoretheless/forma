@@ -9,7 +9,6 @@ import {
   effect,
   batch,
   untrack,
-  flushEffects,
   invalidateSingleSignalFastPath,
   allocateReactiveNode,
   getReactiveGeneration,
@@ -121,11 +120,11 @@ export interface WebGpuDeviceLike {
 
 export interface GpuSubsystemConfig {
   /** Shared device snapshot budget; default 256 MiB. Existing work is never evicted. */
-  maxPendingComputeBytes?: number;
+  maxPendingComputeBytes?: number | undefined;
   /** Shared persistent compute-result budget; default 256 MiB. Existing results are retained. */
-  maxResidentComputeBytes?: number;
-  architecture?: MemoryArchitecture;
-  device?: WebGpuDeviceLike | null;
+  maxResidentComputeBytes?: number | undefined;
+  architecture?: MemoryArchitecture | undefined;
+  device?: WebGpuDeviceLike | null | undefined;
 }
 
 interface GpuState {
@@ -795,7 +794,7 @@ export function dispatchGpuComputeKernel(options: WebGpuComputeDispatchOptions):
 
 export interface GpuComputeChainStage {
   wgsl: string;
-  entryPoint?: string;
+  entryPoint?: string | undefined;
   workgroups?: [number, number?, number?];
   /** Private stage output length in floats; defaults to the final tensor length. */
   outputLength?: number;
@@ -805,8 +804,8 @@ export interface AsyncWebGpuComputeDispatchOptions extends Omit<
   'fallbackKernel'
 > {
   /** Entry point defaults to main. Inputs use bindings 0..N-1, output uses N. */
-  entryPoint?: string;
-  signal?: AbortSignal;
+  entryPoint?: string | undefined;
+  signal?: AbortSignal | undefined;
   /** First private output length; the last stage must match output.length. */
   outputLength?: number;
   /** Up to 31 additional GPU stages. Each reads the previous result
@@ -1684,7 +1683,7 @@ export interface Mesh3D {
   /** Maximum bytes in one privately copied index array; fixed at construction. */
   readonly maxIndexBytes: number;
   /** Optional triangle index buffer; its element width selects the WebGPU index format. */
-  readonly indices?: Uint16Array | Uint32Array;
+  readonly indices?: Uint16Array | Uint32Array | undefined;
   /** Copy/validate new topology; undefined selects nonindexed lines, [] selects no triangles. */
   updateIndices(values: ArrayLike<number> | undefined, format?: 'uint16' | 'uint32'): void;
   /** Local-space homogeneous vertices (`[x, y, z, 1.0]` per vertex) in WASM UMA/DUMA arena */
@@ -1745,7 +1744,7 @@ export function createMesh3D(options: {
    * (currently 256 MiB). This is independent of GPU allocation limits. */
   maxIndexBytes?: number;
   transform: ReactiveTransform3D;
-  camera?: PerspectiveCamera3D;
+  camera?: PerspectiveCamera3D | undefined;
 }): Mesh3D {
   const core = getWasmCore(),
     generation = getReactiveGeneration(core),
@@ -1899,7 +1898,7 @@ export function createMesh3D(options: {
 export function createCubeMesh3D(options: {
   size?: number;
   transform: ReactiveTransform3D;
-  camera?: PerspectiveCamera3D;
+  camera?: PerspectiveCamera3D | undefined;
 }): {
   mesh: Mesh3D;
   edges: Array<[number, number]>;
@@ -2121,8 +2120,8 @@ export interface VertexPickFrame3D {
 }
 interface VertexPickSnapshot3D extends VertexPickFrame3D {
   vertices: Float32Array;
-  resident?: GpuResidentTensor;
-  indices?: Uint16Array | Uint32Array;
+  resident?: GpuResidentTensor | undefined;
+  indices?: Uint16Array | Uint32Array | undefined;
   vertexCount: number;
 }
 function pickFrameSnapshot(
@@ -2184,7 +2183,7 @@ export interface Canvas3DProps {
   /** Override indexed-surface occlusion versus through-surface picking. */
   pickOcclusion?: 'indexed' | 'none';
   /** Initial draw is immediate; later updates can be coalesced with GPU backpressure. */
-  renderMode?: 'sync' | 'animation-frame';
+  renderMode?: 'sync' | 'animation-frame' | undefined;
   /** Numeric hit plus source identity/dimensions of the last drawn/submitted frame. */
   onVertexPick?: (
     vertexIndex: number,

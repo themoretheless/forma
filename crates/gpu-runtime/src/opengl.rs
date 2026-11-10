@@ -39,8 +39,9 @@ impl OpenGlDevice {
     pub const GL_DYNAMIC_STORAGE_BIT: u32 = 0x0100;
     pub const GL_CLIENT_STORAGE_BIT: u32 = 0x0200;
 
-    /// Probes the platform's OpenGL 4.6 / OpenGL ES 3.2 runtime.
-    pub fn probe_available() -> Option<Self> {
+    /// A static description of the OpenGL 4.6 / ES 3.2 profile this backend targets, for planning code
+    /// and tests. It describes no real device: nothing here talks to a driver.
+    pub fn reference_profile() -> Self {
         let platform = TargetPlatform::current();
         let (profile, arch) = match platform {
             TargetPlatform::Android | TargetPlatform::Ios => {
@@ -62,7 +63,7 @@ impl OpenGlDevice {
                 (GlProfile::Core46, MemoryArchitecture::Duma)
             }
         };
-        Some(Self {
+        Self {
             renderer_name: match profile {
                 GlProfile::Core46 => "OpenGL 4.6 Core DSA Direct Runtime".to_string(),
                 GlProfile::Es32 => "OpenGL ES 3.2 Mobile Unified Runtime".to_string(),
@@ -75,7 +76,13 @@ impl OpenGlDevice {
             max_compute_shared_memory_bytes: 32768,
             max_compute_work_group_invocations: 1024,
             memory_architecture: arch,
-        })
+        }
+    }
+
+    /// Finds a real OpenGL 4.6 / ES 3.2 device. The backend is not implemented yet, so this always returns
+    /// `None`; it used to return a fabricated profile on every platform.
+    pub fn probe_available() -> Option<Self> {
+        None
     }
 
     /// Returns the optimal `glBufferStorage` bitflags for zero-copy UMA or ReBAR dUMA streaming.

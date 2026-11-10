@@ -10,7 +10,6 @@ import {
   onCleanup,
   resetReactiveSystem,
   signal,
-  type SsrStreamChunk,
 } from '../src/engine';
 import { renderToChunksAsync } from '../src/engine/server';
 beforeEach(() => resetReactiveSystem());

@@ -661,7 +661,7 @@ fn fill(
                 continue;
             }
             let i = (row + left + offset) * 4;
-            text::blend(&mut pixels[i..i + 4], color, coverage);
+            crate::blend::blend(&mut pixels[i..i + 4], color, coverage);
         }
     }
 }
