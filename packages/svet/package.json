@@ -1,6 +1,6 @@
 {
   "name": "svet-engine",
-  "version": "1.0.0",
+  "version": "0.3.4",
   "description": "Svet: reactive TypeScript + Rust WebAssembly UI framework",
   "type": "module",
   "main": "./dist/package/index.js",
