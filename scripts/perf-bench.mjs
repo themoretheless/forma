@@ -67,7 +67,7 @@ command('cargo', [
   '--example',
   'perf_bench',
 ]);
-const binary = resolve(root, 'crates/forma/target/release/examples/perf_bench');
+const binary = resolve(root, 'target/release/examples/perf_bench');
 const binaryHash = async () =>
   createHash('sha256')
     .update(await readFile(binary))

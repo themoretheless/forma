@@ -1,0 +1,295 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct SlicerParams {
+    uint total_triangles;
+    uint num_layers;
+    uint stride_floats;
+    uint pos_offset;
+    float plane_nx;
+    float plane_ny;
+    float plane_nz;
+    float first_layer_d;
+    float layer_step;
+    uint max_segments;
+    uint _pad0;
+    uint _pad1;
+};
+
+constant uint WG = 256;
+
+float3 get_pos(uint v_idx, constant SlicerParams& params, const device float* vertices);
+float3 interp_edge(float3 p0, float s0, float3 p1, float s1);
+
+float3 get_pos(uint v_idx, constant SlicerParams& params, const device float* vertices) {
+
+  const auto base = v_idx * params.stride_floats + params.pos_offset;
+  return float3(vertices[base + 0u], vertices[base + 1u], vertices[base + 2u]);
+}
+
+float3 interp_edge(float3 p0, float s0, float3 p1, float s1) {
+
+  const auto denom = s1 - s0;
+  if (abs(denom) < 1e-9) {
+    return (p0 + p1) * 0.5;
+  }
+  const auto t = clamp(-s0 / denom, 0.0, 1.0);
+  return p0 + t * (p1 - p0);
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]], constant SlicerParams& params [[buffer(0)]], const device float* vertices [[buffer(1)]], const device uint* indices [[buffer(2)]], device _wgpu_arr<atomic_uint, 1>& segment_counter [[buffer(3)]], device float* out_segments [[buffer(4)]]) {
+    threadgroup atomic_uint wg_counter;
+    threadgroup uint wg_base;
+
+  if (lid.x == 0u) {
+    atomic_store_explicit(&wg_counter, 0u, memory_order_relaxed);
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  const auto tri_idx = id.x;
+  auto has_first_seg = false;
+  auto first_seg_a = float4(0.0);
+  auto first_seg_b = float4(0.0);
+
+  if (tri_idx < params.total_triangles) {
+    const auto i0 = indices[tri_idx * 3u + 0u];
+    const auto i1 = indices[tri_idx * 3u + 1u];
+    const auto i2 = indices[tri_idx * 3u + 2u];
+
+    const auto p0 = get_pos(i0, params, vertices);
+    const auto p1 = get_pos(i1, params, vertices);
+    const auto p2 = get_pos(i2, params, vertices);
+
+    const auto plane_n = normalize(float3(params.plane_nx, params.plane_ny, params.plane_nz));
+
+    const auto d0 = dot(plane_n, p0);
+    const auto d1 = dot(plane_n, p1);
+    const auto d2 = dot(plane_n, p2);
+
+    const auto d_min = min(d0, min(d1, d2));
+    const auto d_max = max(d0, max(d1, d2));
+
+    auto l_start = 0;
+    auto l_end = int(params.num_layers) - 1;
+    auto is_active = true;
+
+    if (params.layer_step > 1e-7) {
+      l_start = max(0, int(ceil((d_min - params.first_layer_d) / params.layer_step)));
+      l_end = min(int(params.num_layers) - 1, int(floor((d_max - params.first_layer_d) / params.layer_step)));
+    } else {
+      if (params.first_layer_d < d_min || params.first_layer_d > d_max) {
+        is_active = false;
+      }
+      l_start = 0;
+      l_end = 0;
+    }
+
+    if (is_active && l_start <= l_end) {
+      const auto tri_n = cross(p1 - p0, p2 - p0);
+      const auto ccw_dir = cross(plane_n, tri_n);
+      const auto pts = _wgpu_arr<float3, 3>{{ p0, p1, p2 }};
+
+      for (auto layer = l_start; layer <= l_end; layer++) {
+        const auto plane_d = params.first_layer_d + float(layer) * params.layer_step;
+
+        const auto s0 = d0 - plane_d;
+        const auto s1 = d1 - plane_d;
+        const auto s2 = d2 - plane_d;
+        const auto s_arr = _wgpu_arr<float, 3>{{ s0, s1, s2 }};
+
+        _wgpu_arr<uint, 3> neg_idx = {};
+        _wgpu_arr<uint, 3> pos_idx = {};
+        auto neg_len = 0u;
+        auto pos_len = 0u;
+
+        for (auto k = 0u; k < 3u; k++) {
+          if (s_arr[k] < 0.0) {
+            neg_idx[neg_len] = k;
+            neg_len++;
+          } else {
+            pos_idx[pos_len] = k;
+            pos_len++;
+          }
+        }
+
+        if (neg_len == 0u || pos_len == 0u) {
+          continue;
+        }
+
+        auto solo = 0u;
+        auto pair0 = 0u;
+        auto pair1 = 0u;
+
+        if (neg_len == 1u) {
+          solo = neg_idx[0];
+          pair0 = pos_idx[0];
+          pair1 = pos_idx[1];
+        } else {
+          solo = pos_idx[0];
+          pair0 = neg_idx[0];
+          pair1 = neg_idx[1];
+        }
+
+        auto q1 = interp_edge(pts[solo], s_arr[solo], pts[pair0], s_arr[pair0]);
+        auto q2 = interp_edge(pts[solo], s_arr[solo], pts[pair1], s_arr[pair1]);
+
+        const auto diff = q2 - q1;
+                                                                    
+        if (dot(diff, diff) < 1e-14) {
+          continue;
+        }
+
+                                                               
+        if (dot(ccw_dir, diff) < 0.0) {
+          const auto tmp = q1;
+          q1 = q2;
+          q2 = tmp;
+        }
+
+        if (!has_first_seg) {
+          has_first_seg = true;
+          first_seg_a = float4(q1.x, q1.y, q1.z, float(layer));
+          first_seg_b = float4(q2.x, q2.y, q2.z, float(tri_idx));
+        } else {
+          const auto slot = atomic_fetch_add_explicit(&segment_counter[0], 1u, memory_order_relaxed);
+          if (slot < params.max_segments) {
+            const auto off = slot * 8u;
+            out_segments[off + 0u] = q1.x;
+            out_segments[off + 1u] = q1.y;
+            out_segments[off + 2u] = q1.z;
+            out_segments[off + 3u] = float(layer);
+            out_segments[off + 4u] = q2.x;
+            out_segments[off + 5u] = q2.y;
+            out_segments[off + 6u] = q2.z;
+            out_segments[off + 7u] = float(tri_idx);
+          }
+        }
+      }
+    }
+  }
+
+  auto local_slot = 0u;
+  if (has_first_seg) {
+    local_slot = atomic_fetch_add_explicit(&wg_counter, 1u, memory_order_relaxed);
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  if (lid.x == 0u) {
+    const auto wg_total = atomic_load_explicit(&wg_counter, memory_order_relaxed);
+    if (wg_total > 0u) {
+      wg_base = atomic_fetch_add_explicit(&segment_counter[0], wg_total, memory_order_relaxed);
+    } else {
+      wg_base = 0u;
+    }
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  if (has_first_seg) {
+    const auto slot = wg_base + local_slot;
+    if (slot < params.max_segments) {
+      const auto off = slot * 8u;
+      out_segments[off + 0u] = first_seg_a.x;
+      out_segments[off + 1u] = first_seg_a.y;
+      out_segments[off + 2u] = first_seg_a.z;
+      out_segments[off + 3u] = first_seg_a.w;
+      out_segments[off + 4u] = first_seg_b.x;
+      out_segments[off + 5u] = first_seg_b.y;
+      out_segments[off + 6u] = first_seg_b.z;
+      out_segments[off + 7u] = first_seg_b.w;
+    }
+  }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "indices": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "out_segments": (
+            4,
+            0,
+            4,
+            4,
+        ),
+        "vertices": (
+            1,
+            0,
+            4,
+            1,
+        ),
+    },
+}

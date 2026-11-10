@@ -1,6 +1,6 @@
 # raster-core
 
-Architecture and crate boundaries: [GPU library design](../../docs/design/gpu-library-architecture.md).
+Architecture and crate boundaries: GPU library design (`docs/design/gpu-library-architecture.md` in the upstream open-scad-viewer repository; not included here).
 
 Headless WebGPU rasterizer for the open-scad-viewer shader stack: the same
 `.wgsl` sources the browser renderer compiles in TypeScript, driven from Rust

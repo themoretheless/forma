@@ -479,7 +479,7 @@ export async function mountStudioShell(root) {
       after = others([...entry.target.classList]);
     return after.length === before.size && after.every(name => before.has(name));
   }
-  const mutations = scope.observe(
+  scope.observe(
     root,
     entries => {
       let changed = false;

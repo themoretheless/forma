@@ -11,7 +11,6 @@ import { compileComponents } from '../src/components.js';
 import { parse } from '../src/language.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { composeStudioWindow, keyText } from '../src/studio-window.js';
-import { sampleProject } from '../src/sample-project.js';
 import { createVectorRunner } from '../vector-runner.js';
 import init, { text_metrics } from '../public/vector-pkg/forma.js';
 

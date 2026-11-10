@@ -16,8 +16,13 @@ test('the gate covers every runner platform CI uses', () => {
     ids.filter(id => id.startsWith('native-')),
     ['native-host', 'native-x86_64-unknown-linux-gnu'],
   );
-  assert.equal(skipped.length, 1);
-  assert.match(skipped[0].reason, /rustup target add/);
+  // Windows plus both mobile targets are missing from this matrix's installed list.
+  assert.deepEqual(skipped.map(step => step.id).sort(), [
+    'mobile-android',
+    'mobile-ios',
+    'native-x86_64-pc-windows-msvc',
+  ]);
+  for (const missing of skipped) assert.match(missing.reason, /rustup target add/);
   assert.equal(
     new Set([...ids, ...skipped.map(step => step.id)]).size,
     ids.length + skipped.length,
@@ -35,6 +40,18 @@ test('the gate covers every runner platform CI uses', () => {
   assert.equal(
     list.every(step => step.id !== step.name),
     true,
+  );
+});
+test('platform code without a CI runner is compiled when its target is installed', () => {
+  const ids = matrix({
+    installedTargets: [...TARGETS, 'aarch64-linux-android', 'aarch64-apple-ios-sim'],
+  }).list.map(item => item.id);
+  for (const id of ['wasm-lib', 'mobile-android', 'mobile-ios']) assert.ok(ids.includes(id), id);
+  assert.deepEqual(
+    step('mobile-ios', {
+      installedTargets: ['aarch64-apple-ios-sim'],
+    }).args.slice(-2),
+    ['--target', 'aarch64-apple-ios-sim'],
   );
 });
 test('the host compiles what no CI runner compiles', () => {
@@ -97,22 +114,33 @@ test('no tracked crate is left out of the gate', () => {
   } catch {
     return; /* a source export without .git has no tracked-file list to read */
   }
+  const PACKAGE_MANIFESTS = {
+    'gpu-shader': 'crates/gpu-shader/Cargo.toml',
+    'gpu-runtime': 'crates/gpu-runtime/Cargo.toml',
+    'raster-core': 'crates/raster-core/Cargo.toml',
+    'osv-math': 'crates/math-core/Cargo.toml',
+    'osv-math-compute': 'crates/math-compute/Cargo.toml',
+    'tensor-core': 'crates/tensor-core/Cargo.toml',
+    'compute-core': 'crates/compute-core/Cargo.toml',
+    'compute-mlx': 'crates/compute-mlx/Cargo.toml',
+    'compute-cuda': 'crates/compute-cuda/Cargo.toml',
+  };
   const gated = new Set();
   // Covered means named by some platform's run: the legacy WebView host is a macOS-only step in
   // ci.yml as well, and the gate inherits that split rather than pretending every host builds it.
   for (const item of [...matrix().list, ...matrix({ platform: 'darwin' }).list])
     for (const [index, arg] of item.args.entries())
       if (arg === '--manifest-path') gated.add(item.args[index + 1]);
+      // A workspace member is named by package, not by manifest path.
+      else if (arg === '-p' && PACKAGE_MANIFESTS[item.args[index + 1]])
+        gated.add(PACKAGE_MANIFESTS[item.args[index + 1]]);
   const ungated = tracked
     .split('\n')
     .filter(file => /(^|\/)Cargo\.toml$/.test(file))
-    // The ten GPU and compute crates have no gate step of their own yet; forma and its examples,
-    // which also live under crates/, do and must stay covered.
-    .filter(
-      file =>
-        (!file.startsWith('crates/') || file.startsWith('crates/forma/')) &&
-        file !== 'openscad-ui/Cargo.toml',
-    )
+    // Frozen source snapshots kept as benchmark evidence are not built by anything, on purpose.
+    .filter(file => !/\/(benchmarks|qualification)\//.test(file))
+    // The root manifest is the workspace itself; its members are covered by name below.
+    .filter(file => file !== 'Cargo.toml')
     .filter(file => !gated.has(file));
   assert.deepEqual(ungated, [], `nothing compiles ${ungated.join(', ')}`);
 });

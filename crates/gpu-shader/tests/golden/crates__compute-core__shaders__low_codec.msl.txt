@@ -1,0 +1,105 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+uint low_encode(uint bits, uint dtype);
+uint low_decode(uint bits, uint dtype);
+
+uint low_encode(uint bits, uint dtype) {
+
+    const auto magnitude = bits & 0x7fffffffu;
+    const auto sign = (bits >> 16u) & 0x8000u;
+    if (dtype == 1u) {
+        if (magnitude > 0x7f800000u) { return sign | 0x7fc0u; }
+        return (bits + 0x7fffu + ((bits >> 16u) & 1u)) >> 16u;
+    }
+    if (magnitude >= 0x7f800000u) {
+        return sign | select(0x7c00u, 0x7e00u, magnitude > 0x7f800000u);
+    }
+    const auto exponent = (bits >> 23u) & 0xffu;
+    const auto mantissa = bits & 0x7fffffu;
+    if (exponent >= 143u) { return sign | 0x7c00u; }
+    if (exponent < 102u) { return sign; }
+    auto significand = mantissa;
+    auto shift = 13u;
+    auto result = 0u;
+    if (exponent >= 113u) {
+        result = (exponent - 112u) << 10u;
+    } else {
+        significand |= 0x800000u;
+        shift = 126u - exponent;
+    }
+    result |= significand >> shift;
+    const auto remainder = significand & ((1u << shift) - 1u);
+    const auto halfway = 1u << (shift - 1u);
+    if (remainder > halfway || (remainder == halfway && (result & 1u) != 0u)) {
+        result += 1u;
+    }
+    return sign | result;
+}
+
+uint low_decode(uint bits, uint dtype) {
+
+    if (dtype == 1u) { return bits << 16u; }
+    const auto sign = (bits & 0x8000u) << 16u;
+    const auto exponent = (bits >> 10u) & 0x1fu;
+    const auto mantissa = bits & 0x3ffu;
+    if (exponent == 0x1fu) { return sign | 0x7f800000u | (mantissa << 13u); }
+    if (exponent != 0u) { return sign | ((exponent + 112u) << 23u) | (mantissa << 13u); }
+    if (mantissa == 0u) { return sign; }
+    const auto highest = 31u - clz(mantissa);
+    return sign | ((highest + 103u) << 23u) | ((mantissa << (23u - highest)) & 0x7fffffu);
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

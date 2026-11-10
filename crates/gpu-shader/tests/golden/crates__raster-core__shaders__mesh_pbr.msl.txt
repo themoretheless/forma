@@ -1,0 +1,216 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct V {
+    float4 p [[position]];
+    float3 n [[user(loc0)]];
+    float3 w [[user(loc1)]];
+};
+
+float3 fresnelSchlick(float cosTheta, float3 F0);
+float distributionGGX(float3 N, float3 H, float rough);
+float geometrySchlickGGX(float ndv, float rough);
+float geometrySmith(float3 N, float3 V2, float3 L, float rough);
+float2 envUv(float3 dir);
+float3 envSample(float3 dir, float lod, texture2d<float> envTex, sampler envSampler);
+float3 envIrradiance(float3 N, texture2d<float> envTex, sampler envSampler);
+
+float3 fresnelSchlick(float cosTheta, float3 F0) {
+
+  return F0 + (float3(1.0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float distributionGGX(float3 N, float3 H, float rough) {
+
+  const auto a = max(rough * rough, 0.001);
+  const auto a2 = a * a;
+  const auto ndh = max(dot(N, H), 0.0);
+  const auto denom = ndh * ndh * (a2 - 1.0) + 1.0;
+  return a2 / (3.14159265 * denom * denom);
+}
+
+float geometrySchlickGGX(float ndv, float rough) {
+
+  const auto r = rough + 1.0;
+  const auto k = (r * r) / 8.0;
+  return ndv / (ndv * (1.0 - k) + k);
+}
+
+float geometrySmith(float3 N, float3 V2, float3 L, float rough) {
+
+  return geometrySchlickGGX(max(dot(N, V2), 0.0), rough)
+    * geometrySchlickGGX(max(dot(N, L), 0.0), rough);
+}
+
+float2 envUv(float3 dir) {
+
+  const auto d = normalize(dir);
+  const auto azimuth = select(atan2(d.y, d.x), 0.0, abs(d.x) + abs(d.y) < 1e-6);
+  const auto u = azimuth / 6.2831853 + 0.5;
+  const auto v = acos(clamp(d.z, -1.0, 1.0)) / 3.14159265;
+  return float2(u, v);
+}
+
+float3 envSample(float3 dir, float lod, texture2d<float> envTex, sampler envSampler) {
+
+  return envTex.sample(envSampler, envUv(dir), level(lod)).rgb;
+}
+
+float3 envIrradiance(float3 N, texture2d<float> envTex, sampler envSampler) {
+
+  const auto upRef = select(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), abs(N.y) > 0.99);
+  const auto t = normalize(cross(upRef, N));
+  const auto b = cross(N, t);
+  const auto w = 0.55;
+  return (envSample(N, 0.0, envTex, envSampler)
+    + envSample(normalize(N + t * w), 0.0, envTex, envSampler)
+    + envSample(normalize(N - t * w), 0.0, envTex, envSampler)
+    + envSample(normalize(N + b * w), 0.0, envTex, envSampler)
+    + envSample(normalize(N - b * w), 0.0, envTex, envSampler)) * 0.2;
+}
+
+struct _wgpu_vs_StageIn {
+    float3 pos [[attribute(0)]];
+    float3 norm [[attribute(1)]];
+    float3 fromPos [[attribute(2)]];
+};
+
+vertex V vs(_wgpu_vs_StageIn _stage_in [[stage_in]]) {
+    float3 pos = _stage_in.pos;
+    float3 norm = _stage_in.norm;
+    float3 fromPos = _stage_in.fromPos;
+
+  const auto local = mix(fromPos, pos, ob.morph.x);
+  const auto wp = (ob.model * float4(local, 1)).xyz;
+  const auto wn = normalize((ob.nmat * float4(norm, 0)).xyz);
+  return V{sc.vp * float4(wp, 1), wn, wp};
+}
+
+struct _wgpu_fs_StageOut {
+    float4 value [[color(0)]];
+};
+
+fragment _wgpu_fs_StageOut fs(V v [[stage_in]], texture2d<float> envTex [[texture(16)]], sampler envSampler [[sampler(9)]]) {
+
+                        
+                                                                          
+                                                                              
+                                                                            
+                                                                             
+                                                                             
+  const auto shadow = shadowFactor(v.w);
+                       
+  const auto N = normalize(v.n);
+  const auto L = normalize(sc.light.xyz);
+  const auto V2 = normalize(sc.eye.xyz - v.w);
+  const auto H = normalize(L + V2);
+  const auto selected = mix(ob.color.rgb, sc.selectionColor, ob.style.y * 0.48);
+  const auto albedo = mix(selected, sc.hoverColor, ob.style.w * 0.38) * ob.baseColor;
+  const auto metallic = clamp(ob.metallic, 0.0, 1.0);
+  const auto rough = clamp(ob.roughness, 0.05, 1.0);
+  const auto F0 = mix(float3(0.04), albedo, metallic);
+  const auto ndf = distributionGGX(N, H, rough);
+  const auto g = geometrySmith(N, V2, L, rough);
+  const auto f = fresnelSchlick(max(dot(H, V2), 0.0), F0);
+  const auto specular = (ndf * g * f) / max(4.0 * max(dot(N, V2), 0.0) * max(dot(N, L), 0.0), 0.0001);
+  const auto kd = (float3(1.0) - f) * (1.0 - metallic);
+  const auto ndl = max(dot(N, L), 0.0);
+                                                                    
+  const auto bd = max(dot(-N, L), 0.0) * 0.25;
+  float3 c = {};
+  if (uint2(envTex.get_width(), envTex.get_height()).x > 1u) {
+                                                                             
+                                                                       
+                                                                              
+                                                               
+                                                                             
+                                                                            
+                                                                              
+                                                                           
+                                                                          
+    const auto irradiance = envIrradiance(N, envTex, envSampler);
+    auto R = reflect(-V2, N);
+    R = normalize(mix(R, N, rough * rough));
+    float3 envSpec = {};
+    if (uint(envTex.get_num_mip_levels()) > 1u) {
+      envSpec = envSample(R, rough * float(uint(envTex.get_num_mip_levels()) - 1u), envTex, envSampler);
+    } else {
+      envSpec = envSample(R, 0.0, envTex, envSampler) * pow(1.0 - rough, 2.0);
+    }
+    const auto fEnv = fresnelSchlick(max(dot(N, V2), 0.0), F0);
+    c = irradiance * albedo * (float3(1.0) - fEnv) * (1.0 - metallic) * shadow
+      + envSpec * fEnv
+      + sc.ambient.rgb * albedo * 0.25 * shadow + ob.emissive;
+  } else {
+    c = (kd * albedo / 3.14159265 + specular) * ndl
+      + sc.ambient.rgb * albedo * shadow + bd * albedo * 0.5 + ob.emissive;
+  }
+                                                                             
+  c = c / (c + float3(1.0));
+  c = pow(c, float3(1.0 / 2.2));
+  return _wgpu_fs_StageOut{float4(c, ob.style.x)};
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {
+        (
+            2,
+            0,
+        ): 16,
+    },
+    samplers: {
+        (
+            2,
+            1,
+        ): 9,
+    },
+    immediate_slot: None,
+    array_length_slots: {},
+}

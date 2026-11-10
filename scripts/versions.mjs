@@ -39,31 +39,28 @@ export function versions() {
   const lock = JSON.parse(read('package-lock.json'));
   const runtime = cargoVersion(read('crates/forma/Cargo.toml'), 'forma');
   if (!validVersion(runtime) || !validVersion(studio)) throw Error('Invalid component version');
-  if (cargoVersion(read('crates/forma/Cargo.lock'), 'forma') !== runtime)
+  // One workspace lockfile serves forma and both example apps.
+  if (cargoVersion(read('Cargo.lock'), 'forma') !== runtime)
     throw Error('Runtime Cargo.lock version mismatch');
-  if (cargoVersion(read('crates/forma/examples/binding-app/Cargo.lock'), 'forma') !== runtime)
-    throw Error('Binding example Cargo.lock version mismatch');
-  if (cargoVersion(read('crates/forma/examples/language-app/Cargo.lock'), 'forma') !== runtime)
-    throw Error('Language example Cargo.lock version mismatch');
   if (lock.version !== studio || lock.packages[''].version !== studio)
     throw Error('Studio package-lock.json version mismatch');
   for (const path of ['native-app/Cargo.toml', 'native-app/Cargo.lock'])
     if (cargoVersion(read(path), 'forma-native') !== studio)
       throw Error(`Studio host version mismatch: ${path}`);
   const wasmBindgen = read('crates/forma/Cargo.toml').match(/^wasm-bindgen = "=([^"]+)"$/m)?.[1];
-  if (!wasmBindgen || cargoVersion(read('crates/forma/Cargo.lock'), 'wasm-bindgen') !== wasmBindgen)
+  if (!wasmBindgen || cargoVersion(read('Cargo.lock'), 'wasm-bindgen') !== wasmBindgen)
     throw Error('wasm-bindgen must be exactly pinned and match Cargo.lock');
   return { runtime, studio, wasmBindgen };
 }
+// One tag releases the library and Studio together, so both manifests must carry its version.
 export function release(tag, current = versions()) {
-  const match = /^(forma|studio)-v(.+)$/.exec(tag ?? '');
-  if (!match || !validVersion(match[2]))
-    throw Error('Expected forma-vX.Y.Z or studio-vX.Y.Z (optional prerelease)');
-  const [, name, version] = match,
-    component = name === 'forma' ? 'runtime' : 'studio';
-  if (current[component] !== version)
-    throw Error(`Tag ${tag} does not match ${component} manifest version ${current[component]}`);
-  return { component, version, tag, prerelease: version.includes('-') };
+  const match = /^v(.+)$/.exec(tag ?? '');
+  if (!match || !validVersion(match[1])) throw Error('Expected vX.Y.Z (optional prerelease)');
+  const version = match[1];
+  for (const component of ['runtime', 'studio'])
+    if (current[component] !== version)
+      throw Error(`Tag ${tag} does not match ${component} manifest version ${current[component]}`);
+  return { version, tag, prerelease: version.includes('-') };
 }
 function replaceCargo(text, name, version) {
   let found = false;
@@ -80,23 +77,22 @@ function replaceCargo(text, name, version) {
 }
 export function setVersion(component, version) {
   versions(); // Validate all inputs before preparing any writes.
-  if (!['runtime', 'studio'].includes(component) || !validVersion(version))
-    throw Error('set runtime|studio X.Y.Z[-prerelease]');
+  if (!['runtime', 'studio', 'all'].includes(component) || !validVersion(version))
+    throw Error('set all|runtime|studio X.Y.Z[-prerelease]');
+  // A release needs both manifests on one version; `all` moves them together.
+  if (component === 'all') {
+    setVersion('runtime', version);
+    return setVersion('studio', version);
+  }
   const updates = new Map();
-  const directory = component === 'runtime' ? 'crates/forma' : 'native-app',
-    name = component === 'runtime' ? 'forma' : 'forma-native';
-  for (const file of ['Cargo.toml', 'Cargo.lock']) {
-    const path = `${directory}/${file}`;
-    updates.set(path, replaceCargo(read(path), name, version));
-  }
-  if (component === 'runtime') {
-    for (const path of [
-      'crates/forma/examples/binding-app/Cargo.lock',
-      'crates/forma/examples/language-app/Cargo.lock',
-    ]) {
-      updates.set(path, replaceCargo(read(path), 'forma', version));
-    }
-  }
+  // forma is a workspace member, so its lock entry lives in the root Cargo.lock;
+  // native-app stays outside the workspace and keeps its own.
+  const name = component === 'runtime' ? 'forma' : 'forma-native',
+    paths =
+      component === 'runtime'
+        ? ['crates/forma/Cargo.toml', 'Cargo.lock']
+        : ['native-app/Cargo.toml', 'native-app/Cargo.lock'];
+  for (const path of paths) updates.set(path, replaceCargo(read(path), name, version));
   if (component === 'studio') {
     for (const path of ['package.json', 'package-lock.json']) {
       const value = JSON.parse(read(path));
@@ -117,7 +113,10 @@ if (
     if (command === 'check') console.log(JSON.stringify(a ? release(a) : versions()));
     else if (command === 'wasm-bindgen') console.log(versions().wasmBindgen);
     else if (command === 'set') console.log(JSON.stringify(setVersion(a, b)));
-    else throw Error('Usage: versions.mjs check [tag] | wasm-bindgen | set runtime|studio version');
+    else
+      throw Error(
+        'Usage: versions.mjs check [tag] | wasm-bindgen | set all|runtime|studio version',
+      );
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

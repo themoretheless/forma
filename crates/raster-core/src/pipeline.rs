@@ -313,7 +313,7 @@ impl RasterPipelines {
                 targets: &[opaque_target()],
             }),
             primitive: mesh_primitive,
-            depth_stencil: Some(depth.clone()),
+            depth_stencil: Some(depth),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -339,7 +339,7 @@ impl RasterPipelines {
                 cull_mode: Some(wgpu::Face::Front),
                 ..PrimitiveState::default()
             },
-            depth_stencil: Some(depth.clone()),
+            depth_stencil: Some(depth),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -362,7 +362,7 @@ impl RasterPipelines {
             primitive: mesh_primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -387,7 +387,7 @@ impl RasterPipelines {
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
                 depth_compare: Some(CompareFunction::Always),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -412,7 +412,7 @@ impl RasterPipelines {
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
                 depth_compare: Some(CompareFunction::LessEqual),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -437,7 +437,7 @@ impl RasterPipelines {
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
                 depth_compare: Some(CompareFunction::Always),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -459,7 +459,7 @@ impl RasterPipelines {
                 targets: &[Some(transparent_target(format))],
             }),
             primitive: line_primitive,
-            depth_stencil: Some(depth.clone()),
+            depth_stencil: Some(depth),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -484,7 +484,7 @@ impl RasterPipelines {
                 cull_mode: None,
                 ..PrimitiveState::default()
             },
-            depth_stencil: Some(depth.clone()),
+            depth_stencil: Some(depth),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -507,7 +507,7 @@ impl RasterPipelines {
             primitive: mesh_primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -553,7 +553,7 @@ impl RasterPipelines {
                 targets: &[opaque_target()],
             }),
             primitive: mesh_primitive,
-            depth_stencil: Some(depth.clone()),
+            depth_stencil: Some(depth),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -576,7 +576,7 @@ impl RasterPipelines {
             primitive: mesh_primitive,
             depth_stencil: Some(wgpu::DepthStencilState {
                 depth_write_enabled: Some(false),
-                ..depth.clone()
+                ..depth
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,

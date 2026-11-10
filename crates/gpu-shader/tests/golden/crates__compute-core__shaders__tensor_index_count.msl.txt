@@ -1,0 +1,97 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]], const device uint* p [[buffer(0)]], const device uint* indices [[buffer(1)]], device atomic_uint* invalid [[buffer(2)]]) {
+    threadgroup uint scratch[256];
+
+    auto sum = 0u;auto i = gid.x;
+    while (i<p[0]) {auto rem = i;auto _wgpu_ident_address = p[3];for (auto axis = p[1]; axis>0u; axis--){const auto d = 6u+(axis-1u)*2u;_wgpu_ident_address+=(rem%p[d])*p[d+1u];rem/=p[d];}sum+=select(0u, 1u, indices[_wgpu_ident_address]>=p[4]);if (p[2]*256u>=p[0]-i) {break;}i+=p[2]*256u;}
+    scratch[lid.x]=sum;for (auto step = 128u; step>0u; step/=2u){threadgroup_barrier(mem_flags::mem_threadgroup);if (lid.x<step) {scratch[lid.x]+=scratch[lid.x+step];}}
+    if (lid.x==0u && scratch[0]!=0u) {atomic_fetch_add_explicit(&invalid[p[5]], scratch[0], memory_order_relaxed);}
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "indices": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "invalid": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "p": (
+            0,
+            0,
+            4,
+            0,
+        ),
+    },
+}

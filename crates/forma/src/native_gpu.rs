@@ -6,6 +6,12 @@ use winit::window::Window;
 #[path = "metal_resize.rs"]
 mod metal_resize;
 
+/// Applies the resize policy to this window's Metal layer, for hosts that create their own surface.
+#[cfg(target_os = "macos")]
+pub fn configure_metal_layer(window: &Window) -> Result<(), String> {
+    metal_resize::configure(window)
+}
+
 /// Show/hide this window's GPU layer when switching presentation paths.
 /// Other platforms use the active surface directly.
 pub fn set_visible(window: &Window, visible: bool) -> Result<(), String> {

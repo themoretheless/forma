@@ -1,0 +1,318 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct GridParams {
+    uint nx;
+    uint ny;
+    uint nz;
+    uint total_cells;
+    float min_x;
+    float min_y;
+    float min_z;
+    float iso_level;
+    float step_x;
+    float step_y;
+    float step_z;
+    float _pad;
+};
+
+struct Vertex {
+    float3 position;
+    float3 normal;
+};
+
+constant _wgpu_arr<uint3, 8> CORNER_OFFSETS = _wgpu_arr<uint3, 8>{{ uint3(0u, 0u, 0u), uint3(1u, 0u, 0u), uint3(1u, 1u, 0u), uint3(0u, 1u, 0u), uint3(0u, 0u, 1u), uint3(1u, 0u, 1u), uint3(1u, 1u, 1u), uint3(0u, 1u, 1u) }};
+constant uint WG = 256;
+constant _wgpu_arr<uint2, 12> EDGE_CORNERS = _wgpu_arr<uint2, 12>{{ uint2(0u, 1u), uint2(1u, 2u), uint2(2u, 3u), uint2(3u, 0u), uint2(4u, 5u), uint2(5u, 6u), uint2(6u, 7u), uint2(7u, 4u), uint2(0u, 4u), uint2(1u, 5u), uint2(2u, 6u), uint2(3u, 7u) }};
+
+uint grid_point_index(uint x, uint y, uint z, constant GridParams& grid);
+float3 corner_position(uint x, uint y, uint z, uint corner_idx, constant GridParams& grid);
+float3 interpolate_edge(float3 p1, float val1, float3 p2, float val2, constant GridParams& grid);
+
+uint grid_point_index(uint x, uint y, uint z, constant GridParams& grid) {
+
+    const auto row = grid.nx + 1u;
+    const auto slice = row * (grid.ny + 1u);
+    return x + y * row + z * slice;
+}
+
+float3 corner_position(uint x, uint y, uint z, uint corner_idx, constant GridParams& grid) {
+
+    const auto c = CORNER_OFFSETS[corner_idx];
+    return float3(grid.min_x + float(x + c.x) * grid.step_x, grid.min_y + float(y + c.y) * grid.step_y, grid.min_z + float(z + c.z) * grid.step_z);
+}
+
+float3 interpolate_edge(float3 p1, float val1, float3 p2, float val2, constant GridParams& grid) {
+
+    const auto diff = val2 - val1;
+    if (abs(diff) < 1e-6) {
+        return (p1 + p2) * 0.5;
+    }
+    const auto t = clamp((grid.iso_level - val1) / diff, 0.0, 1.0);
+    return p1 + t * (p2 - p1);
+}
+
+kernel void classify_cells(uint3 id [[thread_position_in_grid]], constant GridParams& grid [[buffer(0)]], const device float* field_values [[buffer(1)]], const device uint* num_triangles_table [[buffer(3)]], device uint* cell_cube_index [[buffer(8)]], device uint* cell_tri_count [[buffer(9)]]) {
+
+    const auto cell_idx = id.x;
+    if (cell_idx >= grid.total_cells) {
+        return;
+    }
+
+    const auto x = cell_idx % grid.nx;
+    const auto y = (cell_idx / grid.nx) % grid.ny;
+    const auto z = cell_idx / (grid.nx * grid.ny);
+
+    auto cube_idx = 0u;
+    for (auto i = 0u; i < 8u; i++) {
+        const auto corner = CORNER_OFFSETS[i];
+        const auto p_idx = grid_point_index(x + corner.x, y + corner.y, z + corner.z, grid);
+        const auto val = field_values[p_idx];
+        if (val < grid.iso_level) {
+            cube_idx |= (1u << i);
+        }
+    }
+
+    cell_cube_index[cell_idx] = cube_idx;
+    cell_tri_count[cell_idx] = num_triangles_table[cube_idx];
+}
+
+kernel void emit_triangles(uint3 id [[thread_position_in_grid]], constant GridParams& grid [[buffer(0)]], const device float* field_values [[buffer(1)]], const device int* tri_table [[buffer(2)]], device uint* cell_cube_index [[buffer(8)]], device uint* cell_tri_count [[buffer(9)]], const device uint* cell_offsets [[buffer(16)]], device float* out_vertices [[buffer(17)]], device uint* out_indices [[buffer(18)]]) {
+
+    const auto cell_idx = id.x;
+    if (cell_idx >= grid.total_cells) {
+        return;
+    }
+
+    const auto tri_cnt = cell_tri_count[cell_idx];
+    if (tri_cnt == 0u) {
+        return;
+    }
+
+    const auto cube_idx = cell_cube_index[cell_idx];
+    const auto base_tri_idx = cell_offsets[cell_idx];
+
+    const auto x = cell_idx % grid.nx;
+    const auto y = (cell_idx / grid.nx) % grid.ny;
+    const auto z = cell_idx / (grid.nx * grid.ny);
+
+                                             
+    _wgpu_arr<float, 8> vals = {};
+    _wgpu_arr<float3, 8> pos = {};
+    for (auto i = 0u; i < 8u; i++) {
+        const auto corner = CORNER_OFFSETS[i];
+        const auto p_idx = grid_point_index(x + corner.x, y + corner.y, z + corner.z, grid);
+        vals[i] = field_values[p_idx];
+        pos[i] = corner_position(x, y, z, i, grid);
+    }
+
+                                                                          
+    const auto table_offset = cube_idx * 16u;
+    auto edge_mask = 0u;
+    for (auto t = 0u; t < tri_cnt; t++) {
+        const auto e0 = uint(tri_table[table_offset + t * 3u + 0u]);
+        const auto e1 = uint(tri_table[table_offset + t * 3u + 1u]);
+        const auto e2 = uint(tri_table[table_offset + t * 3u + 2u]);
+        edge_mask |= (1u << e0) | (1u << e1) | (1u << e2);
+    }
+
+    _wgpu_arr<float3, 12> edge_verts = {};
+    for (auto e = 0u; e < 12u; e++) {
+        if ((edge_mask & (1u << e)) != 0u) {
+            const auto c = EDGE_CORNERS[e];
+            edge_verts[e] = interpolate_edge(pos[c.x], vals[c.x], pos[c.y], vals[c.y], grid);
+        }
+    }
+
+                      
+    for (auto t = 0u; t < tri_cnt; t++) {
+        const auto e0 = uint(tri_table[table_offset + t * 3u + 0u]);
+        const auto e1 = uint(tri_table[table_offset + t * 3u + 1u]);
+        const auto e2 = uint(tri_table[table_offset + t * 3u + 2u]);
+
+        const auto v0 = edge_verts[e0];
+        const auto v1 = edge_verts[e1];
+        const auto v2 = edge_verts[e2];
+
+                      
+        const auto d1 = v1 - v0;
+        const auto d2 = v2 - v0;
+        auto norm = normalize(cross(d1, d2));
+        if (dot(norm, norm) < 1e-6) {
+            norm = float3(0.0, 0.0, 1.0);
+        }
+
+        const auto global_tri_idx = base_tri_idx + t;
+        const auto vert_base = global_tri_idx * 3u;
+        const auto out_v_offset = vert_base * 6u;
+
+                   
+        out_vertices[out_v_offset + 0u] = v0.x;
+        out_vertices[out_v_offset + 1u] = v0.y;
+        out_vertices[out_v_offset + 2u] = v0.z;
+        out_vertices[out_v_offset + 3u] = norm.x;
+        out_vertices[out_v_offset + 4u] = norm.y;
+        out_vertices[out_v_offset + 5u] = norm.z;
+
+                   
+        out_vertices[out_v_offset + 6u] = v1.x;
+        out_vertices[out_v_offset + 7u] = v1.y;
+        out_vertices[out_v_offset + 8u] = v1.z;
+        out_vertices[out_v_offset + 9u] = norm.x;
+        out_vertices[out_v_offset + 10u] = norm.y;
+        out_vertices[out_v_offset + 11u] = norm.z;
+
+                   
+        out_vertices[out_v_offset + 12u] = v2.x;
+        out_vertices[out_v_offset + 13u] = v2.y;
+        out_vertices[out_v_offset + 14u] = v2.z;
+        out_vertices[out_v_offset + 15u] = norm.x;
+        out_vertices[out_v_offset + 16u] = norm.y;
+        out_vertices[out_v_offset + 17u] = norm.z;
+
+        const auto out_i_offset = global_tri_idx * 3u;
+        out_indices[out_i_offset + 0u] = vert_base + 0u;
+        out_indices[out_i_offset + 1u] = vert_base + 1u;
+        out_indices[out_i_offset + 2u] = vert_base + 2u;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            1,
+            0,
+        ): 8,
+        (
+            1,
+            1,
+        ): 9,
+        (
+            2,
+            0,
+        ): 16,
+        (
+            2,
+            1,
+        ): 17,
+        (
+            2,
+            2,
+        ): 18,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "cell_cube_index": (
+            8,
+            0,
+            4,
+            65536,
+        ),
+        "cell_offsets": (
+            16,
+            0,
+            4,
+            131072,
+        ),
+        "cell_tri_count": (
+            9,
+            0,
+            4,
+            65537,
+        ),
+        "field_values": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "num_triangles_table": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "out_indices": (
+            18,
+            0,
+            4,
+            131074,
+        ),
+        "out_vertices": (
+            17,
+            0,
+            4,
+            131073,
+        ),
+        "tri_table": (
+            2,
+            0,
+            4,
+            2,
+        ),
+    },
+}

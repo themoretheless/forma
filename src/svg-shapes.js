@@ -305,7 +305,7 @@ export function parseSvgShapes(source, currentColor = '#ffffff') {
         `SVG ${name ?? raw}: пока поддерживаются rect, circle, ellipse, line, polyline, polygon, path`,
       );
     const attrs = {};
-    let tail = raw.slice(name.length).replace(/\/$/, '');
+    const tail = raw.slice(name.length).replace(/\/$/, '');
     let pos = 0;
     while (pos < tail.length) {
       if (!tail.slice(pos).trim()) break;

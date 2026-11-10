@@ -1,0 +1,283 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 64;
+constant uint KEYS = 32;
+
+bool causal_keep(uint query_index, uint key_index, const device uint* params);
+uint4 batch_offsets(uint index, const device uint* params);
+
+bool causal_keep(uint query_index, uint key_index, const device uint* params) {
+
+    if (params[29] == 0u) { return true; }
+    const auto offset = as_type<int>(params[30]);
+    if (offset >= 0) {
+        if (key_index <= query_index) { return true; }
+        return key_index - query_index <= uint(offset);
+    }
+    const auto _wgpu_ident_distance = 0u - params[30];
+    return query_index >= _wgpu_ident_distance && key_index <= query_index - _wgpu_ident_distance;
+}
+
+uint4 batch_offsets(uint index, const device uint* params) {
+
+    auto remaining = index;
+    auto offsets = uint4(0u);
+    for (auto axis = params[2]; axis > 0u; axis--) {
+        const auto descriptor = 33u + (axis - 1u) * 5u;
+        const auto coordinate = remaining % params[descriptor];
+        offsets += coordinate * uint4(params[descriptor + 1u], params[descriptor + 2u], params[descriptor + 3u], params[descriptor + 4u]);
+        remaining /= params[descriptor];
+    }
+    return offsets;
+}
+
+kernel void _wgpu_entry_main(uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], const device uint* params [[buffer(0)]], const device float* query [[buffer(1)]], const device float* key [[buffer(2)]], const device float* value [[buffer(3)]], const device uint* mask [[buffer(4)]], device float* output [[buffer(5)]], device float2* partial_state [[buffer(6)]]) {
+    threadgroup float2 scratch[32];
+    threadgroup float weights[32];
+
+    auto work = wid.x;
+    while (work < params[0]) {
+        const auto row_part = work / params[9];
+        const auto row = row_part / params[31];
+        const auto part = row_part % params[31];
+        const auto channel = (work % params[9]) * WG + lid.x;
+        const auto query_index = row % params[4];
+        const auto head = (row / params[4]) % params[3];
+        const auto batch = row / (params[4] * params[3]);
+        const auto offsets = batch_offsets(batch, params);
+        const auto qbase = params[10] + offsets.x + head * params[15] + query_index * params[16];
+        const auto kbase = params[11] + offsets.y + (head / params[8]) * params[18];
+        const auto vbase = params[12] + offsets.z + (head / params[8]) * params[21];
+        const auto mbase = params[13] + offsets.w + head * params[24] + query_index * params[25];
+        auto maximum = 0.0;
+        auto denominator = 0.0;
+        auto value_scale = 0.0;
+        auto normalized = 0.0;
+        auto start = part * params[32];
+        const auto end = start + min(params[32], params[5] - start);
+        while (start < end) {
+            auto score = -MAX_F32;
+            auto kept = false;
+            if (lid.x < KEYS) {
+                const auto key_index = start + lid.x;
+                kept = key_index < end && causal_keep(query_index, key_index, params);
+                auto bias = 0.0;
+                if (kept && params[27] != 0u) {
+                    const auto bits = mask[mbase + key_index * params[26]];
+                    if (params[27] == 1u) { kept = bits != 0u; }
+                    else {
+                        kept = bits != 0xff800000u;
+                        if (kept) { bias = as_type<float>(bits); }
+                    }
+                }
+                if (kept) {
+                    auto dot = 0.0;
+                    for (auto depth = 0u; depth < params[6]; depth++) {
+                        dot += query[qbase + depth * params[17]]
+                            * key[kbase + key_index * params[19] + depth * params[20]];
+                    }
+                    score = dot * as_type<float>(params[28]) + bias;
+                }
+                scratch[lid.x] = float2(score, select(0.0, 1.0, kept));
+            }
+            for (auto step = KEYS / 2u; step > 0u; step /= 2u) {
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+                if (lid.x < step) {
+                    const auto a = scratch[lid.x];
+                    const auto b = scratch[lid.x + step];
+                    scratch[lid.x] = float2(max(a.x, b.x), a.y + b.y);
+                }
+            }
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            const auto tile = scratch[0];
+            if (tile.y > 0.0) {
+                auto next_maximum = tile.x;
+                auto previous_weight = 0.0;
+                if (denominator > 0.0) {
+                    next_maximum = max(maximum, tile.x);
+                    previous_weight = denominator * shifted_exp(maximum, next_maximum);
+                }
+                auto probability = 0.0;
+                if (kept) { probability = shifted_exp(score, next_maximum); }
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+                if (lid.x < KEYS) {
+                    weights[lid.x] = probability;
+                    scratch[lid.x] = float2(probability, 0.0);
+                }
+                for (auto step = KEYS / 2u; step > 0u; step /= 2u) {
+                    threadgroup_barrier(mem_flags::mem_threadgroup);
+                    if (lid.x < step) { scratch[lid.x].x += scratch[lid.x + step].x; }
+                }
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+                const auto next_denominator = previous_weight + scratch[0].x;
+                if (channel < params[7]) {
+                    _wgpu_arr<float, KEYS> cached = {};
+                    auto next_scale = value_scale;
+                    if (previous_weight == 0.0) { next_scale = 0.0; }
+                    for (auto item = 0u; item < KEYS; item++) {
+                        cached[item] = 0.0;
+                        if (weights[item] > 0.0) {
+                            cached[item] = value[vbase + (start + item) * params[22] + channel * params[23]];
+                            next_scale = max(next_scale, abs(cached[item]));
+                        }
+                    }
+                    if (next_scale > 0.0) {
+                        if (previous_weight == 0.0) { normalized = 0.0; }
+                        else {
+                            normalized *= (previous_weight / next_denominator)
+                                * unit_ratio(value_scale, next_scale);
+                        }
+                        for (auto item = 0u; item < KEYS; item++) {
+                            normalized += (weights[item] / next_denominator) * unit_ratio(cached[item], next_scale);
+                        }
+                        normalized = clamp(normalized, -1.0, 1.0);
+                    } else {
+                        normalized = 0.0;
+                    }
+                    value_scale = next_scale;
+                }
+                maximum = next_maximum;
+                denominator = next_denominator;
+            }
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            if (KEYS >= end - start) { break; }
+            start += KEYS;
+        }
+        if (channel < params[7]) {
+            output[params[14] + row_part * params[7] + channel] = normalized * value_scale;
+        }
+        if (params[31] > 1u && (work % params[9]) == 0u && lid.x == 0u) {
+            partial_state[row_part] = float2(maximum, denominator);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (params[1] >= params[0] - work) { break; }
+        work += params[1];
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+        (
+            0,
+            5,
+        ): 5,
+        (
+            0,
+            6,
+        ): 6,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "key": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "mask": (
+            4,
+            0,
+            4,
+            4,
+        ),
+        "output": (
+            5,
+            0,
+            4,
+            5,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+        "partial_state": (
+            6,
+            0,
+            8,
+            6,
+        ),
+        "query": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "value": (
+            3,
+            0,
+            4,
+            3,
+        ),
+    },
+}

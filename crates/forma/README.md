@@ -117,7 +117,7 @@ Web (из корня репозитория):
 
 ```sh
 cargo build --manifest-path crates/forma/Cargo.toml --target wasm32-unknown-unknown --lib --release
-wasm-bindgen crates/forma/target/wasm32-unknown-unknown/release/forma.wasm --target web --out-dir public/vector-pkg
+wasm-bindgen target/wasm32-unknown-unknown/release/forma.wasm --target web --out-dir public/vector-pkg
 npm run dev
 ```
 

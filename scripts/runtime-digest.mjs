@@ -21,8 +21,9 @@ export function digestInputs(root, inputs) {
 export function runtimeSourceDigest(root) {
   return digestInputs(root, [
     'rust-toolchain.toml',
+    'Cargo.toml',
+    'Cargo.lock',
     'crates/forma/Cargo.toml',
-    'crates/forma/Cargo.lock',
     'crates/forma/src',
     'crates/forma/assets',
     'crates/forma/controls',
