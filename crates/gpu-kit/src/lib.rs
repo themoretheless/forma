@@ -44,6 +44,8 @@ mod material_render;
 mod material_texture;
 mod model;
 mod pipeline;
+#[cfg(test)]
+mod test_support;
 
 pub use backend::{BackendError, GpuBackend, GpuVendor};
 pub use material_render::{

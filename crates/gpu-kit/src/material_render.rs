@@ -353,35 +353,23 @@ fn pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::validate_wgsl;
+    #[cfg(target_os = "macos")]
+    use crate::test_support::{Readback, clear_pass, metal_device, texture_2d};
     #[test]
     fn material_shader_and_layout_validate() {
         assert_eq!(size_of::<MaterialVertex>(), 96);
         assert_eq!(size_of::<MaterialParameters>(), 176);
-        let module =
-            wgpu::naga::front::wgsl::parse_str(include_str!("../shaders/material_view.wgsl"))
-                .unwrap();
-        wgpu::naga::valid::Validator::new(
-            wgpu::naga::valid::ValidationFlags::all(),
+        validate_wgsl(
+            include_str!("../shaders/material_view.wgsl"),
             wgpu::naga::valid::Capabilities::empty(),
-        )
-        .validate(&module)
-        .unwrap();
+        );
     }
     #[test]
     #[cfg(target_os = "macos")]
     #[ignore = "actual Metal material draw, alpha, culling, lighting and root leases"]
     fn material_draw_metal() {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::METAL;
-        let instance = wgpu::Instance::new(desc);
-        let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
-        assert_eq!(adapter.get_info().backend, wgpu::Backend::Metal);
-        eprintln!("MATERIAL_DRAW_ADAPTER {:?}", adapter.get_info());
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::FLOAT32_FILTERABLE,
-            ..Default::default()
-        }))
-        .unwrap();
+        let (device, queue) = metal_device(wgpu::Features::FLOAT32_FILTERABLE);
         let budget = MemoryBudget::new(1024 * 1024);
         let uploader = MaterialTextureUploader::new(&device, &queue);
         let white = uploader
@@ -405,30 +393,22 @@ mod tests {
         assert!(
             MaterialRenderer::new(uploader.clone(), wgpu::TextureFormat::Bc1RgbaUnormSrgb).is_err()
         );
-        let target = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
+        let target = texture_2d(
+            &device,
+            wgpu::Extent3d {
                 width: 3,
                 height: 3,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let depth = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: target.size(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: crate::pipeline::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        );
+        let depth = texture_2d(
+            &device,
+            target.size(),
+            crate::pipeline::DEPTH_FORMAT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT,
+        );
         let vertex = MaterialVertex {
             position: [0.; 3],
             normal: [0., 0., 1.],
@@ -438,68 +418,19 @@ mod tests {
         };
         let vertices = [[-1., -1., 0.5], [3., -1., 0.5], [-1., 3., 0.5]]
             .map(|position| MaterialVertex { position, ..vertex });
-        let read = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 768,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
         let render = |draw: &MaterialDraw| {
             let mut encoder = device.create_command_encoder(&Default::default());
             {
                 let view = target.create_view(&Default::default());
                 let dv = depth.create_view(&Default::default());
-                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &dv,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.),
-                            store: wgpu::StoreOp::Store,
-                        }),
-                        stencil_ops: None,
-                    }),
-                    ..Default::default()
-                });
+                let mut pass = clear_pass(&mut encoder, &view, &dv);
                 renderer.encode(draw, &mut pass).unwrap();
             }
-            encoder.copy_texture_to_buffer(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &target,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                wgpu::TexelCopyBufferInfo {
-                    buffer: &read,
-                    layout: wgpu::TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(256),
-                        rows_per_image: Some(3),
-                    },
-                },
-                target.size(),
-            );
+            let readback = Readback::record(&device, &mut encoder, &target, 0, 4);
             queue.submit([encoder.finish()]);
             draw.resource_lease().retain_until_complete(&queue);
-            let (tx, rx) = std::sync::mpsc::channel();
-            read.slice(..)
-                .map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
-            device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-            rx.recv().unwrap().unwrap();
-            let mapped = read.slice(..).get_mapped_range().unwrap();
-            let pixel: [u8; 4] = mapped[260..264].try_into().unwrap();
-            drop(mapped);
-            read.unmap();
+            // The centre texel of the 3x3 target.
+            let pixel: [u8; 4] = readback.read(&device)[16..20].try_into().unwrap();
             pixel
         };
         let mut p = MaterialParameters::default();
@@ -686,36 +617,22 @@ mod tests {
         // Linear HDR target preserves radiance above 1; no SDR transfer/tone map.
         let hdr_renderer =
             MaterialRenderer::new(uploader.clone(), wgpu::TextureFormat::Rgba16Float).unwrap();
-        let hdr = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: wgpu::Extent3d {
+        let hdr = texture_2d(
+            &device,
+            wgpu::Extent3d {
                 width: 1,
                 height: 1,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba16Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
-        let hdr_depth = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: hdr.size(),
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: crate::pipeline::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        });
-        let hdr_read = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 256,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
+            wgpu::TextureFormat::Rgba16Float,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        );
+        let hdr_depth = texture_2d(
+            &device,
+            hdr.size(),
+            crate::pipeline::DEPTH_FORMAT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT,
+        );
         let mut hdr_p = p;
         hdr_p.light_direction[3] = 16.;
         let hdr_draw = hdr_renderer
@@ -734,57 +651,15 @@ mod tests {
         {
             let view = hdr.create_view(&Default::default());
             let depth_view = hdr_depth.create_view(&Default::default());
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &depth_view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                ..Default::default()
-            });
+            let mut pass = clear_pass(&mut encoder, &view, &depth_view);
             hdr_renderer.encode(&hdr_draw, &mut pass).unwrap();
         }
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture: &hdr,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &hdr_read,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(256),
-                    rows_per_image: Some(1),
-                },
-            },
-            hdr.size(),
-        );
+        let readback = Readback::record(&device, &mut encoder, &hdr, 0, 8);
         queue.submit([encoder.finish()]);
         let lease = hdr_draw.resource_lease();
         drop(hdr_draw);
         lease.retain_until_complete(&queue);
-        let (tx, rx) = std::sync::mpsc::channel();
-        hdr_read
-            .slice(..)
-            .map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
-        device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-        rx.recv().unwrap().unwrap();
-        let mapped = hdr_read.slice(..).get_mapped_range().unwrap();
+        let mapped = readback.read(&device);
         let mut radiance = [0f64; 4];
         for (c, value) in radiance.iter_mut().enumerate() {
             let bits = u16::from_ne_bytes(mapped[2 * c..2 * c + 2].try_into().unwrap());
@@ -804,8 +679,6 @@ mod tests {
         assert_eq!(radiance[3], 1.);
         assert!(radiance[0] > 2.);
         eprintln!("linear HDR material radiance: {radiance:?}");
-        drop(mapped);
-        hdr_read.unmap();
         device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         let resident = budget.used();
         let tiny = budget.child(463); // 3*96 + 176 = 464 bytes required.

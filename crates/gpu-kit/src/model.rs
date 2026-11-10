@@ -461,16 +461,13 @@ impl ModelRenderer {
 }
 #[cfg(test)]
 mod tests {
+    use crate::test_support::validate_wgsl;
     use crate::wgpu;
     #[test]
     fn model_shader_validates() {
-        let module =
-            wgpu::naga::front::wgsl::parse_str(include_str!("../shaders/model_view.wgsl")).unwrap();
-        wgpu::naga::valid::Validator::new(
-            wgpu::naga::valid::ValidationFlags::all(),
+        validate_wgsl(
+            include_str!("../shaders/model_view.wgsl"),
             wgpu::naga::valid::Capabilities::all(),
-        )
-        .validate(&module)
-        .unwrap();
+        );
     }
 }

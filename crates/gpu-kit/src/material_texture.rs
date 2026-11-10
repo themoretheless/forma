@@ -413,17 +413,15 @@ fn generate_mips(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::validate_wgsl;
+    #[cfg(target_os = "macos")]
+    use crate::test_support::{Readback, metal_device};
     #[test]
     fn material_mip_shader_validates() {
-        let module =
-            wgpu::naga::front::wgsl::parse_str(include_str!("../shaders/material_mip.wgsl"))
-                .unwrap();
-        wgpu::naga::valid::Validator::new(
-            wgpu::naga::valid::ValidationFlags::all(),
+        validate_wgsl(
+            include_str!("../shaders/material_mip.wgsl"),
             wgpu::naga::valid::Capabilities::empty(),
-        )
-        .validate(&module)
-        .unwrap();
+        );
     }
     #[test]
     fn sampler_all_core_modes_and_rejections() {
@@ -464,14 +462,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[ignore = "actual Metal material sRGB/data mip readback and admission"]
     fn material_texture_metal_readback_and_budget() {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::METAL;
-        let instance = wgpu::Instance::new(desc);
-        let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
-        assert_eq!(adapter.get_info().backend, wgpu::Backend::Metal);
-        eprintln!("MATERIAL_TEXTURE_ADAPTER {:?}", adapter.get_info());
-        let (device, queue) =
-            pollster::block_on(adapter.request_device(&Default::default())).unwrap();
+        let (device, queue) = metal_device(wgpu::Features::empty());
         let uploader = MaterialTextureUploader::new(&device, &queue);
         let uploader = uploader.clone();
         let missing_feature_budget = MemoryBudget::new(1024);
@@ -573,53 +564,20 @@ mod tests {
                     .unwrap();
                 device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
                 assert_eq!(budget.used(), resident);
-                let read = device.create_buffer(&wgpu::BufferDescriptor {
-                    label: None,
-                    size: 256,
-                    usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                    mapped_at_creation: false,
-                });
                 let mut encoder = device.create_command_encoder(&Default::default());
-                encoder.copy_texture_to_buffer(
-                    wgpu::TexelCopyTextureInfo {
-                        texture: candidate.texture(),
-                        mip_level: 1,
-                        origin: wgpu::Origin3d::ZERO,
-                        aspect: wgpu::TextureAspect::All,
-                    },
-                    wgpu::TexelCopyBufferInfo {
-                        buffer: &read,
-                        layout: wgpu::TexelCopyBufferLayout {
-                            offset: 0,
-                            bytes_per_row: Some(256),
-                            rows_per_image: Some(1),
-                        },
-                    },
-                    wgpu::Extent3d {
-                        width: 1,
-                        height: 1,
-                        depth_or_array_layers: 1,
-                    },
-                );
+                let readback = Readback::record(&device, &mut encoder, candidate.texture(), 1, 4);
                 queue.submit([encoder.finish()]);
                 let lease = candidate.resource_lease();
                 drop(candidate);
                 assert_eq!(budget.used(), resident);
                 lease.retain_until_complete(&queue);
-                let (tx, rx) = std::sync::mpsc::channel();
-                read.slice(..)
-                    .map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
-                device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-                rx.recv().unwrap().unwrap();
-                let mapped = read.slice(..).get_mapped_range().unwrap();
+                let mapped = readback.read(&device);
                 let expected: i16 = if srgb { color_expected } else { data_expected };
-                for c in 0..3 {
-                    assert!((i16::from(mapped[c]) - expected).abs() <= 1);
+                for &channel in &mapped[..3] {
+                    assert!((i16::from(channel) - expected).abs() <= 1);
                 }
                 assert!((i16::from(mapped[3]) - data_expected).abs() <= 1);
                 eprintln!("size={size:?} srgb={srgb} mip={:?}", &mapped[..4]);
-                drop(mapped);
-                read.unmap();
                 assert_eq!(budget.used(), 0);
             }
         }
@@ -673,73 +631,21 @@ mod tests {
         texture: &wgpu::Texture,
         mip: u32,
     ) -> Vec<f32> {
-        let width = (texture.width() >> mip).max(1);
-        let height = (texture.height() >> mip).max(1);
-        let row = (width * 16).div_ceil(256) * 256;
-        let read = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: u64::from(row) * u64::from(height),
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
         let mut encoder = device.create_command_encoder(&Default::default());
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture,
-                mip_level: mip,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &read,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(row),
-                    rows_per_image: Some(height),
-                },
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-        );
+        let readback = Readback::record(device, &mut encoder, texture, mip, 16);
         queue.submit([encoder.finish()]);
-        let (tx, rx) = std::sync::mpsc::channel();
-        read.slice(..)
-            .map_async(wgpu::MapMode::Read, move |r| tx.send(r).unwrap());
-        device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-        rx.recv().unwrap().unwrap();
-        let mapped = read.slice(..).get_mapped_range().unwrap();
-        let mut out = Vec::new();
-        for y in 0..height as usize {
-            let bytes = &mapped[y * row as usize..y * row as usize + width as usize * 16];
-            out.extend(
-                bytes
-                    .chunks_exact(4)
-                    .map(|b| f32::from_ne_bytes(b.try_into().unwrap())),
-            );
-        }
-        drop(mapped);
-        read.unmap();
-        out
+        readback
+            .read(device)
+            .chunks_exact(4)
+            .map(|b| f32::from_ne_bytes(b.try_into().unwrap()))
+            .collect()
     }
 
     #[test]
     #[cfg(target_os = "macos")]
     #[ignore = "actual Metal all 65536 normalized codes, sRGB and float32 mip proof"]
     fn material_texture_16bit_metal() {
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::METAL;
-        let instance = wgpu::Instance::new(desc);
-        let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
-        assert_eq!(adapter.get_info().backend, wgpu::Backend::Metal);
-        eprintln!("MATERIAL_16_ADAPTER {:?}", adapter.get_info());
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::FLOAT32_FILTERABLE,
-            ..Default::default()
-        }))
-        .unwrap();
+        let (device, queue) = metal_device(wgpu::Features::FLOAT32_FILTERABLE);
         let uploader = MaterialTextureUploader::new(&device, &queue);
         let input: Vec<u16> = (0..=u16::MAX).flat_map(|v| [v, v, v, v]).collect();
         for srgb in [false, true] {
