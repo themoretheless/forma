@@ -6,8 +6,6 @@ on:
   push:
     tags:
       - 'v*'
-      - 'forma-v*'
-      - 'studio-v*'
 
 permissions:
   contents: write

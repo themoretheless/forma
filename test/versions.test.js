@@ -2,24 +2,35 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { versions, validVersion, release } from '../scripts/versions.mjs';
 
-test('release tags select independent manifest versions', () => {
-  const current = { runtime: '0.2.0', studio: '0.5.1' };
-  assert.equal(release('forma-v0.2.0', current).component, 'runtime');
-  assert.equal(release('studio-v0.5.1', current).component, 'studio');
-  assert.throws(() => release('studio-v0.2.0', current), /does not match/);
-  assert.throws(() => release('forma-v0.3.0', current), /does not match/);
-  for (const tag of [
-    'v0.2.0',
-    'runtime-v0.2.0',
-    'forma-0.2.0',
-    'forma-v0.2.0/extra',
-    'forma-v0.2.0+build',
-  ])
+test('one release tag must match every manifest version', () => {
+  const current = { runtime: '0.2.0', studio: '0.5.1', svet: '0.2.0' };
+  // One tag covers the library, Studio and svet, so it has to match every manifest.
+  assert.throws(() => release('v0.2.0', current), /does not match studio/);
+  assert.throws(() => release('v0.5.1', current), /does not match runtime/);
+  assert.throws(
+    () => release('v0.2.0', { runtime: '0.2.0', studio: '0.2.0', svet: '1.0.0' }),
+    /does not match svet/,
+  );
+  assert.equal(
+    release('v0.2.0', { runtime: '0.2.0', studio: '0.2.0', svet: '0.2.0' }).version,
+    '0.2.0',
+  );
+  // The per-component tags of earlier releases are no longer release tags.
+  assert.throws(() => release('forma-v0.2.0', current), /Expected vX\.Y\.Z/);
+  assert.throws(() => release('studio-v0.5.1', current), /Expected vX\.Y\.Z/);
+  for (const tag of ['v0.2.0', 'runtime-v0.2.0', 'forma-0.2.0', 'v0.2.0/extra', 'v0.2.0+build'])
     assert.throws(() => release(tag, current));
 });
 test('prereleases are explicit and malformed semver cannot trigger a release', () => {
-  assert.equal(release('forma-v0.2.0-rc.1', { runtime: '0.2.0-rc.1' }).prerelease, true);
-  assert.equal(release('forma-v0.2.0', { runtime: '0.2.0' }).prerelease, false);
+  assert.equal(
+    release('v0.2.0-rc.1', { runtime: '0.2.0-rc.1', studio: '0.2.0-rc.1', svet: '0.2.0-rc.1' })
+      .prerelease,
+    true,
+  );
+  assert.equal(
+    release('v0.2.0', { runtime: '0.2.0', studio: '0.2.0', svet: '0.2.0' }).prerelease,
+    false,
+  );
   for (const v of [
     '01.2.3',
     '1.02.3',
@@ -40,12 +51,12 @@ test('committed manifest and lockfile versions agree', () => {
   assert.match(v.wasmBindgen, /^\d+\.\d+\.\d+$/);
 });
 
-test('gpu-runtime, gpu-shader and gpu-compute resolve cleanly in crates/forma/Cargo.lock without duplicate windows crates', async () => {
+test('gpu-runtime, gpu-shader and gpu-compute resolve cleanly in the workspace Cargo.lock without duplicate windows crates', async () => {
   const { readFileSync } = await import('node:fs');
   const { resolve } = await import('node:path');
   const { root } = await import('../scripts/versions.mjs');
   const blocks = new Map(
-    readFileSync(resolve(root, 'crates/forma/Cargo.lock'), 'utf8')
+    readFileSync(resolve(root, 'Cargo.lock'), 'utf8')
       .split('[[package]]')
       .flatMap(block => {
         const name = /^name = "([^"]+)"/m.exec(block)?.[1],
@@ -81,11 +92,13 @@ test('version command updates only its component and all associated lockfiles', 
       'package.json',
       'package-lock.json',
       'crates/forma/Cargo.toml',
-      'crates/forma/Cargo.lock',
-      'crates/forma/examples/binding-app/Cargo.lock',
-      'crates/forma/examples/language-app/Cargo.lock',
+      'Cargo.lock',
       'native-app/Cargo.toml',
       'native-app/Cargo.lock',
+      'packages/svet/package.json',
+      'packages/svet/package-lock.json',
+      'packages/svet/crates/svet-wasm/Cargo.toml',
+      'packages/svet/crates/svet-wasm/Cargo.lock',
     ]) {
       const dest = join(folder, path);
       mkdirSync(dirname(dest), { recursive: true });
@@ -107,6 +120,30 @@ test('version command updates only its component and all associated lockfiles', 
       runtime: '0.8.0-rc.1',
       studio: '0.9.1',
     });
+    const svet = run('set', 'svet', '0.9.2');
+    assert.equal(svet.status, 0, svet.stderr);
+    assert.deepEqual(JSON.parse(svet.stdout), {
+      ...before,
+      runtime: '0.8.0-rc.1',
+      studio: '0.9.1',
+      svet: '0.9.2',
+    });
+    // `all` moves every component to one release version.
+    const all = run('set', 'all', '1.4.0');
+    assert.equal(all.status, 0, all.stderr);
+    assert.deepEqual(JSON.parse(all.stdout), {
+      ...before,
+      runtime: '1.4.0',
+      studio: '1.4.0',
+      svet: '1.4.0',
+    });
+    for (const [path, pattern] of [
+      ['packages/svet/package.json', /"version": "1\.4\.0"/],
+      ['packages/svet/crates/svet-wasm/Cargo.toml', /^version = "1\.4\.0"$/m],
+      ['packages/svet/crates/svet-wasm/Cargo.lock', /name = "svet-wasm"\nversion = "1\.4\.0"/],
+      ['Cargo.lock', /name = "svet-wasm"\nversion = "1\.4\.0"/],
+    ])
+      assert.match(readFileSync(join(folder, path), 'utf8'), pattern, path);
     const snapshot = readFileSync(join(folder, 'package.json'), 'utf8');
     assert.notEqual(run('set', 'studio', '0.9.01').status, 0);
     assert.equal(

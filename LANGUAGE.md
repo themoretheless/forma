@@ -8,7 +8,7 @@
 в Rust; JavaScript соединяет их с редактором и моделями Studio.
 
 Forma берёт `themoretheless-tokenizer-forma` из точной ревизии `rev` в
-`crates/forma/Cargo.toml`; `crates/forma/Cargo.lock` закрепляет её и для основного crate.
+`crates/forma/Cargo.toml`; корневой `Cargo.lock` закрепляет её и для основного crate.
 Это важно для экспортированных приложений: lockfile path-зависимости они не наследуют.
 JS-пакет `@themoretheless/tokenizer-forma`
 подключается из checkout того же коммита в соседнем каталоге `../tokenizer`:

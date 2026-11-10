@@ -13,7 +13,7 @@ Native wgpu backend features are selected here. Workspace dependencies pin the
 wgpu/naga versions used by compute and raster. Domain algorithms, render state
 and automatic CPU/GPU placement remain in the higher-level crates.
 
-[Architecture and migration](../../docs/design/gpu-library-architecture.md)
+Architecture and migration (`docs/design/gpu-library-architecture.md` in the upstream open-scad-viewer repository; not included here)
 describes module ownership, compatibility boundaries and remaining work.
 
 `GpuBuffer` and `GpuBufferView` validate context ownership, range, usage and storage

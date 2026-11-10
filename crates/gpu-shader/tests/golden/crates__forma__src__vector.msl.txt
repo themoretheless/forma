@@ -1,0 +1,321 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct Command {
+    float4 info;
+    float4 bounds;
+    float4 color;
+    float4 extra;
+    float4 scroll;
+};
+
+struct Params {
+    float4 viewport;
+    float4 fill;
+    float4 border;
+    float4 scroll;
+};
+
+float4 scrolled_bounds(Command c, constant Params& params);
+float4 over(float4 fg, float4 bg);
+float4 premul(float4 c);
+float _wgpu_ident_distance(float2 p, float4 b, float radius);
+float edge_coverage(float d, constant Params& params);
+float rect_area_coverage(float2 pixel, float4 b, constant Params& params);
+float clip_coverage(float2 pixel, Command c, float4 b, constant Params& params);
+float edge_area(float2 a, float2 b, float2 origin);
+float path_coverage(float2 pixel, Command c, float2 shift, constant Params& params, const device float4* edges);
+float4 coverage(float2 pixel, Command c, float4 b, constant Params& params, const device float4* edges, const device float4* paints);
+float3 linear(float3 c);
+
+float4 scrolled_bounds(Command c, constant Params& params) {
+
+    if (c.scroll.x==1.) {return float4(c.bounds.xy-params.scroll.xy, c.bounds.zw);}
+    if (c.scroll.x==2.) {return float4(c.bounds.x, c.bounds.y+params.scroll.y*c.scroll.y, c.bounds.zw);}
+    if (c.scroll.x==3.) {return float4(c.bounds.x+params.scroll.x*c.scroll.y, c.bounds.yzw);}
+    return c.bounds;
+}
+
+float4 over(float4 fg, float4 bg) {
+return fg+bg*(1.-fg.a);}
+
+float4 premul(float4 c) {
+return float4(c.rgb*c.a, c.a);}
+
+float _wgpu_ident_distance(float2 p, float4 b, float radius) {
+
+    const auto r = min(radius, min(b.z, b.w)*0.5);
+    const auto d = abs(p-b.xy-b.zw*0.5)-(b.zw*0.5-float2(r));
+    return length(max(d, float2(0.)))+min(max(d.x, d.y), 0.)-r;
+}
+
+float edge_coverage(float d, constant Params& params) {
+
+    return clamp(0.5-d*params.viewport.z, 0., 1.);
+}
+
+float rect_area_coverage(float2 pixel, float4 b, constant Params& params) {
+
+    if (any(b.zw<=float2(0.))) {return 0.;}
+    const auto lo = b.xy*params.viewport.z;
+    const auto hi = (b.xy+b.zw)*params.viewport.z;
+    const auto span = clamp(min(pixel+float2(1.), hi)-max(pixel, lo), float2(0.), float2(1.));
+    return span.x*span.y;
+}
+
+float clip_coverage(float2 pixel, Command c, float4 b, constant Params& params) {
+
+    if (any(b.zw<=float2(0.))) {return 0.;}
+    const auto scale = params.viewport.z;
+    if (c.extra.y==1.) {
+        const auto p = (pixel+0.5)/scale;
+        return select(0., 1., all(p>=b.xy)&&all(p<b.xy+b.zw));
+    }
+    return edge_coverage(_wgpu_ident_distance((pixel+0.5)/scale, b, c.extra.x), params);
+}
+
+float edge_area(float2 a, float2 b, float2 origin) {
+
+    if (a.y==b.y) {return 0.;}
+    const auto ya = max(min(a.y, b.y), origin.y);
+    const auto yb = min(max(a.y, b.y), origin.y+1.);
+    if (ya>=yb) {return 0.;}
+    const auto slope = (b.x-a.x)/(b.y-a.y);
+    const auto fa = a.x+(ya-a.y)*slope-origin.x;
+    const auto fb = a.x+(yb-a.y)*slope-origin.x;
+    const auto d = fb-fa;
+    auto area = clamp(fa, 0., 1.);
+    if (d!=0.) {
+                                                                                
+        const auto t0 = clamp(-fa/d, 0., 1.);
+        const auto t1 = clamp((1.-fa)/d, 0., 1.);
+        const auto lo = min(t0, t1);
+        const auto hi = max(t0, t1);
+        const auto flo = clamp(fa+d*lo, 0., 1.);
+        const auto fhi = clamp(fa+d*hi, 0., 1.);
+        area=select(lo, 1.-hi, d>0.)+(flo+fhi)*0.5*(hi-lo);
+    }
+    return select(-area, area, b.y>a.y)*(yb-ya);
+}
+
+float path_coverage(float2 pixel, Command c, float2 shift, constant Params& params, const device float4* edges) {
+
+    const auto scale = params.viewport.z;
+    auto area = 0.;
+    for (auto i = uint(c.info.z); i<uint(c.info.z+c.info.w); i++){
+        const auto e = edges[i];
+        area+=edge_area((e.xy-shift)*scale, (e.zw-shift)*scale, pixel);
+    }
+                                                                                  
+                                                                   
+    return min(abs(area), 1.);
+}
+
+float4 coverage(float2 pixel, Command c, float4 b, constant Params& params, const device float4* edges, const device float4* paints) {
+
+    if (c.info.x==5.) {
+        const auto p = (pixel+0.5)/params.viewport.z;
+        return premul(c.color)*select(0., 1., all(p>=b.xy)&&all(p<b.xy+b.zw));
+    }
+    if (c.info.x!=1.) {
+        const auto p = (pixel+0.5)/params.viewport.z;
+        const auto d = _wgpu_ident_distance(p, b, c.extra.x);
+        auto outer = edge_coverage(d, params);
+        if (c.extra.x==0.&&(c.info.x==0.||c.info.x==4.)) {
+            outer=rect_area_coverage(pixel, b, params);
+        }
+        if (c.info.x==6.) {
+            const auto data = paints[uint(c.extra.z)];
+            const auto color = paints[uint(c.extra.z)+1u];
+            const auto band = max(outer-edge_coverage(d+c.extra.y, params), 0.);
+            const auto radial = clamp(1.-length(p-data.xy)/max(data.z, 0.0001), 0., 1.);
+            return premul(color)*band*select(radial, 1., data.w==1.);
+        }
+        if (c.info.x==4.) {
+            auto result = premul(paints[uint(c.extra.z)])*outer;
+            if (c.extra.y>0.&&outer>0.) {
+                auto inner = edge_coverage(d+c.extra.y, params);
+                if (c.extra.x==0.) {
+                    inner=rect_area_coverage(pixel, float4(b.xy+float2(c.extra.y), b.zw-float2(2.*c.extra.y)), params);
+                }
+                const auto band = max(outer-inner, 0.);
+                                                                            
+                                                             
+                const auto border = premul(paints[uint(c.extra.w)]);
+                result=border*band+result*(1.-border.a*band/outer);
+            }
+            return result;
+        }
+        return premul(c.color)*outer;
+    }
+                                                                                   
+    const auto shift = select(float2(0.), params.scroll.xy, c.scroll.x==1.);
+    return premul(c.color)*path_coverage(pixel, c, shift, params, edges);
+}
+
+float3 linear(float3 c) {
+
+    return select(pow((c+0.055)/1.055, float3(2.4)), c/12.92, c<=float3(0.04045));
+}
+
+struct _wgpu_vs_StageOut {
+    float4 value [[position]];
+};
+
+vertex _wgpu_vs_StageOut vs(uint index [[vertex_id]]) {
+
+    const auto p = _wgpu_arr<float2, 3>{{ float2(-1., -1.), float2(3., -1.), float2(-1., 3.) }};
+    return _wgpu_vs_StageOut{float4(p[index], 0., 1.)};
+}
+
+struct _wgpu_fs_StageOut {
+    float4 value [[color(0)]];
+};
+
+fragment _wgpu_fs_StageOut fs(float4 position [[position]], constant Params& params [[buffer(0)]], const device Command* commands [[buffer(1)]], const device float4* edges [[buffer(2)]], const device uint* tiles [[buffer(3)]], const device float4* paints [[buffer(4)]]) {
+
+    const auto pixel = floor(position.xy);
+    const auto inv_scale = 1./params.viewport.z;
+    const auto p_logical = (pixel+0.5)*inv_scale;
+    const auto aa = float2(inv_scale);
+    const auto cols = uint(ceil(params.viewport.x/32.));
+    const auto tile = (uint(pixel.y)/32u*cols+uint(pixel.x)/32u)*2u;
+    const auto start = tiles[tile];const auto count = tiles[tile+1u];
+    _wgpu_arr<float4, 32> parents = {};_wgpu_arr<float, 32> masks = {};
+    auto depth = 0u;auto result = float4(0.);auto visible = 1.;
+    for (auto i = 0u; i<count; i++){
+        const auto c = commands[tiles[start+i]];
+        if (c.info.x==2.) {
+            parents[depth]=result;masks[depth]=clip_coverage(pixel, c, scrolled_bounds(c, params), params);depth+=1u;
+            result=float4(0.);visible*=masks[depth-1u];
+        }else if (c.info.x==3.) {
+            depth-=1u;result=over(result*masks[depth], parents[depth]);
+            visible=1.;for (auto j = 0u; j<depth; j++){visible*=masks[j];}
+        }else if (visible>0.) {
+            const auto b = scrolled_bounds(c, params);
+            if (all(p_logical>=b.xy-aa)&&all(p_logical<=b.xy+b.zw+aa)) {
+                result=over(coverage(pixel, c, b, params, edges, paints), result);
+            }
+        }
+    }
+    if (params.viewport.w>=1.) {result=over(result, float4(17./255., 19./255., 25./255., 1.));}
+                                                                                   
+    if (params.viewport.w>=2.) {result=float4(linear(result.rgb), result.a);}
+    return _wgpu_fs_StageOut{result};
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "commands": (
+            1,
+            0,
+            80,
+            1,
+        ),
+        "edges": (
+            2,
+            0,
+            16,
+            2,
+        ),
+        "paints": (
+            4,
+            0,
+            16,
+            4,
+        ),
+        "tiles": (
+            3,
+            0,
+            4,
+            3,
+        ),
+    },
+}

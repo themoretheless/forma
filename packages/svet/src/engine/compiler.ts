@@ -165,8 +165,13 @@ export function transformSvetJsx(source: string): string {
 }
 
 export interface SvetVitePluginOptions {
-  /** Runtime package used by generated Forma modules. */
+  /** Runtime package used by generated Forma modules. Use `svet-engine/slim` together with the slim entry. */
   runtimeImportSource?: string;
+  /**
+   * Keep the `.ui` text in generated modules as `uiSource`. Defaults to `true` while serving and
+   * `false` for `vite build`, where only the pre-parsed AST is needed.
+   */
+  embedFormaSource?: boolean;
 }
 
 // Structural adapter types keep consumers of the runtime declarations independent
@@ -185,9 +190,13 @@ interface SvetHotUpdateContext<TModule> {
  * and AOT + HMR compilation of Forma `.ui` files.
  */
 export function svetVitePlugin(options: SvetVitePluginOptions = {}) {
+  let production = false;
   return {
     name: 'vite-plugin-svet-jsx',
     enforce: 'pre' as const,
+    configResolved(config: { command?: string }) {
+      production = config.command === 'build';
+    },
     handleHotUpdate<TModule>({ file, server, read }: SvetHotUpdateContext<TModule>) {
       if (file.endsWith('.ui')) {
         const mods = server.moduleGraph.getModulesByFile(file);
@@ -207,12 +216,14 @@ export function svetVitePlugin(options: SvetVitePluginOptions = {}) {
       }
     },
     transform(code: string, id: string) {
-      const cleanId = id.split('?')[0];
+      const cleanId = id.split('?')[0]!;
       // 1. Direct import of Forma `.ui` files: `import CustomerCardUi from './CustomerCard.ui'`
       // Pre-parses `uiAst` and `uiValidation` at build time (True AOT — 0ms runtime source parsing!)
       if (cleanId.endsWith('.ui')) {
         return {
-          code: compileFormaToJsModule(code, options.runtimeImportSource ?? 'svet-engine'),
+          code: compileFormaToJsModule(code, options.runtimeImportSource ?? 'svet-engine', {
+            embedSource: options.embedFormaSource ?? !production,
+          }),
           map: null,
         };
       }

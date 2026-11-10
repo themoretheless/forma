@@ -64,7 +64,7 @@ const cases = [
     n => {
       const sources = signals(n);
       e.effect(() => {
-        for (const source of sources) source() + source();
+        for (const source of sources) void (source() + source());
       });
       return () => {
         for (let round = 1; round <= 5; round++) sources[0].set(-round);

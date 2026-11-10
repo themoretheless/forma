@@ -67,14 +67,15 @@ pub struct WebGpuDevice {
 }
 
 impl WebGpuDevice {
-    /// Probes or constructs the Browser WebGPU device profile.
-    pub fn probe_available() -> Option<Self> {
+    /// A static description of the browser WebGPU profile this backend targets, for planning code
+    /// and tests. It describes no real device: nothing here talks to a driver.
+    pub fn reference_profile() -> Self {
         let host_uma = cfg!(any(
             all(target_os = "macos", target_arch = "aarch64"),
             target_os = "ios",
             target_os = "android"
         ));
-        Some(Self {
+        Self {
             name: "W3C Browser WebGPU (navigator.gpu)".to_string(),
             host_memory_architecture: if host_uma {
                 MemoryArchitecture::Uma
@@ -86,7 +87,13 @@ impl WebGpuDevice {
             supports_timestamp_query: true,
             subgroup_min_size: 32,
             subgroup_max_size: 32,
-        })
+        }
+    }
+
+    /// Finds a real browser WebGPU device. The backend is not implemented yet, so this always returns
+    /// `None`; it used to return a fabricated profile on every platform.
+    pub fn probe_available() -> Option<Self> {
+        None
     }
 
     /// Returns the canonical [`BackendReport`] for Browser WebGPU (`ApiEnvironment::BrowserSandbox`, `BackendShaderIr::Wgsl`).

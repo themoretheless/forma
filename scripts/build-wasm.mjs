@@ -23,7 +23,7 @@ if (cli !== `wasm-bindgen ${current.wasmBindgen}`)
     `Install matching CLI: cargo install wasm-bindgen-cli --version ${current.wasmBindgen} --locked`,
   );
 buildTokenizerWasm();
-const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'crates/forma/target');
+const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'target');
 run('cargo', [
   'build',
   '--locked',

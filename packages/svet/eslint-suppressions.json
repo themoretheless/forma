@@ -1,0 +1,397 @@
+{
+  "scripts/browser-fixture-endpoints.mjs": {
+    "@typescript-eslint/no-unused-expressions": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "scripts/check-edge-ssr.mjs": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "scripts/check-forma-aot-lifecycle.mjs": {
+    "no-prototype-builtins": {
+      "count": 1
+    }
+  },
+  "scripts/check-ssr-runtime-package.mjs": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "scripts/measure-readable-ssr-retention.mjs": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "scripts/soak-ssr-stream-http.mjs": {
+    "no-unsafe-finally": {
+      "count": 1
+    }
+  },
+  "scripts/workerd-inspector.mjs": {
+    "@typescript-eslint/no-unused-expressions": {
+      "count": 1
+    }
+  },
+  "src/demo/main.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/engine/advanced.ts": {
+    "no-control-regex": {
+      "count": 1
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "src/engine/devtools.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 8
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/engine/dom.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 34
+    },
+    "no-control-regex": {
+      "count": 1
+    },
+    "no-unsafe-finally": {
+      "count": 2
+    }
+  },
+  "src/engine/forma-expr.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 24
+    },
+    "@typescript-eslint/switch-exhaustiveness-check": {
+      "count": 1
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "src/engine/forma-reactive.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "src/engine/forma-stdlib.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 27
+    }
+  },
+  "src/engine/forma.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 79
+    },
+    "@typescript-eslint/no-unsafe-function-type": {
+      "count": 6
+    },
+    "no-unsafe-finally": {
+      "count": 2
+    }
+  },
+  "src/engine/gpu-resident-bridge.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/engine/gpu-resident.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "src/engine/gpu.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 39
+    },
+    "@typescript-eslint/no-unused-expressions": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/engine/jsx.ts": {
+    "@typescript-eslint/no-empty-object-type": {
+      "count": 1
+    },
+    "@typescript-eslint/no-explicit-any": {
+      "count": 9
+    },
+    "@typescript-eslint/no-namespace": {
+      "count": 1
+    }
+  },
+  "src/engine/reactivity.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 32
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "no-unsafe-finally": {
+      "count": 1
+    }
+  },
+  "src/engine/resumable.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    },
+    "no-control-regex": {
+      "count": 1
+    },
+    "no-unsafe-finally": {
+      "count": 1
+    }
+  },
+  "src/engine/ssr-runtime.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/engine/stream.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/ui.d.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "tests/benchmark.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 25
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "tests/captured-context.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/computed-cycles.test.ts": {
+    "prefer-const": {
+      "count": 10
+    }
+  },
+  "tests/cross-core-dependencies.test.ts": {
+    "prefer-const": {
+      "count": 2
+    }
+  },
+  "tests/dynamic-child-ownership.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "tests/dynamic-child-recovery.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "tests/edge/retention.mjs": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "tests/effect-lifecycle.test.ts": {
+    "prefer-const": {
+      "count": 12
+    }
+  },
+  "tests/event-context.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/for-recovery.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "tests/forma-ast-contracts.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/forma-ast-metadata.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 8
+    }
+  },
+  "tests/forma-ast-tree.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/forma-dispose-failures.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "tests/forma-hmr-events.test.ts": {
+    "prefer-const": {
+      "count": 3
+    }
+  },
+  "tests/forma-hmr-options-reentrancy.test.ts": {
+    "prefer-const": {
+      "count": 2
+    }
+  },
+  "tests/forma-public-handle.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/fragment-construction.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/gpu-compute.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 15
+    },
+    "@typescript-eslint/no-this-alias": {
+      "count": 1
+    }
+  },
+  "tests/gpu-lifecycle.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-expressions": {
+      "count": 1
+    }
+  },
+  "tests/gpu-render-lifecycle.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 15
+    }
+  },
+  "tests/gpu-resident-render.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "tests/gpu-resident.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/h-construction.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "tests/helpers/resident-device.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 16
+    }
+  },
+  "tests/model-adoption.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/model-construction.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "tests/model-reset.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/readable-ssr.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/reset-lifecycle.test.ts": {
+    "prefer-const": {
+      "count": 4
+    }
+  },
+  "tests/server-action-concurrency.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "tests/server-action-lifecycle.test.ts": {
+    "@typescript-eslint/no-this-alias": {
+      "count": 1
+    },
+    "prefer-const": {
+      "count": 7
+    }
+  },
+  "tests/show-recovery.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "tests/ssr-carrier.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    },
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "tests/ssr-lifetime.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "tests/stream-codec.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "tests/stream-protocol.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "tests/streaming-ssr.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "tests/svet.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 14
+    },
+    "prefer-const": {
+      "count": 1
+    },
+    "prefer-rest-params": {
+      "count": 2
+    }
+  },
+  "tests/view-commit-lifecycle.test.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  }
+}

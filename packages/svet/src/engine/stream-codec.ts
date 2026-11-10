@@ -21,7 +21,7 @@ export interface SsrStreamTransportDecoder {
   decode(frame: SsrStreamTransportFrame): SsrStreamChunk;
   dispose(): void;
 }
-function transportState(options: { maxChunkBytes?: number }) {
+function transportState(options: { maxChunkBytes?: number | undefined }) {
   const maxBytes = options.maxChunkBytes ?? 8 * 1024 * 1024;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
     throw RangeError('Invalid SSR codec maxChunkBytes');
@@ -104,7 +104,7 @@ function transportState(options: { maxChunkBytes?: number }) {
 }
 /** Retains at most the immediately preceding HTML, released on complete/error/dispose. */
 export function createSsrStreamTransportEncoder(
-  options: { maxChunkBytes?: number } = {},
+  options: { maxChunkBytes?: number | undefined } = {},
 ): SsrStreamTransportEncoder {
   const state = transportState(options);
   return {
@@ -137,7 +137,7 @@ export function createSsrStreamTransportEncoder(
   };
 }
 export function createSsrStreamTransportDecoder(
-  options: { maxChunkBytes?: number } = {},
+  options: { maxChunkBytes?: number | undefined } = {},
 ): SsrStreamTransportDecoder {
   const state = transportState(options);
   return {

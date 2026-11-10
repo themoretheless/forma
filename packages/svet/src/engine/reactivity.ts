@@ -48,7 +48,7 @@ export interface OwnerScope {
   children: Set<OwnerScope> | null;
   parent: OwnerScope | null;
   disposed: boolean;
-  context?: Map<symbol, any>;
+  context?: Map<symbol, any> | undefined;
 }
 
 type EffectEntry = {
@@ -72,7 +72,7 @@ type EffectEntry = {
   sourceRetirementVersion: number;
   rerunRequested: boolean;
   handle: EffectHandle;
-  cleanup?: () => void;
+  cleanup?: (() => void) | undefined;
   disposed: boolean;
   owner: OwnerScope | null;
   deps: number[];
@@ -1522,7 +1522,6 @@ export function signal<T>(
   };
 
   let singleSubEffect: EffectEntry | null | undefined = undefined; // undefined = unknown, null = multiple/none
-  let singleSubEpoch = -1;
   let hasComputedSubscriber = false;
 
   const getter = (() => {
@@ -1550,14 +1549,13 @@ export function signal<T>(
 
   (getter as any).id = id;
   (getter as any).__svet_sig = true;
-  (getter as any)._tryRegisterDirectUnlinked = (eff: EffectEntry, ver: number): boolean => {
+  (getter as any)._tryRegisterDirectUnlinked = (eff: EffectEntry, _ver: number): boolean => {
     if (disposed) return false;
     if (
       !hasComputedSubscriber &&
       (singleSubEffect === undefined || singleSubEffect === eff || singleSubEffect?.disposed)
     ) {
       singleSubEffect = eff;
-      singleSubEpoch = ver;
       return true;
     }
     if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked) {
@@ -1565,10 +1563,9 @@ export function signal<T>(
       core.svet_link_1(singleSubEffect.id, id);
     }
     singleSubEffect = null;
-    singleSubEpoch = ver;
     return false;
   };
-  (getter as any)._invalidateDirectEffect = (ver: number, isComputed = false) => {
+  (getter as any)._invalidateDirectEffect = (_ver: number, isComputed = false) => {
     if (disposed) return;
     if (isComputed) hasComputedSubscriber = true;
     if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked) {
@@ -1576,7 +1573,6 @@ export function signal<T>(
       core.svet_link_1(singleSubEffect.id, id);
     }
     singleSubEffect = null;
-    singleSubEpoch = ver;
   };
   ctx.signalRegistry[id] = getter;
 
@@ -1646,7 +1642,6 @@ export function signal<T>(
           const entry = ctx.effectRegistry[effId];
           if (ctx.batchDepth === 0) {
             singleSubEffect = entry ?? null;
-            singleSubEpoch = ctx.topologyVersion;
           }
           if (entry && !entry.disposed) {
             ctx.isRunningEffect = true;
@@ -1662,7 +1657,6 @@ export function signal<T>(
           }
         } else if (res < 0) {
           singleSubEffect = null;
-          singleSubEpoch = ctx.topologyVersion;
           const count = -res;
           const ptr = core.svet_get_flush_ptr();
           const copy = new Uint32Array(core.memory.buffer, ptr, count).slice();
@@ -1678,7 +1672,6 @@ export function signal<T>(
           }
         } else if (ctx.batchDepth === 0) {
           singleSubEffect = null;
-          singleSubEpoch = ctx.topologyVersion;
         }
       }
     } finally {

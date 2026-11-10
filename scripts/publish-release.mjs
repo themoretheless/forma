@@ -7,35 +7,36 @@ const current = versions(),
   tag = process.env.GITHUB_REF_NAME;
 if (process.env.GITHUB_REF_TYPE !== 'tag') throw Error('Releases require a pushed tag');
 const info = release(tag, current);
-const name =
-  info.component === 'runtime'
-    ? `forma-${info.version}-wasm.tar.gz`
-    : `forma-studio-${info.version}-web.tar.gz`;
-for (const file of [name, `${name}.sha256`])
+// Both bundles were built and tested by the CI run this workflow reused; publish exactly those.
+const names = [`forma-${info.version}-wasm.tar.gz`, `forma-studio-${info.version}-web.tar.gz`];
+const files = names.flatMap(name => [name, `${name}.sha256`]);
+for (const file of files)
   if (!existsSync(resolve(root, '.release', file)))
     throw Error(`Missing tested CI artifact ${file}`);
-const expected = readFileSync(resolve(root, '.release', `${name}.sha256`), 'utf8').split(/\s+/)[0];
-if (
-  createHash('sha256')
-    .update(readFileSync(resolve(root, '.release', name)))
-    .digest('hex') !== expected
-)
-  throw Error('Release artifact checksum mismatch');
-const title = `${info.component === 'runtime' ? 'Forma' : 'Forma Studio'} ${info.version}`;
-const notes = `${title}\n\nForma: ${current.runtime}\nStudio: ${current.studio}\nCommit: ${process.env.GITHUB_SHA}\n\n${info.component === 'runtime' ? 'WASM bindings and binary. Rust sources are available at this tag; no crates.io/npm publication.' : 'Static Studio build including the tested WASM runtime. Native launch, Rust execution and MCP need the local development server; they are not part of the static bundle.'}\n`;
+for (const name of names) {
+  const expected = readFileSync(resolve(root, '.release', `${name}.sha256`), 'utf8').split(
+    /\s+/,
+  )[0];
+  if (
+    createHash('sha256')
+      .update(readFileSync(resolve(root, '.release', name)))
+      .digest('hex') !== expected
+  )
+    throw Error(`Release artifact checksum mismatch: ${name}`);
+}
+const title = `Forma ${info.version}`;
+const notes = `${title}\n\nCommit: ${process.env.GITHUB_SHA}\n\n${names[0]}: WASM bindings and binary. Rust sources are available at this tag; no crates.io/npm publication.\n\n${names[1]}: static Studio build including the tested WASM runtime. Native launch, Rust execution and MCP need the local development server; they are not part of the static bundle.\n`;
 writeFileSync(resolve(root, '.release/notes.md'), notes);
 const args = [
   'release',
   'create',
   tag,
-  resolve(root, '.release', name),
-  resolve(root, '.release', `${name}.sha256`),
+  ...files.map(file => resolve(root, '.release', file)),
   '--verify-tag',
   '--title',
   title,
   '--notes-file',
   resolve(root, '.release/notes.md'),
-  '--latest=false',
 ];
 if (info.prerelease) args.push('--prerelease');
 const result = spawnSync('gh', args, { cwd: root, stdio: 'inherit' });
