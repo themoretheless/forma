@@ -37,6 +37,7 @@ export const WORKSPACE_CRATES = [
   'compute-core',
   'compute-cuda',
   'memory-budget',
+  'swap-store',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {

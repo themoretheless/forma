@@ -40,6 +40,10 @@ pub(crate) fn extent_fits(device: &wgpu::Device, size: [u32; 2]) -> bool {
 }
 
 mod backend;
+pub mod exposure;
+pub mod filmstrip;
+pub mod histogram;
+pub mod hud;
 mod material_render;
 mod material_texture;
 mod model;
@@ -48,6 +52,18 @@ mod pipeline;
 mod test_support;
 
 pub use backend::{BackendError, GpuBackend, GpuVendor};
+pub use exposure::{ExposureError, LinearExposureCompute, ResidentExposure};
+pub use filmstrip::{
+    FilmstripRenderer, FilmstripTile, FilmstripTileId, FilmstripUploadError, STRIP_HEIGHT,
+    STRIP_PADDING, TILE_GAP, TILE_HEIGHT, TILE_STRIDE, TILE_WIDTH,
+};
+pub use histogram::{
+    BINS, GpuHistogram, HISTOGRAM_JOB_BYTES, Histogram, HistogramError, HistogramRect, MAX_SAMPLES,
+};
+pub use hud::{
+    HUD_SHADER, HudCard, HudCardBounds, HudRenderer, HudVertex, floor_to_usize, glyph_rows,
+    hud_card_layout, push_hud_text, push_quad, take_chars, wrap_hud_text,
+};
 pub use material_render::{
     MaterialAlpha, MaterialDraw, MaterialParameters, MaterialRaster, MaterialRenderError,
     MaterialRenderer, MaterialVertex,

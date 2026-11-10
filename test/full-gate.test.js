@@ -125,6 +125,7 @@ test('no tracked crate is left out of the gate', () => {
     'compute-mlx': 'crates/compute-mlx/Cargo.toml',
     'compute-cuda': 'crates/compute-cuda/Cargo.toml',
     'memory-budget': 'crates/memory-budget/Cargo.toml',
+    'swap-store': 'crates/swap-store/Cargo.toml',
   };
   const gated = new Set();
   // Covered means named by some platform's run: the legacy WebView host is a macOS-only step in
