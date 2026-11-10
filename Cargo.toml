@@ -15,7 +15,6 @@ members = [
     "crates/compute-core",
     "crates/compute-mlx",
     "crates/compute-cuda",
-    "openscad-ui",
 ]
 # The two example apps run Node and the tokenizer package from build.rs, so a plain
 # `cargo build` at the root must not pull them in.
@@ -30,7 +29,6 @@ default-members = [
     "crates/compute-core",
     "crates/compute-mlx",
     "crates/compute-cuda",
-    "openscad-ui",
 ]
 exclude = [
     # generated and checked-out crates, some with path dependencies on crates/forma
