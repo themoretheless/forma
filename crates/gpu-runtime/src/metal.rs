@@ -2834,6 +2834,10 @@ mod command_failure_classification_tests {
 }
 
 /// MSL for one pipeline stage: the module's source with its `override` values applied.
+///
+/// # Panics
+/// An undeclared or non-finite constant is a validation error; like a shader that fails to
+/// compile, it stops pipeline creation here.
 pub(crate) fn msl_for_pipeline<'a>(
     msl: &'a str,
     constants: &[(&str, f64)],
@@ -2841,9 +2845,10 @@ pub(crate) fn msl_for_pipeline<'a>(
     if constants.is_empty() {
         std::borrow::Cow::Borrowed(msl)
     } else {
-        std::borrow::Cow::Owned(gpu_shader::back::msl::with_pipeline_constants(
-            msl, constants,
-        ))
+        std::borrow::Cow::Owned(
+            gpu_shader::back::msl::with_pipeline_constants(msl, constants)
+                .unwrap_or_else(|error| panic!("invalid pipeline constant: {error}")),
+        )
     }
 }
 
