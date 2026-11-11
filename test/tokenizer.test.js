@@ -32,3 +32,31 @@ test('the checked-in lock and Cargo manifest pin the same exact tokenizer revisi
   assert.ok(rev, 'Cargo.toml must declare an exact tokenizer revision');
   assert.equal(lockedTokenizer().rev, rev);
 });
+
+test('the gate points the npm link at the checked tokenizer and puts it back', async () => {
+  const { mkdtempSync, mkdirSync, symlinkSync, readlinkSync, writeFileSync, rmSync } =
+    await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { linkTokenizerPackage } = await import('../scripts/tokenizer.mjs');
+  const folder = mkdtempSync(join(tmpdir(), 'forma-tokenizer-link-'));
+  try {
+    for (const name of ['sibling', 'pinned']) mkdirSync(join(folder, name));
+    const link = join(folder, 'link');
+    symlinkSync('sibling', link);
+    const restore = linkTokenizerPackage(link, join(folder, 'pinned'));
+    assert.equal(readlinkSync(link), 'pinned');
+    restore();
+    restore();
+    assert.equal(readlinkSync(link), 'sibling');
+    // Already on the target, or not a link at all: nothing changes.
+    linkTokenizerPackage(link, join(folder, 'sibling'))();
+    assert.equal(readlinkSync(link), 'sibling');
+    const plain = join(folder, 'plain');
+    writeFileSync(plain, '');
+    linkTokenizerPackage(plain, join(folder, 'pinned'))();
+    assert.throws(() => readlinkSync(plain));
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});

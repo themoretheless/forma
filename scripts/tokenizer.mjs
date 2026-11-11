@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 import { root } from './versions.mjs';
 
 // Rust takes tokenizer-forma from an exact revision: a path dependency's lockfile is not inherited
@@ -72,6 +72,36 @@ export function checkoutTokenizer(locked = lockedTokenizer()) {
     git(['checkout', '--quiet', '--detach', locked.rev]);
   }
   return checkTokenizer(locked);
+}
+
+// Studio, Vite and the JS tests load the adapters through this npm link, not through tokenizerDir.
+export const PACKAGE_LINK = resolve(root, 'node_modules/@themoretheless/tokenizer-forma');
+
+// Points the npm link at `target` (by default the checkout tokenizerDir names, which `check`
+// verified) and returns a function that puts the previous target back. Without this, a run with
+// FORMA_TOKENIZER_DIR checks one checkout while the JS steps quietly test another. A link that is
+// missing, not a symlink or already on `target` is left alone.
+export function linkTokenizerPackage(link = PACKAGE_LINK, target = PACKAGE) {
+  let previous;
+  try {
+    previous = readlinkSync(link);
+  } catch {
+    return () => {};
+  }
+  if (resolve(dirname(link), previous) === resolve(target)) return () => {};
+  const point = to => {
+    const staged = `${link}.swap`;
+    rmSync(staged, { force: true });
+    symlinkSync(to, staged, 'junction');
+    renameSync(staged, link);
+  };
+  point(process.platform === 'win32' ? resolve(target) : relative(dirname(link), target));
+  let restored = false;
+  return () => {
+    if (restored) return;
+    restored = true;
+    point(previous);
+  };
 }
 
 export function installTokenizer() {
