@@ -13,6 +13,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/**/*.test.ts'],
           exclude: [
+            'tests/event-adoption.test.ts',
             'tests/precompiled-wasm.test.ts',
             'tests/slim-entry.test.ts',
             'tests/ssr-carrier.test.ts',
@@ -26,6 +27,7 @@ export default defineConfig({
         test: {
           name: 'isolated',
           include: [
+            'tests/event-adoption.test.ts',
             'tests/precompiled-wasm.test.ts',
             'tests/slim-entry.test.ts',
             'tests/ssr-carrier.test.ts',

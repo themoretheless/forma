@@ -11,7 +11,7 @@ import {
   createCubeMesh3D,
   createPerspectiveCamera3D,
   createTransform3D,
-} from './gpu.ts';
+} from './gpu-scene3d.ts';
 import { effect, onCleanup } from './reactivity.ts';
 import { evalAstNode, evaluateFormaExpression, parseFormaExprAst } from './forma-expr.ts';
 import { registerFormaElement, type FormaElementContext } from './forma.ts';

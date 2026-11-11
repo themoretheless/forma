@@ -18,7 +18,7 @@ pub struct Template {
     pub text: Option<Text>,
     pub clickable: bool,
     pub content: Vec<Content>,
-    pub inputs: Vec<crate::text_input::Input>,
+    pub inputs: Vec<Input>,
     pub range: Option<RangeInput>,
     /// Rectangle reserved for application geometry (`Canvas {}`), relative to
     /// the control. Geometry comes from the application at runtime.
@@ -33,6 +33,37 @@ pub struct Template {
 pub struct TextLink {
     pub bounds: [f32; 4],
     pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Input {
+    pub bounds: [f32; 4],
+    pub value: String,
+    pub placeholder: String,
+    pub label: String,
+    pub read_only: bool,
+    pub color: [u8; 4],
+    pub placeholder_color: [u8; 4],
+    pub font_size: f32,
+    pub multiline: bool,
+    pub wrap: bool,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            bounds: [0., 0., 100., 30.],
+            value: String::new(),
+            placeholder: String::new(),
+            label: String::new(),
+            read_only: false,
+            color: [255; 4],
+            placeholder_color: [150, 150, 150, 255],
+            font_size: 15.,
+            multiline: false,
+            wrap: false,
+        }
+    }
 }
 
 /// `Canvas { x; y; width; height; }` inside a control template. Omitted width
@@ -801,9 +832,9 @@ impl<'a> Parser<'a> {
         }
         Ok(range)
     }
-    fn input(&mut self) -> Result<crate::text_input::Input, String> {
+    fn input(&mut self) -> Result<Input, String> {
         self.open()?;
-        let mut input = crate::text_input::Input::default();
+        let mut input = Input::default();
         let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
@@ -1494,9 +1525,6 @@ pub fn flush_parse_cache() {
     });
 }
 
-#[cfg(test)]
-mod tests;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct RangeInput {
     pub value: f32,
@@ -1553,3 +1581,6 @@ impl RangeInput {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,17 +1,27 @@
 import { execFileSync } from 'node:child_process';
 import { root } from './versions.mjs';
 
-// Which workspace crate may depend on which. Dependencies point inward only: the shader compiler,
-// tensor contracts and CPU math know nothing of the rest, runtimes sit on them, and forma never
-// reaches into the compute kernels. A new edge has to be added here on purpose.
+export const STANDALONE_MANIFESTS = [
+  'crates/gpu-compute/Cargo.toml',
+  'crates/gpu-kit/Cargo.toml',
+  'packages/svet/crates/svet-wasm/Cargo.toml',
+  'native-app/Cargo.toml',
+];
+
+// Which crate in this repository may depend on which. Dependencies point inward only and form a
+// strict DAG: the shader compiler, tensor contracts, reactive core and CPU math know nothing of the
+// rest, runtimes sit on them, and forma never reaches into the compute kernels. A new edge has to
+// be added here on purpose.
 export const ALLOWED = {
   'gpu-shader': [],
   'tensor-core': [],
   'osv-math': [],
   'memory-budget': [],
+  'svet-wasm': [],
   'swap-store': ['memory-budget'],
   'gpu-runtime': ['gpu-shader'],
   'gpu-compute': ['gpu-runtime', 'gpu-shader'],
+  'gpu-kit': ['memory-budget', 'gpu-runtime', 'gpu-shader'],
   'raster-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader'],
   'compute-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader', 'memory-budget', 'tensor-core'],
   'compute-mlx': ['tensor-core'],
@@ -27,11 +37,38 @@ export const ALLOWED = {
   forma: ['gpu-runtime', 'gpu-compute', 'gpu-shader', 'memory-budget', 'svet-wasm'],
   'forma-binding-example': ['forma'],
   'forma-language-example': ['forma'],
+  'forma-native': [],
 };
 
+export function findCycles(graph) {
+  const state = new Map();
+  const stack = [];
+  const cycles = [];
+  function visit(node) {
+    state.set(node, 1);
+    stack.push(node);
+    for (const next of graph[node] ?? []) {
+      const nextState = state.get(next) ?? 0;
+      if (nextState === 0) visit(next);
+      else if (nextState === 1) {
+        cycles.push([...stack.slice(stack.indexOf(next)), next].join(' -> '));
+      }
+    }
+    stack.pop();
+    state.set(node, 2);
+  }
+  for (const node of Object.keys(graph)) {
+    if ((state.get(node) ?? 0) === 0) visit(node);
+  }
+  return cycles;
+}
+
 export function violations(packages, allowed = ALLOWED) {
-  const local = new Set([...Object.keys(allowed), 'svet-wasm', 'gpu-compute']);
+  const local = new Set(Object.keys(allowed));
   const found = [];
+  for (const cycle of findCycles(allowed)) {
+    found.push(`cycle in allowed table: ${cycle}`);
+  }
   for (const pkg of packages) {
     if (!(pkg.name in allowed)) {
       found.push(`${pkg.name}: not listed in the layering table`);
@@ -47,20 +84,39 @@ export function violations(packages, allowed = ALLOWED) {
   return found;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const metadata = JSON.parse(
-    execFileSync('cargo', ['metadata', '--locked', '--no-deps', '--format-version', '1'], {
+function readMetadata(manifestPath = null) {
+  const args = [
+    'metadata',
+    '--locked',
+    '--no-deps',
+    '--format-version',
+    '1',
+    ...(manifestPath ? ['--manifest-path', manifestPath] : []),
+  ];
+  return JSON.parse(
+    execFileSync('cargo', args, {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 << 20,
     }),
-  );
-  const found = violations(metadata.packages);
+  ).packages;
+}
+
+export function repositoryPackages() {
+  const seen = new Map();
+  for (const pkg of readMetadata()) seen.set(pkg.name, pkg);
+  for (const manifest of STANDALONE_MANIFESTS) {
+    for (const pkg of readMetadata(manifest)) seen.set(pkg.name, pkg);
+  }
+  return [...seen.values()];
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const packages = repositoryPackages();
+  const found = violations(packages);
   if (found.length) {
     console.error(`layering: ${found.length} violation(s)\n  ${found.join('\n  ')}`);
     process.exit(1);
   }
-  console.log(
-    `layering: ${metadata.packages.length} workspace crates respect the dependency table`,
-  );
+  console.log(`layering: ${packages.length} repository crates form a strict DAG`);
 }

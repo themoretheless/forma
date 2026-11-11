@@ -11,6 +11,7 @@
 //! edges and command bounds ([`place`]), which is linear in the edge count and
 //! never re-flattens circles or glyphs.
 use crate::display_list::{DisplayList, STRIDE};
+use crate::geometry::column_area;
 use crate::text::{self, Point};
 use std::sync::Arc;
 
@@ -545,26 +546,6 @@ struct Edge {
     slope: f32,
     /// +1 for downward edges, -1 for upward ones.
     dir: f32,
-}
-
-/// Exact area to the right of the edge inside pixel column `px`, for the row
-/// slice where the edge runs from `xa` (at its top) to `xb`. Same integration
-/// as `text::edge_area`, with the crossing points already known.
-#[inline]
-fn column_area(xa: f32, xb: f32, px: f32) -> f32 {
-    let fa = xa - px;
-    let fb = xb - px;
-    let d = fb - fa;
-    if d == 0. {
-        return fa.clamp(0., 1.);
-    }
-    let t0 = (-fa / d).clamp(0., 1.);
-    let t1 = ((1. - fa) / d).clamp(0., 1.);
-    let lo = t0.min(t1);
-    let hi = t0.max(t1);
-    let flo = (fa + d * lo).clamp(0., 1.);
-    let fhi = (fa + d * hi).clamp(0., 1.);
-    (if d > 0. { 1. - hi } else { lo }) + (flo + fhi) * 0.5 * (hi - lo)
 }
 
 fn fill(

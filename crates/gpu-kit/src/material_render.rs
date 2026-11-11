@@ -336,6 +336,7 @@ fn pipeline(
         device,
         PipelineSpec {
             label: "material renderer",
+            layout: None,
             module: &module,
             buffers: &[Some(wgpu::VertexBufferLayout {
                 array_stride: size_of::<MaterialVertex>() as u64,

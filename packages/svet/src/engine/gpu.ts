@@ -1404,27 +1404,6 @@ export function getGpuTelemetry(): GpuDeviceTelemetry {
   };
 }
 
-// 3D Scene Graph, Camera, Mesh, Picking, Viewport, and Sparkline submodules
-export {
-  createTransform3D,
-  createPerspectiveCamera3D,
-  createMesh3D,
-  createCubeMesh3D,
-  DEFAULT_3D_WGSL_SHADER,
-  pickNearestVertex3D,
-  Canvas3D,
-  Viewport3D,
-  type Vec3Tuple,
-  type ReactiveTransform3D,
-  type PerspectiveCamera3D,
-  type PerspectiveCamera3DOptions,
-  type Mesh3D,
-  type VertexPickFrame3D,
-  type Canvas3DProps,
-} from './gpu-scene3d.ts';
-
-export { GpuSparkline, type GpuSparklineProps } from './gpu-sparkline.ts';
-
 // Internal executor primitives shared with immutable resident-result and 3D scene operations.
 export {
   gpuState,
