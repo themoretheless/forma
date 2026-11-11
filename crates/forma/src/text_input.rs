@@ -18,35 +18,7 @@ fn allocate_semantic_revision(counter: &std::sync::atomic::AtomicU32) -> u32 {
         .unwrap_or(0)
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Input {
-    pub bounds: [f32; 4],
-    pub value: String,
-    pub placeholder: String,
-    pub label: String,
-    pub read_only: bool,
-    pub color: [u8; 4],
-    pub placeholder_color: [u8; 4],
-    pub font_size: f32,
-    pub multiline: bool,
-    pub wrap: bool,
-}
-impl Default for Input {
-    fn default() -> Self {
-        Self {
-            bounds: [0., 0., 100., 30.],
-            value: String::new(),
-            placeholder: String::new(),
-            label: String::new(),
-            read_only: false,
-            color: [255; 4],
-            placeholder_color: [150, 150, 150, 255],
-            font_size: 15.,
-            multiline: false,
-            wrap: false,
-        }
-    }
-}
+pub use crate::template::Input;
 #[derive(Clone)]
 pub(crate) struct Editor {
     pub spec: Input,

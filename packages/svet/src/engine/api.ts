@@ -109,16 +109,6 @@ export {
   getGpuTelemetry,
   GpuComputeCapacityError,
   type GpuComputeQueueTelemetry,
-  createTransform3D,
-  createPerspectiveCamera3D,
-  createMesh3D,
-  createCubeMesh3D,
-  pickNearestVertex3D,
-  Canvas3D,
-  Viewport3D,
-  type Canvas3DProps,
-  type VertexPickFrame3D,
-  GpuSparkline,
   type MemoryArchitecture,
   type GpuDeviceTelemetry,
   type GpuTensorSignal,
@@ -129,12 +119,26 @@ export {
   type AsyncWebGpuComputeDispatchOptions,
   type GpuComputeChainStage,
   type GpuComputeResult,
+} from './gpu.ts';
+
+export {
+  createTransform3D,
+  createPerspectiveCamera3D,
+  createMesh3D,
+  createCubeMesh3D,
+  pickNearestVertex3D,
+  Canvas3D,
+  Viewport3D,
+  type Canvas3DProps,
+  type VertexPickFrame3D,
   type Vec3Tuple,
   type ReactiveTransform3D,
   type PerspectiveCamera3D,
   type PerspectiveCamera3DOptions,
   type Mesh3D,
-} from './gpu.ts';
+} from './gpu-scene3d.ts';
+
+export { GpuSparkline } from './gpu-sparkline.ts';
 
 export {
   createFormaProperty,
