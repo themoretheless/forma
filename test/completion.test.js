@@ -89,10 +89,12 @@ test('typed fields, nested contexts and context assignments use the right model'
 });
 test('events and commands are separated from model fields', () => {
   assert.deepEqual(labels(hints('TextField { clicked -> events.|')), ['events.saved']);
+  assert.ok(labels(hints('TextField { clicked -> | } }')).includes('events.'));
   const commands = hints('TextField { clicked -> state.|');
   assert.deepEqual(labels(commands), ['state.save']);
   assert.equal(commands.options[0].apply, 'state.save()');
   assert.equal(hints('TextField { clicked -> state.sa|(); }').options[0].apply, 'state.save');
+  assert.deepEqual(labels(hints("shortcut 'Cmd+S' -> state.| }")), ['state.save']);
 });
 test('props refer to component defaults, not the current visual primitive', () => {
   const source = "component TextField : Base { value:''; Rectangle { Text { text:props.|";

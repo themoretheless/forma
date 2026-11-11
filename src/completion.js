@@ -375,6 +375,19 @@ const builtinTypes = [
   'Record',
 ];
 
+function parseUiTree(source, pos, lexical) {
+  if (!lexical && /(?<!<)->\s*[\w.]*$/.test(source.slice(0, pos))) {
+    const rest = source.slice(pos);
+    const tail = rest.match(/^[\w.]*/)?.[0] ?? '';
+    if (!/^\s*\(/.test(rest.slice(tail.length))) {
+      const at = pos + tail.length;
+      const fill = (/\w$/.test(source.slice(0, at)) ? '' : 'x') + '();';
+      return parser.parse(source.slice(0, at) + fill + source.slice(at));
+    }
+  }
+  return parser.parse(source);
+}
+
 export function completeCode({
   source,
   pos,
@@ -385,8 +398,10 @@ export function completeCode({
 }) {
   if (!path?.endsWith('.ui'))
     return path?.endsWith('.rs') ? completeRust(source, pos, index, explicit) : null;
+  const lexical = outsideCode(source, pos);
+  if (lexical === 'comment') return null;
   const before = source.slice(0, pos),
-    tree = parser.parse(source),
+    tree = parseUiTree(source, pos, lexical),
     leaf = tree.resolveInner(pos, -1),
     ancestors = [];
   for (let node = leaf; node; node = node.parent) ancestors.push(node);
@@ -407,8 +422,6 @@ export function completeCode({
     : before.slice(Math.max(before.lastIndexOf(';'), before.lastIndexOf('{')) + 1);
   const property = statement.match(/^\s*([\w.]+)\s*(?::|<->|->)/)?.[1];
   const contextType = statement.match(/^\s*contextType\s*:\s*['"]([^'"]*)$/);
-  const lexical = outsideCode(source, pos);
-  if (lexical === 'comment') return null;
   const attrMatch = before.match(/#\[\s*(\w*)$/);
   if (attrMatch && lexical !== 'string') {
     return {

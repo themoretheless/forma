@@ -28,7 +28,7 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, { encoding: 'utf8', stdio: 'pipe', ...options });
   if (result.error || result.status !== 0)
     throw Error(
-      `${command} ${args.join(' ')} failed: ${result.error?.message ?? (result.stderr.trim() || result.status)}`,
+      `${command} ${args.join(' ')} failed: ${result.error?.message ?? (result.stderr?.trim() || result.status)}`,
     );
   return result.stdout?.trim() ?? '';
 }
