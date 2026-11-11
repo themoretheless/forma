@@ -1726,6 +1726,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             Key::Named(NamedKey::Space) => 1,
             Key::Named(NamedKey::Enter) => 2,
             Key::Named(NamedKey::Escape) => 3,
+            Key::Named(NamedKey::ArrowUp) => 4,
+            Key::Named(NamedKey::ArrowDown) => 5,
             _ => 0,
         };
         let shift = self.shift;

@@ -564,6 +564,9 @@ impl Runtime {
         self.scene.modals.len()
     }
     pub fn open_modal(&mut self, m: usize) -> bool {
+        if self.is_popup(m) {
+            return self.open_popup_index(m);
+        }
         if m >= self.modal_open.len() || self.modal_open[m] {
             return false;
         }
@@ -579,6 +582,9 @@ impl Runtime {
         true
     }
     pub fn close_modal(&mut self, m: usize) -> bool {
+        if self.is_popup(m) {
+            return self.close_popup_index(m);
+        }
         if m >= self.modal_open.len() || !self.modal_open[m] {
             return false;
         }
@@ -694,6 +700,9 @@ impl Runtime {
             c.scroll_x = self.scroll[0];
             c.scroll_y = self.scroll[1];
         }
+        if old != self.scroll {
+            self.replace_open_popups();
+        }
         self.pointer(-1., -1., 3);
     }
     pub fn hit_index(&self, x: f32, y: f32) -> i32 {
@@ -781,14 +790,28 @@ impl Runtime {
         self.update_revision(before);
         true
     }
-    /// Keys: 1 = Space, 2 = Enter, 3 = Escape. Escape dismisses the active
+    /// Keys: 1 = Space, 2 = Enter, 3 = Escape, 4 = ArrowUp, 5 = ArrowDown (menus and selects).
+    /// Escape closes the topmost popup, otherwise dismisses the active
     /// layer even while its text field is being edited.
     pub fn key_event(&mut self, key: u8, pressed: bool, repeat: bool) {
         if key == 3 {
             if pressed && !repeat {
-                if let Some(m) = self.active_modal_index() {
-                    self.dismiss_modal(m);
+                let before = self.child_revision();
+                if !self.popup_escape() {
+                    if let Some(m) = self.active_modal_index() {
+                        self.dismiss_modal(m);
+                    }
                 }
+                self.update_revision(before);
+            }
+            return;
+        }
+        // 4 = ArrowUp, 5 = ArrowDown: move inside an open menu or select.
+        if matches!(key, 4 | 5) && !self.text_editing() {
+            if pressed {
+                let before = self.child_revision();
+                self.popup_arrow(key == 5);
+                self.update_revision(before);
             }
             return;
         }
@@ -804,17 +827,23 @@ impl Runtime {
                 if self.ui_document.is_some() {
                     self.ui_activations.record(i);
                 }
+                self.popup_activated(i);
             }
             self.update_revision(before);
         }
     }
     pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
         let before = self.child_revision();
+        if kind == 1 {
+            self.popup_press(x, y);
+        }
         let active = self.active_modal_index();
-        for (i, c) in self.controls.iter_mut().enumerate() {
-            c.reveal_pointer(x, y, kind != 3 && self.modal_of[i] == active);
+        for i in 0..self.controls.len() {
+            let reachable = self.reachable(i);
+            self.controls[i].reveal_pointer(x, y, kind != 3 && reachable);
         }
         let hit = usize::try_from(self.hit_index(x, y)).ok();
+        self.popup_hover(hit, kind != 3);
         if kind == 1 {
             for c in &mut self.controls {
                 c.keyboard = None;
@@ -831,6 +860,7 @@ impl Runtime {
                 }
             }
         }
+        let mut activated = None;
         for (i, c) in self.controls.iter_mut().enumerate() {
             let clicks = c.clicks();
             let (px, py) = if hit == Some(i) { (x, y) } else { (-1., -1.) };
@@ -846,7 +876,11 @@ impl Runtime {
                 if self.ui_document.is_some() {
                     self.ui_activations.record(i);
                 }
+                activated = Some(i);
             }
+        }
+        if let Some(i) = activated {
+            self.popup_activated(i);
         }
         if kind == 1 || (kind == 0 && self.captured.is_some()) {
             if let Some(i) = self.captured {
@@ -887,6 +921,7 @@ impl Runtime {
                 if self.ui_document.is_some() {
                     self.ui_activations.record(i);
                 }
+                self.popup_activated(i);
             }
         }
     }
@@ -930,7 +965,8 @@ impl Runtime {
         self.revision
     }
     pub fn is_animating(&self) -> bool {
-        self.controls.iter().any(Button::is_animating)
+        self.popup_pending()
+            || self.controls.iter().any(Button::is_animating)
             || self
                 .editors
                 .iter()
@@ -940,9 +976,9 @@ impl Runtime {
     /// Proximity reaches sibling controls even when the pointer is outside all hits.
     pub fn reveal_pointer(&mut self, x: f32, y: f32, present: bool) {
         let before = self.child_revision();
-        let active = self.active_modal_index();
-        for (i, c) in self.controls.iter_mut().enumerate() {
-            c.reveal_pointer(x, y, present && self.modal_of[i] == active);
+        for i in 0..self.controls.len() {
+            let reachable = self.reachable(i);
+            self.controls[i].reveal_pointer(x, y, present && reachable);
         }
         self.update_revision(before);
     }
@@ -959,6 +995,7 @@ impl Runtime {
     }
     pub fn tick(&mut self, dt: f32) -> bool {
         let before = self.child_revision();
+        self.popup_tick(dt);
         for c in &mut self.controls {
             c.tick(dt);
         }
@@ -1037,6 +1074,7 @@ impl Runtime {
                 .and_then(|target| matches.iter().position(|x| *x == Some(target)));
         }
         self.dismissals = previous.dismissals;
+        self.preserve_popups(previous);
         // Application geometry is keyed by canvas key, not by scene identity.
         self.canvases = previous.canvases.clone();
         if !self.canvases.is_empty() {

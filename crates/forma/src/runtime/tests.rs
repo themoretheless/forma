@@ -1611,3 +1611,269 @@ fn pushed_text_runs_restyle_a_text_and_label_it_for_accessibility() {
     assert_eq!(events[0].link, "open:42");
     assert_eq!(events[0].key, "hit");
 }
+
+// Base: a menu button at the top left, a second button and a tooltip anchor at the bottom right.
+// Layers: a two-item menu, a tooltip and a card popup, all closed and declared without backdrop.
+const POPUPS: &str = "component Demo { Frame { width:300; height:200; padding:10; gap:10; clip:true; Button { key:'file'; x:10; y:10; width:80; height:30; clicked -> actions.file(); } Button { key:'other'; x:120; y:10; width:80; height:30; clicked -> actions.other(); } Button { key:'help'; x:240; y:160; width:50; height:30; clicked -> actions.help(); } Modal { key:'menu'; x:0; y:0; width:100; height:70; open:false; dismissed -> actions.closed(); Button { key:'open'; x:0; y:5; width:100; height:30; clicked -> actions.open(); } Button { key:'save'; x:0; y:35; width:100; height:30; clicked -> actions.save(); } } Modal { key:'tip'; x:0; y:0; width:120; height:40; open:false; Button { key:'tiptext'; x:0; y:0; width:120; height:40; } } Modal { key:'card'; x:0; y:0; width:200; height:150; open:false; Button { key:'inside'; x:0; y:0; width:200; height:40; clicked -> actions.inside(); } } } }";
+
+fn popups() -> Runtime {
+    let mut r = Runtime::from_sources(POPUPS, VISUAL).unwrap();
+    r.set_popup("menu", PopupSpec::new("file", PopupKind::Menu))
+        .unwrap();
+    r.set_popup(
+        "tip",
+        PopupSpec::new("help", PopupKind::Tooltip).delay_ms(400.),
+    )
+    .unwrap();
+    r
+}
+
+#[test]
+fn popup_placement_flips_and_clamps_to_the_frame() {
+    use super::popup::place;
+    let frame = [300., 200.];
+    // Room below: placed below, aligned to the anchor's left edge.
+    assert_eq!(
+        place(
+            [10., 10., 80., 30.],
+            [100., 70.],
+            frame,
+            Placement::Below,
+            4.
+        ),
+        ([10., 44.], Placement::Below)
+    );
+    // No room below but room above: flips.
+    assert_eq!(
+        place(
+            [240., 160., 50., 30.],
+            [120., 40.],
+            frame,
+            Placement::Below,
+            4.
+        ),
+        ([180., 116.], Placement::Above)
+    );
+    // Right side overflows, left fits: flips; the vertical start is clamped.
+    assert_eq!(
+        place(
+            [250., 180., 40., 20.],
+            [100., 50.],
+            frame,
+            Placement::Right,
+            2.
+        ),
+        ([148., 150.], Placement::Left)
+    );
+    // Fits neither side: keeps the preferred side and clamps inside the frame.
+    assert_eq!(
+        place(
+            [10., 90., 80., 20.],
+            [100., 150.],
+            frame,
+            Placement::Below,
+            4.
+        ),
+        ([10., 50.], Placement::Below)
+    );
+    // Larger than the frame: pinned to the origin.
+    assert_eq!(
+        place(
+            [10., 10., 80., 20.],
+            [400., 300.],
+            frame,
+            Placement::Below,
+            4.
+        )
+        .0,
+        [0., 0.]
+    );
+}
+
+#[test]
+fn popup_layers_open_anchored_without_backdrop_or_blocking() {
+    let mut r = popups();
+    assert_eq!(r.active_modal(), -1);
+    assert!(r.open_popup("menu"));
+    assert_eq!(r.popup_bounds("menu"), Some([10., 44., 100., 70.]));
+    assert_eq!(r.popup_placement("menu"), Some(Placement::Below));
+    // The menu's items moved with the surface.
+    assert_eq!(r.control_bounds(3), vec![10., 49., 100., 30.]);
+    // Not a blocking modal: no active layer, the base keeps hits, hover and clicks.
+    assert_eq!(r.active_modal(), -1);
+    assert!(!r.control_blocked(1));
+    assert_eq!(r.hit_index(150., 20.), 1);
+    assert_eq!(r.hit_index(50., 60.), 3, "the open menu is above the base");
+    // A press on another base control dismisses the menu and still clicks that control.
+    r.pointer(150., 20., 1);
+    r.pointer(150., 20., 2);
+    assert!(!r.popup_open("menu"));
+    assert_eq!(r.control_clicks(1), 1);
+    assert_eq!((r.dismiss_count(), r.dismissed_index()), (1, 0));
+    // Pressing the anchor itself does not dismiss, so the app can toggle on `clicked`.
+    assert!(r.open_popup("menu"));
+    r.pointer(20., 20., 1);
+    assert!(r.popup_open("menu"));
+    r.pointer(20., 20., 2);
+    assert_eq!(r.control_clicks(0), 1);
+    assert!(r.toggle_popup("menu") && !r.popup_open("menu"));
+    // A press inside the popup does not dismiss it.
+    assert!(r.open_popup("menu"));
+    r.pointer(50., 90., 1);
+    assert!(r.popup_open("menu"));
+}
+
+#[test]
+fn popup_escape_closes_a_plain_popup_without_moving_focus() {
+    let mut r = popups();
+    r.set_popup(
+        "card",
+        PopupSpec::new("other", PopupKind::Popup).placement(Placement::Right),
+    )
+    .unwrap();
+    assert!(r.open_popup("card"));
+    // Right of `other` (ends at 200) has no room for 200 px; left of it neither: clamped.
+    assert_eq!(r.popup_placement("card"), Some(Placement::Right));
+    assert_eq!(r.popup_bounds("card"), Some([100., 10., 200., 150.]));
+    // Opening a plain popup does not move focus.
+    r.focus_control(0);
+    assert_eq!(r.focused_index(), 0);
+    r.key_event(3, true, false);
+    assert!(!r.popup_open("card"));
+    assert_eq!(r.focused_index(), 0);
+    // Escape with nothing open is still harmless.
+    r.key_event(3, true, false);
+    assert_eq!(r.dismiss_count(), 1);
+}
+
+#[test]
+fn menu_keyboard_navigation_activation_and_focus_return() {
+    let mut r = popups();
+    assert!(r.focus_control(0));
+    // Down on the focused anchor opens the menu and focuses its first item.
+    r.key_event(5, true, false);
+    assert!(r.popup_open("menu"));
+    assert_eq!(r.focused_index(), 3);
+    r.key_event(5, true, false);
+    assert_eq!(r.focused_index(), 4);
+    r.key_event(5, true, false);
+    assert_eq!(r.focused_index(), 3, "Down wraps");
+    r.key_event(4, true, false);
+    assert_eq!(r.focused_index(), 4, "Up wraps");
+    // Enter activates the item, closes the menu and returns focus to the anchor.
+    r.key_event(2, true, false);
+    r.key_event(2, false, false);
+    assert_eq!(r.control_clicks(4), 1);
+    assert_eq!(r.action(), "actions.save");
+    assert!(!r.popup_open("menu"));
+    assert_eq!(r.focused_index(), 0);
+    // Escape closes and returns focus too.
+    r.key_event(5, true, false);
+    assert_eq!(r.focused_index(), 3);
+    r.key_event(3, true, false);
+    assert!(!r.popup_open("menu"));
+    assert_eq!(r.focused_index(), 0);
+    // A pointer click on an item closes the menu as well.
+    assert!(r.open_popup("menu"));
+    r.pointer(50., 60., 1);
+    r.pointer(50., 60., 2);
+    assert_eq!(r.control_clicks(3), 1);
+    assert!(!r.popup_open("menu"));
+    // Arrow keys without a menu change nothing.
+    r.focus_control(1);
+    r.key_event(5, true, false);
+    assert_eq!(r.focused_index(), 1);
+    assert!(!r.popup_open("menu"));
+}
+
+#[test]
+fn tooltip_opens_after_the_hover_delay_and_never_takes_input() {
+    let mut r = popups();
+    assert!(!r.is_animating());
+    r.pointer(260., 170., 0);
+    assert!(!r.popup_open("tip"));
+    assert!(r.is_animating(), "the pending delay keeps the host ticking");
+    r.tick(300.);
+    assert!(!r.popup_open("tip"));
+    r.tick(150.);
+    assert!(r.popup_open("tip"));
+    assert!(!r.is_animating());
+    // Above the anchor (no room below), clamped to the right edge of the frame.
+    assert_eq!(r.popup_bounds("tip"), Some([180., 116., 120., 40.]));
+    assert_eq!(r.popup_placement("tip"), Some(Placement::Above));
+    // The tooltip is not hit: the pointer reaches whatever lies under it.
+    assert_eq!(r.hit_index(200., 130.), -1);
+    assert_eq!(r.focused_index(), -1);
+    // Leaving the anchor closes it; leaving before the delay cancels it.
+    r.pointer(150., 20., 0);
+    assert!(!r.popup_open("tip"));
+    r.pointer(260., 170., 0);
+    r.tick(200.);
+    r.pointer(150., 20., 0);
+    r.tick(500.);
+    assert!(!r.popup_open("tip"));
+    // A press closes an open tooltip; Escape does too.
+    r.pointer(260., 170., 0);
+    r.tick(400.);
+    assert!(r.popup_open("tip"));
+    r.pointer(260., 170., 1);
+    assert!(!r.popup_open("tip"));
+    r.pointer(260., 170., 2);
+    r.pointer(250., 175., 0);
+    r.tick(400.);
+    assert!(r.popup_open("tip"));
+    r.key_event(3, true, false);
+    assert!(!r.popup_open("tip"));
+}
+
+#[test]
+fn popup_configuration_errors_and_modal_paths() {
+    let mut r = Runtime::from_sources(POPUPS, VISUAL).unwrap();
+    assert!(
+        r.set_popup("nope", PopupSpec::new("file", PopupKind::Menu))
+            .is_err()
+    );
+    assert!(
+        r.set_popup("menu", PopupSpec::new("nope", PopupKind::Menu))
+            .is_err()
+    );
+    assert!(
+        r.set_popup("menu", PopupSpec::new("save", PopupKind::Menu))
+            .is_err()
+    );
+    assert!(
+        r.set_popup(
+            "menu",
+            PopupSpec::new("file", PopupKind::Menu).delay_ms(f32::NAN)
+        )
+        .is_err()
+    );
+    // Before configuration the layers are ordinary modals.
+    assert!(r.open_modal(0));
+    assert_eq!(r.active_modal(), 0);
+    assert!(r.close_modal(0));
+    r.set_popup("menu", PopupSpec::new("file", PopupKind::Menu))
+        .unwrap();
+    // The modal entry points drive the popup without blocking the scene.
+    assert!(r.open_modal(0));
+    assert_eq!(r.active_modal(), -1);
+    assert!(r.popup_open("menu"));
+    assert!(r.dismiss_modal(0));
+    assert!(!r.popup_open("menu"));
+}
+
+#[test]
+fn open_popup_follows_its_anchor_when_the_base_scrolls() {
+    let source = "component Demo { Frame { width:200; height:100; padding:10; clip:true; Scroll { Button { key:'base'; width:80; height:30; } Button { key:'tall'; width:80; height:300; } } Modal { key:'pop'; x:0; y:0; width:60; height:20; open:false; Button { key:'item'; width:60; height:20; } } } }";
+    let mut r = Runtime::from_sources(source, VISUAL).unwrap();
+    r.set_popup("pop", PopupSpec::new("base", PopupKind::Popup).offset(0.))
+        .unwrap();
+    assert!(r.open_popup("pop"));
+    let [x, y, ..] = r.popup_bounds("pop").unwrap();
+    assert_eq!((x, y), (10., 40.));
+    // The popup does not block scrolling of the base.
+    r.scroll(0., 15.);
+    assert_eq!(r.scroll_offset(), vec![0., 15.]);
+    assert_eq!(r.popup_bounds("pop").unwrap()[1], 25.);
+    assert_eq!(r.control_bounds(2)[1], 25.);
+}
