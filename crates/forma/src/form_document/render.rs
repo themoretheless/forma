@@ -375,6 +375,11 @@ impl Document {
             ];
             resolved.insert("width".into(), number(bounds[2]));
             resolved.insert("height".into(), number(bounds[3]));
+            // A run Text has no `text` of its own: its label (accessibility, journal) is the
+            // concatenated runs.
+            if let Some(label) = super::text_runs::plain_label(&resolved) {
+                resolved.insert("text".into(), Value::Text(label));
+            }
             let props = resolved
                 .into_iter()
                 .filter(|(k, _)| standard.contains(&k.as_str()))

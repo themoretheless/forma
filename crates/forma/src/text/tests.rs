@@ -179,9 +179,10 @@ fn shaping_uses_real_fallback_faces_and_does_not_kern_across_fonts() {
         assert_eq!(glyph.fallback, glyph.font_index != 0);
     }
     assert!((measure_shaped_text(text, 28.) - measure_text(text, 28.)).abs() < 0.0001);
-    // Index 3 is the monospace primary face; nothing lies beyond it.
+    // Index 3 is the monospace primary face, 4 the bold face; nothing lies beyond them.
     assert!(font_face(3).is_some());
-    assert!(font_face(4).is_none());
+    assert!(font_face(4).is_some());
+    assert!(font_face(5).is_none());
 }
 
 #[test]
@@ -926,7 +927,7 @@ fn monospace_falls_back_to_shared_faces_for_missing_scalars() {
     assert_eq!(cjk.face, 1);
     assert!(advance > 0.);
     assert_eq!(font_face(3).unwrap().units_per_em(), table.units_per_em);
-    assert!(font_face(4).is_none());
+    assert!(font_face(5).is_none());
 }
 
 #[test]
@@ -992,4 +993,149 @@ fn cpu_and_vector_paths_draw_the_selected_face() {
     let (sans, mono) = (outline(FontFamily::Sans), outline(FontFamily::Mono));
     assert_eq!(mono.len(), 3);
     assert_ne!(sans, mono);
+}
+
+#[test]
+fn bold_face_has_its_own_metrics_and_falls_back_to_sans() {
+    let table = font_table_for(FontFamily::SansBold);
+    assert_eq!(resolve_glyph_with_table('a', table).0.face, 4);
+    assert_eq!(resolve_glyph_with_table('\u{4F60}', table).0.face, 1);
+    assert!(font_face(4).is_some());
+    let (regular, bold) = (
+        measure_text_in(FontFamily::Sans, "Forma", 16.),
+        measure_text_in(FontFamily::SansBold, "Forma", 16.),
+    );
+    assert!(bold > regular, "bold {bold} regular {regular}");
+    assert_eq!(
+        FontFamily::Sans.with_weight(FontWeight::Bold),
+        FontFamily::SansBold
+    );
+    assert_eq!(
+        FontFamily::SansBold.with_weight(FontWeight::Regular),
+        FontFamily::Sans
+    );
+    assert_eq!(
+        FontFamily::Mono.with_weight(FontWeight::Bold),
+        FontFamily::Mono
+    );
+    assert_eq!(FontFamily::from_name("sans-bold"), None);
+    assert_eq!(
+        FontFamily::from_scene_name("sans-bold"),
+        Some(FontFamily::SansBold)
+    );
+    assert_eq!(FontWeight::from_name("heavy"), None);
+}
+
+#[test]
+fn cpu_bold_paints_more_ink_than_regular() {
+    let paint = |family| {
+        let mut pixels = vec![0_u8; 200 * 40 * 4];
+        draw_text_in(
+            family,
+            &mut RasterCanvas::full(&mut pixels, 200, 40, 1.),
+            "Forma",
+            24.,
+            [0., 0., 200., 40.],
+            [255; 4],
+        );
+        pixels
+    };
+    let ink = |pixels: &[u8]| pixels.chunks(4).map(|p| u64::from(p[3])).sum::<u64>();
+    let (regular, bold) = (paint(FontFamily::Sans), paint(FontFamily::SansBold));
+    assert_ne!(regular, bold);
+    // Bold strokes cover clearly more area than Ubuntu Light.
+    assert!(
+        ink(&bold) * 10 > ink(&regular) * 13,
+        "{} vs {}",
+        ink(&bold),
+        ink(&regular)
+    );
+}
+
+#[test]
+fn cpu_monospace_glyph_cells_are_uniform() {
+    // Each character drawn alone in a rectangle of the same advance: every cell holds ink and the
+    // concatenated advance is exactly the sum, so columns line up.
+    let cell = measure_text_in(FontFamily::Mono, "x", 20.);
+    for ch in ["i", "W", ".", "m"] {
+        assert_eq!(measure_text_in(FontFamily::Mono, ch, 20.), cell);
+        let mut pixels = vec![0_u8; 40 * 30 * 4];
+        draw_text_in(
+            FontFamily::Mono,
+            &mut RasterCanvas::full(&mut pixels, 40, 30, 1.),
+            ch,
+            20.,
+            [0., 0., cell, 30.],
+            [255; 4],
+        );
+        let columns: Vec<usize> = (0..40)
+            .filter(|x| (0..30).any(|y| pixels[(y * 40 + x) * 4 + 3] != 0))
+            .collect();
+        assert!(!columns.is_empty(), "{ch}");
+        assert!(
+            *columns.last().unwrap() as f32 <= cell.ceil(),
+            "{ch} spills out of its cell"
+        );
+    }
+}
+
+#[test]
+fn runs_measure_with_their_own_faces_and_sit_side_by_side() {
+    let runs = [
+        (FontFamily::Sans, "plain "),
+        (FontFamily::SansBold, "bold"),
+        (FontFamily::Mono, " code"),
+    ];
+    let placed = layout_runs(&runs, 16., None);
+    assert_eq!(placed.lines, 1);
+    assert_eq!(placed.fragments.len(), 3);
+    let mut x = 0.;
+    for (f, (family, text)) in placed.fragments.iter().zip(runs) {
+        assert_eq!(f.x, x);
+        assert_eq!(f.width, measure_text_in(family, text, 16.));
+        assert_eq!(&text[f.range.clone()], text);
+        x += f.width;
+    }
+    assert_eq!(placed.width, x);
+    assert_ne!(
+        placed.fragments[1].width,
+        measure_text_in(FontFamily::Sans, "bold", 16.)
+    );
+}
+
+#[test]
+fn runs_wrap_at_spaces_across_run_boundaries_and_keep_split_words_whole() {
+    // "Forma" is one word made of a regular and a bold run: it never breaks in the middle.
+    let runs = [
+        (FontFamily::Sans, "Use For"),
+        (FontFamily::SansBold, "ma"),
+        (FontFamily::Sans, " now\nnext line"),
+    ];
+    let forma = measure_text_in(FontFamily::Sans, "For", 16.)
+        + measure_text_in(FontFamily::SansBold, "ma", 16.);
+    let placed = layout_runs(&runs, 16., Some(forma + 2.));
+    let lines: Vec<Vec<&str>> = (0..placed.lines)
+        .map(|line| {
+            placed
+                .fragments
+                .iter()
+                .filter(|f| f.line == line)
+                .map(|f| &runs[f.run].1[f.range.clone()])
+                .collect()
+        })
+        .collect();
+    assert_eq!(lines[0], ["Use"]);
+    assert_eq!(lines[1], ["For", "ma"]);
+    assert_eq!(lines[2], ["now"]);
+    assert_eq!(lines[3], ["next"]);
+    assert_eq!(lines[4], ["line"]);
+    let forma = &placed.fragments[2];
+    assert_eq!(forma.x, measure_text_in(FontFamily::Sans, "For", 16.));
+    // Unbounded: only the hard break splits.
+    assert_eq!(layout_runs(&runs, 16., None).lines, 2);
+    // A word wider than the line breaks between characters instead of overflowing.
+    let three = measure_text_in(FontFamily::Mono, "abc", 16.) + 0.5;
+    let narrow = layout_runs(&[(FontFamily::Mono, "abcdef")], 16., Some(three));
+    assert_eq!(narrow.lines, 2);
+    assert!(narrow.width <= three);
 }

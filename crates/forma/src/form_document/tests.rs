@@ -2717,3 +2717,100 @@ fn let_inside_empty_for_branch_and_block_let_scoping_match_between_visual_and_sc
         .collect();
     assert_eq!(visual_texts, ["scoped", "outer", "empty-fallback"]);
 }
+
+fn runs_scene(text: &str) -> Result<(String, String), String> {
+    let mut files: BTreeMap<String, String> = BTreeMap::new();
+    files.insert(
+        "App.ui".into(),
+        format!("component App {{ Column {{ width: 300; height: 200; {text} }} }}"),
+    );
+    let doc = Document::from_ui_files(&files, "App.ui", &Properties::new())?;
+    let (scene, templates, _) = doc.render_scene()?;
+    Ok((scene, templates))
+}
+
+const RUNS_TEXT: &str = "Text { key: 't'; width: 120; height: 80; wrap: true; color: #ffffff; runs: [{ text: 'Обычный ' }, { text: 'жирный', fontWeight: 'bold' }, { text: ' code', fontFamily: 'mono', background: #333333 }, { text: ' ссылка', color: #6fa8ff, link: 'docs' }]; }";
+
+#[test]
+fn text_runs_compile_to_styled_fragments_backgrounds_and_links() {
+    let (scene, templates) = runs_scene(RUNS_TEXT).unwrap();
+    assert!(templates.contains("text:'Обычный'; color:#ffffff; fontSize:16; }"));
+    assert!(
+        templates.contains("text:'жирный'; color:#ffffff; fontSize:16; fontFamily:'sans-bold'; }")
+    );
+    assert!(templates.contains("text:' code'; color:#ffffff; fontSize:16; fontFamily:mono; }"));
+    assert!(templates.contains("text:'ссылка'; color:#6fa8ff;"));
+    assert_eq!(templates.matches("ContentShape {").count(), 1);
+    assert!(templates.contains("color:#333333; }"));
+    assert_eq!(templates.matches("ContentLink {").count(), 1);
+    let runtime = crate::Runtime::from_sources(&scene, &templates).unwrap();
+    assert_eq!(runtime.control_count(), 1);
+    // A single-style Text compiles exactly as before.
+    let (_, plain) = runs_scene("Text { key: 't'; text: 'Обычный'; }").unwrap();
+    assert!(!plain.contains("ContentLink") && !plain.contains("fontFamily"));
+}
+
+#[test]
+fn text_runs_activate_links_through_the_pointer_path() {
+    let (scene, templates) = runs_scene(RUNS_TEXT).unwrap();
+    let mut runtime = crate::Runtime::from_sources(&scene, &templates).unwrap();
+    let b = runtime.control_bounds(0);
+    // Third line (y 48..72), first 50 px: the link fragment.
+    let (lx, ly) = (b[0] + 10., b[1] + 60.);
+    assert_eq!(runtime.text_link_at(lx, ly).as_deref(), Some("docs"));
+    assert_eq!(runtime.text_link_at(b[0] + 10., b[1] + 10.), None);
+    runtime.pointer(lx, ly, 1);
+    runtime.pointer(lx, ly, 2);
+    assert_eq!(
+        runtime.take_text_link_events(),
+        vec![crate::runtime::TextLinkEvent {
+            key: "t".into(),
+            link: "docs".into()
+        }]
+    );
+    assert!(runtime.take_text_link_events().is_empty());
+    // Press on the link, release elsewhere: no activation.
+    runtime.pointer(lx, ly, 1);
+    runtime.pointer(b[0] + 10., b[1] + 10., 2);
+    // Press elsewhere, release on the link: no activation either.
+    runtime.pointer(b[0] + 10., b[1] + 10., 1);
+    runtime.pointer(lx, ly, 2);
+    assert!(runtime.take_text_link_events().is_empty());
+    // The passive Text stays non-interactive: links add no click or focus.
+    assert!(!runtime.control_interactive(0));
+    assert_eq!(runtime.clicks(), 0);
+    assert_eq!(runtime.text_link_events_dropped(), 0);
+}
+
+#[test]
+fn text_runs_from_state_and_plain_text_weight() {
+    let mut files: BTreeMap<String, String> = BTreeMap::new();
+    files.insert(
+        "App.ui".into(),
+        "component App { Column { width: 300; height: 100; let snippet = [{ text: 'match', fontWeight: 'bold' }, { text: ' in doc' }]; Text { key: 's'; runs: snippet; } Text { key: 'b'; text: 'Bold'; fontWeight: 'bold'; } } }".into(),
+    );
+    let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+    let (scene, templates, _) = doc.render_scene().unwrap();
+    assert!(
+        templates.contains("text:'match'; color:#ffffff; fontSize:16; fontFamily:'sans-bold'; }")
+    );
+    assert!(
+        templates.contains("text:'Bold'; color:#ffffff; fontSize:16; fontFamily:'sans-bold'; }")
+    );
+    crate::Runtime::from_sources(&scene, &templates).unwrap();
+}
+
+#[test]
+fn text_runs_reject_bad_input() {
+    for bad in [
+        "Text { key: 't'; text: 'x'; runs: [{ text: 'y' }]; }",
+        "Text { key: 't'; runs: [{ text: 'y', size: 3 }]; }",
+        "Text { key: 't'; runs: [{ color: #ffffff }]; }",
+        "Text { key: 't'; runs: ['y']; }",
+        "Text { key: 't'; runs: [{ text: 'y', fontWeight: 'heavy' }]; }",
+        "Text { key: 't'; runs: [{ text: 'y', link: '' }]; }",
+        "Text { key: 't'; text: 'y'; fontWeight: 'heavy'; }",
+    ] {
+        assert!(runs_scene(bad).is_err(), "{bad}");
+    }
+}

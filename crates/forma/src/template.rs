@@ -23,6 +23,16 @@ pub struct Template {
     /// Rectangle reserved for application geometry (`Canvas {}`), relative to
     /// the control. Geometry comes from the application at runtime.
     pub canvas: Option<CanvasSlot>,
+    /// Link regions of styled text runs (`ContentLink`), relative to the control. They draw
+    /// nothing; the runtime hit-tests them and queues a link event.
+    pub links: Vec<TextLink>,
+}
+
+/// `ContentLink { x; y; width; height; link: 'id'; }`: one placed fragment of a link run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextLink {
+    pub bounds: [f32; 4],
+    pub id: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -883,6 +893,18 @@ impl<'a> Parser<'a> {
         self.advance()?;
         Ok(family)
     }
+    /// Compiled scene face: [`Self::font_family`] names plus `sans-bold`.
+    fn scene_font_family(&mut self) -> Result<crate::text::FontFamily, String> {
+        let family = match &self.current.kind {
+            Kind::Ident(name) => crate::text::FontFamily::from_scene_name(name.text()),
+            Kind::String(name) => crate::text::FontFamily::from_scene_name(name),
+            _ => None,
+        };
+        let family =
+            family.ok_or_else(|| self.error("'fontFamily' requires sans, mono or sans-bold"))?;
+        self.advance()?;
+        Ok(family)
+    }
     fn text(&mut self) -> Result<Text, String> {
         self.open()?;
         let mut text = Text {
@@ -892,12 +914,21 @@ impl<'a> Parser<'a> {
             family: Default::default(),
         };
         let mut seen = SeenFields::default();
+        let mut weight = crate::text::FontWeight::Regular;
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
             if !matches!(
                 name.text(),
-                "text" | "color" | "font.size" | "fontSize" | "font.family" | "fontFamily" | "wrap"
+                "text"
+                    | "color"
+                    | "font.size"
+                    | "fontSize"
+                    | "font.family"
+                    | "fontFamily"
+                    | "font.weight"
+                    | "fontWeight"
+                    | "wrap"
             ) {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
@@ -907,6 +938,17 @@ impl<'a> Parser<'a> {
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
                 "font.family" | "fontFamily" => text.family = self.font_family()?,
+                "font.weight" | "fontWeight" => {
+                    let w = match &self.current.kind {
+                        Kind::Ident(name) => crate::text::FontWeight::from_name(name.text()),
+                        Kind::String(name) => crate::text::FontWeight::from_name(name),
+                        _ => None,
+                    };
+                    weight = w.ok_or_else(|| {
+                        self.error("Unsupported fontWeight: requires regular or bold")
+                    })?;
+                    self.advance()?;
+                }
                 "wrap" => {
                     let v = self.ident()?;
                     if !matches!(v.text(), "true" | "false" | "props.wrap") {
@@ -918,6 +960,7 @@ impl<'a> Parser<'a> {
             self.semi()?;
         }
         self.close()?;
+        text.family = text.family.with_weight(weight);
         Ok(text)
     }
     fn pointer_area(&mut self) -> Result<bool, String> {
@@ -966,6 +1009,43 @@ impl<'a> Parser<'a> {
         self.close()?;
         Ok(slot)
     }
+    fn link(&mut self) -> Result<TextLink, String> {
+        self.open()?;
+        let mut link = TextLink {
+            bounds: [0.; 4],
+            id: String::new(),
+        };
+        let mut seen = SeenFields::default();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
+            match name.text() {
+                "x" | "y" => {
+                    let v = match self.current.kind {
+                        Kind::Number(v, Unit::Logical | Unit::Px)
+                            if v.is_finite() && v.abs() <= 100_000. =>
+                        {
+                            v
+                        }
+                        _ => return Err(self.error("Invalid content coordinate")),
+                    };
+                    link.bounds[if name == "x" { 0 } else { 1 }] = v;
+                    self.advance()?;
+                }
+                "width" => link.bounds[2] = self.scalar("width", false)?,
+                "height" => link.bounds[3] = self.scalar("height", false)?,
+                "link" => link.id = self.text_value()?.into_owned(),
+                _ => return Err(self.error(&format!("Unsupported ContentLink property {name}"))),
+            }
+            self.semi()?;
+        }
+        self.close()?;
+        if link.id.is_empty() {
+            return Err(self.error("ContentLink requires a link id"));
+        }
+        Ok(link)
+    }
     fn rectangle(&mut self) -> Result<Template, String> {
         self.open()?;
         let mut template = Template {
@@ -980,6 +1060,7 @@ impl<'a> Parser<'a> {
             inputs: Vec::new(),
             range: None,
             canvas: None,
+            links: Vec::new(),
         };
         let mut seen = SeenFields::default();
         let mut clip_depth = 0;
@@ -997,6 +1078,13 @@ impl<'a> Parser<'a> {
                     return Err(self.error("One Canvas per control is supported"));
                 }
                 template.canvas = Some(self.canvas_slot()?);
+                continue;
+            }
+            if name == "ContentLink" {
+                if template.links.len() >= 4096 {
+                    return Err(self.error("Too many link regions"));
+                }
+                template.links.push(self.link()?);
                 continue;
             }
             if name == "ContentInput" {
@@ -1097,7 +1185,7 @@ impl<'a> Parser<'a> {
                 ("ContentClip", "radius") => radius = self.scalar(&name, false)?,
                 ("ContentText", "text") => text.text = self.text_value()?.into_owned(),
                 ("ContentText", "fontSize") => text.font_size = self.scalar(&name, true)?,
-                ("ContentText", "fontFamily") => text.family = self.font_family()?,
+                ("ContentText", "fontFamily") => text.family = self.scene_font_family()?,
                 (_, "color") => text.color = self.color("color")?,
                 ("ContentShape", "points") => {
                     // One pass straight into pairs: no intermediate scalar vector.

@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/google/fonts",
+  "revision": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+  "files": [
+    {
+      "path": "Ubuntu-Bold.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ufl/ubuntu/Ubuntu-Bold.ttf",
+      "bytes": 331612,
+      "sha256": "679b5c1e09cab3156bb8ef529735f9382bf31ca7ac737382ab959297f8d82ad4"
+    },
+    {
+      "path": "Ubuntu-Bold.ttf.UFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ufl/ubuntu/UFL.txt",
+      "bytes": 4673,
+      "sha256": "2f0015108d68627bd788d313f529c21ff4da2c2c42a5e1f3883acc83480f9002"
+    },
+    {
+      "path": "Ubuntu-Bold.ttf.METADATA.pb",
+      "url": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ufl/ubuntu/METADATA.pb",
+      "bytes": 2370,
+      "sha256": "fe1e0f3e0663e6ed9752de75a73b8a436fbfd47e55b5b309b191e0d75f9a93eb"
+    }
+  ]
+}

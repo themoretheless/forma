@@ -414,6 +414,38 @@ cargo run --locked --manifest-path crates/forma/examples/language-app/Cargo.toml
 в моноширинном шрифте, берутся из общих запасных шрифтов. `TextInput` пока
 всегда использует `'sans'`.
 
+`fontWeight: 'bold';` (или `font.weight`) рисует `Text` встроенным Ubuntu Bold;
+значение по умолчанию — `'regular'` (`'normal'` — синоним). У моноширинного
+шрифта одно начертание: `fontFamily: 'mono'` с `fontWeight: 'bold'` остаётся
+обычным IBM Plex Mono.
+
+Один `Text` может состоять из отрезков с разным оформлением — свойство `runs`
+принимает список объектов вместо `text`:
+
+```text
+Text {
+    width: 320; wrap: true;
+    runs: [
+        { text: 'Найдено в ' },
+        { text: 'wiki.md', fontWeight: 'bold' },
+        { text: ' fn main', fontFamily: 'mono', background: #202020 },
+        { text: ' открыть', color: #6fa8ff, link: 'open:42' },
+    ];
+}
+```
+
+У отрезка обязателен `text`; `color`, `fontWeight`, `fontFamily`, `background` и
+`link` необязательны, отсутствующие берутся у самого `Text`. Абзац переносится
+целиком по пробелам, слово из нескольких отрезков без пробела между ними не
+разрывается; `\n` начинает новую строку. `background` закрашивает
+прямоугольник строки под отрезком. Нажатие и отпускание над отрезком с `link`
+ставит в очередь событие с ключом `Text` и этим идентификатором (см.
+[README крейта](crates/forma/README.md#стилизованный-текст)); обработчика
+вида `linkActivated -> ...` в языке пока нет. `runs` может быть значением
+состояния (`runs: state.snippet;`). Одновременно `text` и `runs` задавать нельзя.
+Компилятор Studio на JavaScript `runs` и `fontWeight` пока не знает: такие сцены
+собираются Rust-компилятором (native, `Runtime::from_ui_files`).
+
 Обычные `Text` и `TextInput` работают в сцене без файлов компонентов.
 При наличии `components/Text.ui` или `components/TextInput.ui` используется
 определение проекта. Внутри визуального дерева они остаются примитивами.

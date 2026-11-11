@@ -3,3 +3,4 @@ crates/forma/tests/golden/** text eol=lf
 crates/gpu-shader/tests/golden/** text eol=lf
 # Upstream license text is stored byte for byte so it matches PROVENANCE.json.
 crates/forma/assets/mono/*.OFL.txt -text
+crates/forma/assets/bold/*.UFL.txt -text

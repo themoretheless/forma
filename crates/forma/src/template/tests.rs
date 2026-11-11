@@ -88,6 +88,51 @@ fn font_family_selects_the_face_and_rejects_unknown_names() {
     ));
 }
 #[test]
+fn font_weight_selects_the_bold_face() {
+    use crate::text::FontFamily;
+    let label = |source: &str| body(source).map(|t| t.text.unwrap().family);
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: bold; }").unwrap(),
+        FontFamily::SansBold
+    );
+    // Weight applies after the family, whatever the field order.
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: 'bold'; fontFamily: sans; }").unwrap(),
+        FontFamily::SansBold
+    );
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: bold; fontFamily: mono; }").unwrap(),
+        FontFamily::Mono
+    );
+    assert!(label("Text { text:'x'; fontWeight: heavy; }").is_err());
+    // `sans-bold` is a compiled-scene name only.
+    assert!(label("Text { text:'x'; fontFamily: 'sans-bold'; }").is_err());
+    let content = body(
+        "ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a'; color: #ffffff; fontFamily: 'sans-bold'; }",
+    )
+    .unwrap();
+    assert!(matches!(
+        &content.content[0],
+        Content::Text { text, .. } if text.family == FontFamily::SansBold
+    ));
+}
+#[test]
+fn link_regions_parse() {
+    let content =
+        body("ContentLink { x: -2; y: 4; width: 30; height: 12; link: 'docs'; }").unwrap();
+    assert_eq!(
+        content.links,
+        vec![TextLink {
+            bounds: [-2., 4., 30., 12.],
+            id: "docs".into()
+        }]
+    );
+    assert!(body("ContentLink { x: 0; y: 0; width: 1; height: 1; }").is_err());
+    assert!(
+        body("ContentLink { x: 0; y: 0; width: 1; height: 1; link: 'a'; color: #fff; }").is_err()
+    );
+}
+#[test]
 fn shape_points_boundaries_and_string_escapes() {
     let shape = |points: &str| {
         body(&format!(
@@ -249,6 +294,7 @@ fn omitted_primitives_are_absent_and_do_not_get_painted() {
             inputs: Vec::new(),
             range: None,
             canvas: None,
+            links: Vec::new(),
             radius: 0.,
             fill: None,
             border: None,

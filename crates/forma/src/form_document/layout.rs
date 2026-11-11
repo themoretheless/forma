@@ -273,14 +273,22 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
     let measured = match n.kind.as_str() {
         "Text" => {
             let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
-            let text = text_ref(&n.props, "text", "")?;
             let wrap = boolean(&n.props, "wrap", false)?;
-            let family = font_family(&n.props)?;
             let max_w = n
                 .props
                 .get("width")
                 .and_then(|v| v.number().ok())
                 .unwrap_or(0.);
+            if let Some(runs) = super::text_runs::runs(&n.props)? {
+                let wrap_width = (wrap && max_w > 0.).then_some(max_w);
+                return constraint(
+                    n,
+                    axis,
+                    super::text_runs::natural(&runs, fs, wrap_width, axis),
+                );
+            }
+            let text = text_ref(&n.props, "text", "")?;
+            let family = font_family(&n.props)?;
             if wrap && max_w > 0. {
                 let lines =
                     crate::text::wrap_text_ranges_in(family, &text, fs as f32, max_w as f32);
