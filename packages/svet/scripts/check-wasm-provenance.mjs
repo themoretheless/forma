@@ -29,11 +29,19 @@ const report = {
     'Byte/export identity of caller-rebuilt WASM, checked-in embedded source and optional installed public asset/runtime. Caller must first build current Rust sources with locked pinned toolchain.',
 };
 try {
-  const rustSources = await collectRustSources(resolve(root, 'crates/svet-wasm/src'));
+  const rustSources = [
+    ...(await collectRustSources(resolve(root, 'crates/svet-wasm/src'))),
+    ...(await collectRustSources(resolve(root, '../../crates/svet-graph/src'))),
+    ...(await collectRustSources(resolve(root, '../../crates/svet-reconcile/src'))),
+    ...(await collectRustSources(resolve(root, '../../crates/svet-gpu-arena/src'))),
+  ];
   for (const file of [
     ...rustSources,
     'crates/svet-wasm/Cargo.toml',
     'crates/svet-wasm/Cargo.lock',
+    '../../crates/svet-graph/Cargo.toml',
+    '../../crates/svet-reconcile/Cargo.toml',
+    '../../crates/svet-gpu-arena/Cargo.toml',
     '../../rust-toolchain.toml',
   ])
     report.sourceSha256[file] = hash(await readFile(resolve(root, file)));

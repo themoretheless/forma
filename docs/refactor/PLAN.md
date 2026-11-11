@@ -245,3 +245,81 @@ docs/adr/             решения
 
 Этап 0 целиком, затем этап 1 в указанном порядке. К логике (этапы 2+) не переходить, пока гейт с новыми
 шагами не зелёный и `INVENTORY.md` не заполнен.
+
+---
+
+# Дополнение по результатам архитектурного ревью фреймворка (2026-11-11)
+
+Ниже зафиксированы системные проблемы уровня фреймворка и конкретные дефекты реализации, выявленные при сквозном ревью кодовой базы. Они расширяют этапы 2–8 и формируют приоритетный трек доведения Forma и Svet до цельного публичного продукта.
+
+## Приоритет 1. Цепочка сборки, границы пакетов и Developer Experience (DX)
+
+1. **Отказ от Node.js при сборке Rust-приложений (`forma-build`):**
+   - Сейчас `build.rs` прикладных Rust-крейтов вызывает `node scripts/generate-form.mjs` (`src/form-codegen.js`), требуя установленный Node.js и checkout монорепозитория.
+   - **Цель:** перенести линковку `.ui`-компонентов и кодогенерацию типизированных Rust-форм (`CustomerForm` и т.д.) целиком в Rust-крейт `forma-build` (поверх `themoretheless-tokenizer-forma`), чтобы `cargo build` работал автономно без Node.js.
+   - Убрать эвристический двойной прогон SVG с цветами `#010203` / `#030201` для детекции `currentColor` (`src/form-codegen.js:38-40`) в пользу прямого разбора атрибутов в AST SVG.
+2. **Развязка локальных файловых зависимостей и унификация Cargo Workspace:**
+   - В корневом `package.json` пакет `@themoretheless/tokenizer-forma` привязан через `file:../tokenizer/packages/forma`, что ломает `npm install` без соседнего каталога. Перевести на версионируемый тарбол/пакет или git/vendor-артефакт с проверкой целостности.
+   - Обновить `wasm-bindgen` с `=0.2.125` до `>=0.2.127` и включить исключённые крейты `crates/gpu-compute` и `crates/gpu-kit` обратно в корневой Cargo workspace (см. ADR 0001), устранив разъезд версий `wgpu 29` (Linux `forma`) vs `wgpu 30` (`gpu-compute`/`gpu-kit`).
+   - Ослабить чрезмерно жёсткий MSRV `rust-version = "1.97.1"` до минимально реально необходимого стабильного компилятора либо явно задокументировать политику toolchain.
+3. **Чёткое позиционирование и разделение контуров (Forma vs Svet vs Compute) — Svet на отдельные крейты:**
+   - Выделить Rust-часть Svet из монолитного `packages/svet/crates/svet-wasm` (где в одну структуру `ReactiveGraph` слиты push-pull DAG, LIS-реконсиляция DOM, 256-МиБ `gpu_f32_arena`, матричная математика, frustum clipping и 3D ray picking, а `crates/forma` тянет всё это ради одного `native::Context`!) в набор независимых крейтов корневого Cargo workspace:
+     - `crates/svet-graph` — чистое реактивное push-pull DAG-ядро (`ReactiveGraph` без GPU/LIS полей) и безопасный владелический Rust API (`Context`, `Node`, `Kind`, `Telemetry`), от которого зависит `crates/forma` (вместо похода в `../../packages/svet/crates/svet-wasm`).
+     - `crates/svet-reconcile` — zero-alloc $O(n \log n)$ LIS-реконсилер списков (`LisScratch` / `compute_lis`).
+     - `crates/svet-gpu-arena` — типизированная UMA/DUMA `f32`-арена с блочным аллокатором, dirty-span трекингом, SIMD FMA, матрицами проекции, клиппингом и 3D picking (либо переиспользование `math-core`).
+     - `packages/svet/crates/svet-wasm` — тонкая `cdylib`-оболочка C-ABI/WASM поверх `svet-graph`, `svet-reconcile` и `svet-gpu-arena` со своим профилем `opt-level = "z"`, `panic = "abort"` и проверкой байтов `wasm-binary.ts`.
+   - Зафиксировать продуктовые границы: единый рекомендуемый путь создания приложения на Forma (Rust `NativeApp` + `ViewModel` и Web/WASM runtime), роль `svet-engine` (самостоятельный TS/WASM веб-фреймворк поверх крейтов `svet-*`) и изоляция несвязанных ML/CAD-крейтов (`compute-cuda`, `compute-mlx`, `tensor-core`, вынос `cad_kernels.rs` из `gpu-shader`).
+   - Вывести из эксплуатации legacy WebView-раннер (`native-app/src/main.rs` на `tao`/`wry` с `FORMA_ACTIONS`) после полного покрытия сценариев через `forma::native_window`.
+
+## Приоритет 2. Единый компилятор `.ui` и отказ от текстовой пере-сериализации
+
+1. **Ликвидация 4 параллельных реализаций `.ui` и выражений:**
+   - Сейчас семантика `.ui` размазана между `themoretheless-tokenizer-forma`, `src/components.js` (1737 строк), `crates/forma/src/form_document/*` и рукописным TS-парсером `packages/svet/src/engine/forma-{ast,expr}.ts` (1800+ строк, где `extractBraceBlock` в `forma-ast.ts:92-120` даже не учитывает строчные и блочные комментарии `//`, `/* */`).
+   - **Цель:** оставить `themoretheless-tokenizer-forma` + Rust `form_document` единственным источником истины для парсинга, проверки типов/контрактов и нормализации `.ui`, переведя Studio и Svet на общий скомпилированный AST/IR (через WASM/AOT).
+2. **Прямой типизированный `SceneIr` вместо текстового транспорта:**
+   - Убрать на горячем пути обновления сцены обратную сериализацию дерева в строку `.ui` (`form_document/layout.rs::serialize_into`) и склейку `FORMA-TEMPLATES-1\n<len>\n...` (`runtime.rs:121-146`) с повторным текстовым парсингом каждого шаблона.
+   - Передавать из `Document` в `Runtime` напрямую типизированный `SceneIr` (оставив текстовый загрузчик `from_sources` только как внешний совместимый фронтенд).
+
+## Приоритет 3. Снятие архитектурных ограничений `forma::Runtime` и оконных хостов
+
+1. **Иерархическое интерактивное дерево и инкрементальная реконсиляция:**
+   - Уйти от плоской модели «всё есть `Button` в `Vec<Button>` с лимитом 256 контролов» (`crates/forma/src/lib.rs:72`, `runtime.rs:75`).
+   - Поддержать произвольную вложенность интерактивных контейнеров (`Frame`/`Scroll`/`Stack`/`Grid`), вложенный клиппинг и скролл, маршрутизацию событий (hit-test / capture / bubble) и стабильные ID узлов между пересборками без сброса состояния взаимодействия и фокуса.
+2. **Встроенная привязка моделей контролов (`control_state`) к рантайму:**
+   - Соединить существующие Rust-модели (`CheckModel`, `ToggleModel`, `RangeModel`, `SingleSelection`, `TreeModel`, `DataTableModel`) со стандартными `.ui`-компонентами на уровне рантайма/библиотеки форм, чтобы разработчику приложения не приходилось вручную переводить координаты указателя и коды клавиш в мутации моделей.
+3. **Объединение нативных оконных хостов (`main.rs` и `native_window.rs`):**
+   - Убрать дублирование 2000+ строк цикла `winit`, IME, AccessKit, курсоров и touch-ввода между `crates/forma/src/main.rs` и `crates/forma/src/native_window.rs` (причина рассинхрона багфиксов вроде `F-4`). Превратить `main.rs` в тонкий CLI-ланчер поверх `NativeApp` / `NativeHost`.
+
+## Приоритет 4. Надёжность и честность `gpu-shader` и `gpu-runtime`
+
+1. **Устранение тихих искажений (silent fallbacks) в `crates/gpu-shader`:**
+   - `front/wgsl.rs:870-873`: неизвестный или forward-referenced тип молча подменяется на `Scalar::U32` (4 байта) — заменить на явный двухпроходный резолв типов и жёсткую ошибку парсинга/валидации при неизвестном типе.
+   - `front/wgsl.rs:837`: невычисленная длина массива `array<T, N>` молча превращается в `1` (`unwrap_or(1)`) — возвращать `ParseError`.
+   - `front/wgsl.rs:892-921`: переписать `eval_u32_const_expr` на корректный парсер выражений с поддержкой `-`, `%`, `<<`, `>>`, побитовых операций и **левой** ассоциативностью для `-`, `/`, `%` (сейчас `8 / 2 / 2` вычисляется как `8 / (2 / 2) = 8`).
+   - `back/msl.rs:1916-1931`: убрать молчаливую подстановку `"(_wgpu_buffer_sizes[0] / 4u)"` для `arrayLength`, когда буфер не найден напрямую в `array_length_slots`; протаскивать метаданные буфера или возвращать явную ошибку трансляции.
+   - `back/msl.rs:393-401`: валидировать идентификатор константы и конечность значения (`value.is_finite()`) в `with_pipeline_constants` до генерации `#define`.
+   - Вынести прикладные CAD-шейдеры (`cad_kernels.rs`) из базового компилятора шейдеров `gpu-shader` на уровень прикладного/рендер-крейта.
+2. **Честная обработка ошибок и возможностей в `crates/gpu-runtime`:**
+   - `lib.rs:666-717, 793-803`: перестать проглатывать ошибки парсинга/валидации WGSL и генерации MSL в `create_shader_module` с подстановкой пустого `Module::default()`, из-за чего пайплайн позже падает с неинформативным `.expect("Metal compute pipeline compilation failed")`; сохранять диагностику шейдера и корректно проводить её через error scope / сообщение об ошибке.
+   - `lib.rs:216-218` и `rtx.rs:56-71`: убрать безусловное выставление нереализованных флагов `EXPERIMENTAL_RAY_QUERY | EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE | RAY_TRACING_PIPELINE` в `Adapter::from_metal` и фейковый `device_address: 0x0001_0000_0000 + ...` в `Blas::new`. Нереализованные модули (`vulkan.rs`, `dx12.rs`, `cuda.rs`, `opengl.rs`, `rtx.rs`) не должны имитировать рабочие хэндлы.
+   - `metal.rs:2478, 2551`: исправить ABI вызова `bounds` -> `CGRect` на `x86_64` (`objc_msgSend_stret`), чтобы исключить UB и порчу стека на Intel Mac.
+
+## Приоритет 5. Точность и безопасность реактивного ядра `packages/svet`
+
+1. **Умная обёртка выражений в JSX-компиляторе (`compiler.ts`):**
+   - Сейчас `hasEagerCall` (`packages/svet/src/engine/compiler.ts:56-98`) оборачивает в реактивный thunk `() => ...` любой `CallExpression` / `NewExpression` (включая чистые форматтеры `clsx(...)`, `new Intl.NumberFormat(...)`), порождая лишние подписки и эффекты на статических данных. Ограничить авто-обёртку либо ввести явный анализ/аннотацию статических вызовов и мемоизацию.
+2. **Декомпозиция `svet-wasm` на крейты и защита от реентерабельного UB / ошибок аллокатора:**
+   - Разнести монолитный `ReactiveGraph` (`packages/svet/crates/svet-wasm/src/{graph,lis,gpu_math,native,ffi}.rs`) на чистые крейты `svet-graph`, `svet-reconcile`, `svet-gpu-arena` и тонкий `cdylib`-адаптер `svet-wasm`, чтобы `crates/forma` зависел только от `crates/svet-graph` внутри корневого workspace без обратных ссылок в `packages/svet/crates/svet-wasm` и без лишних GPU/LIS-буферов в каждом экземпляре графа.
+   - `crates/svet-wasm/src/ffi.rs:13-20`: заменить неконтролируемый `&mut *GRAPH.0.get()` в глобальном `UnsafeCell` на явный контекст-хэндл `Core { graph: ReactiveGraph, lis: LisScratch, gpu: GpuArena }` (что позволит изолировать SSR-запросы внутри одного `WebAssembly.Instance`) и добавить защиту от реентерабельного создания двух `&mut`.
+   - `crates/svet-wasm/src/ffi.rs:150-164`: обезопасить пару `svet_alloc_u32` / `svet_free_u32` (хранить выделенный размер в заголовке аллокации или передавать управление буферами через типизированную арену рантайма, исключив UB при несовпадении `len` в `Vec::from_raw_parts`).
+3. **Сокращение дублирования состояния графа между JS и WASM (`reactivity.ts`):**
+   - Облегчить JS-объекты `EffectEntry` / `ComputedEntry` (`reactivity.ts:54-107`), убрав дублирующие списки и множества рёбер на стороне JS там, где источником истины уже выступает линейная память `svet-wasm`, и упростить межкопийную координацию через `globalThis[Symbol.for(...)]`.
+
+## Приоритет 6. Декомпозиция Studio, MCP-моста и dev-раннеров
+
+1. **Декомпозиция `src/main.js` (2106 строк) и удаление двойного DOM:**
+   - Инкапсулировать ~40 модульных `let`-переменных в явное состояние приложения (`app/state.js`) и сервисы.
+   - Завершить переход оболочки на `forma-shell.js` / `minimal-shell.js`, удалив скрытый дублирующий HTML-шаблон старого заголовка, который сейчас остаётся в DOM только как цель синтетических кликов команд.
+2. **Надёжность `dev-server/mcp-bridge.js` и честная модель `design-data-runner.js`:**
+   - В `dev-server/mcp-bridge.js:18, 51` убрать хардкод порта `127.0.0.1:5173`: считывать фактический хост и порт из `server.httpServer.address()` при записи `.forma/bridge.json` и проверке заголовка `Host` (с поддержкой `localhost` / нестандартного порта Vite).
+   - В `design-data-runner.js:19-25` убрать обходимый regex-blacklist (`unsafe`, `std::fs`, `std::process`), заменив его либо на честное явное подтверждение доверия к проекту на уровне сессии/ОС-песочницы (`sandbox-exec` / `bwrap` при наличии), либо на статический AST-анализ без ложных срабатываний на комментарии и алиасы.

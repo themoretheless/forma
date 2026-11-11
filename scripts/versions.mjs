@@ -37,7 +37,12 @@ function cargoVersion(text, name) {
 const SVET_PACKAGE = 'packages/svet/package.json',
   SVET_LOCK = 'packages/svet/package-lock.json',
   SVET_WASM = 'packages/svet/crates/svet-wasm/Cargo.toml',
-  SVET_WASM_LOCK = 'packages/svet/crates/svet-wasm/Cargo.lock';
+  SVET_WASM_LOCK = 'packages/svet/crates/svet-wasm/Cargo.lock',
+  SVET_WORKSPACE_CRATES = [
+    ['svet-graph', 'crates/svet-graph/Cargo.toml'],
+    ['svet-reconcile', 'crates/svet-reconcile/Cargo.toml'],
+    ['svet-gpu-arena', 'crates/svet-gpu-arena/Cargo.toml'],
+  ];
 export function versions() {
   const studio = JSON.parse(read('package.json')).version;
   const lock = JSON.parse(read('package-lock.json'));
@@ -58,9 +63,12 @@ export function versions() {
   const svetLock = JSON.parse(read(SVET_LOCK));
   if (svetLock.version !== svet || svetLock.packages[''].version !== svet)
     throw Error('svet package-lock.json version mismatch');
-  for (const path of [SVET_WASM, SVET_WASM_LOCK, 'Cargo.lock'])
+  for (const path of [SVET_WASM, SVET_WASM_LOCK])
     if (cargoVersion(read(path), 'svet-wasm') !== svet)
       throw Error(`svet-wasm version mismatch: ${path}`);
+  for (const [name, manifest] of SVET_WORKSPACE_CRATES)
+    for (const path of [manifest, 'Cargo.lock', SVET_WASM_LOCK])
+      if (cargoVersion(read(path), name) !== svet) throw Error(`${name} version mismatch: ${path}`);
   const wasmBindgen = read('crates/forma/Cargo.toml').match(/^wasm-bindgen = "=([^"]+)"$/m)?.[1];
   if (!wasmBindgen || cargoVersion(read('Cargo.lock'), 'wasm-bindgen') !== wasmBindgen)
     throw Error('wasm-bindgen must be exactly pinned and match Cargo.lock');
@@ -95,6 +103,12 @@ function replaceCargo(text, name, version) {
   if (!found) throw Error(`Missing package ${name}`);
   return next;
 }
+function replaceCargoDepVersion(text, name, version) {
+  return text.replace(
+    new RegExp(`(^${name}\\s*=\\s*\\{[^\\n]*?\\bversion\\s*=\\s*")[^"]+(")`, 'gm'),
+    `$1${version}$2`,
+  );
+}
 export function setVersion(component, version) {
   versions(); // Validate all inputs before preparing any writes.
   if (!['runtime', 'studio', 'svet', 'all'].includes(component) || !validVersion(version))
@@ -106,10 +120,17 @@ export function setVersion(component, version) {
     return setVersion('svet', version);
   }
   const updates = new Map();
+  const current = path => updates.get(path) ?? read(path);
   if (component === 'svet') {
     for (const path of [SVET_PACKAGE, SVET_LOCK]) updates.set(path, bumpJson(read(path), version));
-    for (const path of [SVET_WASM, SVET_WASM_LOCK, 'Cargo.lock'])
-      updates.set(path, replaceCargo(read(path), 'svet-wasm', version));
+    for (const path of [SVET_WASM, SVET_WASM_LOCK])
+      updates.set(path, replaceCargo(current(path), 'svet-wasm', version));
+    for (const [name, manifest] of SVET_WORKSPACE_CRATES) {
+      for (const path of [manifest, 'Cargo.lock', SVET_WASM_LOCK])
+        updates.set(path, replaceCargo(current(path), name, version));
+      for (const path of [SVET_WASM, 'crates/forma/Cargo.toml'])
+        updates.set(path, replaceCargoDepVersion(current(path), name, version));
+    }
     for (const [path, text] of updates) writeFileSync(resolve(root, path), text);
     return versions();
   }

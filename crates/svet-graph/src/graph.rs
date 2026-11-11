@@ -10,7 +10,7 @@ pub const STATE_CHECK: u8 = 1;
 pub const STATE_DIRTY: u8 = 2;
 pub const STATE_DISPOSED: u8 = 255;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Node {
     pub kind: u8,
     pub in_queue: bool,
@@ -21,7 +21,24 @@ pub struct Node {
     pub epoch: u32,
 }
 
-#[derive(Clone, Copy)]
+impl Node {
+    #[inline]
+    pub const fn is_observer(&self) -> bool {
+        self.kind == KIND_COMPUTED || self.kind == KIND_EFFECT
+    }
+
+    #[inline]
+    pub const fn matches_observer(&self, lifetime: u32) -> bool {
+        self.alive && self.lifetime == lifetime && self.is_observer()
+    }
+
+    #[inline]
+    pub const fn matches_queued_effect(&self, lifetime: u32) -> bool {
+        self.alive && self.kind == KIND_EFFECT && self.in_queue && self.lifetime == lifetime
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct ScheduledEffect {
     pub id: u32,
     pub lifetime: u32,
@@ -31,9 +48,10 @@ pub struct ScheduledEffect {
 const SUB_INDEX_THRESHOLD: usize = 16;
 
 /// Hashes one `u64` edge key; the default SipHash costs more than the scan it replaces.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct EdgeHashBuilder;
 
+#[derive(Debug)]
 pub struct EdgeHasher(u64);
 
 impl BuildHasher for EdgeHashBuilder {
@@ -49,7 +67,7 @@ impl Hasher for EdgeHasher {
     }
     fn write(&mut self, bytes: &[u8]) {
         for &byte in bytes {
-            self.write_u64(byte as u64);
+            self.write_u64(u64::from(byte));
         }
     }
     fn write_u64(&mut self, value: u64) {
@@ -59,10 +77,11 @@ impl Hasher for EdgeHasher {
 }
 
 #[inline]
-pub(crate) fn edge_key(source: usize, target: u32) -> u64 {
+pub const fn edge_key(source: usize, target: u32) -> u64 {
     ((source as u64) << 32) | target as u64
 }
 
+#[derive(Debug)]
 pub struct ReactiveGraph {
     pub nodes: Vec<Node>,
     /// Forward edges: `subscribers[source_id]` -> list of target node IDs
@@ -72,10 +91,10 @@ pub struct ReactiveGraph {
     /// Position of `target` in `subscribers[source]`, kept only for sources
     /// marked in `sub_indexed`: a signal with thousands of subscribers must
     /// not scan its list on every link and unlink.
-    pub(crate) sub_index: HashMap<u64, u32, EdgeHashBuilder>,
-    pub(crate) sub_indexed: Vec<bool>,
+    pub sub_index: HashMap<u64, u32, EdgeHashBuilder>,
+    pub sub_indexed: Vec<bool>,
     /// Contiguous byte array of node states (`STATE_CLEAN`, `STATE_CHECK`, `STATE_DIRTY`, `STATE_DISPOSED`)
-    /// exposed directly to JS via zero-copy `Uint8Array` view so JS can check `state === STATE_CLEAN` without FFI!
+    /// exposed directly to JS via zero-copy `Uint8Array` view so JS can check `state === STATE_CLEAN` without FFI.
     pub node_states: Vec<u8>,
     /// Cached terminal effect (`u32::MAX` = multiple/dirty, `u32::MAX - 1` = none, `< u32::MAX - 1` = unique downstream effect ID)
     pub single_terminal_effect: Vec<u32>,
@@ -99,33 +118,17 @@ pub struct ReactiveGraph {
     pub batch_depth: u32,
     /// Global monotonic version clock
     pub global_epoch: u32,
-    /// Output buffer for LIS (Longest Increasing Subsequence) keyed list diffing
-    pub lis_buffer: Vec<u32>,
-    /// Reusable input scratch buffer for LIS and batch operations (avoids per-call alloc/free)
-    pub lis_input_buffer: Vec<u32>,
-    /// Reusable LIS tail indices scratch buffer (zero-alloc keyed list diffing)
-    pub lis_tails: Vec<usize>,
-    /// Reusable LIS predecessor links scratch buffer (zero-alloc keyed list diffing)
-    pub lis_predecessors: Vec<usize>,
     /// Reusable traversal stack for `trigger_write` (avoids per-write Vec allocation)
     pub propagate_stack: Vec<(u32, u8)>,
-    pub(crate) dependency_stack: Vec<u32>,
-    pub(crate) dependency_seen: Vec<u32>,
-    pub(crate) dependency_epoch: u32,
-    /// Contiguous 16-byte-aligned f32 page for UMA/DUMA GPU Tensor Signals
-    pub gpu_f32_arena: Vec<f32>,
-    /// Homogeneous clipping result, valid until the next clipping call.
-    pub gpu_clip_output: Vec<f32>,
-    pub gpu_pick_indices: Vec<u32>,
-    pub gpu_pick_vertices: Vec<f32>,
-    /// Dirty bitset (1 bit per 32 floats / 128-byte cache line) for partial DUMA DMA transfers
-    pub gpu_dirty_blocks: Vec<u32>,
-    /// Free blocks `(offset, aligned_len)` in `gpu_f32_arena` for O(1) GPU tensor memory recycling
-    pub gpu_free_blocks: Vec<(u32, u32)>,
-    /// Minimum dirty float index in the current frame
-    pub gpu_dirty_min: u32,
-    /// Maximum dirty float index (exclusive) in the current frame
-    pub gpu_dirty_max: u32,
+    pub dependency_stack: Vec<u32>,
+    pub dependency_seen: Vec<u32>,
+    pub dependency_epoch: u32,
+}
+
+impl Default for ReactiveGraph {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ReactiveGraph {
@@ -148,22 +151,10 @@ impl ReactiveGraph {
             flush_buffer: Vec::new(),
             batch_depth: 0,
             global_epoch: 1,
-            lis_buffer: Vec::new(),
-            lis_input_buffer: Vec::new(),
-            lis_tails: Vec::new(),
-            lis_predecessors: Vec::new(),
             propagate_stack: Vec::new(),
             dependency_stack: Vec::new(),
             dependency_seen: Vec::new(),
             dependency_epoch: 0,
-            gpu_f32_arena: Vec::new(),
-            gpu_clip_output: Vec::new(),
-            gpu_pick_indices: Vec::new(),
-            gpu_pick_vertices: Vec::new(),
-            gpu_dirty_blocks: Vec::new(),
-            gpu_free_blocks: Vec::new(),
-            gpu_dirty_min: u32::MAX,
-            gpu_dirty_max: 0,
         }
     }
 
@@ -185,23 +176,48 @@ impl ReactiveGraph {
         self.flush_buffer.clear();
         self.batch_depth = 0;
         self.global_epoch = 1;
-        self.lis_buffer.clear();
-        self.lis_input_buffer.clear();
-        self.lis_tails.clear();
-        self.lis_predecessors.clear();
         self.propagate_stack.clear();
         self.dependency_stack.clear();
         self.dependency_seen.clear();
         self.dependency_epoch = 0;
-        self.gpu_f32_arena.clear();
-        self.gpu_clip_output.clear();
-        self.gpu_pick_indices.clear();
-        self.gpu_pick_vertices.clear();
-        self.gpu_dirty_blocks.clear();
-        self.gpu_free_blocks.clear();
-        self.gpu_dirty_min = u32::MAX;
-        self.gpu_dirty_max = 0;
     }
+
+    #[inline]
+    pub fn is_alive(&self, id: u32) -> bool {
+        self.nodes.get(id as usize).is_some_and(|node| node.alive)
+    }
+
+    #[inline]
+    pub fn is_live_observer(&self, id: u32, lifetime: u32) -> bool {
+        self.nodes
+            .get(id as usize)
+            .is_some_and(|node| node.matches_observer(lifetime))
+    }
+
+    #[inline]
+    pub fn is_tracking_active(&self) -> bool {
+        self.tracking_stack
+            .last()
+            .is_some_and(|&(target, _, lifetime)| self.is_live_observer(target, lifetime))
+    }
+
+    #[inline]
+    pub fn edge_count(&self) -> usize {
+        self.subscribers.iter().map(Vec::len).sum()
+    }
+
+    #[inline]
+    fn begin_dependency_pass(&mut self) -> u32 {
+        self.dependency_seen.resize(self.nodes.len(), 0);
+        self.dependency_epoch = self.dependency_epoch.wrapping_add(1);
+        if self.dependency_epoch == 0 {
+            self.dependency_seen.fill(0);
+            self.dependency_epoch = 1;
+        }
+        self.dependency_stack.clear();
+        self.dependency_epoch
+    }
+
     #[inline]
     pub fn create_node(&mut self, kind: u8) -> u32 {
         let initial_state = if kind == KIND_SIGNAL {
@@ -285,7 +301,7 @@ impl ReactiveGraph {
     #[inline]
     pub fn dispose_node(&mut self, id: u32) {
         let idx = id as usize;
-        if idx >= self.nodes.len() || !self.nodes[idx].alive {
+        if !self.is_alive(id) {
             return;
         }
         self.advance_topology_epoch();
@@ -301,23 +317,23 @@ impl ReactiveGraph {
                 .get(sub_id as usize)
                 .filter(|node| node.alive && node.tracking)
                 .map(|node| node.lifetime);
-            if let Some(sub_sources) = self.sources.get_mut(sub_id as usize) {
-                if let Some(pos) = sub_sources.iter().position(|&x| x == id) {
-                    let mut tracked = false;
-                    for frame in &mut self.tracking_stack {
-                        if frame.0 == sub_id && Some(frame.2) == lifetime {
-                            tracked = true;
-                            if pos < frame.1 {
-                                frame.1 -= 1;
-                            }
+            if let Some(sub_sources) = self.sources.get_mut(sub_id as usize)
+                && let Some(pos) = sub_sources.iter().position(|&x| x == id)
+            {
+                let mut tracked = false;
+                for frame in &mut self.tracking_stack {
+                    if frame.0 == sub_id && Some(frame.2) == lifetime {
+                        tracked = true;
+                        if pos < frame.1 {
+                            frame.1 -= 1;
                         }
                     }
-                    // Preserve the already-read prefix of active discovery passes.
-                    if tracked {
-                        sub_sources.remove(pos);
-                    } else {
-                        sub_sources.swap_remove(pos);
-                    }
+                }
+                // Preserve the already-read prefix of active discovery passes.
+                if tracked {
+                    sub_sources.remove(pos);
+                } else {
+                    sub_sources.swap_remove(pos);
                 }
             }
         }
@@ -339,10 +355,7 @@ impl ReactiveGraph {
     pub fn link(&mut self, source: u32, target: u32) {
         let s = source as usize;
         let t = target as usize;
-        if s >= self.nodes.len() || t >= self.nodes.len() || s == t {
-            return;
-        }
-        if !self.nodes[s].alive || !self.nodes[t].alive {
+        if s == t || !self.is_alive(source) || !self.is_alive(target) {
             return;
         }
         // Both lists hold every edge, so one membership test covers the pair.
@@ -438,28 +451,27 @@ impl ReactiveGraph {
     /// Replaces all incoming dependency edges of `target` with `new_sources` and marks `target` as `STATE_CLEAN`.
     pub fn sync_sources(&mut self, target: u32, new_sources: &[u32]) {
         self.clear_sources(target);
-        let t = target as usize;
-        if t >= self.nodes.len() || !self.nodes[t].alive {
+        if !self.is_alive(target) {
             return;
         }
         for &src in new_sources {
             self.link(src, target);
         }
-        self.node_states[t] = STATE_CLEAN;
+        self.node_states[target as usize] = STATE_CLEAN;
     }
+
     /// Uses cursor-based edge verification: if dependencies are accessed in the same order,
-    /// zero vector mutations or allocations occur!
+    /// zero vector mutations or allocations occur.
     #[inline]
     pub fn begin_tracking(&mut self, target: u32) {
-        if let Some(node) = self.nodes.get_mut(target as usize) {
-            if node.alive
-                && !node.tracking
-                && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT)
-            {
-                node.tracking = true;
-                self.tracking_stack.push((target, 0, node.lifetime));
-                return;
-            }
+        if let Some(node) = self.nodes.get_mut(target as usize)
+            && node.alive
+            && !node.tracking
+            && node.is_observer()
+        {
+            node.tracking = true;
+            self.tracking_stack.push((target, 0, node.lifetime));
+            return;
         }
         // Preserve stack balance without attaching reads to an outer observer.
         self.tracking_stack.push((u32::MAX, 0, 0));
@@ -487,14 +499,10 @@ impl ReactiveGraph {
         let Some((target, cursor, lifetime)) = self.tracking_stack.pop() else {
             return;
         };
-        let t = target as usize;
-        if !self.nodes.get(t).is_some_and(|node| {
-            node.alive
-                && node.lifetime == lifetime
-                && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT)
-        }) {
+        if !self.is_live_observer(target, lifetime) {
             return;
         }
+        let t = target as usize;
         self.nodes[t].tracking = false;
         let old_len = self.sources[t].len();
         if cursor < old_len {
@@ -511,26 +519,16 @@ impl ReactiveGraph {
     /// Verify reads in place; reordering existing sources changes no graph edges.
     #[inline]
     pub fn track_read(&mut self, source: u32) {
-        if !self
-            .nodes
-            .get(source as usize)
-            .is_some_and(|node| node.alive)
-        {
+        if !self.is_alive(source) {
             return;
         }
         let Some(&(observer, cursor, lifetime)) = self.tracking_stack.last() else {
             return;
         };
-        let t = observer as usize;
-        if source == observer
-            || !self.nodes.get(t).is_some_and(|node| {
-                node.alive
-                    && node.lifetime == lifetime
-                    && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT)
-            })
-        {
+        if source == observer || !self.is_live_observer(observer, lifetime) {
             return;
         }
+        let t = observer as usize;
         let cur = cursor.min(self.sources[t].len());
         if cur < self.sources[t].len() && self.sources[t][cur] == source {
             self.tracking_stack.last_mut().unwrap().1 = cur + 1;
@@ -568,14 +566,7 @@ impl ReactiveGraph {
         self.downstream_computeds[source].clear();
         let mut terminal = u32::MAX - 1;
         if !self.subscribers[source].is_empty() {
-            self.dependency_seen.resize(self.nodes.len(), 0);
-            self.dependency_epoch = self.dependency_epoch.wrapping_add(1);
-            if self.dependency_epoch == 0 {
-                self.dependency_seen.fill(0);
-                self.dependency_epoch = 1;
-            }
-            let epoch = self.dependency_epoch;
-            self.dependency_stack.clear();
+            let epoch = self.begin_dependency_pass();
             self.dependency_stack
                 .extend(self.subscribers[source].iter().copied());
             while let Some(id) = self.dependency_stack.pop() {
@@ -601,6 +592,15 @@ impl ReactiveGraph {
         self.terminal_cache_epoch[source] = self.topology_epoch;
     }
 
+    #[inline]
+    fn mark_cached_downstream_dirty(&mut self, source: usize) {
+        self.global_epoch = self.global_epoch.wrapping_add(1);
+        self.nodes[source].epoch = self.global_epoch;
+        for &comp_id in &self.downstream_computeds[source] {
+            self.node_states[comp_id as usize] = STATE_DIRTY;
+        }
+    }
+
     /// Trigger a change on `source` (signal or computed whose value changed)
     /// and immediately prepare `flush_buffer` if `batch_depth == 0`.
     /// Returns:
@@ -608,31 +608,23 @@ impl ReactiveGraph {
     /// - `effect_id + 1` (positive) if exactly 1 effect was flushed
     /// - `-(count as i32)` (negative) if 2 or more effects were flushed
     pub fn trigger_and_flush_fast(&mut self, source: u32) -> i32 {
-        let s = source as usize;
-        if s >= self.nodes.len() || !self.nodes[s].alive {
+        if !self.is_alive(source) {
             return 0;
         }
+        let s = source as usize;
         // Fast path: if `batch_depth == 0` and this signal has a validated unique downstream effect,
-        // mark its cached downstream computeds in a single flat loop without graph stack traversal!
+        // mark its cached downstream computeds in a single flat loop without graph stack traversal.
         if self.batch_depth == 0
             && self.pending_effects.is_empty()
             && self.terminal_cache_epoch[s] == self.topology_epoch
         {
             let cached = self.single_terminal_effect[s];
             if cached == u32::MAX - 1 {
-                self.global_epoch = self.global_epoch.wrapping_add(1);
-                self.nodes[s].epoch = self.global_epoch;
-                for &comp_id in &self.downstream_computeds[s] {
-                    self.node_states[comp_id as usize] = STATE_DIRTY;
-                }
+                self.mark_cached_downstream_dirty(s);
                 return 0;
             }
             if cached < u32::MAX - 1 {
-                self.global_epoch = self.global_epoch.wrapping_add(1);
-                self.nodes[s].epoch = self.global_epoch;
-                for &comp_id in &self.downstream_computeds[s] {
-                    self.node_states[comp_id as usize] = STATE_DIRTY;
-                }
+                self.mark_cached_downstream_dirty(s);
                 self.node_states[cached as usize] = STATE_DIRTY;
                 return (cached as i32) + 1;
             }
@@ -643,20 +635,19 @@ impl ReactiveGraph {
         if self.batch_depth == 0 {
             self.cache_terminal_topology(s);
         }
-        if count == 0 {
-            0
-        } else if count == 1 {
-            (self.flush_buffer[0] as i32) + 1
-        } else {
-            -(count as i32)
+        match count {
+            0 => 0,
+            1 => (self.flush_buffer[0] as i32) + 1,
+            _ => -(count as i32),
         }
     }
+
     /// Propagates `DIRTY` to direct children and `CHECK` to transitive dependents.
     pub fn trigger_write(&mut self, source: u32) {
-        let s = source as usize;
-        if s >= self.nodes.len() || !self.nodes[s].alive {
+        if !self.is_alive(source) {
             return;
         }
+        let s = source as usize;
         self.global_epoch = self.global_epoch.wrapping_add(1);
         self.nodes[s].epoch = self.global_epoch;
 
@@ -706,17 +697,13 @@ impl ReactiveGraph {
 
     #[inline]
     pub fn set_state(&mut self, id: u32, state: u8) {
-        if let Some(node) = self.nodes.get(id as usize) {
-            if node.alive {
-                self.node_states[id as usize] = state;
-            }
+        if self.is_alive(id) {
+            self.node_states[id as usize] = state;
         }
     }
 
     pub fn depends_on(&mut self, target: u32, source: u32) -> bool {
-        if !self.nodes.get(target as usize).is_some_and(|n| n.alive)
-            || !self.nodes.get(source as usize).is_some_and(|n| n.alive)
-        {
+        if !self.is_alive(target) || !self.is_alive(source) {
             return false;
         }
         if target == source {
@@ -725,14 +712,7 @@ impl ReactiveGraph {
         if self.subscribers[source as usize].is_empty() {
             return false;
         }
-        self.dependency_seen.resize(self.nodes.len(), 0);
-        self.dependency_epoch = self.dependency_epoch.wrapping_add(1);
-        if self.dependency_epoch == 0 {
-            self.dependency_seen.fill(0);
-            self.dependency_epoch = 1;
-        }
-        let epoch = self.dependency_epoch;
-        self.dependency_stack.clear();
+        let epoch = self.begin_dependency_pass();
         self.dependency_stack.push(target);
         let mut found = false;
         while let Some(id) = self.dependency_stack.pop() {
@@ -763,12 +743,9 @@ impl ReactiveGraph {
         }
         let nodes = &self.nodes;
         self.pending_effects.retain(|pending| {
-            nodes.get(pending.id as usize).is_some_and(|node| {
-                node.alive
-                    && node.kind == KIND_EFFECT
-                    && node.in_queue
-                    && node.lifetime == pending.lifetime
-            })
+            nodes
+                .get(pending.id as usize)
+                .is_some_and(|node| node.matches_queued_effect(pending.lifetime))
         });
     }
 
@@ -776,33 +753,26 @@ impl ReactiveGraph {
         self.pending_effects
             .iter()
             .filter(|pending| {
-                self.nodes.get(pending.id as usize).is_some_and(|n| {
-                    n.alive
-                        && n.kind == KIND_EFFECT
-                        && n.in_queue
-                        && n.lifetime == pending.lifetime
+                self.nodes.get(pending.id as usize).is_some_and(|node| {
+                    node.matches_queued_effect(pending.lifetime)
                         && self.node_states[pending.id as usize] != STATE_CLEAN
                 })
             })
             .count()
     }
 
-    /// Drains scheduled effects from matching live slot lifetimes into the uint32 JS flush buffer.
+    /// Drains scheduled effects from matching live slot lifetimes into the uint32 flush buffer.
     pub fn prepare_flush(&mut self) -> usize {
         self.flush_buffer.clear();
         if self.batch_depth > 0 {
             return 0;
         }
         for pending in &self.pending_effects {
-            if let Some(node) = self.nodes.get_mut(pending.id as usize) {
-                if node.alive
-                    && node.kind == KIND_EFFECT
-                    && node.in_queue
-                    && node.lifetime == pending.lifetime
-                {
-                    node.in_queue = false;
-                    self.flush_buffer.push(pending.id);
-                }
+            if let Some(node) = self.nodes.get_mut(pending.id as usize)
+                && node.matches_queued_effect(pending.lifetime)
+            {
+                node.in_queue = false;
+                self.flush_buffer.push(pending.id);
             }
         }
         self.pending_effects.clear();

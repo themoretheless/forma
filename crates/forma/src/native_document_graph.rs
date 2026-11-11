@@ -2,7 +2,7 @@
 //! Svet graph coalesces state changes into a render job and survives scene rebuilds.
 use crate::form_document::Properties;
 use std::collections::BTreeMap;
-use svet_wasm::native::{Context, Kind, Node, Telemetry};
+use svet_graph::context::{Context, Kind, Node, Telemetry};
 
 pub(crate) struct DocumentGraph {
     graph: Context,

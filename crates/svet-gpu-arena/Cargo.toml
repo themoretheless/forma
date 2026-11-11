@@ -1,0 +1,11 @@
+[package]
+name = "svet-gpu-arena"
+version = "0.3.7"
+edition = "2024"
+rust-version = "1.92"
+publish = false
+description = "UMA/DUMA f32 tensor arena, dirty-span tracking, SIMD128/CPU mat4 math, frustum clipping and 3D picking for Svet"
+license = "MIT OR Apache-2.0"
+
+[lints.rust]
+missing_debug_implementations = "warn"

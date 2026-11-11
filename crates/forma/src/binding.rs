@@ -250,14 +250,14 @@ impl Wake {
 struct NativeBindings {
     next: u64,
     fields: BTreeMap<u64, Rc<dyn Fn()>>,
-    graph: Option<svet_wasm::native::Context>,
-    nodes: BTreeMap<u64, (svet_wasm::native::Node, svet_wasm::native::Node)>,
-    jobs: std::collections::HashMap<svet_wasm::native::Node, u64>,
+    graph: Option<svet_graph::context::Context>,
+    nodes: BTreeMap<u64, (svet_graph::context::Node, svet_graph::context::Node)>,
+    jobs: std::collections::HashMap<svet_graph::context::Node, u64>,
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl NativeBindings {
     fn add_nodes(&mut self, key: u64) {
-        use svet_wasm::native::Kind;
+        use svet_graph::context::Kind;
         if let Some(graph) = &mut self.graph {
             let source = graph.create(Kind::Signal).expect("native binding source");
             let effect = graph.create(Kind::Effect).expect("native binding effect");
@@ -324,7 +324,7 @@ impl NativeBindings {
         }
         self.nodes.clear();
         self.jobs.clear();
-        self.graph = enabled.then(svet_wasm::native::Context::new);
+        self.graph = enabled.then(svet_graph::context::Context::new);
         for key in self.fields.keys().copied().collect::<Vec<_>>() {
             self.add_nodes(key);
         }
@@ -1109,7 +1109,7 @@ impl Form {
         self.wake.notify();
     }
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn svet_binding_telemetry(&self) -> Option<svet_wasm::native::Telemetry> {
+    pub fn svet_binding_telemetry(&self) -> Option<svet_graph::context::Telemetry> {
         self.wake
             .native
             .borrow()

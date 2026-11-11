@@ -68,3 +68,13 @@
 - Миграция: добавить ветку `FontFamily::SansBold` (полужирный Ubuntu) и `links: Vec::new()`.
   Встроенный `Text` сцены теперь принимает `fontFamily`, `fontWeight` и `runs`; прежние сцены
   компилируются в те же байты.
+
+## 8. Декомпозиция Rust-ядра Svet на крейты `svet-graph`, `svet-reconcile`, `svet-gpu-arena`
+
+- Затронуто: монолитный `ReactiveGraph` разделён на `svet_graph::ReactiveGraph` (только реактивный DAG),
+  `svet_reconcile::LisScratch` (LIS-диффинг) и `svet_gpu_arena::GpuArena` (UMA/DUMA арена, матричная
+  математика, clipping и 3D picking). `crates/forma` теперь зависит от `crates/svet-graph` внутри
+  корневого Cargo workspace вместо `packages/svet/crates/svet-wasm`; возвращаемый тип телеметрии
+  хоста — `svet_graph::context::Telemetry`.
+- Миграция: нативным Rust-потребителям подключать `svet-graph` (`svet_graph::context::{Context, Kind, Node, Telemetry}`)
+  вместо `svet-wasm`; C-ABI экспорты `svet_*` и реэкспорт `svet_wasm::native::*` сохранены без изменений.

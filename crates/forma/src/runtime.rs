@@ -195,7 +195,7 @@ impl Runtime {
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn svet_document_telemetry(&self) -> Option<svet_wasm::native::Telemetry> {
+    pub fn svet_document_telemetry(&self) -> Option<svet_graph::context::Telemetry> {
         self.svet_document.as_ref().map(|graph| graph.telemetry())
     }
 
