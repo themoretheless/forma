@@ -27,6 +27,8 @@ export function runtimeSourceDigest(root) {
     'crates/forma/src',
     'crates/forma/assets',
     'crates/forma/controls',
+    'crates/svet-graph/Cargo.toml',
+    'crates/svet-graph/src',
     'crates/forma/examples/Button.ui',
     'crates/forma/examples/Button.component.ui',
     'crates/forma/examples/TwoButtons.ui',

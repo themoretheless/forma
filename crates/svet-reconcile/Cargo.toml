@@ -1,0 +1,12 @@
+[package]
+name = "svet-reconcile"
+version = "0.3.7"
+edition = "2024"
+rust-version = "1.92"
+publish = false
+description = "Zero-allocation O(n log n) Longest Increasing Subsequence (LIS) reconciler for Svet"
+license = "MIT OR Apache-2.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"

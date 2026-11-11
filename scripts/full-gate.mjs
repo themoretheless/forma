@@ -39,6 +39,9 @@ export const WORKSPACE_CRATES = [
   'compute-cuda',
   'memory-budget',
   'swap-store',
+  'svet-graph',
+  'svet-reconcile',
+  'svet-gpu-arena',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {

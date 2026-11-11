@@ -5,6 +5,9 @@ resolver = "2"
 members = [
     "crates/memory-budget",
     "crates/swap-store",
+    "crates/svet-graph",
+    "crates/svet-reconcile",
+    "crates/svet-gpu-arena",
     "crates/forma",
     "crates/forma/examples/binding-app",
     "crates/forma/examples/language-app",
@@ -23,6 +26,9 @@ members = [
 default-members = [
     "crates/memory-budget",
     "crates/swap-store",
+    "crates/svet-graph",
+    "crates/svet-reconcile",
+    "crates/svet-gpu-arena",
     "crates/forma",
     "crates/gpu-shader",
     "crates/gpu-runtime",

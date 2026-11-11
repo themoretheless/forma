@@ -99,6 +99,9 @@ test('version command updates only its component and all associated lockfiles', 
       'packages/svet/package-lock.json',
       'packages/svet/crates/svet-wasm/Cargo.toml',
       'packages/svet/crates/svet-wasm/Cargo.lock',
+      'crates/svet-graph/Cargo.toml',
+      'crates/svet-reconcile/Cargo.toml',
+      'crates/svet-gpu-arena/Cargo.toml',
     ]) {
       const dest = join(folder, path);
       mkdirSync(dirname(dest), { recursive: true });
@@ -141,7 +144,10 @@ test('version command updates only its component and all associated lockfiles', 
       ['packages/svet/package.json', /"version": "1\.4\.0"/],
       ['packages/svet/crates/svet-wasm/Cargo.toml', /^version = "1\.4\.0"$/m],
       ['packages/svet/crates/svet-wasm/Cargo.lock', /name = "svet-wasm"\nversion = "1\.4\.0"/],
-      ['Cargo.lock', /name = "svet-wasm"\nversion = "1\.4\.0"/],
+      ['crates/svet-graph/Cargo.toml', /^version = "1\.4\.0"$/m],
+      ['crates/svet-reconcile/Cargo.toml', /^version = "1\.4\.0"$/m],
+      ['crates/svet-gpu-arena/Cargo.toml', /^version = "1\.4\.0"$/m],
+      ['Cargo.lock', /name = "svet-graph"\nversion = "1\.4\.0"/],
     ])
       assert.match(readFileSync(join(folder, path), 'utf8'), pattern, path);
     const snapshot = readFileSync(join(folder, 'package.json'), 'utf8');

@@ -51,4 +51,4 @@ objc = { version = "0.2", optional = true }
 # The runtime is compute-bound on every keystroke: it parses the document and frames the
 # template transport in one pass, so whole-program inlining matters more than build time.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-svet-wasm = { path = "../../packages/svet/crates/svet-wasm" }
+svet-graph = { path = "../svet-graph", version = "0.3.7" }
