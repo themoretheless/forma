@@ -188,6 +188,7 @@ impl ModelRenderer {
             device,
             PipelineSpec {
                 label: "model pipeline",
+                layout: None,
                 module: &shader,
                 buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: 12,

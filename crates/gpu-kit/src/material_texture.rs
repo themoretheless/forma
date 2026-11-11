@@ -369,6 +369,7 @@ fn mip_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::Ren
         device,
         PipelineSpec {
             label: "material mip generation",
+            layout: None,
             module: &module,
             buffers: &[],
             primitive: Default::default(),

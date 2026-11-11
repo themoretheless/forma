@@ -69,22 +69,25 @@ impl DocumentGraph {
         for (index, state) in states.iter().enumerate() {
             for (name, value) in state {
                 let key = (index, name.clone());
-                if !self.sources.contains_key(&key) {
-                    let node = self
-                        .graph
-                        .create(Kind::Signal)
-                        .expect("document state signal");
-                    self.sources.insert(key.clone(), node);
-                    shape_changed = true;
-                }
+                let node = match self.sources.entry(key) {
+                    std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+                    std::collections::btree_map::Entry::Vacant(entry) => {
+                        shape_changed = true;
+                        entry.insert(
+                            self.graph
+                                .create(Kind::Signal)
+                                .expect("document state signal"),
+                        )
+                    }
+                };
                 if self.states.get(index).and_then(|old| old.get(name)) != Some(value) {
-                    changed.push(self.sources[&key].clone());
+                    changed.push(node.clone());
                 }
             }
         }
         // New sources must be subscribed before their first notification.
-        self.track();
         if shape_changed {
+            self.track();
             changed.push(self.topology.clone());
         }
         self.graph

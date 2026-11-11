@@ -6,31 +6,46 @@
 use crate::markup;
 
 pub(crate) fn inside(x: f32, y: f32, b: &markup::ButtonSpec) -> bool {
-    let radius = b.radius.min(b.width / 2.).min(b.height / 2.);
-    let dx = (x - (b.x + b.width / 2.)).abs() - (b.width / 2. - radius);
-    let dy = (y - (b.y + b.height / 2.)).abs() - (b.height / 2. - radius);
-    if dx <= 0. && dy <= 0. {
-        return true;
-    }
-    let mx = dx.max(0.);
-    let my = dy.max(0.);
-    mx * mx + my * my <= radius * radius
+    round_inside_raw(x, y, [b.x, b.y, b.width, b.height], b.radius)
 }
 
 pub(crate) fn round_inside(x: f32, y: f32, bounds: [f32; 4], radius: f32) -> bool {
-    let [bx, by, w, h] = bounds;
-    if w <= 0. || h <= 0. {
+    if bounds[2] <= 0. || bounds[3] <= 0. {
         return false;
     }
+    round_inside_raw(x, y, bounds, radius)
+}
+
+#[inline]
+fn round_inside_raw(x: f32, y: f32, [bx, by, w, h]: [f32; 4], radius: f32) -> bool {
     let r = radius.min(w / 2.).min(h / 2.);
-    let dx = (x - bx - w / 2.).abs() - (w / 2. - r);
-    let dy = (y - by - h / 2.).abs() - (h / 2. - r);
+    let dx = (x - (bx + w / 2.)).abs() - (w / 2. - r);
+    let dy = (y - (by + h / 2.)).abs() - (h / 2. - r);
     if dx <= 0. && dy <= 0. {
         return true;
     }
     let mx = dx.max(0.);
     let my = dy.max(0.);
     mx * mx + my * my <= r * r
+}
+
+/// Exact area to the right of a segment inside pixel column `px` over a unit-height
+/// row slice where the segment crosses from `xa` (at slice top) to `xb` (at slice bottom).
+#[inline]
+pub(crate) fn column_area(xa: f32, xb: f32, px: f32) -> f32 {
+    let fa = xa - px;
+    let fb = xb - px;
+    let d = fb - fa;
+    if d == 0. {
+        return fa.clamp(0., 1.);
+    }
+    let t0 = (-fa / d).clamp(0., 1.);
+    let t1 = ((1. - fa) / d).clamp(0., 1.);
+    let lo = t0.min(t1);
+    let hi = t0.max(t1);
+    let flo = (fa + d * lo).clamp(0., 1.);
+    let fhi = (fa + d * hi).clamp(0., 1.);
+    (if d > 0. { 1. - hi } else { lo }) + (flo + fhi) * 0.5 * (hi - lo)
 }
 pub(crate) fn rect_area_coverage(x: u32, y: u32, scale: f32, bounds: [f32; 4]) -> f32 {
     let [bx, by, w, h] = bounds;

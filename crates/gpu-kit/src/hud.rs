@@ -1,8 +1,11 @@
 //! Dependency-free bitmap HUD and structured telemetry card overlay renderer.
 
+use crate::pipeline::{
+    PipelineSpec, color_target, render_pipeline, viewport_uniform_resources, wgsl_module,
+    write_growing_vertex_buffer, write_viewport_uniforms,
+};
 use crate::wgpu;
 use bytemuck::{Pod, Zeroable};
-use wgpu::util::DeviceExt;
 
 /// A 2D screen-space HUD vertex with position in physical pixels and linear RGBA color.
 #[repr(C)]
@@ -12,11 +15,23 @@ pub struct HudVertex {
     pub color: [f32; 4],
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct HudUniforms {
-    viewport: [f32; 2],
-    _padding: [f32; 2],
+impl HudVertex {
+    pub(crate) const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
+        array_stride: size_of::<Self>() as u64,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &[
+            wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x2,
+                offset: 0,
+                shader_location: 0,
+            },
+            wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x4,
+                offset: size_of::<[f32; 2]>() as u64,
+                shader_location: 1,
+            },
+        ],
+    };
 }
 
 const HUD_CARD_MARGIN: f32 = 16.0;
@@ -251,85 +266,26 @@ impl HudRenderer {
         target_format: wgpu::TextureFormat,
         viewport: [f32; 2],
     ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Timing HUD shader"),
-            source: wgpu::ShaderSource::Wgsl(HUD_SHADER.into()),
-        });
-        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Timing HUD layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let shader = wgsl_module(device, "Timing HUD shader", HUD_SHADER);
+        let (uniform_layout, uniform_buffer, uniform_bind_group) =
+            viewport_uniform_resources(device, "Timing HUD", viewport);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Timing HUD pipeline layout"),
             bind_group_layouts: &[Some(&uniform_layout)],
             immediate_size: 0,
         });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Timing HUD pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
+        let pipeline = render_pipeline(
+            device,
+            PipelineSpec {
+                label: "Timing HUD pipeline",
+                layout: Some(&pipeline_layout),
                 module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: size_of::<HudVertex>() as u64,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[
-                        wgpu::VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x2,
-                            offset: 0,
-                            shader_location: 0,
-                        },
-                        wgpu::VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x4,
-                            offset: size_of::<[f32; 2]>() as u64,
-                            shader_location: 1,
-                        },
-                    ],
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                buffers: &[Some(HudVertex::LAYOUT)],
+                primitive: wgpu::PrimitiveState::default(),
+                depth: None,
+                target: color_target(target_format, Some(wgpu::BlendState::ALPHA_BLENDING)),
             },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: target_format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-        let uniforms = HudUniforms {
-            viewport,
-            _padding: [0.0; 2],
-        };
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Timing HUD uniforms"),
-            contents: bytemuck::bytes_of(&uniforms),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Timing HUD bind group"),
-            layout: &uniform_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
+        );
         let vertex_capacity = 4096_u64;
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Timing HUD vertices"),
@@ -352,12 +308,7 @@ impl HudRenderer {
     }
 
     pub fn resize(&mut self, queue: &wgpu::Queue, viewport: [f32; 2]) {
-        self.viewport = [viewport[0].max(1.0), viewport[1].max(1.0)];
-        let uniforms = HudUniforms {
-            viewport: self.viewport,
-            _padding: [0.0; 2],
-        };
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
+        self.viewport = write_viewport_uniforms(queue, &self.uniform_buffer, viewport);
     }
 
     /// Uploads caller-generated screen-space HUD vertices.
@@ -368,22 +319,14 @@ impl HudRenderer {
         label: &str,
         vertices: &[HudVertex],
     ) {
-        if vertices.is_empty() {
-            self.vertex_count = 0;
-            return;
-        }
-        let bytes = bytemuck::cast_slice::<HudVertex, u8>(vertices);
-        if bytes.len() as u64 > self.vertex_capacity {
-            self.vertex_capacity = (bytes.len() as u64).next_power_of_two();
-            self.vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(label),
-                size: self.vertex_capacity,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-        queue.write_buffer(&self.vertex_buffer, 0, bytes);
-        self.vertex_count = u32::try_from(vertices.len()).unwrap_or(u32::MAX);
+        self.vertex_count = write_growing_vertex_buffer(
+            device,
+            queue,
+            &mut self.vertex_buffer,
+            &mut self.vertex_capacity,
+            label,
+            vertices,
+        );
     }
 
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, text: &str) {

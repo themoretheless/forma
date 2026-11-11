@@ -7,11 +7,14 @@
 //! of one parent), so each thumbnail keeps an individual texture and bind
 //! group instead of an atlas.
 
-use crate::hud::{HUD_SHADER, HudVertex, floor_to_usize, glyph_rows, push_quad, take_chars};
+use crate::hud::{HUD_SHADER, HudVertex, floor_to_usize, push_hud_text, push_quad, take_chars};
+use crate::pipeline::{
+    PipelineSpec, color_target, render_pipeline, viewport_uniform_resources, wgsl_module,
+    write_growing_vertex_buffer, write_viewport_uniforms,
+};
 use crate::{GpuResourceLease, QueuedUploadReservation, wgpu};
 use bytemuck::{Pod, Zeroable};
 use memory_budget::{BufferError, MemoryBudget, Reservation};
-use wgpu::util::DeviceExt;
 
 /// Strip band height in physical pixels.
 pub const STRIP_HEIGHT: f32 = 112.0;
@@ -171,13 +174,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 ";
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
-struct StripUniforms {
-    viewport: [f32; 2],
-    _padding: [f32; 2],
-}
-
 #[derive(Debug)]
 struct TexDraw {
     slot: usize,
@@ -214,27 +210,10 @@ impl FilmstripRenderer {
         target_format: wgpu::TextureFormat,
         viewport: [f32; 2],
     ) -> Self {
-        let color_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Filmstrip color shader"),
-            source: wgpu::ShaderSource::Wgsl(HUD_SHADER.into()),
-        });
-        let texture_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Filmstrip texture shader"),
-            source: wgpu::ShaderSource::Wgsl(TEXTURE_SHADER.into()),
-        });
-        let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Filmstrip uniform layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let color_shader = wgsl_module(device, "Filmstrip color shader", HUD_SHADER);
+        let texture_shader = wgsl_module(device, "Filmstrip texture shader", TEXTURE_SHADER);
+        let (uniform_layout, uniform_buffer, uniform_bind_group) =
+            viewport_uniform_resources(device, "Filmstrip", viewport);
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Filmstrip tile texture layout"),
@@ -269,22 +248,6 @@ impl FilmstripRenderer {
                 bind_group_layouts: &[Some(&uniform_layout), Some(&texture_bind_group_layout)],
                 immediate_size: 0,
             });
-        let color_vertex_layout = wgpu::VertexBufferLayout {
-            array_stride: size_of::<HudVertex>() as u64,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x2,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttribute {
-                    format: wgpu::VertexFormat::Float32x4,
-                    offset: size_of::<[f32; 2]>() as u64,
-                    shader_location: 1,
-                },
-            ],
-        };
         let tex_vertex_layout = wgpu::VertexBufferLayout {
             array_stride: size_of::<TexVertex>() as u64,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -301,73 +264,31 @@ impl FilmstripRenderer {
                 },
             ],
         };
-        let color_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Filmstrip color pipeline"),
-            layout: Some(&color_pipeline_layout),
-            vertex: wgpu::VertexState {
+        let target = color_target(target_format, Some(wgpu::BlendState::ALPHA_BLENDING));
+        let color_pipeline = render_pipeline(
+            device,
+            PipelineSpec {
+                label: "Filmstrip color pipeline",
+                layout: Some(&color_pipeline_layout),
                 module: &color_shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Some(color_vertex_layout)],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                buffers: &[Some(HudVertex::LAYOUT)],
+                primitive: wgpu::PrimitiveState::default(),
+                depth: None,
+                target: target.clone(),
             },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &color_shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: target_format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-        let texture_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Filmstrip texture pipeline"),
-            layout: Some(&texture_pipeline_layout),
-            vertex: wgpu::VertexState {
+        );
+        let texture_pipeline = render_pipeline(
+            device,
+            PipelineSpec {
+                label: "Filmstrip texture pipeline",
+                layout: Some(&texture_pipeline_layout),
                 module: &texture_shader,
-                entry_point: Some("vs_main"),
                 buffers: &[Some(tex_vertex_layout)],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                primitive: wgpu::PrimitiveState::default(),
+                depth: None,
+                target,
             },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &texture_shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: target_format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
-        let uniforms = StripUniforms {
-            viewport,
-            _padding: [0.0; 2],
-        };
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Filmstrip uniforms"),
-            contents: bytemuck::bytes_of(&uniforms),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Filmstrip uniform bind group"),
-            layout: &uniform_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
-        });
+        );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Filmstrip tile sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -441,12 +362,7 @@ impl FilmstripRenderer {
     }
 
     pub fn resize(&mut self, queue: &wgpu::Queue, viewport: [f32; 2]) {
-        self.viewport = [viewport[0].max(1.0), viewport[1].max(1.0)];
-        let uniforms = StripUniforms {
-            viewport: self.viewport,
-            _padding: [0.0; 2],
-        };
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&uniforms));
+        self.viewport = write_viewport_uniforms(queue, &self.uniform_buffer, viewport);
     }
 
     /// Upload one RGBA8 thumbnail, returning its handle. Slots are recycled
@@ -476,12 +392,7 @@ impl FilmstripRenderer {
             .checked_mul(u64::from(height))
             .and_then(|n| n.checked_mul(4))
             .ok_or(FilmstripUploadError::Invalid)?;
-        if width == 0
-            || height == 0
-            || width > device.limits().max_texture_dimension_2d
-            || height > device.limits().max_texture_dimension_2d
-            || bytes != rgba8.len() as u64
-        {
+        if !crate::extent_fits(device, [width, height]) || bytes != rgba8.len() as u64 {
             return Err(FilmstripUploadError::Invalid);
         }
         let reservation = self
@@ -654,7 +565,7 @@ impl FilmstripRenderer {
                 &tile.label,
                 floor_to_usize(inner_width / (6.0 * LABEL_SCALE)),
             );
-            push_strip_text(
+            push_hud_text(
                 &mut colors,
                 &label_limit,
                 inner_x,
@@ -664,32 +575,22 @@ impl FilmstripRenderer {
             );
         }
 
-        let color_bytes = bytemuck::cast_slice::<HudVertex, u8>(&colors);
-        if color_bytes.len() as u64 > self.color_vertex_capacity {
-            self.color_vertex_capacity = (color_bytes.len() as u64).next_power_of_two();
-            self.color_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Filmstrip color vertices"),
-                size: self.color_vertex_capacity,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-        queue.write_buffer(&self.color_vertex_buffer, 0, color_bytes);
-        self.color_vertex_count = u32::try_from(colors.len()).unwrap_or(u32::MAX);
-
-        let tex_bytes = bytemuck::cast_slice::<TexVertex, u8>(&texs);
-        if tex_bytes.len() as u64 > self.tex_vertex_capacity {
-            self.tex_vertex_capacity = (tex_bytes.len() as u64).next_power_of_two();
-            self.tex_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Filmstrip texture vertices"),
-                size: self.tex_vertex_capacity,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-        if !tex_bytes.is_empty() {
-            queue.write_buffer(&self.tex_vertex_buffer, 0, tex_bytes);
-        }
+        self.color_vertex_count = write_growing_vertex_buffer(
+            device,
+            queue,
+            &mut self.color_vertex_buffer,
+            &mut self.color_vertex_capacity,
+            "Filmstrip color vertices",
+            &colors,
+        );
+        write_growing_vertex_buffer(
+            device,
+            queue,
+            &mut self.tex_vertex_buffer,
+            &mut self.tex_vertex_capacity,
+            "Filmstrip texture vertices",
+            &texs,
+        );
     }
 
     /// Draw the strip over the already-rendered viewport. A scissor rect
@@ -762,35 +663,6 @@ fn push_tex_quad(vertices: &mut Vec<TexVertex>, x: f32, y: f32, width: f32, heig
             .into_iter()
             .map(|(position, uv)| TexVertex { position, uv }),
     );
-}
-
-/// Bitmap text for strip labels; mirrors the HUD glyph rasterizer.
-fn push_strip_text(
-    vertices: &mut Vec<HudVertex>,
-    text: &str,
-    x: f32,
-    y: f32,
-    scale: f32,
-    color: [f32; 4],
-) {
-    for (character_index, character) in text.chars().enumerate() {
-        let glyph = glyph_rows(character.to_ascii_uppercase());
-        let glyph_x = x + character_index as f32 * 6.0 * scale;
-        for (row, bits) in glyph.iter().enumerate() {
-            for column in 0..5 {
-                if bits & (1 << (4 - column)) != 0 {
-                    push_quad(
-                        vertices,
-                        glyph_x + column as f32 * scale,
-                        y + row as f32 * scale,
-                        scale,
-                        scale,
-                        color,
-                    );
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]

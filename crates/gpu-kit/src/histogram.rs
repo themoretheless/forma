@@ -208,18 +208,12 @@ impl GpuHistogram {
         budget: MemoryBudget,
         wake: Arc<dyn Fn() + Send + Sync>,
     ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Bounded histogram"),
-            source: wgpu::ShaderSource::Wgsl(HISTOGRAM_SHADER.into()),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Bounded histogram"),
-            layout: None,
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
+        let pipeline = crate::pipeline::compute_pipeline(
+            device,
+            "Bounded histogram",
+            HISTOGRAM_SHADER,
+            "main",
+        );
         let (sender, receiver) = mpsc::sync_channel(1);
         Self {
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),

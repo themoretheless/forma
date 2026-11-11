@@ -379,18 +379,12 @@ impl LinearExposureCompute {
     }
 
     pub fn new(device: &wgpu::Device) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("linear HDR exposure"),
-            source: wgpu::ShaderSource::Wgsl(LINEAR_EXPOSURE_SHADER.into()),
-        });
-        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("linear HDR exposure"),
-            layout: None,
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let pipeline = crate::pipeline::compute_pipeline(
+            device,
+            "linear HDR exposure",
+            LINEAR_EXPOSURE_SHADER,
+            "main",
+        );
         Self {
             device: device.clone(),
             pipeline,

@@ -1297,19 +1297,9 @@ fn edge_area(a: Point, b: Point, px: f32, y0: f32, y1: f32) -> f32 {
         return 0.;
     }
     let slope = (b.x - a.x) / (b.y - a.y);
-    let fa = a.x + (ya - a.y) * slope - px;
-    let fb = a.x + (yb - a.y) * slope - px;
-    let d = fb - fa;
-    let mut area = fa.clamp(0., 1.);
-    if d != 0. {
-        let t0 = (-fa / d).clamp(0., 1.);
-        let t1 = ((1. - fa) / d).clamp(0., 1.);
-        let lo = t0.min(t1);
-        let hi = t0.max(t1);
-        let flo = (fa + d * lo).clamp(0., 1.);
-        let fhi = (fa + d * hi).clamp(0., 1.);
-        area = if d > 0. { 1. - hi } else { lo } + (flo + fhi) * 0.5 * (hi - lo);
-    }
+    let xa = a.x + (ya - a.y) * slope;
+    let xb = a.x + (yb - a.y) * slope;
+    let area = crate::geometry::column_area(xa, xb, px);
     (if b.y > a.y { area } else { -area }) * (yb - ya)
 }
 
