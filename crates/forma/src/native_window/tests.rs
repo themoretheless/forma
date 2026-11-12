@@ -1945,3 +1945,27 @@ fn target_platform_parses_cycles_and_renders_mobile_chrome() {
         "Android gesture pill should be painted"
     );
 }
+
+#[test]
+fn a_slow_touch_drag_scrolls_by_its_whole_distance() {
+    // F-4: 80 moves of a quarter pixel. Each is below the half-pixel threshold, and a host
+    // that forgets the last consumed position on every move never scrolls at all.
+    let mut last = Some((10., 100.));
+    let mut scrolled = 0.;
+    for step in 1..=80 {
+        if let Some((dx, dy)) = touch_scroll_step(&mut last, 10., 100. - step as f32 * 0.25) {
+            assert_eq!(dx, 0.);
+            scrolled += dy;
+        }
+    }
+    // Every third move crosses the threshold with 0.75 px; the last two moves are still pending.
+    assert_eq!(scrolled, 19.5);
+    assert_eq!(last, Some((10., 80.5)));
+
+    // A move within the threshold leaves the remembered position alone.
+    let mut last = Some((10., 100.));
+    assert_eq!(touch_scroll_step(&mut last, 10.3, 99.6), None);
+    assert_eq!(last, Some((10., 100.)));
+    // The first move after a touch that never started scrolls nothing.
+    assert_eq!(touch_scroll_step(&mut None, 5., 5.), None);
+}

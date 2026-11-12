@@ -998,12 +998,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         }
                     }
                     TouchPhase::Moved => {
-                        let (dx, dy) = self
-                            .touch_last
-                            .map_or((0., 0.), |(lx, ly)| (lx - p.x, ly - p.y));
-                        self.touch_last = Some((p.x, p.y));
+                        let scroll =
+                            forma::native_window::touch_scroll_step(&mut self.touch_last, p.x, p.y);
                         self.button.pointer(p.x, p.y, 0);
-                        if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                        if let Some((dx, dy)) = scroll {
                             self.button.scroll(dx, dy);
                         }
                     }

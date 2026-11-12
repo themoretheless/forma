@@ -153,6 +153,19 @@ fn button_pointer_kind(button: MouseButton, pressed: bool) -> Option<NativePoint
 }
 
 /// Physical window size to the logical size reported to the application.
+/// The scroll a touch that moved to `(x, y)` produces, if it has travelled more than half a
+/// pixel since the position in `last`.
+///
+/// `last` advances only when a scroll is produced. Advancing it on every event loses a slow
+/// drag for good: on a high-frequency touch device each step is below the threshold.
+pub fn touch_scroll_step(last: &mut Option<(f32, f32)>, x: f32, y: f32) -> Option<(f32, f32)> {
+    let (dx, dy) = last.map_or((0., 0.), |(last_x, last_y)| (last_x - x, last_y - y));
+    (dx.abs() > 0.5 || dy.abs() > 0.5).then(|| {
+        *last = Some((x, y));
+        (dx, dy)
+    })
+}
+
 fn logical_size(width: u32, height: u32, scale: f32) -> (f32, f32) {
     let scale = if scale > 0. { scale } else { 1. };
     (width as f32 / scale, height as f32 / scale)
@@ -1441,24 +1454,16 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
             }
             TouchPhase::Moved => {
-                let (dx, dy) = self
-                    .touch_last
-                    .map_or((0., 0.), |(lx, ly)| (lx - x, ly - y));
-                // Keep the last consumed position until enough motion has
-                // accumulated; updating on every subthreshold event loses a
-                // slow drag forever on high-frequency touch devices.
-                if dx.abs() > 0.5 || dy.abs() > 0.5 {
-                    self.touch_last = Some((x, y));
-                }
+                let scroll = touch_scroll_step(&mut self.touch_last, x, y);
                 if let Some(chooser) = &mut self.chooser {
                     chooser.pointer(x, y, 0);
-                    if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                    if let Some((dx, dy)) = scroll {
                         chooser.scroll(dx, dy);
                     }
                 } else {
                     self.focus_sensitive_input(&mut |runtime| {
                         runtime.pointer(x, y, 0);
-                        if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                        if let Some((dx, dy)) = scroll {
                             runtime.scroll(dx, dy);
                         }
                     })?;
