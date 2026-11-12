@@ -161,47 +161,86 @@ fn module(device: &Device, label: &str, source: &str) -> ShaderModule {
     })
 }
 
+/// A layout with one buffer at binding 0, visible to both stages.
+fn buffer_bgl(
+    device: &Device,
+    label: &str,
+    ty: wgpu::BufferBindingType,
+    min_binding_size: Option<wgpu::BufferSize>,
+) -> BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some(label),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty,
+                has_dynamic_offset: false,
+                min_binding_size,
+            },
+            count: None,
+        }],
+    })
+}
+
+/// What differs between the raster pipelines; every one runs `vs` and, unless it is depth-only,
+/// `fs` of a single module into one color target.
+struct PipelineSpec<'a> {
+    label: &'a str,
+    layout: &'a PipelineLayout,
+    module: &'a ShaderModule,
+    buffers: &'a [Option<VertexBufferLayout<'static>>],
+    /// `None` for a depth-only pass, which has no fragment stage.
+    target: Option<ColorTargetState>,
+    primitive: PrimitiveState,
+    depth: wgpu::DepthStencilState,
+}
+
+fn pipeline(device: &Device, spec: PipelineSpec<'_>) -> RenderPipeline {
+    let targets = [spec.target];
+    device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: Some(spec.label),
+        layout: Some(spec.layout),
+        vertex: VertexState {
+            module: spec.module,
+            entry_point: Some("vs"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: spec.buffers,
+        },
+        fragment: targets[0].is_some().then(|| FragmentState {
+            module: spec.module,
+            entry_point: Some("fs"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &targets,
+        }),
+        primitive: spec.primitive,
+        depth_stencil: Some(spec.depth),
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: None,
+        cache: None,
+    })
+}
+
 impl RasterPipelines {
     pub fn new(device: &Device, format: TextureFormat) -> Self {
-        let scene_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("raster scene bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-        let object_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("raster object bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(OBJECT_UNIFORM_BYTES),
-                },
-                count: None,
-            }],
-        });
-        let instance_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("raster instance bgl"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let scene_bgl = buffer_bgl(
+            device,
+            "raster scene bgl",
+            wgpu::BufferBindingType::Uniform,
+            None,
+        );
+        let object_bgl = buffer_bgl(
+            device,
+            "raster object bgl",
+            wgpu::BufferBindingType::Uniform,
+            wgpu::BufferSize::new(OBJECT_UNIFORM_BYTES),
+        );
+        let instance_bgl = buffer_bgl(
+            device,
+            "raster instance bgl",
+            wgpu::BufferBindingType::Storage { read_only: true },
+            None,
+        );
         let shadow_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("raster shadow bgl"),
             entries: &[
@@ -297,315 +336,148 @@ impl RasterPipelines {
             ..PrimitiveState::default()
         };
 
-        let mesh_opaque = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("mesh opaque"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &mesh_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &mesh_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[opaque_target()],
-            }),
+        let mesh_buffers = [Some(mesh_vbl()), Some(morph_vbl())];
+        let edge_buffers = [Some(edge_slot0_vbl()), Some(edge_morph_vbl())];
+        let line_buffers = [Some(line_vbl())];
+        let grid_buffers = [Some(grid_vbl())];
+        // Blended passes test depth without writing it.
+        let read_only = |depth_compare| wgpu::DepthStencilState {
+            depth_write_enabled: Some(false),
+            depth_compare: Some(depth_compare),
+            ..depth
+        };
+        let build = |spec: PipelineSpec<'_>| pipeline(device, spec);
+
+        let mesh_opaque = build(PipelineSpec {
+            label: "mesh opaque",
+            layout: &object_layout,
+            module: &mesh_mod,
+            buffers: &mesh_buffers,
+            target: opaque_target(),
             primitive: mesh_primitive,
-            depth_stencil: Some(depth),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth,
         });
-        let section_cap = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("mesh section cap"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &cap_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &cap_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[opaque_target()],
-            }),
+        let section_cap = build(PipelineSpec {
+            label: "mesh section cap",
+            layout: &object_layout,
+            module: &cap_mod,
+            buffers: &mesh_buffers,
+            target: opaque_target(),
             // Front-face culling draws only the back faces: after the clipped
             // surface pass, the surviving interior fragments form the cap.
             primitive: PrimitiveState {
                 cull_mode: Some(wgpu::Face::Front),
                 ..PrimitiveState::default()
             },
-            depth_stencil: Some(depth),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth,
         });
-        let mesh_transparent = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("mesh transparent"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &mesh_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &mesh_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let mesh_transparent = build(PipelineSpec {
+            label: "mesh transparent",
+            layout: &object_layout,
+            module: &mesh_mod,
+            buffers: &mesh_buffers,
+            target: Some(transparent_target(format)),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::Less),
         });
-        let deep_mesh = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("deep mesh"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &deep_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &deep_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let deep_mesh = build(PipelineSpec {
+            label: "deep mesh",
+            layout: &object_layout,
+            module: &deep_mod,
+            buffers: &mesh_buffers,
+            target: Some(transparent_target(format)),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                depth_compare: Some(CompareFunction::Always),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::Always),
         });
-        let edge = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("edge"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &edge_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(edge_slot0_vbl()), Some(edge_morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &edge_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let edge = build(PipelineSpec {
+            label: "edge",
+            layout: &object_layout,
+            module: &edge_mod,
+            buffers: &edge_buffers,
+            target: Some(transparent_target(format)),
             primitive: line_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                depth_compare: Some(CompareFunction::LessEqual),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::LessEqual),
         });
-        let deep_edge = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("deep edge"),
-            layout: Some(&object_layout),
-            vertex: VertexState {
-                module: &edge_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(edge_slot0_vbl()), Some(edge_morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &edge_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let deep_edge = build(PipelineSpec {
+            label: "deep edge",
+            layout: &object_layout,
+            module: &edge_mod,
+            buffers: &edge_buffers,
+            target: Some(transparent_target(format)),
             primitive: line_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                depth_compare: Some(CompareFunction::Always),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::Always),
         });
-        let line = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("line"),
-            layout: Some(&scene_layout),
-            vertex: VertexState {
-                module: &line_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(line_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &line_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let line = build(PipelineSpec {
+            label: "line",
+            layout: &scene_layout,
+            module: &line_mod,
+            buffers: &line_buffers,
+            target: Some(transparent_target(format)),
             primitive: line_primitive,
-            depth_stencil: Some(depth),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth,
         });
-        let grid = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("grid"),
-            layout: Some(&scene_layout),
-            vertex: VertexState {
-                module: &grid_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(grid_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &grid_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let grid = build(PipelineSpec {
+            label: "grid",
+            layout: &scene_layout,
+            module: &grid_mod,
+            buffers: &grid_buffers,
+            target: Some(transparent_target(format)),
             primitive: PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 cull_mode: None,
                 ..PrimitiveState::default()
             },
-            depth_stencil: Some(depth),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth,
         });
-        let selection_overlay = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("selection overlay"),
-            layout: Some(&scene_layout),
-            vertex: VertexState {
-                module: &overlay_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(line_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &overlay_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        let selection_overlay = build(PipelineSpec {
+            label: "selection overlay",
+            layout: &scene_layout,
+            module: &overlay_mod,
+            buffers: &line_buffers,
+            target: Some(transparent_target(format)),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::Less),
         });
         // Depth-only shadow-map pass: no color targets, no fragment stage;
         // writes depth32float from the key light's orthographic VP.
-        let shadow = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("mesh shadow"),
-            layout: Some(&shadow_object_layout),
-            vertex: VertexState {
-                module: &shadow_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: None,
+        let shadow = build(PipelineSpec {
+            label: "mesh shadow",
+            layout: &shadow_object_layout,
+            module: &shadow_mod,
+            buffers: &mesh_buffers,
+            target: None,
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
+            depth: wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(CompareFunction::Less),
-                stencil: wgpu::StencilState,
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-        let instanced_mesh_opaque = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("instanced mesh opaque"),
-            layout: Some(&instance_layout),
-            vertex: VertexState {
-                module: &instanced_mesh_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &instanced_mesh_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[opaque_target()],
-            }),
-            primitive: mesh_primitive,
-            depth_stencil: Some(depth),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-        let instanced_mesh_transparent = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("instanced mesh transparent"),
-            layout: Some(&instance_layout),
-            vertex: VertexState {
-                module: &instanced_mesh_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(mesh_vbl()), Some(morph_vbl())],
-            },
-            fragment: Some(FragmentState {
-                module: &instanced_mesh_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
-            primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
                 ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-        let instanced_edge = device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some("instanced edge"),
-            layout: Some(&instance_layout),
-            vertex: VertexState {
-                module: &instanced_edge_mod,
-                entry_point: Some("vs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Some(edge_slot0_vbl()), Some(edge_morph_vbl())],
             },
-            fragment: Some(FragmentState {
-                module: &instanced_edge_mod,
-                entry_point: Some("fs"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                targets: &[Some(transparent_target(format))],
-            }),
+        });
+        let instanced_mesh_opaque = build(PipelineSpec {
+            label: "instanced mesh opaque",
+            layout: &instance_layout,
+            module: &instanced_mesh_mod,
+            buffers: &mesh_buffers,
+            target: opaque_target(),
+            primitive: mesh_primitive,
+            depth,
+        });
+        let instanced_mesh_transparent = build(PipelineSpec {
+            label: "instanced mesh transparent",
+            layout: &instance_layout,
+            module: &instanced_mesh_mod,
+            buffers: &mesh_buffers,
+            target: Some(transparent_target(format)),
+            primitive: mesh_primitive,
+            depth: read_only(CompareFunction::Less),
+        });
+        let instanced_edge = build(PipelineSpec {
+            label: "instanced edge",
+            layout: &instance_layout,
+            module: &instanced_edge_mod,
+            buffers: &edge_buffers,
+            target: Some(transparent_target(format)),
             primitive: line_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState {
-                depth_write_enabled: Some(false),
-                depth_compare: Some(CompareFunction::LessEqual),
-                ..depth
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
+            depth: read_only(CompareFunction::LessEqual),
         });
 
         Self {
