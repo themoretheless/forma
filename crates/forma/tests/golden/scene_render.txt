@@ -1,0 +1,152 @@
+=== plain frame, one control
+source: component App { Frame { height:100; padding:10; width:200;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:30; key:'ok'; radius:6; text:'OK'; width:80; clicked -> events.ok();  } } }
+templates: FORMA-TEMPLATES-1
+275
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:80; height:30; text:'OK'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 1 key "ok" state Properties({}) events {}
+logical content end: None
+
+=== plain frame, absolute controls
+source: component App { Frame { height:200; width:300;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:30; key:'a'; radius:6; text:'A'; width:80; x:10; y:20;   } Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'b'; radius:0; text:'label'; width:260; x:120; y:60;   } } }
+templates: FORMA-TEMPLATES-1
+274
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:80; height:30; text:'A'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }150
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'label'; color:#ffffff; fontSize:16; }  } }
+control: node 1 key "a" state Properties({}) events {}
+control: node 2 key "b" state Properties({}) events {}
+logical content end: None
+
+=== column with gap and padding
+source: component App { Frame { gap:0; height:140; padding:0; width:260;  Button { background:#00000000; borderWidth:0; color:#ffffff; disabled:false; fontSize:15; height:32; key:'search'; radius:0; text:'forma'; width:200; x:30; y:10;   } Button { height:32; key:'agree'; width:140; x:60; y:50;   } Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'summary'; radius:0; text:'forma:false'; width:260; x:0; y:90;   } } }
+templates: FORMA-TEMPLATES-1
+296
+component Button { Rectangle { background: #00000000;   ContentInput { x:0; y:0; width:200; height:32; value:'forma'; label:''; placeholder:''; color:#ffffff; placeholderColor:#999999; fontSize:15; multiline:false; readOnly:false; wrap:false; } PointerArea {  clicked -> events.clicked();  }  } }194
+component Button { Rectangle {    ContentText { x:4; y:4; width:61.391998291015625; height:24; text:'[ ] Terms'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }156
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'forma:false'; color:#ffffff; fontSize:16; }  } }
+control: node 1 key "search" state Properties({"agreed": Bool(false), "query": Text("forma")}) events {}
+control: node 2 key "agree" state Properties({"agreed": Bool(false), "query": Text("forma")}) events {}
+control: node 3 key "summary" state Properties({"agreed": Bool(false), "query": Text("forma")}) events {}
+logical content end: None
+
+=== nested rows and columns
+source: component App { Frame { gap:0; height:200; padding:0; width:320;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:24; key:'a'; radius:6; text:'A'; width:60; x:12; y:8;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:24; key:'b'; radius:6; text:'B'; width:60; x:76; y:8;   } Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'t'; radius:0; text:'tail'; width:260; x:12; y:39;   } Button { height:32; key:'x'; width:140; x:276; y:38;   } } }
+templates: FORMA-TEMPLATES-1
+274
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:60; height:24; text:'A'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }274
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:60; height:24; text:'B'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }149
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'tail'; color:#ffffff; fontSize:16; }  } }190
+component Button { Rectangle {    ContentText { x:4; y:4; width:26.944000244140625; height:24; text:'[ ] X'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 2 key "a" state Properties({}) events {}
+control: node 3 key "b" state Properties({}) events {}
+control: node 5 key "t" state Properties({}) events {}
+control: node 6 key "x" state Properties({}) events {}
+logical content end: None
+
+=== grid with tracks and cells
+source: component App { Frame { gap:0; height:120; padding:0; width:300;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:32; key:'a'; radius:6; text:'A'; width:120; x:-20; y:-1;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:32; key:'b'; radius:6; text:'B'; width:120; x:24; y:-1;   } Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'c'; radius:0; text:'C'; width:260; x:88; y:62;   } } }
+templates: FORMA-TEMPLATES-1
+275
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:120; height:32; text:'A'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }275
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:120; height:32; text:'B'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }146
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'C'; color:#ffffff; fontSize:16; }  } }
+control: node 1 key "a" state Properties({}) events {}
+control: node 2 key "b" state Properties({}) events {}
+control: node 3 key "c" state Properties({}) events {}
+logical content end: None
+
+=== stack
+source: component App { Frame { gap:0; height:80; padding:0; width:120;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:80; key:'under'; radius:6; text:'under'; width:120; x:0; y:0;   } Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'over'; radius:0; text:'over'; width:260; x:-70; y:25;   } } }
+templates: FORMA-TEMPLATES-1
+279
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:120; height:80; text:'under'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }149
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'over'; color:#ffffff; fontSize:16; }  } }
+control: node 1 key "under" state Properties({}) events {}
+control: node 2 key "over" state Properties({}) events {}
+logical content end: None
+
+=== root scroll
+source: component App { Frame { gap:0; height:400; padding:50 20 50 20; width:360;  Scroll {   Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:200; key:'a'; radius:6; text:'A'; width:100; x:130; y:50;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:200; key:'b'; radius:6; text:'B'; width:100; x:130; y:254;   } } } }
+templates: FORMA-TEMPLATES-1
+276
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:100; height:200; text:'A'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }276
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:100; height:200; text:'B'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 3 key "a" state Properties({}) events {}
+control: node 4 key "b" state Properties({}) events {}
+logical content end: Some([340.0, 454.0])
+
+=== root scroll without content
+source: component App { Frame { gap:0; height:400; padding:50 20 50 20; width:360;  Scroll {    } } }
+templates: FORMA-TEMPLATES-1
+
+logical content end: Some([340.0, 562.0])
+
+=== slider
+source: component App { Frame { gap:0; height:60; padding:0; width:240;  Button { background:#00000000; borderWidth:0; disabled:false; height:24; key:'level'; radius:0; width:200; x:20; y:0;   } } }
+templates: FORMA-TEMPLATES-1
+156
+component Button { Rectangle { background: #00000000;   PointerArea {  clicked -> events.clicked();  } RangeInput { value:40; Minimum { } Maximum { } }  } }
+control: node 1 key "level" state Properties({"level": Number(40.0)}) events {}
+logical content end: None
+
+=== conditional and repeated controls
+source: component App { Frame { gap:0; height:200; padding:0; width:200;  Button { background:#00000000; borderWidth:0; color:#ffffff; fontSize:16; height:30; key:'head'; radius:0; text:'shown'; width:260; x:-30; y:0;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:24; key:'@5:s1:a/@6:0:'; radius:6; text:'First'; width:120; x:40; y:32; clicked -> events.pick();  } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:false; height:24; key:'@5:s1:b/@6:0:'; radius:6; text:'Second'; width:120; x:40; y:58; clicked -> events.pick();  } } }
+templates: FORMA-TEMPLATES-1
+150
+component Button { Rectangle { background: #00000000;   ContentText { x:0; y:0; width:260; height:30; text:'shown'; color:#ffffff; fontSize:16; }  } }279
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:120; height:24; text:'First'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }280
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 6;   ContentText { x:0; y:0; width:120; height:24; text:'Second'; color:#ffffff; fontSize:14; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 2 key "head" state Properties({"items": List([Object(Properties({"id": Text("a"), "title": Text("First")})), Object(Properties({"id": Text("b"), "title": Text("Second")}))]), "show": Bool(true)}) events {}
+control: node 6 key "@5:s1:a/@6:0:" state Properties({"__binding_active": Object(Properties({"item": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.item": Text("s1:a"), "__binding_key_expr.item": Expr("item.id"), "__binding_key_scope.item": Object(Properties({})), "__collection.item": Text("state.items"), "__item": Text("item"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.item": Text("s1:a"), "__binding_key_expr.item": Expr("item.id"), "__binding_key_scope.item": Object(Properties({})), "__collection.item": Text("state.items"), "__index.item": Number(0.0), "item": Object(Properties({"id": Text("a"), "title": Text("First")})), "items": List([Object(Properties({"id": Text("a"), "title": Text("First")})), Object(Properties({"id": Text("b"), "title": Text("Second")}))]), "show": Bool(true)}) events {"clicked": [Text("a")]}
+control: node 6 key "@5:s1:b/@6:0:" state Properties({"__binding_active": Object(Properties({"item": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.item": Text("s1:b"), "__binding_key_expr.item": Expr("item.id"), "__binding_key_scope.item": Object(Properties({})), "__collection.item": Text("state.items"), "__item": Text("item"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.item": Text("s1:b"), "__binding_key_expr.item": Expr("item.id"), "__binding_key_scope.item": Object(Properties({})), "__collection.item": Text("state.items"), "__index.item": Number(1.0), "item": Object(Properties({"id": Text("b"), "title": Text("Second")})), "items": List([Object(Properties({"id": Text("a"), "title": Text("First")})), Object(Properties({"id": Text("b"), "title": Text("Second")}))]), "show": Bool(true)}) events {"clicked": [Text("b")]}
+logical content end: None
+
+=== empty layout
+source: component App { Frame { gap:0; height:80; padding:0; width:100;   } }
+templates: FORMA-TEMPLATES-1
+
+logical content end: None
+
+=== two roots
+ERROR Scene component must have a single layout root node
+
+=== control as root
+ERROR A scene requires a layout root
+
+=== root scroll with an unsupported property
+ERROR Unsupported root Scroll property: background
+
+=== root scroll larger than the scene
+ERROR Root Scroll viewport must fit inside the scene content area
+
+=== example language-app, two tasks
+source: component TaskList { Frame { background:#181e2a; gap:0; height:460; padding:0; width:560;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:true; height:44; key:'heading'; radius:8; text:'Tasks: 2'; width:340; x:20; y:20;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; color:#b9d4ff; disabled:false; fontSize:16; height:44; key:'toggle'; radius:8; text:'Details →'; width:160; x:372; y:20; clicked -> events.toggleInfo();  } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:true; height:44; key:'info'; radius:8; text:'2 open'; width:320; x:120; y:76;   } Button { background:Brush { color: #232c3a; disabled: #303846;   }; disabled:false; height:44; key:'@6:s1:a/@8:6:editor'; radius:8; width:340; x:20; y:132;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; color:#ffffff; disabled:false; fontSize:16; height:44; key:'@6:s1:a/@9:6:remove'; radius:8; text:'Remove'; width:160; x:372; y:132; clicked -> events.removed();  } Button { background:Brush { color: #232c3a; disabled: #303846;   }; disabled:false; height:44; key:'@6:s1:b/@8:6:editor'; radius:8; width:340; x:20; y:188;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; color:#ffffff; disabled:false; fontSize:16; height:44; key:'@6:s1:b/@9:6:remove'; radius:8; text:'Remove'; width:160; x:372; y:188; clicked -> events.removed();  } } }
+templates: FORMA-TEMPLATES-1
+282
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:340; height:44; text:'Tasks: 2'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }285
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:160; height:44; text:'Details →'; color:#b9d4ff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }280
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:320; height:44; text:'2 open'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }345
+component Button { Rectangle { background: Brush { color: #232c3a; disabled: #303846;   }; radius: 8;   ContentInput { x:20; y:0; width:300; height:44; value:'Write'; label:''; placeholder:''; color:#ffffff; placeholderColor:#999999; fontSize:16; multiline:false; readOnly:false; wrap:false; } PointerArea {  clicked -> events.clicked();  }  } }280
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:160; height:44; text:'Remove'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }346
+component Button { Rectangle { background: Brush { color: #232c3a; disabled: #303846;   }; radius: 8;   ContentInput { x:20; y:0; width:300; height:44; value:'Review'; label:''; placeholder:''; color:#ffffff; placeholderColor:#999999; fontSize:16; multiline:false; readOnly:false; wrap:false; } PointerArea {  clicked -> events.clicked();  }  } }280
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:160; height:44; text:'Remove'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 2 key "heading" state Properties({"show_info": Bool(true), "status": Text("2 open"), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {}
+control: node 3 key "toggle" state Properties({"show_info": Bool(true), "status": Text("2 open"), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {}
+control: node 5 key "info" state Properties({"show_info": Bool(true), "status": Text("2 open"), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {}
+control: node 8 key "@6:s1:a/@8:6:editor" state Properties({"__binding_active": Object(Properties({"task": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.task": Text("s1:a"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__item": Text("task"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.task": Text("s1:a"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__index.task": Number(0.0), "show_info": Bool(true), "status": Text("2 open"), "task": Object(Properties({"id": Text("a"), "title": Text("Write")})), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {"changed": [Text("a"), Text("Write")]}
+control: node 9 key "@6:s1:a/@9:6:remove" state Properties({"__binding_active": Object(Properties({"task": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.task": Text("s1:a"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__item": Text("task"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.task": Text("s1:a"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__index.task": Number(0.0), "show_info": Bool(true), "status": Text("2 open"), "task": Object(Properties({"id": Text("a"), "title": Text("Write")})), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {"clicked": [Text("a")]}
+control: node 8 key "@6:s1:b/@8:6:editor" state Properties({"__binding_active": Object(Properties({"task": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.task": Text("s1:b"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__item": Text("task"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.task": Text("s1:b"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__index.task": Number(1.0), "show_info": Bool(true), "status": Text("2 open"), "task": Object(Properties({"id": Text("b"), "title": Text("Review")})), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {"changed": [Text("b"), Text("Review")]}
+control: node 9 key "@6:s1:b/@9:6:remove" state Properties({"__binding_active": Object(Properties({"task": Number(0.0)})), "__binding_frames": List([Object(Properties({"__binding_key.task": Text("s1:b"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__item": Text("task"), "__locals": Object(Properties({})), "__parents": Object(Properties({}))}))]), "__binding_key.task": Text("s1:b"), "__binding_key_expr.task": Expr("task.id"), "__binding_key_scope.task": Object(Properties({"contextType": Text("crate::TaskVm")})), "__collection.task": Text("state.tasks"), "__index.task": Number(1.0), "show_info": Bool(true), "status": Text("2 open"), "task": Object(Properties({"id": Text("b"), "title": Text("Review")})), "tasks": List([Object(Properties({"id": Text("a"), "title": Text("Write")})), Object(Properties({"id": Text("b"), "title": Text("Review")}))])}) events {"clicked": [Text("b")]}
+logical content end: None
+
+=== example language-app, no tasks
+source: component TaskList { Frame { background:#181e2a; gap:0; height:460; padding:0; width:560;  Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:true; height:44; key:'heading'; radius:8; text:'Tasks: 0'; width:340; x:20; y:20;   } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; color:#b9d4ff; disabled:false; fontSize:16; height:44; key:'toggle'; radius:8; text:'Details →'; width:160; x:372; y:20; clicked -> events.toggleInfo();  } Button { background:Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; disabled:true; height:44; key:'empty'; radius:8; text:'No tasks'; width:320; x:120; y:76;   } } }
+templates: FORMA-TEMPLATES-1
+282
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:340; height:44; text:'Tasks: 0'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }285
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:160; height:44; text:'Details →'; color:#b9d4ff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }282
+component Button { Rectangle { background: Brush { color: #425b8a; disabled: #303846; hover: #536fa3; pressed: #34486f;   }; radius: 8;   ContentText { x:0; y:0; width:320; height:44; text:'No tasks'; color:#ffffff; fontSize:16; } PointerArea {  clicked -> events.clicked();  }  } }
+control: node 2 key "heading" state Properties({"show_info": Bool(false), "status": Text("2 open"), "tasks": List([])}) events {}
+control: node 3 key "toggle" state Properties({"show_info": Bool(false), "status": Text("2 open"), "tasks": List([])}) events {}
+control: node 11 key "empty" state Properties({"show_info": Bool(false), "status": Text("2 open"), "tasks": List([])}) events {}
+logical content end: None
+
