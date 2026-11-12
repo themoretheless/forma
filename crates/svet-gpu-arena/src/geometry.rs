@@ -261,10 +261,7 @@ fn pick_vertex_impl(
                 let u = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / denominator;
                 let v = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / denominator;
                 let t = 1.0 - u - v;
-                u >= -1e-9
-                    && v >= -1e-9
-                    && t >= -1e-9
-                    && u * a[2] + v * b[2] + t * c[2] + 1e-6 < pz
+                u >= -1e-9 && v >= -1e-9 && t >= -1e-9 && u * a[2] + v * b[2] + t * c[2] + 1e-6 < pz
             });
             if hidden {
                 continue;

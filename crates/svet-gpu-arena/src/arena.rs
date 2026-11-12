@@ -123,7 +123,8 @@ impl GpuArena {
                 self.free_blocks
                     .push((reused_offset + aligned_len, block_len - aligned_len));
             }
-            if let Some((start_idx, end_idx)) = self.arena_range(reused_offset, aligned_len as usize)
+            if let Some((start_idx, end_idx)) =
+                self.arena_range(reused_offset, aligned_len as usize)
             {
                 self.f32_arena[start_idx..end_idx].fill(0.0);
             }
@@ -302,7 +303,14 @@ impl GpuArena {
         self.dirty_max = 0;
     }
 
-    pub fn vector_fma(&mut self, src_offset: u32, dst_offset: u32, len: u32, scale: f32, bias: f32) {
+    pub fn vector_fma(
+        &mut self,
+        src_offset: u32,
+        dst_offset: u32,
+        len: u32,
+        scale: f32,
+        bias: f32,
+    ) {
         let l = len as usize;
         let Some((s, _)) = self.arena_range(src_offset, l) else {
             return;
@@ -389,7 +397,13 @@ impl GpuArena {
     }
 
     pub fn clip_primitive_3d(&mut self, offset: u32, count: u32, indices: &[u32]) -> u32 {
-        clip_primitive_3d(&self.f32_arena, offset, count, indices, &mut self.clip_output)
+        clip_primitive_3d(
+            &self.f32_arena,
+            offset,
+            count,
+            indices,
+            &mut self.clip_output,
+        )
     }
 
     pub fn pick_nearest_vertex_3d(
