@@ -75,7 +75,7 @@
 
 `gpu-shader`:
 
-- [ ] Декомпозиция на `front/wgsl/*`, `back/msl/*`, типизированная ошибка, `validate_wgsl`.
+- [ ] Декомпозиция `back/msl.rs` (2085 строк), типизированная ошибка трансляции, `validate_wgsl`.
 
 `gpu-runtime`:
 
