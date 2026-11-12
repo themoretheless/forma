@@ -7,6 +7,8 @@ mod compiler;
 mod contracts;
 mod control_flow;
 mod eval;
+mod kind;
+pub use kind::NodeKind;
 mod layout;
 mod properties;
 mod render;
@@ -77,7 +79,7 @@ pub enum Expression {
 }
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Node {
-    pub kind: String,
+    pub kind: NodeKind,
     pub props: Properties,
     pub children: Vec<Node>,
     pub action: Option<String>,

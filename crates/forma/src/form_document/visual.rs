@@ -11,7 +11,7 @@ impl Document {
         value: &Value,
         props: &Properties,
         state: &Properties,
-        parents: &[String],
+        parents: &[NodeKind],
         depth: usize,
     ) -> Result<Value, String> {
         let value = eval(value, props, state, &mut Vec::new())?;
@@ -32,7 +32,7 @@ impl Document {
         nodes: impl IntoIterator<Item = &'a Node>,
         props: &Properties,
         state: &Properties,
-        parents: &[String],
+        parents: &[NodeKind],
         depth: usize,
     ) -> Result<Vec<Node>, String> {
         if depth > 64 {
@@ -150,7 +150,7 @@ impl Document {
         n: &Node,
         props: &Properties,
         state: &Properties,
-        parents: &[String],
+        parents: &[NodeKind],
         depth: usize,
     ) -> Result<Node, String> {
         if depth > 64 {
@@ -222,7 +222,7 @@ impl Document {
         };
         // Scene definitions can wrap primitives such as Text and TextInput.
         // Inside their visual templates the same names retain primitive meaning.
-        if !is_primitive(&n.kind) && self.definitions.contains_key(&n.kind) {
+        if !is_primitive(&n.kind) && self.definitions.contains_key(n.kind.as_str()) {
             return Ok(self.instantiate(&node, false, state, parents)?.0);
         }
         Ok(node)
@@ -232,7 +232,7 @@ impl Document {
         instance: &Node,
         top: bool,
         state: &Properties,
-        parents: &[String],
+        parents: &[NodeKind],
     ) -> Result<(Node, Properties), String> {
         self.instantiate_scope(instance, top, Some(state), parents, &mut None)
     }
@@ -258,7 +258,7 @@ impl Document {
         instance: &Node,
         top: bool,
         supplied_state: Option<&Properties>,
-        parents: &[String],
+        parents: &[NodeKind],
         owned_snapshot: &mut Option<Value>,
     ) -> Result<(Node, Properties), String> {
         if parents.len() >= 32 || parents.contains(&instance.kind) {
@@ -266,7 +266,7 @@ impl Document {
         }
         let definition = self
             .definitions
-            .get(&instance.kind)
+            .get(instance.kind.as_str())
             .ok_or_else(|| format!("Missing component {}", instance.kind))?;
         for key in instance.props.keys() {
             if !definition.defaults.contains_key(key)

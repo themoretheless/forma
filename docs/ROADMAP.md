@@ -41,7 +41,6 @@
 
 ## 3. Runtime Forma, оконные хосты и рендер
 
-- [ ] Логика этапа 2: `NodeKind` вместо строкового `Node.kind`.
 - [ ] Слияние оконных хостов (проверено: `main.rs` 2013 строк, `native_window.rs` 2155):
   `main.rs` становится тонким CLI поверх `NativeHost`. Закрывает F-4 (медленный touch-drag
   исправлен только в `native_window.rs`).

@@ -34,9 +34,9 @@ fn control_overrides_reach_one_node_per_id_and_the_last_in_post_order_wins() {
     let mut visited = Vec::new();
     let mut chosen = Vec::new();
     for_each_node_post_order(&mut root, &mut 0, &mut 0, &mut |id, position, node| {
-        visited.push((node.kind.clone(), id, position));
+        visited.push((node.kind.to_string(), id, position));
         if winners.get(&id) == Some(&position) {
-            chosen.push((id, node.kind.clone()));
+            chosen.push((id, node.kind.to_string()));
         }
     });
     assert_eq!(

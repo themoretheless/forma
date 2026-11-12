@@ -385,7 +385,7 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
         }
     }
     Ok(Node {
-        kind,
+        kind: kind.into(),
         props,
         children,
         action,
@@ -727,7 +727,7 @@ fn collect_component_names(node: &Node, out: &mut std::collections::BTreeSet<Str
     ]
     .contains(&node.kind.as_str())
     {
-        out.insert(node.kind.clone());
+        out.insert(node.kind.to_string());
     }
     for child in &node.children {
         collect_component_names(child, out);

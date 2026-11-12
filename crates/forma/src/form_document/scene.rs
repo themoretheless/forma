@@ -49,7 +49,7 @@ impl Document {
         scope: &Properties,
         state: &Properties,
     ) -> Result<Properties, String> {
-        let definition = self.definitions.get(&node.kind);
+        let definition = self.definitions.get(node.kind.as_str());
         // Most nodes only read defaults; materialize the merged scope only when
         // a missing-state fallback expression actually needs it for evaluation.
         let default_value = |key: &str| {
@@ -650,7 +650,7 @@ impl Document {
             children: Vec::new(),
             action: node.action.clone(),
         };
-        if self.definitions.contains_key(&node.kind) {
+        if self.definitions.contains_key(node.kind.as_str()) {
             let explicit = output
                 .props
                 .get("key")
@@ -664,7 +664,7 @@ impl Document {
             };
             output.props.insert("key".into(), Value::Text(key));
         }
-        if self.definitions.contains_key(&node.kind) {
+        if self.definitions.contains_key(node.kind.as_str()) {
             // Supplied content resolves props in the receiving component's scope.
             let mut child_idx = start_node_index + 1;
             let mut annotated_children = Vec::with_capacity(node.children.len());
