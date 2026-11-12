@@ -1,23 +1,29 @@
 import { randomUUID } from 'node:crypto';
 import { chmodSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BRIDGE_PATH, bridgeEndpoint } from '../protocol/bridge.js';
 
 const MAX_MCP_BODY_BYTES = 2_000_000;
 const MCP_COMMAND_TIMEOUT_MS = 8_000;
 
-export function registerMcpBridge(server) {
+const DESCRIPTOR_DIRECTORY = fileURLToPath(new URL('../.forma/', import.meta.url));
+
+/** Registers the bridge on `server`; its address and token go to `bridge.json` in `directory`. */
+export function registerMcpBridge(server, directory = DESCRIPTOR_DIRECTORY) {
   const token = randomUUID();
   const pending = new Map();
   let client = null;
+  // Known once the server listens; until then, and off loopback, every request is refused.
+  let endpoint = null;
 
-  const directory = fileURLToPath(new URL('../.forma/', import.meta.url));
-  const descriptor = `${directory}bridge.json`;
+  const descriptor = join(directory, 'bridge.json');
   mkdirSync(directory, { recursive: true });
 
   server.httpServer?.once('listening', () => {
-    writeFileSync(descriptor, JSON.stringify({ url: 'http://127.0.0.1:5173/__forma_mcp', token }), {
-      mode: 0o600,
-    });
+    endpoint = bridgeEndpoint(server.httpServer.address());
+    if (!endpoint) return;
+    writeFileSync(descriptor, JSON.stringify({ url: endpoint.url, token }), { mode: 0o600 });
     chmodSync(descriptor, 0o600);
   });
   server.httpServer?.once('close', () => {
@@ -39,7 +45,7 @@ export function registerMcpBridge(server) {
     }
   });
 
-  server.middlewares.use('/__forma_mcp', async (req, res) => {
+  server.middlewares.use(BRIDGE_PATH, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     const send = (status, value) => {
       res.statusCode = status;
@@ -48,7 +54,7 @@ export function registerMcpBridge(server) {
     if (
       req.headers.authorization !== `Bearer ${token}` ||
       req.headers.origin ||
-      req.headers.host !== '127.0.0.1:5173'
+      !endpoint?.hosts.includes(req.headers.host)
     )
       return send(403, { error: 'Forbidden' });
     if (req.method !== 'POST') return send(405, { error: 'POST required' });

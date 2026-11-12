@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
+import { isBridgeUrl } from '../protocol/bridge.js';
 import { MCP_TOOLS } from '../protocol/mcp-tools.js';
 
 const server = new McpServer({ name: 'forma-studio', version: '0.1.0' });
@@ -59,7 +60,7 @@ async function request(command, args) {
   const descriptor = JSON.parse(
     await readFile(new URL('../.forma/bridge.json', import.meta.url), 'utf8'),
   );
-  if (descriptor.url !== 'http://127.0.0.1:5173/__forma_mcp') throw Error('Invalid bridge address');
+  if (!isBridgeUrl(descriptor.url)) throw Error('Invalid bridge address');
   const response = await fetch(descriptor.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${descriptor.token}` },
