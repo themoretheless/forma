@@ -444,7 +444,32 @@ enum Binding {
     Bool(Field<bool>),
     Number(Rc<dyn NumericInput>, bool),
 }
+impl Target {
+    /// The document property a binding on this target writes.
+    fn property_name(self) -> &'static str {
+        match self {
+            Target::Value => "value",
+            Target::Text => "text",
+            Target::Disabled => "disabled",
+            Target::Checked => "checked",
+            Target::Selected => "selected",
+        }
+    }
+}
+
 impl Binding {
+    /// The bound value as a document property; a slider takes its number as a percentage.
+    fn node_value(&self, slider: bool) -> crate::form_document::Value {
+        match self {
+            Binding::String(f, _) => f.get().unwrap_or_default().to_value(),
+            Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
+            Binding::Number(f, _) if slider => {
+                crate::form_document::Value::Expr(format!("{}%", f.number() * 100.))
+            }
+            Binding::Number(f, _) => crate::form_document::Value::Number(f.number()),
+        }
+    }
+
     fn dirty(&self) -> bool {
         match self {
             Self::String(f, _) => f.0.dirty.get(),
@@ -1121,157 +1146,83 @@ impl Form {
         #[cfg(not(target_arch = "wasm32"))]
         self.wake.native.borrow_mut().drain();
         if self.is_dirty() {
-            if let Some(document) = &mut self.document {
-                let has_control_overrides = self.controls.iter().any(|c| {
-                    document.nodes.contains_key(&c.index)
-                        && (!c.properties.borrow().is_empty() || !c.bindings.borrow().is_empty())
-                });
-                let mut saved_root = has_control_overrides.then(|| document.program.root.clone());
-                let saved_states = document.program.states.clone();
-                for (node, path, input) in &document.inputs {
-                    while document.program.states.len() <= *node {
-                        document.program.states.push(Default::default());
-                    }
-                    if input.present() {
-                        document.program.states[*node].insert(path.clone(), input.value());
-                    } else {
-                        let val = input.value();
-                        if matches!(val, crate::form_document::Value::List(_)) {
-                            document.program.states[*node].insert(path.clone(), val);
-                        }
-                    }
-                }
-                if has_control_overrides {
-                    // Controls that override each document node, in control order.
-                    let mut overrides = std::collections::HashMap::<usize, Vec<_>>::new();
-                    for control in &self.controls {
-                        if let Some(index) = document.nodes.get(&control.index) {
-                            overrides.entry(*index).or_default().push(control);
-                        }
-                    }
-                    let winners = override_targets(&document.program.root);
-                    for_each_node_post_order(
-                        &mut document.program.root,
-                        &mut 0,
-                        &mut 0,
-                        &mut |id, position, node| {
-                            if winners.get(&id) != Some(&position) {
-                                return;
-                            }
-                            for control in overrides.get(&id).map_or(&[][..], Vec::as_slice) {
-                                for (name, input) in control.properties.borrow().iter() {
-                                    node.props.insert(name.clone(), input.value());
-                                }
-                                for (target, binding) in control.bindings.borrow().iter() {
-                                    let name = match target {
-                                        Target::Value => "value",
-                                        Target::Text => "text",
-                                        Target::Disabled => "disabled",
-                                        Target::Checked => "checked",
-                                        Target::Selected => "selected",
-                                    };
-                                    let value = match binding.as_ref() {
-                                        Binding::String(f, _) => {
-                                            f.get().unwrap_or_default().to_value()
-                                        }
-                                        Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
-                                        Binding::Number(f, _) if node.kind == "Slider" => {
-                                            crate::form_document::Value::Expr(format!(
-                                                "{}%",
-                                                f.number() * 100.
-                                            ))
-                                        }
-                                        Binding::Number(f, _) => {
-                                            crate::form_document::Value::Number(f.number())
-                                        }
-                                    };
-                                    node.props.insert(name.into(), value);
-                                }
-                            }
-                        },
-                    );
-                }
-                let render_res = document.program.render_scene_artifact();
-                if let Some(orig_root) = saved_root.take() {
-                    document.program.root = orig_root;
-                }
-                let artifact = match render_res {
-                    Ok(a) => a,
-                    Err(e) => {
-                        document.program.states = saved_states;
-                        return Err(e);
-                    }
-                };
-                let scene = &artifact.controls;
-                for item in scene {
-                    for ((node, event), types) in &document.event_types {
-                        if *node != item.node {
-                            continue;
-                        }
-                        let empty_args = Vec::new();
-                        let arguments = item.event_args.get(event).unwrap_or(&empty_args);
-                        if arguments.len() != types.len() {
-                            document.program.states = saved_states;
-                            return Err(format!("Event {event} expects {} arguments", types.len()));
-                        }
-                        for (value, kind) in arguments.iter().zip(types) {
-                            let valid = if kind.ends_with('?')
-                                && matches!(value, crate::form_document::Value::Null)
-                            {
-                                true
-                            } else {
-                                match kind.trim_end_matches('?') {
-                                    "String" => {
-                                        matches!(value, crate::form_document::Value::Text(_))
-                                    }
-                                    "Bool" | "Boolean" => {
-                                        matches!(value, crate::form_document::Value::Bool(_))
-                                    }
-                                    "Number" | "Float" => value.number().is_ok(),
-                                    "Int" => i64::from_value(value).is_ok(),
-                                    _ => false,
-                                }
-                            };
-                            if !valid {
-                                document.program.states = saved_states;
-                                return Err(format!("Event {event} expects {kind}, got {value:?}"));
-                            }
-                        }
-                    }
-                }
-                let mut next = match Runtime::from_scene_artifact(&artifact) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        document.program.states = saved_states;
-                        return Err(e);
-                    }
-                };
-                next.preserve_binding_interaction(&self.runtime);
-                document.base_disabled = (0..next.control_count())
-                    .map(|i| next.control_disabled(i))
-                    .collect();
-                for control in &self.controls {
-                    let index = document
-                        .nodes
-                        .get(&control.index)
-                        .and_then(|node| scene.iter().position(|item| item.node == *node));
-                    control.resolved.set(index);
-                    if let Some(index) = index {
-                        control.base_disabled.set(next.control_disabled(index));
-                    }
-                }
-                document.scene = artifact.controls;
-                self.runtime = next;
-                for (_, _, input) in &document.inputs {
-                    input.clean();
-                }
-                for control in &self.controls {
-                    for input in control.properties.borrow().values() {
-                        input.clean();
-                    }
-                }
+            self.rebuild_document_scene()?;
+        }
+        self.push_bindings_to_runtime()?;
+        self.clean_bindings();
+        self.wake.pending.set(false);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let pending = self.wake.native.borrow_mut().drain() > 0;
+            if pending {
+                self.wake.notify();
             }
         }
+        Ok(())
+    }
+
+    /// Re-renders the document from its inputs and control overrides and replaces the runtime
+    /// with the result. On any error the document keeps its previous state and scene.
+    fn rebuild_document_scene(&mut self) -> Result<(), String> {
+        let Some(document) = &mut self.document else {
+            return Ok(());
+        };
+        let has_control_overrides = self.controls.iter().any(|c| {
+            document.nodes.contains_key(&c.index)
+                && (!c.properties.borrow().is_empty() || !c.bindings.borrow().is_empty())
+        });
+        let saved_root = has_control_overrides.then(|| document.program.root.clone());
+        let saved_states = document.program.states.clone();
+        write_inputs_into_states(document);
+        if has_control_overrides {
+            write_control_overrides(document, &self.controls);
+        }
+        let rendered = document.program.render_scene_artifact();
+        if let Some(original_root) = saved_root {
+            document.program.root = original_root;
+        }
+        let built = rendered.and_then(|artifact| {
+            check_event_arguments(document, &artifact.controls)?;
+            let runtime = Runtime::from_scene_artifact(&artifact)?;
+            Ok((artifact, runtime))
+        });
+        let (artifact, mut next) = match built {
+            Ok(built) => built,
+            Err(error) => {
+                document.program.states = saved_states;
+                return Err(error);
+            }
+        };
+        next.preserve_binding_interaction(&self.runtime);
+        document.base_disabled = (0..next.control_count())
+            .map(|i| next.control_disabled(i))
+            .collect();
+        let scene = &artifact.controls;
+        for control in &self.controls {
+            let index = document
+                .nodes
+                .get(&control.index)
+                .and_then(|node| scene.iter().position(|item| item.node == *node));
+            control.resolved.set(index);
+            if let Some(index) = index {
+                control.base_disabled.set(next.control_disabled(index));
+            }
+        }
+        document.scene = artifact.controls;
+        self.runtime = next;
+        for (_, _, input) in &document.inputs {
+            input.clean();
+        }
+        for control in &self.controls {
+            for input in control.properties.borrow().values() {
+                input.clean();
+            }
+        }
+        Ok(())
+    }
+
+    /// Pushes binding values and the disabled state of every resolved control into the runtime.
+    fn push_bindings_to_runtime(&mut self) -> Result<(), String> {
         let sync_instances = self.sync_instances();
         for (control, index) in &sync_instances {
             if control.context_changed.get() {
@@ -1301,6 +1252,11 @@ impl Form {
             }
             self.runtime.set_binding_disabled(*index, disabled)?;
         }
+        Ok(())
+    }
+
+    /// Marks every binding as delivered.
+    fn clean_bindings(&self) {
         for control in &self.controls {
             control.context_changed.set(false);
             for binding in control.bindings.borrow().values() {
@@ -1317,15 +1273,6 @@ impl Form {
                 }
             }
         }
-        self.wake.pending.set(false);
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let pending = self.wake.native.borrow_mut().drain() > 0;
-            if pending {
-                self.wake.notify();
-            }
-        }
-        Ok(())
     }
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
@@ -1639,6 +1586,95 @@ impl Form {
     }
 }
 /// The id a node answers to: its explicit `__node` property, else its preorder position.
+/// Copies the document's inputs into the state of the nodes that declare them. An absent input
+/// is written only when it is a list, which a `For` must still be able to iterate.
+fn write_inputs_into_states(document: &mut DocumentState) {
+    for (node, path, input) in &document.inputs {
+        while document.program.states.len() <= *node {
+            document.program.states.push(Default::default());
+        }
+        if input.present() {
+            document.program.states[*node].insert(path.clone(), input.value());
+        } else {
+            let val = input.value();
+            if matches!(val, crate::form_document::Value::List(_)) {
+                document.program.states[*node].insert(path.clone(), val);
+            }
+        }
+    }
+}
+
+/// Writes each control's properties and bound values onto the document node it overrides.
+fn write_control_overrides(document: &mut DocumentState, controls: &[Rc<ControlState>]) {
+    // Controls that override each document node, in control order.
+    let mut overrides = std::collections::HashMap::<usize, Vec<_>>::new();
+    for control in controls {
+        if let Some(index) = document.nodes.get(&control.index) {
+            overrides.entry(*index).or_default().push(control);
+        }
+    }
+    let winners = override_targets(&document.program.root);
+    for_each_node_post_order(
+        &mut document.program.root,
+        &mut 0,
+        &mut 0,
+        &mut |id, position, node| {
+            if winners.get(&id) != Some(&position) {
+                return;
+            }
+            for control in overrides.get(&id).map_or(&[][..], Vec::as_slice) {
+                for (name, input) in control.properties.borrow().iter() {
+                    node.props.insert(name.clone(), input.value());
+                }
+                for (target, binding) in control.bindings.borrow().iter() {
+                    let value = binding.node_value(node.kind == "Slider");
+                    node.props.insert(target.property_name().into(), value);
+                }
+            }
+        },
+    );
+}
+
+/// Checks the arguments each rendered control passes to its events against the declared types.
+fn check_event_arguments(
+    document: &DocumentState,
+    scene: &[crate::form_document::SceneControl],
+) -> Result<(), String> {
+    for item in scene {
+        for ((node, event), types) in &document.event_types {
+            if *node != item.node {
+                continue;
+            }
+            let empty_args = Vec::new();
+            let arguments = item.event_args.get(event).unwrap_or(&empty_args);
+            if arguments.len() != types.len() {
+                return Err(format!("Event {event} expects {} arguments", types.len()));
+            }
+            for (value, kind) in arguments.iter().zip(types) {
+                if !event_argument_matches(kind, value) {
+                    return Err(format!("Event {event} expects {kind}, got {value:?}"));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Whether `value` is of the declared event argument type `kind`; a trailing `?` admits null.
+fn event_argument_matches(kind: &str, value: &crate::form_document::Value) -> bool {
+    use crate::form_document::Value;
+    if kind.ends_with('?') && matches!(value, Value::Null) {
+        return true;
+    }
+    match kind.trim_end_matches('?') {
+        "String" => matches!(value, Value::Text(_)),
+        "Bool" | "Boolean" => matches!(value, Value::Bool(_)),
+        "Number" | "Float" => value.number().is_ok(),
+        "Int" => i64::from_value(value).is_ok(),
+        _ => false,
+    }
+}
+
 fn node_id(node: &crate::form_document::Node, preorder: usize) -> usize {
     node.props
         .get("__node")
