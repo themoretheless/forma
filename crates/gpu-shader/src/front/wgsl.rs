@@ -71,7 +71,9 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
     // First pass: collect top-level items
     let items = split_top_level_items(&clean)?;
 
-    // Register aliases and constants first so struct array sizes and workgroup sizes can resolve them
+    // Register aliases and constant values first so struct array sizes and workgroup sizes can
+    // resolve them. A constant's own type may be a struct, so it is resolved after the structs.
+    let mut declared_constants: Vec<(Option<&str>, Constant)> = Vec::new();
     for item in &items {
         let trimmed = item.trim();
         if trimmed.is_empty() {
@@ -94,32 +96,30 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
             if let Some(eq_pos) = after_const.find('=') {
                 let lhs = after_const[..eq_pos].trim();
                 let rhs = after_const[eq_pos + 1..].trim();
-                let (name, ty_opt) = if let Some(colon) = lhs.find(':') {
-                    let n = lhs[..colon].trim().to_string();
-                    let t_str = lhs[colon + 1..].trim();
-                    let th =
-                        resolve_or_insert_type(&mut module, &mut type_map, &const_values, t_str);
-                    (n, Some(th))
-                } else {
-                    (lhs.to_string(), None)
+                let (name, ty_src) = match lhs.find(':') {
+                    Some(colon) => (lhs[..colon].trim(), Some(lhs[colon + 1..].trim())),
+                    None => (lhs, None),
                 };
                 let val = eval_u32_const_expr(rhs, &const_values);
                 if let (Some(v), false) = (val, is_override) {
-                    const_values.insert(name.clone(), v);
+                    const_values.insert(name.to_string(), v);
                 }
-                module.constants.append(Constant {
-                    name: Some(name),
-                    ty: ty_opt,
-                    expr_src: rhs.to_string(),
-                    u32_value: if is_override { None } else { val },
-                    is_override,
-                });
+                declared_constants.push((
+                    ty_src,
+                    Constant {
+                        name: Some(name.to_string()),
+                        ty: None,
+                        expr_src: rhs.to_string(),
+                        u32_value: if is_override { None } else { val },
+                        is_override,
+                    },
+                ));
             }
         }
     }
 
-    // Second pass: register structs
-    for item in &items {
+    // Second pass: register structs, each after the structs its members name
+    for item in structs_in_dependency_order(&clean, &items)? {
         let trimmed = item.trim();
         if trimmed.is_empty() {
             continue;
@@ -165,7 +165,8 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
                 let field_name = field_rest[..colon_pos].trim().to_string();
                 let field_ty_str = field_rest[colon_pos + 1..].trim();
                 let field_ty =
-                    resolve_or_insert_type(&mut module, &mut type_map, &const_values, field_ty_str);
+                    resolve_or_insert_type(&mut module, &mut type_map, &const_values, field_ty_str)
+                        .map_err(|message| parse_error_at(&clean, field_ty_str, message))?;
                 let layout = compute_type_layout(&module.types, field_ty);
                 let align = attrs
                     .align
@@ -191,6 +192,15 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
             type_map.insert(struct_name, handle);
             module.struct_order.push(handle);
         }
+    }
+
+    for (ty_src, mut constant) in declared_constants {
+        if let Some(ty_src) = ty_src {
+            let ty = resolve_or_insert_type(&mut module, &mut type_map, &const_values, ty_src)
+                .map_err(|message| parse_error_at(&clean, ty_src, message))?;
+            constant.ty = Some(ty);
+        }
+        module.constants.append(constant);
     }
 
     // Third pass: register global variables
@@ -490,7 +500,8 @@ fn parse_global_var(
     })?;
     let name = decl_part[..colon_pos].trim().to_string();
     let ty_str = decl_part[colon_pos + 1..].trim();
-    let ty = resolve_or_insert_type(module, type_map, const_values, ty_str);
+    let ty = resolve_or_insert_type(module, type_map, const_values, ty_str)
+        .map_err(|message| parse_error_at(clean, ty_str, message))?;
 
     let inferred_space = space_opt.unwrap_or_else(|| match &module.types[ty].inner {
         TypeInner::Image { .. } | TypeInner::Sampler { .. } => AddressSpace::Handle,
@@ -576,7 +587,8 @@ fn parse_function(
         })?;
         let arg_name = arg_rest[..colon].trim().to_string();
         let arg_ty_str = arg_rest[colon + 1..].trim();
-        let arg_ty = resolve_or_insert_type(module, type_map, const_values, arg_ty_str);
+        let arg_ty = resolve_or_insert_type(module, type_map, const_values, arg_ty_str)
+            .map_err(|message| parse_error_at(clean, arg_ty_str, message))?;
         arguments.push(FunctionArgument {
             name: Some(arg_name),
             ty: arg_ty,
@@ -588,7 +600,8 @@ fn parse_function(
     let result = if let Some(after_arrow) = ret_part.strip_prefix("->") {
         let (ret_attrs, ret_ty_str) = parse_leading_attributes(clean, after_arrow.trim())?;
         let ret_ty_str = ret_ty_str.trim();
-        let ret_ty = resolve_or_insert_type(module, type_map, const_values, ret_ty_str);
+        let ret_ty = resolve_or_insert_type(module, type_map, const_values, ret_ty_str)
+            .map_err(|message| parse_error_at(clean, ret_ty_str, message))?;
         Some(FunctionResult {
             ty: ret_ty,
             binding: ret_attrs.to_binding(),
@@ -688,20 +701,84 @@ fn analyze_identifiers(
     (used_globals, called_functions)
 }
 
+/// The struct declarations of `items`, ordered so that a struct follows every struct that types
+/// one of its members, and otherwise in source order.
+fn structs_in_dependency_order<'a>(
+    clean: &str,
+    items: &[&'a str],
+) -> Result<Vec<&'a str>, ParseError> {
+    let mut declared: Vec<(&str, &str)> = Vec::new();
+    for &item in items {
+        let (_, rest) = parse_leading_attributes(clean, item.trim())?;
+        if let Some(after_struct) = strip_keyword(rest.trim(), "struct") {
+            let name = after_struct.split('{').next().unwrap_or_default().trim();
+            declared.push((name, item));
+        }
+    }
+    let mut state = vec![StructVisit::Pending; declared.len()];
+    let mut ordered = Vec::with_capacity(declared.len());
+    for index in 0..declared.len() {
+        visit_struct(clean, index, &declared, &mut state, &mut ordered)?;
+    }
+    Ok(ordered)
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum StructVisit {
+    Pending,
+    Active,
+    Done,
+}
+
+fn visit_struct<'a>(
+    clean: &str,
+    index: usize,
+    declared: &[(&str, &'a str)],
+    state: &mut [StructVisit],
+    ordered: &mut Vec<&'a str>,
+) -> Result<(), ParseError> {
+    let (name, item) = declared[index];
+    match state[index] {
+        StructVisit::Done => return Ok(()),
+        StructVisit::Active => {
+            return Err(parse_error_at(
+                clean,
+                item,
+                format!("struct `{name}` contains itself"),
+            ));
+        }
+        StructVisit::Pending => state[index] = StructVisit::Active,
+    }
+    let body = item.split_once('{').map_or("", |(_, body)| body);
+    for member in split_comma_top_level(body) {
+        let Some((_, member_ty)) = member.split_once(':') else {
+            continue;
+        };
+        for word in member_ty.split(|c: char| !(c.is_alphanumeric() || c == '_')) {
+            if let Some(dependency) = declared.iter().position(|(other, _)| *other == word) {
+                visit_struct(clean, dependency, declared, state, ordered)?;
+            }
+        }
+    }
+    state[index] = StructVisit::Done;
+    ordered.push(item);
+    Ok(())
+}
+
 pub fn resolve_or_insert_type(
     module: &mut Module,
     type_map: &mut BTreeMap<String, Handle<Type>>,
     const_values: &BTreeMap<String, u32>,
     raw_ty: &str,
-) -> Handle<Type> {
+) -> Result<Handle<Type>, String> {
     let ty_str = raw_ty.trim();
     if let Some(&h) = type_map.get(ty_str) {
-        return h;
+        return Ok(h);
     }
     if let Some(aliased) = module.aliases.get(ty_str).cloned() {
-        let h = resolve_or_insert_type(module, type_map, const_values, &aliased);
+        let h = resolve_or_insert_type(module, type_map, const_values, &aliased)?;
         type_map.insert(ty_str.to_string(), h);
-        return h;
+        return Ok(h);
     }
 
     let inner = match ty_str {
@@ -830,12 +907,17 @@ pub fn resolve_or_insert_type(
                 .trim();
             let parts = split_comma_top_level(inner_s);
             let elem_ty_str = parts.first().map(|s| s.trim()).unwrap_or("u32");
-            let base = resolve_or_insert_type(module, type_map, const_values, elem_ty_str);
+            let base = resolve_or_insert_type(module, type_map, const_values, elem_ty_str)?;
             let base_layout = compute_type_layout(&module.types, base);
             let stride = align_up(base_layout.size, base_layout.alignment);
             let size = if let Some(len_str) = parts.get(1) {
-                let n = eval_u32_const_expr(len_str.trim(), const_values).unwrap_or(1);
-                ArraySize::Constant(NonZeroU32::new(n.max(1)).unwrap())
+                let len_str = len_str.trim();
+                let length = eval_u32_const_expr(len_str, const_values)
+                    .and_then(NonZeroU32::new)
+                    .ok_or_else(|| {
+                        format!("array length `{len_str}` is not a positive constant")
+                    })?;
+                ArraySize::Constant(length)
             } else {
                 ArraySize::Dynamic
             };
@@ -864,18 +946,17 @@ pub fn resolve_or_insert_type(
                 },
                 _ => AddressSpace::Function,
             };
-            let base = resolve_or_insert_type(module, type_map, const_values, base_str);
+            let base = resolve_or_insert_type(module, type_map, const_values, base_str)?;
             TypeInner::Pointer { base, space }
         }
         _ => {
-            // Forward-referenced or unknown type fallback (4-byte scalar placeholder)
-            TypeInner::Scalar(Scalar::U32)
+            return Err(format!("unknown type `{ty_str}`"));
         }
     };
 
     let h = module.types.append(Type { name: None, inner });
     type_map.insert(ty_str.to_string(), h);
-    h
+    Ok(h)
 }
 
 /// The scalar kind a sampled texture type such as `texture_2d<u32>` reads.
@@ -889,35 +970,115 @@ fn sampled_kind(ty_str: &str) -> ScalarKind {
     }
 }
 
+/// Evaluates a constant `u32` expression: literals, named constants, parentheses, `u32(..)` /
+/// `i32(..)` conversions, unary `-` and `~`, and the binary operators `* / % + - << >> & ^ |`
+/// with their usual precedence, each associating to the left.
+///
+/// Arithmetic wraps like `u32`; division or remainder by zero, a shift of 32 bits or more, an
+/// unknown name and trailing input all give `None`.
 pub fn eval_u32_const_expr(expr: &str, const_values: &BTreeMap<String, u32>) -> Option<u32> {
-    let s = expr.trim();
-    if s.is_empty() {
-        return None;
-    }
-    if let Some(inner) = s.strip_prefix('(').and_then(|x| x.strip_suffix(')')) {
-        if find_matching_delim(s, '(', ')') == Some(s.len() - 1) {
-            return eval_u32_const_expr(inner, const_values);
+    let mut parser = ConstExpr {
+        src: expr.as_bytes(),
+        pos: 0,
+        const_values,
+    };
+    let value = parser.binary(0)?;
+    parser.skip_spaces();
+    (parser.pos == parser.src.len()).then_some(value)
+}
+
+/// Binary operators by precedence level, loosest first.
+const CONST_BINARY_LEVELS: [&[&str]; 6] = [
+    &["|"],
+    &["^"],
+    &["&"],
+    &["<<", ">>"],
+    &["+", "-"],
+    &["*", "/", "%"],
+];
+
+struct ConstExpr<'a> {
+    src: &'a [u8],
+    pos: usize,
+    const_values: &'a BTreeMap<String, u32>,
+}
+
+impl ConstExpr<'_> {
+    fn skip_spaces(&mut self) {
+        while self.src.get(self.pos).is_some_and(u8::is_ascii_whitespace) {
+            self.pos += 1;
         }
     }
-    if let Some(pos) = find_top_level_char(s, '+') {
-        let l = eval_u32_const_expr(&s[..pos], const_values)?;
-        let r = eval_u32_const_expr(&s[pos + 1..], const_values)?;
-        return Some(l.wrapping_add(r));
+
+    fn eat(&mut self, token: &str) -> bool {
+        self.skip_spaces();
+        let found = self.src[self.pos..].starts_with(token.as_bytes());
+        if found {
+            self.pos += token.len();
+        }
+        found
     }
-    if let Some(pos) = find_top_level_char(s, '*') {
-        let l = eval_u32_const_expr(&s[..pos], const_values)?;
-        let r = eval_u32_const_expr(&s[pos + 1..], const_values)?;
-        return Some(l.wrapping_mul(r));
+
+    fn binary(&mut self, level: usize) -> Option<u32> {
+        let Some(operators) = CONST_BINARY_LEVELS.get(level) else {
+            return self.unary();
+        };
+        let mut left = self.binary(level + 1)?;
+        while let Some(operator) = operators.iter().find(|operator| self.eat(operator)) {
+            let right = self.binary(level + 1)?;
+            left = match *operator {
+                "|" => left | right,
+                "^" => left ^ right,
+                "&" => left & right,
+                "<<" => left.checked_shl(right)?,
+                ">>" => left.checked_shr(right)?,
+                "+" => left.wrapping_add(right),
+                "-" => left.wrapping_sub(right),
+                "*" => left.wrapping_mul(right),
+                "/" => left.checked_div(right)?,
+                _ => left.checked_rem(right)?,
+            };
+        }
+        Some(left)
     }
-    if let Some(pos) = find_top_level_char(s, '/') {
-        let l = eval_u32_const_expr(&s[..pos], const_values)?;
-        let r = eval_u32_const_expr(&s[pos + 1..], const_values)?;
-        return l.checked_div(r);
+
+    fn unary(&mut self) -> Option<u32> {
+        if self.eat("-") {
+            Some(self.unary()?.wrapping_neg())
+        } else if self.eat("~") {
+            Some(!self.unary()?)
+        } else {
+            self.primary()
+        }
     }
-    if let Some(&v) = const_values.get(s) {
-        return Some(v);
+
+    fn primary(&mut self) -> Option<u32> {
+        if self.eat("(") {
+            let value = self.binary(0)?;
+            return self.eat(")").then_some(value);
+        }
+        self.skip_spaces();
+        let start = self.pos;
+        while self
+            .src
+            .get(self.pos)
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+        {
+            self.pos += 1;
+        }
+        let word = std::str::from_utf8(&self.src[start..self.pos]).ok()?;
+        if matches!(word, "u32" | "i32") && self.eat("(") {
+            let value = self.binary(0)?;
+            return self.eat(")").then_some(value);
+        }
+        match self.const_values.get(word) {
+            Some(&value) => Some(value),
+            None if word.starts_with(|first: char| first.is_ascii_digit()) => {
+                parse_u32_literal(word)
+            }
+            None => None,
+        }
     }
-    parse_u32_literal(s)
 }
 
 pub fn parse_u32_literal(s: &str) -> Option<u32> {

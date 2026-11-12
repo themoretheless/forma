@@ -62,6 +62,10 @@ pub const MSL_VERTEX_BUFFER_BASE_SLOT: u32 = 24;
 pub const MSL_IMMEDIATE_BUFFER_SLOT: u32 = 29;
 pub const MSL_ARRAY_LENGTHS_BUFFER_SLOT: u32 = 30;
 
+/// Stands in for an `arrayLength` whose buffer could not be found, so that the translation is
+/// rejected rather than given a made-up length.
+const UNRESOLVED_ARRAY_LENGTH: &str = "_wgpu_unresolved_array_length";
+
 pub fn write_string(
     module: &Module,
     _info: &ModuleInfo,
@@ -367,6 +371,16 @@ struct _wgpu_arr {
         emit_entry_point(&mut out, module, ep, &func_transitive_globals, &binding_map);
     }
 
+    if let Some(found) = out.find(UNRESOLVED_ARRAY_LENGTH) {
+        let argument = out[found + UNRESOLVED_ARRAY_LENGTH.len()..]
+            .trim_start_matches('(')
+            .split(')')
+            .next()
+            .unwrap_or_default();
+        return Err(format!(
+            "arrayLength(&{argument}): `{argument}` is not a runtime-sized array in a bound buffer"
+        ));
+    }
     Ok((out, binding_map))
 }
 
@@ -1965,7 +1979,8 @@ fn translate_call(
                     format!("(_wgpu_buffer_sizes[{slot}] / {stride}u)")
                 }
             } else {
-                "(_wgpu_buffer_sizes[0] / 4u)".to_string()
+                // No buffer to measure: the marker makes `write_string` fail instead of guessing.
+                format!("{UNRESOLVED_ARRAY_LENGTH}({base_ident})")
             }
         }
 
