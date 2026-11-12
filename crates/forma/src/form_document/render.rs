@@ -354,6 +354,9 @@ struct SceneEmitter {
     mapping: Vec<SceneControl>,
     content: String,
     template: String,
+    /// The state of a control that carries none. Creating a `Properties` allocates, so this
+    /// one is shared by every control of the render.
+    stateless: Properties,
 }
 
 impl SceneEmitter {
@@ -366,6 +369,7 @@ impl SceneEmitter {
             mapping: Vec::with_capacity(controls),
             content: String::with_capacity(256),
             template: String::with_capacity(320),
+            stateless: Properties::new(),
         }
     }
 
@@ -375,7 +379,6 @@ impl SceneEmitter {
         mut instance: Node,
         precomputed_visual: Option<Node>,
     ) -> Result<(), String> {
-        let empty = Properties::new();
         let event_args = match instance.props.get("__event_args") {
             Some(Value::Object(events)) => events
                 .iter()
@@ -409,7 +412,7 @@ impl SceneEmitter {
         };
         let state = match instance.props.get("__state") {
             Some(Value::Object(state)) => state,
-            _ => &empty,
+            _ => &self.stateless,
         };
         self.content.clear();
         // Measure the same children with resolved instance properties,
