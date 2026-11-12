@@ -174,7 +174,7 @@ impl Texture {
                 u64,
                 NsRange,
                 NsRange,
-            ) -> *mut c_void = std::mem::transmute(crate::metal::objc_msgSend as *const c_void);
+            ) -> *mut c_void = crate::metal::msg_send();
             let view = f(
                 self.raw.as_ptr(),
                 s.new_texture_view_with_type,

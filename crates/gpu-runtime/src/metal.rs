@@ -16,6 +16,58 @@ extern "C" {
     pub fn objc_msgSend();
 }
 
+mod message_send {
+    pub trait Sealed {}
+}
+
+/// A function pointer type `objc_msgSend` can be called through: the receiver, the selector,
+/// then the message's arguments.
+pub(crate) trait MessageSend: message_send::Sealed + Copy {}
+
+macro_rules! message_send_arity {
+    ($($argument:ident),*) => {
+        impl<R $(, $argument)*> message_send::Sealed
+            for unsafe extern "C" fn(*mut c_void, *mut c_void $(, $argument)*) -> R
+        {
+        }
+        impl<R $(, $argument)*> MessageSend
+            for unsafe extern "C" fn(*mut c_void, *mut c_void $(, $argument)*) -> R
+        {
+        }
+    };
+}
+message_send_arity!();
+message_send_arity!(A);
+message_send_arity!(A, B);
+message_send_arity!(A, B, C);
+message_send_arity!(A, B, C, D);
+message_send_arity!(A, B, C, D, E);
+message_send_arity!(A, B, C, D, E, F);
+message_send_arity!(A, B, C, D, E, F, G);
+message_send_arity!(A, B, C, D, E, F, G, H);
+message_send_arity!(A, B, C, D, E, F, G, H, I);
+message_send_arity!(A, B, C, D, E, F, G, H, I, J);
+
+/// `objc_msgSend` typed as the signature of one message.
+///
+/// The runtime exports a single untyped entry point; every call site names the signature of
+/// the method it sends. This is the only place that entry point is given a type, and only a
+/// function pointer that starts with a receiver and a selector can be asked for. Whether the
+/// signature matches the method stays the caller's obligation, which is why the returned
+/// pointer is `unsafe` to call.
+///
+/// Not for a message that returns a struct in memory on x86_64 (see [`layer_bounds`]).
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) fn msg_send<F: MessageSend>() -> F {
+    const {
+        assert!(std::mem::size_of::<F>() == std::mem::size_of::<*const c_void>());
+    }
+    let entry = objc_msgSend as *const c_void;
+    // SAFETY: `F` is a function pointer type (the trait is sealed over them), which has the
+    // size and representation of the code address read here.
+    unsafe { std::mem::transmute_copy(&entry) }
+}
+
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "Metal", kind = "framework")]
 extern "C" {
@@ -563,8 +615,7 @@ impl ObjCObject {
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             unsafe {
                 let s = selectors();
-                let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                    std::mem::transmute(objc_msgSend as *const c_void);
+                let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
                 f(ptr, s.retain);
             }
             Some(Self(ptr))
@@ -582,8 +633,7 @@ impl Clone for ObjCObject {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
-            let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
             f(self.0, s.retain);
         }
         Self(self.0)
@@ -596,8 +646,7 @@ impl Drop for ObjCObject {
         if !self.0.is_null() {
             unsafe {
                 let s = selectors();
-                let f: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-                    std::mem::transmute(objc_msgSend as *const c_void);
+                let f: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
                 f(self.0, s.release);
             }
         }
@@ -614,7 +663,7 @@ pub unsafe fn nsstring_from_str(st: &str) -> *mut c_void {
     let s = selectors();
     let c = CString::new(st).unwrap_or_default();
     let f: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_char) -> *mut c_void =
-        std::mem::transmute(objc_msgSend as *const c_void);
+        msg_send();
     f(s.cls_ns_string, s.string_with_utf8, c.as_ptr())
 }
 
@@ -629,8 +678,7 @@ pub unsafe fn nsstring_to_string(ns: *mut c_void) -> String {
         return String::new();
     }
     let s = selectors();
-    let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char =
-        std::mem::transmute(objc_msgSend as *const c_void);
+    let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *const c_char = msg_send();
     let cstr = f(ns, s.utf8_string);
     if cstr.is_null() {
         String::new()
@@ -650,8 +698,7 @@ pub unsafe fn nserror_description(err: *mut c_void) -> String {
         return "unknown Metal error".to_string();
     }
     let s = selectors();
-    let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-        std::mem::transmute(objc_msgSend as *const c_void);
+    let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
     let desc = f(err, s.localized_description);
     nsstring_to_string(desc)
 }
@@ -780,14 +827,11 @@ impl MetalDevice {
             let raw = Arc::new(ObjCObject::from_retained(dev_ptr)?);
             let s = selectors();
 
-            let f_ptr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_u64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> u64 =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_ptr: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool = msg_send();
+            let f_u64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> u64 = msg_send();
             let f_queue: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
 
             let name_ns = f_ptr(raw.as_ptr(), s.name);
             let name: Arc<str> = nsstring_to_string(name_ns).into();
@@ -858,9 +902,8 @@ impl MetalDevice {
         unsafe {
             let s = selectors();
             let f_buf: unsafe extern "C" fn(*mut c_void, *mut c_void, usize, u64) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_contents: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut u8 =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
+            let f_contents: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut u8 = msg_send();
             let raw_buf = f_buf(
                 self.raw.as_ptr(),
                 s.new_buffer_with_length,
@@ -904,9 +947,8 @@ impl MetalDevice {
         unsafe {
             let s = selectors();
             let f_buf: unsafe extern "C" fn(*mut c_void, *mut c_void, usize, u64) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_contents: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut u8 =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
+            let f_contents: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut u8 = msg_send();
             let raw_buf = f_buf(
                 self.raw.as_ptr(),
                 s.new_buffer_with_length,
@@ -943,7 +985,7 @@ impl MetalDevice {
             usize,
             u64,
             *mut c_void,
-        ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+        ) -> *mut c_void = msg_send();
         let raw_buf = f_nocopy(
             self.raw.as_ptr(),
             s.new_buffer_with_bytes_no_copy,
@@ -1081,12 +1123,9 @@ impl MetalDevice {
             let s = selectors();
             let src_ns = nsstring_from_str(msl_source);
             let mut err: *mut c_void = ptr::null_mut();
-            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
             let opts_ptr = f_init(f_alloc(s.cls_mtl_compile_options, s.alloc), s.init);
             let opts = ObjCObject(opts_ptr);
             f_set_bool(opts.as_ptr(), s.set_fast_math_enabled, true);
@@ -1097,7 +1136,7 @@ impl MetalDevice {
                 *mut c_void,
                 *mut c_void,
                 *mut *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
 
             let lib_ptr = f_lib(
                 self.raw.as_ptr(),
@@ -1117,7 +1156,7 @@ impl MetalDevice {
 
             let fn_ns = nsstring_from_str(entry_point);
             let f_fn: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
             let func_ptr = f_fn(lib.as_ptr(), s.new_function_with_name, fn_ns);
             if func_ptr.is_null() {
                 return Err(format!(
@@ -1127,8 +1166,7 @@ impl MetalDevice {
             let func = ObjCObject(func_ptr);
 
             let mut pso_err: *mut c_void = ptr::null_mut();
-            let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
             let cpd_ptr = f_init(
                 f_alloc(s.cls_mtl_compute_pipeline_descriptor, s.alloc),
                 s.init,
@@ -1148,7 +1186,7 @@ impl MetalDevice {
                 usize,
                 *mut c_void,
                 *mut *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
             let pso_ptr = f_pso_desc(
                 self.raw.as_ptr(),
                 s.new_compute_pipeline_with_descriptor,
@@ -1188,7 +1226,7 @@ impl MetalDevice {
             *mut c_void,
             *mut c_void,
             *mut block2::Block<dyn Fn(*mut c_void)>,
-        ) = std::mem::transmute(objc_msgSend as *const c_void);
+        ) = msg_send();
         add(
             command,
             sel("addCompletedHandler:"),
@@ -1208,10 +1246,8 @@ impl MetalDevice {
         };
         unsafe {
             let s = selectors();
-            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
             if cmd_buf_ptr.is_null() {
@@ -1253,19 +1289,16 @@ impl MetalDevice {
         command: *mut c_void,
         failure: &mut Option<crate::Error>,
     ) -> bool {
-        let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
         let status = f_status(command, selectors().status);
         if status < 4 {
             return false;
         }
         if status == 5 {
-            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
             let error = f_obj(command, sel("error"));
             if !error.is_null() {
-                let f_code: unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize =
-                    std::mem::transmute(objc_msgSend as *const c_void);
+                let f_code: unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize = msg_send();
                 let code = f_code(error, sel("code")) as i64;
                 let domain = nsstring_to_string(f_obj(error, sel("domain")));
                 let metal_domain = domain == nsstring_to_string(MTLCommandBufferErrorDomain);
@@ -1422,13 +1455,11 @@ impl MetalDevice {
         if let Some((cmd_buf, _)) = cmd_opt {
             unsafe {
                 let s = selectors();
-                let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
-                    std::mem::transmute(objc_msgSend as *const c_void);
+                let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
                 let st = f_status(cmd_buf.as_ptr(), s.status);
                 // MTLCommandBufferStatusCompleted = 4, Error = 5
                 if st < 4 {
-                    let f_wait: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-                        std::mem::transmute(objc_msgSend as *const c_void);
+                    let f_wait: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
                     f_wait(cmd_buf.as_ptr(), s.wait_until_completed);
                 }
             }
@@ -1451,8 +1482,7 @@ impl MetalDevice {
         };
         unsafe {
             let s = selectors();
-            let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
             f_status(cmd_buf.as_ptr(), s.status) >= 4
         }
     }
@@ -1528,20 +1558,15 @@ impl MetalDevice {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
-            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
+            let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
             let f_get_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
             let f_sub: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
 
             let f_lib: unsafe extern "C" fn(
                 *mut c_void,
@@ -1549,7 +1574,7 @@ impl MetalDevice {
                 *mut c_void,
                 *mut c_void,
                 *mut *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
             let mut err: *mut c_void = ptr::null_mut();
             let vs_src_ns = nsstring_from_str(&vs_src);
             let vs_lib_ptr = f_lib(
@@ -1569,7 +1594,7 @@ impl MetalDevice {
             let vs_lib = ObjCObject(vs_lib_ptr);
 
             let f_fn: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
             let vs_fn_ptr = f_fn(
                 vs_lib.as_ptr(),
                 s.new_function_with_name,
@@ -1721,7 +1746,7 @@ impl MetalDevice {
                     *mut c_void,
                     *mut c_void,
                     *mut c_void,
-                ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+                ) -> *mut c_void = msg_send();
                 let dss_ptr = f_new_dss(self.raw.as_ptr(), s.new_depth_stencil_state, dsd.as_ptr());
                 if !dss_ptr.is_null() {
                     depth_stencil_state = Some(Arc::new(ObjCObject(dss_ptr)));
@@ -1741,7 +1766,7 @@ impl MetalDevice {
                 *mut c_void,
                 *mut c_void,
                 *mut *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
             let mut pso_err: *mut c_void = ptr::null_mut();
             let pso_ptr = f_new_rpso(
                 self.raw.as_ptr(),
@@ -1787,14 +1812,13 @@ impl MetalDevice {
                 usize,
                 usize,
                 bool,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
+            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
             let f_new_tex: unsafe extern "C" fn(
                 *mut c_void,
                 *mut c_void,
                 *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
 
             let td = f_td(
                 s.cls_mtl_texture_descriptor,
@@ -1882,17 +1906,14 @@ impl MetalDevice {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
-            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
             let f_new_samp: unsafe extern "C" fn(
                 *mut c_void,
                 *mut c_void,
                 *mut c_void,
-            ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
+            ) -> *mut c_void = msg_send();
 
             let sd_ptr = f_init(f_alloc(s.cls_mtl_sampler_descriptor, s.alloc), s.init);
             let sd = ObjCObject(sd_ptr);
@@ -2000,9 +2021,8 @@ impl MetalDevice {
                 };
                 let s = selectors();
                 let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                    std::mem::transmute(objc_msgSend as *const c_void);
-                let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-                    std::mem::transmute(objc_msgSend as *const c_void);
+                    msg_send();
+                let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
                 let f_copy: unsafe extern "C" fn(
                     *mut c_void,
                     *mut c_void,
@@ -2011,7 +2031,7 @@ impl MetalDevice {
                     *mut c_void,
                     usize,
                     usize,
-                ) = std::mem::transmute(objc_msgSend as *const c_void);
+                ) = msg_send();
                 let cmd_buf = f_obj(self.queue.as_ptr(), s.command_buffer);
                 let blit = f_obj(cmd_buf, s.blit_command_encoder);
                 f_copy(
@@ -2081,7 +2101,7 @@ impl MetalDevice {
                     *const c_void,
                     usize,
                     usize,
-                ) = std::mem::transmute(objc_msgSend as *const c_void);
+                ) = msg_send();
                 let slices = crate::texture::CopySlices::new(
                     texture.texture.dimension,
                     texture.origin.z,
@@ -2251,10 +2271,8 @@ impl MetalDevice {
             }
 
             let s = selectors();
-            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-                std::mem::transmute(objc_msgSend as *const c_void);
-            let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+            let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
             let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
@@ -2333,7 +2351,7 @@ impl MetalDevice {
                                 }
 
                                 let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
-                                    std::mem::transmute(objc_msgSend as *const c_void);
+                                    msg_send();
                                 let t_start_s = f_f64(sub_cmd_ptr, s.gpu_start_time);
                                 let t_end_s = f_f64(sub_cmd_ptr, s.gpu_end_time);
                                 let now_ns = std::time::SystemTime::now()
@@ -2399,7 +2417,7 @@ impl MetalDevice {
                                 }
 
                                 let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
-                                    std::mem::transmute(objc_msgSend as *const c_void);
+                                    msg_send();
                                 let t_start_s = f_f64(sub_cmd_ptr, s.gpu_start_time);
                                 let t_end_s = f_f64(sub_cmd_ptr, s.gpu_end_time);
                                 let now_ns = std::time::SystemTime::now()
@@ -2493,22 +2511,16 @@ impl MetalDevice {
             return None;
         }
         let s = selectors();
-        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
         let f_is_kind: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> bool =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
-            std::mem::transmute(objc_msgSend as *const c_void);
+            msg_send();
+        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
         let f_at_idx: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
-            std::mem::transmute(objc_msgSend as *const c_void);
+            msg_send();
+        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
+        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) = msg_send();
 
         if is_appkit {
             f_set_bool(view_ptr, s.set_wants_layer, true);
@@ -2570,18 +2582,12 @@ impl MetalDevice {
             return;
         }
         let s = selectors();
-        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_size: unsafe extern "C" fn(*mut c_void, *mut c_void, CGSize) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
+        let f_set_size: unsafe extern "C" fn(*mut c_void, *mut c_void, CGSize) = msg_send();
+        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) = msg_send();
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
 
         f_set_obj(layer_ptr, s.set_device, self.raw.as_ptr());
         f_set_u64(
@@ -2607,14 +2613,13 @@ impl MetalDevice {
                     | crate::PresentMode::FifoRelaxed
             );
             f_set_bool(layer_ptr, s.set_display_sync_enabled, vsync);
-            let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) =
-                std::mem::transmute(objc_msgSend as *const c_void);
+            let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) = msg_send();
             // Set nextDrawableTimeout to 16ms so occluded/background windows return None quickly
             // instead of blocking the event loop for 1.0 second.
             let sel_timeout = sel_registerName(c"setNextDrawableTimeout:".as_ptr());
             let responds_sel = sel_registerName(c"respondsToSelector:".as_ptr());
             let f_responds: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> bool =
-                std::mem::transmute(objc_msgSend as *const c_void);
+                msg_send();
             if f_responds(layer_ptr, responds_sel, sel_timeout) {
                 f_set_f64(layer_ptr, sel_timeout, 0.016);
             }
@@ -2654,10 +2659,8 @@ impl MetalDevice {
             C::Bt2100Pq => kCGColorSpaceITUR_2100_PQ,
             C::Bt2100Hlg => kCGColorSpaceITUR_2100_HLG,
         };
-        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
         let color_space = CGColorSpaceCreateWithName(name);
         if !color_space.is_null() {
             f_set_obj(
@@ -2692,12 +2695,9 @@ impl MetalDevice {
             return None;
         }
         let s = selectors();
-        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
 
         let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
         let drawable_ptr = f_obj(layer_ptr, s.next_drawable);
@@ -2748,10 +2748,8 @@ impl MetalDevice {
             return;
         }
         let s = selectors();
-        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+        let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool = msg_send();
 
         self.flush_pending_compute();
         let transactional = !layer_ptr.is_null() && f_bool(layer_ptr, s.presents_with_transaction);
@@ -2902,12 +2900,9 @@ impl MetalDevice {
 /// EDR headroom of the screen hosting `view` (an `NSView`). AppKit is main-thread only.
 #[cfg(target_os = "macos")]
 pub(crate) unsafe fn display_hdr_info(view: *mut c_void) -> crate::DisplayHdrInfo {
-    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-        std::mem::transmute(objc_msgSend as *const c_void);
-    let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
-        std::mem::transmute(objc_msgSend as *const c_void);
-    let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
-        std::mem::transmute(objc_msgSend as *const c_void);
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+    let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 = msg_send();
+    let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool = msg_send();
     let ns_thread = objc_getClass(c"NSThread".as_ptr());
     if view.is_null()
         || ns_thread.is_null()

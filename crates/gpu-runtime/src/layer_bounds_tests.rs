@@ -1,5 +1,5 @@
 //! A layer's bounds come back intact on every architecture.
-use crate::metal::{CGPoint, CGRect, CGSize, ObjCObject, layer_bounds, objc_msgSend, selectors};
+use crate::metal::{CGPoint, CGRect, CGSize, ObjCObject, layer_bounds, msg_send, selectors};
 use std::ffi::c_void;
 
 #[test]
@@ -8,10 +8,8 @@ fn layer_bounds_round_trip_through_the_objective_c_runtime() {
     // releases; `setFrame:` takes a `CGRect` by value.
     unsafe {
         let s = selectors();
-        let send: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let set_frame: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
-            std::mem::transmute(objc_msgSend as *const c_void);
+        let send: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let set_frame: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) = msg_send();
         let layer = ObjCObject(send(send(s.cls_ca_metal_layer, s.alloc), s.init));
         assert!(!layer.as_ptr().is_null());
         set_frame(

@@ -3,8 +3,8 @@
 use crate::metal::MetalDevice;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::{
-    MTLClearColor, MTLOrigin, MTLScissorRect, MTLSize, MTLViewport, NSRange, metal_msg_send,
-    metal_selectors,
+    MTLClearColor, MTLOrigin, MTLScissorRect, MTLSize, MTLViewport, NSRange, metal_selectors,
+    msg_send,
 };
 use crate::{
     BindGroup, Buffer, BufferAddress, BufferAsyncError, BufferSlice, ComputePipeline,
@@ -716,18 +716,14 @@ impl<'a> Drop for RenderPass<'a> {
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[ComputeDispatchOp]) {
     let s = metal_selectors();
-    let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+    let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
     let f_set_buf: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
     let f_set_bytes: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_void, usize, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_tex: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_samp: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_dispatch: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLSize, MTLSize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
+    let f_set_tex: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
+    let f_set_samp: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
+    let f_dispatch: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLSize, MTLSize) = msg_send();
 
     let mut last_pso: *mut c_void = ptr::null_mut();
     for d in dispatches {
@@ -808,10 +804,8 @@ pub(crate) unsafe fn encode_non_compute_op(
     op: RecordedOp,
 ) {
     let s = metal_selectors();
-    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
     match op {
         RecordedOp::CopyBufferToBuffer {
@@ -833,7 +827,7 @@ pub(crate) unsafe fn encode_non_compute_op(
                 *mut c_void,
                 usize,
                 usize,
-            ) = std::mem::transmute(metal_msg_send as *const c_void);
+            ) = msg_send();
             f_copy(
                 blit,
                 s.copy_from_buffer,
@@ -851,7 +845,7 @@ pub(crate) unsafe fn encode_non_compute_op(
             }
             let blit = f_obj(cmd_buf, s.blit_command_encoder);
             let f_fill: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, NSRange, u8) =
-                std::mem::transmute(metal_msg_send as *const c_void);
+                msg_send();
             f_fill(
                 blit,
                 s.fill_buffer,
@@ -887,7 +881,7 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 usize,
                 usize,
-            ) = std::mem::transmute(metal_msg_send as *const c_void);
+            ) = msg_send();
             let (bpr, bpi) =
                 metal_copy_strides(bytes_per_row, rows_per_image, size, src_tex.format, false);
             f_t2b(
@@ -936,7 +930,7 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 usize,
                 MTLOrigin,
-            ) = std::mem::transmute(metal_msg_send as *const c_void);
+            ) = msg_send();
             let slices = crate::texture::CopySlices::new(
                 dst_tex.dimension,
                 dst_origin.z,
@@ -996,7 +990,7 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 usize,
                 MTLOrigin,
-            ) = std::mem::transmute(metal_msg_send as *const c_void);
+            ) = msg_send();
             let slices = size.depth_or_array_layers.max(1) as usize;
             for slice_i in 0..slices {
                 f_t2t(
@@ -1072,18 +1066,12 @@ pub(crate) unsafe fn encode_render_pass(
     mut rp: RenderPassOp,
 ) {
     let s = metal_selectors();
-    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_sub: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_cc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLClearColor) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+    let f_sub: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void = msg_send();
+    let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+    let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
+    let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) = msg_send();
+    let f_set_cc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLClearColor) = msg_send();
 
     let rpd = f_obj(s.cls_mtl_render_pass_descriptor, s.render_pass_descriptor);
     let color_atts = f_obj(rpd, s.color_attachments);
@@ -1151,33 +1139,26 @@ pub(crate) unsafe fn encode_render_pass(
 
     let mut commands = std::mem::take(&mut rp.commands);
     let f_rce: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
     let enc = f_rce(cmd_buf, s.render_command_encoder_with_desc, rpd);
     if enc.is_null() {
         metal.recycle_render_cmds(commands);
         return;
     }
 
-    let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_dss: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+    let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
+    let f_set_dss: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
     let f_set_buf: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
     let f_set_bytes: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_void, usize, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_tex: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_samp: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_db: unsafe extern "C" fn(*mut c_void, *mut c_void, f32, f32, f32) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_vp: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLViewport) =
-        std::mem::transmute(metal_msg_send as *const c_void);
-    let f_set_sc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLScissorRect) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
+    let f_set_tex: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
+    let f_set_samp: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
+    let f_set_db: unsafe extern "C" fn(*mut c_void, *mut c_void, f32, f32, f32) = msg_send();
+    let f_set_vp: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLViewport) = msg_send();
+    let f_set_sc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLScissorRect) = msg_send();
     let f_draw: unsafe extern "C" fn(*mut c_void, *mut c_void, u64, usize, usize, usize, usize) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+        msg_send();
     let f_draw_idx: unsafe extern "C" fn(
         *mut c_void,
         *mut c_void,
@@ -1189,9 +1170,8 @@ pub(crate) unsafe fn encode_render_pass(
         usize,
         isize,
         usize,
-    ) = std::mem::transmute(metal_msg_send as *const c_void);
-    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
-        std::mem::transmute(metal_msg_send as *const c_void);
+    ) = msg_send();
+    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
     let mut current_primitive_type = 3u64; // MTLPrimitiveTypeTriangle
     let mut active_index_buffer: Option<(Buffer, IndexFormat, u64)> = None;
