@@ -75,7 +75,8 @@
 
 `gpu-shader`:
 
-- [ ] Декомпозиция `back/msl.rs` (2085 строк), типизированная ошибка трансляции, `validate_wgsl`.
+- [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`; длинные функции бэкенда
+  (`write_string` 318 строк, `translate_call` 294, `emit_entry_point` 228).
 
 `gpu-runtime`:
 
