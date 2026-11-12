@@ -18,7 +18,7 @@ use std::{
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
-    event::{ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
+    event::{ElementState, MouseButton, Touch, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{Window, WindowId},
@@ -970,13 +970,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 );
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                let (dx, dy) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => (-x * 32., -y * 32.),
-                    MouseScrollDelta::PixelDelta(p) => (
-                        -p.x as f32 / window.scale_factor() as f32,
-                        -p.y as f32 / window.scale_factor() as f32,
-                    ),
-                };
+                let (dx, dy) =
+                    forma::native_window::wheel_scroll(delta, window.scale_factor() as f32);
                 self.button.scroll(dx, dy);
             }
             WindowEvent::Touch(Touch {

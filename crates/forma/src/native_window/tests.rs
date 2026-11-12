@@ -1969,3 +1969,14 @@ fn a_slow_touch_drag_scrolls_by_its_whole_distance() {
     // The first move after a touch that never started scrolls nothing.
     assert_eq!(touch_scroll_step(&mut None, 5., 5.), None);
 }
+
+#[test]
+fn a_wheel_event_scrolls_in_logical_pixels_against_its_direction() {
+    assert_eq!(
+        wheel_scroll(MouseScrollDelta::LineDelta(1., -2.), 2.),
+        (-32., 64.)
+    );
+    let pixels = MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(30., -50.));
+    assert_eq!(wheel_scroll(pixels, 2.), (-15., 25.));
+    assert_eq!(wheel_scroll(pixels, 1.), (-30., 50.));
+}

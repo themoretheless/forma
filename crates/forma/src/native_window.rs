@@ -153,6 +153,17 @@ fn button_pointer_kind(button: MouseButton, pressed: bool) -> Option<NativePoint
 }
 
 /// Physical window size to the logical size reported to the application.
+/// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is
+/// divided by the window's scale factor. The sign turns "wheel down" into "content up".
+pub fn wheel_scroll(delta: MouseScrollDelta, scale: f32) -> (f32, f32) {
+    match delta {
+        MouseScrollDelta::LineDelta(x, y) => (-x * 32., -y * 32.),
+        MouseScrollDelta::PixelDelta(position) => {
+            (-position.x as f32 / scale, -position.y as f32 / scale)
+        }
+    }
+}
+
 /// The scroll a touch that moved to `(x, y)` produces, if it has travelled more than half a
 /// pixel since the position in `last`.
 ///
@@ -1824,12 +1835,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     .as_ref()
                     .ok_or_else(|| "Native window is not initialized".to_owned())?
                     .scale_factor() as f32;
-                let (dx, dy) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => (-x * 32., -y * 32.),
-                    MouseScrollDelta::PixelDelta(position) => {
-                        (-position.x as f32 / scale, -position.y as f32 / scale)
-                    }
-                };
+                let (dx, dy) = wheel_scroll(delta, scale);
                 if let Some(chooser) = &mut self.chooser {
                     chooser.scroll(dx, dy);
                 } else {
