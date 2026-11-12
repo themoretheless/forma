@@ -1,6 +1,6 @@
-//! GPU (wgpu), CUDA and tensor backends for the `osv-math` point kernels.
+//! GPU (wgpu), CUDA and tensor backends for the `math-core` point kernels.
 //!
-//! `osv-math` is CPU-only and exposes the [`math_core::DeviceKernels`] port;
+//! `math-core` is CPU-only and exposes the [`math_core::DeviceKernels`] port;
 //! this crate implements it. Call [`install`] once at startup so every
 //! `math_core::*_accelerated` entry point can reach the device kernels.
 
@@ -20,7 +20,7 @@ mod kernels;
 #[cfg(feature = "tensor")]
 pub mod tensor;
 
-/// Installs this crate's device kernels into `osv-math`. Idempotent; returns
+/// Installs this crate's device kernels into `math-core`. Idempotent; returns
 /// `true` when a device backend is available after the call. Without the
 /// `gpu` feature there is nothing to install and the CPU reference is used.
 pub fn install() -> bool {

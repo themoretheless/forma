@@ -15,7 +15,7 @@ export const STANDALONE_MANIFESTS = [
 export const ALLOWED = {
   'gpu-shader': [],
   'tensor-core': [],
-  'osv-math': [],
+  'math-core': [],
   'memory-budget': [],
   'svet-graph': [],
   'svet-reconcile': [],
@@ -29,8 +29,8 @@ export const ALLOWED = {
   'compute-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader', 'memory-budget', 'tensor-core'],
   'compute-mlx': ['tensor-core'],
   'compute-cuda': ['gpu-compute', 'tensor-core'],
-  'osv-math-compute': [
-    'osv-math',
+  'math-compute': [
+    'math-core',
     'compute-core',
     'gpu-compute',
     'tensor-core',

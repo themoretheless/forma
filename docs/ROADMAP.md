@@ -131,7 +131,6 @@
 
 - [ ] Разбиение `host_tensor.rs` (1261 строка) и `postprocess.rs` (873) по семействам, таблица
   `PipelineSpec` в `raster-core`, `// SAFETY:` по FFI, `expect` / `unwrap` в продакшен-коде.
-- [ ] Переименовать пакеты `osv-math` и `osv-math-compute` (проверено: имена прежние).
 - [ ] Базовая линия не доснята: покрытие и бенчмарки.
 - [ ] Финальная чистка: мёртвый код, таблица до/после в `BASELINE.md`, закрытие строк `INVENTORY.md`.
 - [ ] Зависимости с advisory без обновления: `quick-xml`, `ttf-parser`, `zvariant` и соседи.

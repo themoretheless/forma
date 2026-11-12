@@ -92,3 +92,13 @@
 - Миграция: внешнему коду убрать обращения к `wgpu::rtx::*` и не запрашивать эти features на
   прямом Metal-пути. Константы `Features` и `BufferUsages` сохранены ради общей с `wgpu`
   поверхности API.
+
+## 10. Пакеты `osv-math` и `osv-math-compute` переименованы
+
+- Затронуто: имена Cargo-пакетов `osv-math` → `math-core`, `osv-math-compute` → `math-compute`.
+  Имена библиотек (`math_core`, `math_compute`) и каталоги не менялись, поэтому `use` в коде
+  остаётся прежним.
+- Миграция: в зависимостях убрать `package = "osv-math"` / `package = "osv-math-compute"`
+  (`math-core = { path = ".." }`), в командах заменить `-p osv-math` на `-p math-core` и
+  `-p osv-math-compute` на `-p math-compute`. Записи замеров в `benchmarks/` сохраняют команды
+  с прежними именами: это протокол того запуска.

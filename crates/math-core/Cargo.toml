@@ -1,5 +1,5 @@
 [package]
-name = "osv-math"
+name = "math-core"
 version = "0.1.0"
 edition = "2021"
 description = "Shared f64 vector helpers and typed geometry Error"

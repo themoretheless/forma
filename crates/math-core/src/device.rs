@@ -3,7 +3,7 @@
 //! `math-core` stays a CPU-only leaf: every `*_accelerated` entry point asks
 //! the installed [`DeviceKernels`] first and falls back to the CPU reference
 //! when no backend is installed or a kernel declines (`None`). Backend crates
-//! such as `osv-math-compute` implement the trait and install it once.
+//! such as `math-compute` implement the trait and install it once.
 
 use std::sync::OnceLock;
 

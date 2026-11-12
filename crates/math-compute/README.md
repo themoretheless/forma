@@ -1,16 +1,16 @@
-# osv-math-compute
+# math-compute
 
 Architecture and crate boundaries: GPU library design (`docs/design/gpu-library-architecture.md` in the upstream open-scad-viewer repository; not included here).
 
-Device backends (wgpu, CUDA, tensor/MLX) for the CPU-only `osv-math` kernels.
-`osv-math` declares the `DeviceKernels` port; this crate implements it.
+Device backends (wgpu, CUDA, tensor/MLX) for the CPU-only `math-core` kernels.
+`math-core` declares the `DeviceKernels` port; this crate implements it.
 Call `math_compute::install()` once at startup, then every
 `math_core::*_accelerated` function reaches the device kernels and falls back
 to the CPU reference when a device is unavailable.
 
 ```toml
 [dependencies]
-math-compute = { package = "osv-math-compute", path = "../math-compute", features = ["gpu"] }
+math-compute = { path = "../math-compute", features = ["gpu"] }
 ```
 
 ## Binary64 geometry
@@ -80,11 +80,11 @@ The [executable example](examples/resident_geometry.rs) transforms an uploaded
 cloud, computes its covariance and finds two neighbors before reading results:
 
 ```sh
-cargo run --manifest-path crates/Cargo.toml -p osv-math-compute --features tensor-wgsl \
+cargo run --manifest-path crates/Cargo.toml -p math-compute --features tensor-wgsl \
   --example resident_geometry -- wgsl
-cargo run --manifest-path crates/Cargo.toml -p osv-math-compute --features tensor-mlx \
+cargo run --manifest-path crates/Cargo.toml -p math-compute --features tensor-mlx \
   --example resident_geometry -- mlx
-cargo run --manifest-path crates/Cargo.toml -p osv-math-compute --features tensor-cuda \
+cargo run --manifest-path crates/Cargo.toml -p math-compute --features tensor-cuda \
   --example resident_geometry -- cuda
 ```
 
@@ -150,7 +150,7 @@ transformed cloud, while explicit device paths remain upload-bound.
 | 5,000,000 | 11.397 ms | 11.303 ms | 130.366 ms | 33.581 ms | 28.238 ms |
 
 Use
-`cargo run --release -p osv-math-compute --features cuda --example bench_transform_error`
+`cargo run --release -p math-compute --features cuda --example bench_transform_error`
 to benchmark your hardware and force `Gpu`/`Cuda` when the surrounding pipeline
 already keeps data near a device workload.
 
@@ -171,7 +171,7 @@ because repeated measurements did not show a stable device crossover.
 | 1,000,000 | 5.082 ms | 6.788 ms | 15.507 ms | 6.224 ms | 6.032 ms |
 | 5,000,000 | 26.306 ms | 35.054 ms | 72.990 ms | 32.331 ms | 31.257 ms |
 
-Use `cargo run --release -p osv-math-compute --features cuda --example bench_transformed_bounds`
+Use `cargo run --release -p math-compute --features cuda --example bench_transformed_bounds`
 to measure your hardware.
 
 `transformed_point_cloud_stats_accelerated(points, m, t, acceleration)` extends
@@ -192,7 +192,7 @@ want those placements:
 | 1,000,000 | 7.222 ms | 11.683 ms | 34.745 ms | 10.610 ms | 8.443 ms |
 | 5,000,000 | 36.579 ms | 59.573 ms | 171.160 ms | 53.474 ms | 41.811 ms |
 
-Use `cargo run --release -p osv-math-compute --features cuda --example bench_transformed_stats`
+Use `cargo run --release -p math-compute --features cuda --example bench_transformed_stats`
 to compare it with materializing transformed points first.
 
 ## GPU / CUDA nearest-neighbor search
@@ -215,7 +215,7 @@ instead of recreating them.
 Unlike the trivial affine transform above, nearest-neighbor search does
 `target_count` work per query, giving the GPU/CUDA placements enough
 arithmetic intensity to win. **Measured, not assumed:** `cargo run --release
--p osv-math-compute --features cuda --example bench_gpu`, on an NVIDIA RTX 5090
+-p math-compute --features cuda --example bench_gpu`, on an NVIDIA RTX 5090
 (CUDA 13.4):
 
 | queries × targets | cpu | gpu | cuda |
@@ -268,7 +268,7 @@ dedicated WGSL/CUDA kernels (`nearest_two.wgsl`, `nearest_two.cu`) instead of
 being built from two CPU passes. Device buffers are cached grow-only, matching
 the top-1 nearest-neighbor path for repeated stable-size registration and
 filtering workloads. Top-4 follows the same model with packed output buffers
-(`nearest_four.wgsl`, `nearest_four.cu`). Measured with `cargo run --release -p osv-math-compute --features
+(`nearest_four.wgsl`, `nearest_four.cu`). Measured with `cargo run --release -p math-compute --features
 cuda --example bench_nearest_two` on the RTX 5090:
 
 | queries × targets | work | cpu | auto | gpu | cuda |
@@ -278,7 +278,7 @@ cuda --example bench_nearest_two` on the RTX 5090:
 | 4,096 × 4,096 | 16.8M | 17.723 ms | 0.319 ms | 0.825 ms | 0.318 ms |
 | 16,384 × 8,192 | 134M | 143.374 ms | 0.807 ms | 1.417 ms | 0.788 ms |
 
-Top-4 benchmark (`cargo run --release -p osv-math-compute --features cuda --example
+Top-4 benchmark (`cargo run --release -p math-compute --features cuda --example
 bench_nearest_four`) on the same host:
 
 | queries × targets | work | cpu | auto | gpu | cuda | auto speedup |
@@ -295,7 +295,7 @@ The expensive neighborhood search uses `Auto`/CUDA/wgpu; the 4-point plane fit
 stays on CPU. This is useful for local surface normals and small-neighborhood
 geometry filters.
 
-Measured with `cargo run --release -p osv-math-compute --features cuda --example
+Measured with `cargo run --release -p math-compute --features cuda --example
 bench_local_planes`:
 
 | queries × support | work | cpu | auto | gpu | cuda | auto speedup |
@@ -305,7 +305,7 @@ bench_local_planes`:
 | 4,096 × 4,096 | 16.8M | 27.622 ms | 1.981 ms | 2.413 ms | 1.851 ms | 13.94x |
 | 16,384 × 8,192 | 134M | 215.305 ms | 6.975 ms | 8.065 ms | 6.705 ms | 30.87x |
 
-For runtime diagnostics, `cargo run -p osv-math-compute --features cuda --example
+For runtime diagnostics, `cargo run -p math-compute --features cuda --example
 backend_report` prints the placement labels, portable wgpu backend report
 (`metal`, `vulkan`, `dx12`, or `webgpu`) and native CUDA device report when
 available.
@@ -332,7 +332,7 @@ placements use fused directed-Chamfer reduction kernels, so they read back one
 sum/max pair per workgroup instead of one nearest-neighbor result per query.
 The wgpu shader uses the shared backend tuning (`128`-wide workgroups on Metal,
 `256` elsewhere).
-Measured with `cargo run --release -p osv-math-compute --features cuda --example
+Measured with `cargo run --release -p math-compute --features cuda --example
 bench_chamfer` on the RTX 5090:
 
 | cloud sizes | cpu | auto | gpu | cuda |
@@ -355,7 +355,7 @@ reduction path also reuses grow-only device buffers.
 
 This kernel is intentionally conservative in `Auto`: unlike nearest-neighbor,
 it is only O(pair_count) with a few FLOPs per pair, so on discrete GPUs the
-copy/readback cost dominates. Measured with `cargo run --release -p osv-math-compute
+copy/readback cost dominates. Measured with `cargo run --release -p math-compute
 --features cuda --example bench_distance_pairs` on the RTX 5090, explicit
 device execution is correct but slower; `Auto` therefore stays on CPU to avoid
 regressing callers:
@@ -389,7 +389,7 @@ little arithmetic per point, `Auto` intentionally keeps the CPU reference;
 explicit `Gpu`/`Cuda` remain available for integrated-GPU/low-copy
 experiments or for validating backend behavior.
 
-Measured with `cargo run --release -p osv-math-compute --features cuda --example
+Measured with `cargo run --release -p math-compute --features cuda --example
 bench_point_bounds` on the RTX 5090:
 
 | points | cpu | auto | gpu | cuda |
@@ -427,7 +427,7 @@ movement on discrete GPUs, so `Auto` stays on the exact CPU path; explicit
 `Gpu`/`Cuda` remain useful for integrated-GPU experiments and backend
 validation.
 
-Measured with `cargo run --release -p osv-math-compute --features cuda --example
+Measured with `cargo run --release -p math-compute --features cuda --example
 bench_point_moments` on the RTX 5090:
 
 | points | cpu | auto | gpu | cuda |
@@ -438,7 +438,7 @@ bench_point_moments` on the RTX 5090:
 | 5,000,000 | 18.004 ms | 18.056 ms | 73.931 ms | 24.893 ms |
 
 Plane fitting adds only a 3x3 eigensolve after moments, so it follows the same
-placement profile (`cargo run --release -p osv-math-compute --features cuda --example
+placement profile (`cargo run --release -p math-compute --features cuda --example
 bench_point_plane`):
 
 | points | cpu | auto | gpu | cuda |
@@ -474,7 +474,7 @@ reduction, and composes the final `RigidTransform`.
 This is where the nearest-neighbor kernel becomes a higher-level primitive:
 `IcpOptions::default()` uses `Acceleration::Auto`, so large ICP batches select
 CUDA/wgpu automatically when available and otherwise stay on the CPU reference.
-Measured with `cargo run --release -p osv-math-compute --features cuda --example
+Measured with `cargo run --release -p math-compute --features cuda --example
 icp_registration` on the same RTX 5090:
 
 | points | work/iteration | cpu | auto/cuda | iterations |

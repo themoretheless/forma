@@ -1402,6 +1402,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "math-compute"
+version = "0.1.0"
+dependencies = [
+ "compute-core",
+ "compute-cuda",
+ "compute-mlx",
+ "gpu-compute",
+ "math-core",
+ "tensor-core",
+]
+
+[[package]]
+name = "math-core"
+version = "0.1.0"
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1842,22 +1858,6 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
-]
-
-[[package]]
-name = "osv-math"
-version = "0.1.0"
-
-[[package]]
-name = "osv-math-compute"
-version = "0.1.0"
-dependencies = [
- "compute-core",
- "compute-cuda",
- "compute-mlx",
- "gpu-compute",
- "osv-math",
- "tensor-core",
 ]
 
 [[package]]

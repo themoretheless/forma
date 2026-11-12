@@ -893,7 +893,7 @@ Run the required hardware fixtures with:
 
 ```sh
 COMPUTE_REQUIRE_CUDA=1 cargo test --manifest-path crates/Cargo.toml -p compute-cuda --test float64 -- --nocapture
-COMPUTE_REQUIRE_CUDA=1 cargo test --manifest-path crates/Cargo.toml -p osv-math-compute --features tensor-cuda --test tensor_f64 -- --nocapture
+COMPUTE_REQUIRE_CUDA=1 cargo test --manifest-path crates/Cargo.toml -p math-compute --features tensor-cuda --test tensor_f64 -- --nocapture
 ```
 
 The qualification report (`docs/qualification/tensor-float64-2026-09-27.md` in the upstream open-scad-viewer repository; not included here)

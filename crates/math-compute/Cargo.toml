@@ -1,5 +1,5 @@
 [package]
-name = "osv-math-compute"
+name = "math-compute"
 version = "0.1.0"
 edition = "2021"
 description = "GPU/CUDA/tensor backends for point kernels"
@@ -19,7 +19,7 @@ tensor-cuda = ["tensor", "dep:compute-cuda"]
 tensor-mlx = ["tensor", "dep:compute-mlx"]
 
 [dependencies]
-math-core = { package = "osv-math", version = "0.1.0", path = "../math-core" }
+math-core = { version = "0.1.0", path = "../math-core" }
 compute-core = { version = "0.1.0", path = "../compute-core", optional = true }
 gpu-compute = { version = "0.1.0", path = "../gpu-compute", optional = true }
 tensor-core = { version = "0.1.0", path = "../tensor-core", optional = true }

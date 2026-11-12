@@ -1,5 +1,5 @@
 //! [`DeviceKernels`] adapter: CUDA first when requested (feature `cuda`),
-//! then the portable wgpu shader; `None` lets `osv-math` use the CPU.
+//! then the portable wgpu shader; `None` lets `math-core` use the CPU.
 
 use math_core::{
     Acceleration, DeviceKernels, DirectedChamfer, FourNearest, M3, PointBounds, PointCloudStats,
