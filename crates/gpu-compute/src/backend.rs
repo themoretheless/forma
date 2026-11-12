@@ -4,16 +4,16 @@
 //! `BackendReport`, `SubgroupReport`, `MemoryArchitecture`, `MemoryArchitectureProfile`,
 //! `HardwareExecutionTopology`, `backend_label`, `recommend_workgroup_shape_2d`, `tuned_workgroup_size`)
 //! and portable WGSL compute shader generators (`generate_wgsl_tiled_matmul_shader`,
-//! `generate_wgsl_parallel_reduction_shader`) live in [`wgpu::platform`] / [`gpu_shader`] and are
-//! re-exported here with runtime `GpuContext` probing.
+//! `generate_wgsl_parallel_reduction_shader`) live in [`wgpu::platform`] and
+//! [`crate::sample_shaders`] and are re-exported here with runtime `GpuContext` probing.
 
 use crate::GpuContext;
 
-pub use gpu_shader::{
-    ComputeShaderTarget, compile_wgsl_for_target, generate_wgsl_cad_vertex_transform_shader,
-    generate_wgsl_parallel_reduction_shader, generate_wgsl_rtx_raytracing_shader,
-    generate_wgsl_tiled_matmul_shader,
+pub use crate::sample_shaders::{
+    generate_wgsl_cad_vertex_transform_shader, generate_wgsl_parallel_reduction_shader,
+    generate_wgsl_rtx_raytracing_shader, generate_wgsl_tiled_matmul_shader,
 };
+pub use gpu_shader::{ComputeShaderTarget, compile_wgsl_for_target};
 pub use wgpu::{
     ApiEnvironment, AsdPageBuffer, BackendKind, BackendReport, BackendShaderIr,
     HardwareExecutionTopology, MemoryArchitecture, MemoryArchitectureProfile, ModernMemoryTech,

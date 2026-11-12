@@ -11,6 +11,7 @@ mod executor;
 mod memory;
 mod profiling;
 mod readback;
+mod sample_shaders;
 
 pub use backend::{
     ApiEnvironment, AsdPageBuffer, BackendKind, BackendReport, BackendShaderIr,

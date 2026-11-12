@@ -76,7 +76,6 @@
 
 `gpu-shader`:
 
-- [ ] Вынести CAD-шейдеры (`cad_kernels.rs`) из компилятора шейдеров.
 - [ ] Декомпозиция на `front/wgsl/*`, `back/msl/*`, типизированная ошибка, `validate_wgsl`.
 
 `gpu-runtime`:

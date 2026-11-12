@@ -129,3 +129,12 @@
 - Миграция: вместо `compile_shader_multi_target(src)?.msl` вызывать
   `compile_wgsl_for_target(src, ComputeShaderTarget::MetalMsl)`. Остальные цели появятся вместе с
   реализацией бэкендов (раздел 4 плана развития).
+
+## 13. Примеры шейдеров переехали из `gpu-shader` в `gpu-compute`
+
+- Затронуто: `generate_wgsl_tiled_matmul_shader`, `generate_wgsl_parallel_reduction_shader`,
+  `generate_wgsl_rtx_raytracing_shader` и `generate_wgsl_cad_vertex_transform_shader` больше не
+  экспортируются из `gpu_shader` (модуль `cad_kernels` удалён). Компилятор шейдеров не должен
+  содержать прикладные ядра.
+- Миграция: брать их из `gpu_compute` под теми же именами; для кода, который и раньше
+  импортировал их из `gpu-compute`, ничего не меняется.
