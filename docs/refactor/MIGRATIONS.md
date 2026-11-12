@@ -78,3 +78,17 @@
   хоста — `svet_graph::context::Telemetry`.
 - Миграция: нативным Rust-потребителям подключать `svet-graph` (`svet_graph::context::{Context, Kind, Node, Telemetry}`)
   вместо `svet-wasm`; C-ABI экспорты `svet_*` и реэкспорт `svet_wasm::native::*` сохранены без изменений.
+
+## 9. `gpu-runtime`: убран слой ray tracing, который ничего не строил
+
+- Затронуто: модуль `gpu_runtime::rtx` (`Blas`, `Tlas`, `TlasInstance`, `BlasGeometryDescriptor`,
+  `BlasGeometryKind`, `RtxCapabilities`, `RtxTier`) и методы `Device::create_blas`,
+  `Device::create_tlas`, `Device::rtx_capabilities` удалены. Они возвращали оценки размеров,
+  выдуманный `device_address` и таблицу «возможностей», одинаково обещавшую аппаратный RTX на
+  каждом backend; ни одна структура ускорения не создавалась.
+- `Adapter::features()` на Metal больше не содержит `EXPERIMENTAL_RAY_QUERY`,
+  `EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE` и `RAY_TRACING_PIPELINE`. Буфер с
+  `BLAS_INPUT` / `TLAS_INPUT` теперь всегда отклоняется как validation error.
+- Миграция: внешнему коду убрать обращения к `wgpu::rtx::*` и не запрашивать эти features на
+  прямом Metal-пути. Константы `Features` и `BufferUsages` сохранены ради общей с `wgpu`
+  поверхности API.

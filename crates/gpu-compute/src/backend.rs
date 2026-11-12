@@ -292,30 +292,6 @@ mod tests {
             StorageDirectCapability::VulkanExternalMemoryHost
         );
 
-        let blas = wgpu::rtx::Blas::new(
-            Some("cad-csg-blas"),
-            vec![wgpu::rtx::BlasGeometryDescriptor {
-                kind: wgpu::rtx::BlasGeometryKind::Triangles,
-                vertex_count: 1024,
-                primitive_count: 512,
-                opaque: true,
-                allow_compaction: true,
-            }],
-        );
-        assert!(blas.compacted_size_bytes >= 512 * 64);
-        let tlas = wgpu::rtx::Tlas::new(
-            Some("cad-scene-tlas"),
-            vec![wgpu::rtx::TlasInstance::identity(blas.device_address, 0)],
-        );
-        assert_eq!(tlas.instances.len(), 1);
-
-        let rtx_vk = wgpu::rtx::RtxCapabilities::for_backend(wgpu::Backend::Vulkan);
-        assert_eq!(rtx_vk.tier, wgpu::rtx::RtxTier::HardwareRtxPipeline);
-        assert!(rtx_vk.supports_inline_ray_query);
-
-        let rtx_cuda = wgpu::rtx::RtxCapabilities::for_backend(wgpu::Backend::Cuda);
-        assert_eq!(rtx_cuda.tier, wgpu::rtx::RtxTier::HardwareRtxPipeline);
-
         let rtx_shader = generate_wgsl_rtx_raytracing_shader(8, 8);
         let rtx_artifact =
             compile_shader_multi_target(&rtx_shader).expect("RTX WGSL compiles to all 6 backends");

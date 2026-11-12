@@ -87,7 +87,8 @@
 
 - [ ] `gpu_shader::valid::Validator` не возвращает ошибок (проверено): ill-typed шейдер доходит
   до компилятора Metal. Нужна настоящая проверка типов.
-- [ ] Убрать флаги нереализованного ray tracing и выдуманный `device_address` (проверено: на месте).
+- [ ] `vulkan`, `dx12`, `opengl`, `webgpu`: «reference profile» с обещанными возможностями без
+  реализации; оставить только то, что проверяется пробой устройства.
 - [ ] ABI `bounds` → `CGRect` на x86_64 (G-1).
 - [ ] Типизированные обёртки вместо `transmute` (проверено: 118 вхождений), `// SAFETY:`
   помодульно, декомпозиция `submit_with_error_sink`, `create_render_pipeline`, `encode_render_pass`.

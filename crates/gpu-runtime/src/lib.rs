@@ -12,7 +12,6 @@
 //! - [`texture`]: `Texture`, `TextureView`, `Sampler`, `QuerySet`, and texel copy descriptors.
 //! - [`pipeline`]: `ShaderModule`, `BindGroup`, `ComputePipeline`, `RenderPipeline`, and state descriptors.
 //! - [`command`]: `CommandEncoder`, `CommandBuffer`, `ComputePass`, `RenderPass`, and Metal encoder passes.
-//! - [`rtx`]: Hardware Ray Tracing (`Blas`, `Tlas`, `RtxCapabilities`, `RtxTier`).
 //! - [`metal`], [`vulkan`], [`dx12`], [`cuda`], [`opengl`], [`webgpu`]: Hardware backend runtimes.
 
 pub mod asd;
@@ -26,7 +25,6 @@ pub mod metal;
 pub mod opengl;
 pub mod pipeline;
 pub mod platform;
-pub mod rtx;
 pub mod texture;
 pub mod transfer;
 pub mod types;
@@ -68,7 +66,6 @@ pub use flags::*;
 pub use opengl::*;
 pub use pipeline::*;
 pub use platform::*;
-pub use rtx::*;
 pub use texture::*;
 pub use transfer::*;
 pub use types::*;
@@ -212,10 +209,7 @@ impl Adapter {
             | Features::SHADER_F16
             | Features::FLOAT32_FILTERABLE
             | Features::IMMEDIATE_DATA
-            | Features::SUBGROUP
-            | Features::EXPERIMENTAL_RAY_QUERY
-            | Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
-            | Features::RAY_TRACING_PIPELINE;
+            | Features::SUBGROUP;
         if metal.has_unified_memory {
             features |= Features::MAPPABLE_PRIMARY_BUFFERS;
         }
@@ -885,21 +879,6 @@ impl Device {
             ops,
             on_submit_callbacks: Mutex::new(Vec::new()),
         }
-    }
-
-    /// Creates a Bottom-Level Acceleration Structure (`BLAS`) for hardware RTX / Ray Tracing.
-    pub fn create_blas(&self, label: Label<'_>, geometries: Vec<BlasGeometryDescriptor>) -> Blas {
-        Blas::new(label, geometries)
-    }
-
-    /// Creates a Top-Level Acceleration Structure (`TLAS`) over scene instances for hardware RTX / Ray Tracing.
-    pub fn create_tlas(&self, label: Label<'_>, instances: Vec<TlasInstance>) -> Tlas {
-        Tlas::new(label, instances)
-    }
-
-    /// Queries the hardware RTX & Ray Tracing capabilities of this GPU device.
-    pub fn rtx_capabilities(&self) -> RtxCapabilities {
-        RtxCapabilities::for_backend(self.info.backend)
     }
 }
 
@@ -1796,6 +1775,38 @@ mod pipeline_cache_and_buffer_safety_tests {
         let mut non_multiple = base_compute.clone();
         non_multiple.threadgroup_multiple_of_32 = false;
         assert_ne!(base_compute, non_multiple);
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[test]
+    fn ray_tracing_is_not_advertised_and_its_buffers_are_rejected() {
+        let Some(metal_dev) = MetalDevice::create_system_default() else {
+            return;
+        };
+        let adapter = Adapter::from_metal(metal_dev);
+        let ray_tracing = Features::EXPERIMENTAL_RAY_QUERY
+            | Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
+            | Features::RAY_TRACING_PIPELINE;
+        assert!(!adapter.features().intersects(ray_tracing));
+
+        // Asking for the features does not grant them: nothing here builds acceleration structures.
+        let (device, _queue) = block_on_ready(adapter.request_device(&DeviceDescriptor {
+            required_features: ray_tracing,
+            ..Default::default()
+        }))
+        .expect("device creation must succeed");
+        assert!(!device.features().intersects(ray_tracing));
+        let scope = device.push_error_scope(ErrorFilter::Validation);
+        device.create_buffer(&BufferDescriptor {
+            label: None,
+            size: 64,
+            usage: BufferUsages::BLAS_INPUT | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        assert!(matches!(
+            block_on_ready(scope.pop()),
+            Some(Error::Validation { .. })
+        ));
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
