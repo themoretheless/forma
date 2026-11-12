@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { steps, evaluate, summary, provenance } from '../scripts/full-gate.mjs';
 import { root } from '../scripts/versions.mjs';
 
@@ -114,34 +116,30 @@ test('no tracked crate is left out of the gate', () => {
   } catch {
     return; /* a source export without .git has no tracked-file list to read */
   }
-  const PACKAGE_MANIFESTS = {
-    'gpu-shader': 'crates/gpu-shader/Cargo.toml',
-    'gpu-runtime': 'crates/gpu-runtime/Cargo.toml',
-    'raster-core': 'crates/raster-core/Cargo.toml',
-    'osv-math': 'crates/math-core/Cargo.toml',
-    'osv-math-compute': 'crates/math-compute/Cargo.toml',
-    'tensor-core': 'crates/tensor-core/Cargo.toml',
-    'compute-core': 'crates/compute-core/Cargo.toml',
-    'compute-mlx': 'crates/compute-mlx/Cargo.toml',
-    'compute-cuda': 'crates/compute-cuda/Cargo.toml',
-    'memory-budget': 'crates/memory-budget/Cargo.toml',
-    'swap-store': 'crates/swap-store/Cargo.toml',
-  };
+  const manifests = tracked
+    .split('\n')
+    .filter(file => /(^|\/)Cargo\.toml$/.test(file))
+    // Frozen source snapshots kept as benchmark evidence are not built by anything, on purpose.
+    .filter(file => !/\/(benchmarks|qualification)\//.test(file));
+  // A workspace member is named by package, not by manifest path. The names are read from the
+  // manifests: a hand-kept table went stale the day three crates were added.
+  const PACKAGE_MANIFESTS = Object.fromEntries(
+    manifests.flatMap(file => {
+      const [, manifest = ''] = readFileSync(join(root, file), 'utf8').split('[package]');
+      const name = /^name\s*=\s*"([^"]+)"/m.exec(manifest);
+      return name ? [[name[1], file]] : [];
+    }),
+  );
   const gated = new Set();
   // Covered means named by some platform's run: the legacy WebView host is a macOS-only step in
   // ci.yml as well, and the gate inherits that split rather than pretending every host builds it.
   for (const item of [...matrix().list, ...matrix({ platform: 'darwin' }).list])
     for (const [index, arg] of item.args.entries())
       if (arg === '--manifest-path') gated.add(item.args[index + 1]);
-      // A workspace member is named by package, not by manifest path.
       else if (arg === '-p' && PACKAGE_MANIFESTS[item.args[index + 1]])
         gated.add(PACKAGE_MANIFESTS[item.args[index + 1]]);
-  const ungated = tracked
-    .split('\n')
-    .filter(file => /(^|\/)Cargo\.toml$/.test(file))
-    // Frozen source snapshots kept as benchmark evidence are not built by anything, on purpose.
-    .filter(file => !/\/(benchmarks|qualification)\//.test(file))
-    // The root manifest is the workspace itself; its members are covered by name below.
+  const ungated = manifests
+    // The root manifest is the workspace itself; its members are covered by name above.
     .filter(file => file !== 'Cargo.toml')
     .filter(file => !gated.has(file));
   assert.deepEqual(ungated, [], `nothing compiles ${ungated.join(', ')}`);
