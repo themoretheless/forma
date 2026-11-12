@@ -330,7 +330,7 @@ pub(crate) fn dispatch_error(
     stack: &Mutex<Vec<crate::types::ErrorScopeEntry>>,
     handler: &Mutex<Option<UncapturedErrorHandler>>,
     error: Error,
-) {
+) -> bool {
     let filter = match &error {
         Error::OutOfMemory { .. } => ErrorFilter::OutOfMemory,
         Error::Validation { .. } => ErrorFilter::Validation,
@@ -340,12 +340,35 @@ pub(crate) fn dispatch_error(
         let mut scopes = stack.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = scopes.iter_mut().rev().find(|entry| entry.filter == filter) {
             entry.record(error);
-            return;
+            return true;
         }
     }
     let callback = handler.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    if let Some(callback) = callback {
-        callback(error);
+    match callback {
+        Some(callback) => {
+            callback(error);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Why a shader module or pipeline could not be built.
+#[derive(Debug)]
+struct ShaderError(String);
+
+impl std::fmt::Display for ShaderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ShaderError {}
+
+fn validation_error(description: String) -> Error {
+    Error::Validation {
+        source: Arc::new(ShaderError(description.clone())),
+        description,
     }
 }
 
@@ -533,6 +556,19 @@ impl Device {
         dispatch_error(&self.error_stack, &self.uncaptured_error_handler, err);
     }
 
+    /// Reports a pipeline that could not be created. The caller gets an invalid pipeline whose
+    /// dispatches and draws are skipped.
+    ///
+    /// # Panics
+    /// With no error scope and no uncaptured-error handler to receive it, the failure would
+    /// otherwise go unnoticed.
+    fn report_invalid_pipeline(&self, description: String) {
+        let error = validation_error(description.clone());
+        if !dispatch_error(&self.error_stack, &self.uncaptured_error_handler, error) {
+            panic!("{description}");
+        }
+    }
+
     pub fn poll(&self, poll_type: PollType) -> Result<PollStatus, PollError> {
         self.refresh_device_loss();
         match poll_type {
@@ -681,7 +717,10 @@ impl Device {
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::all(),
         );
-        let info = validator.validate(&module).unwrap_or_else(|_| {
+        let info = validator.validate(&module).unwrap_or_else(|error| {
+            self.record_error(validation_error(format!(
+                "shader validation failed: {error}"
+            )));
             naga::valid::Validator::new(
                 naga::valid::ValidationFlags::empty(),
                 naga::valid::Capabilities::empty(),
@@ -695,7 +734,8 @@ impl Device {
             &naga::back::msl::Options::default(),
             &naga::back::msl::PipelineOptions::default(),
         )
-        .unwrap_or_else(|_| {
+        .unwrap_or_else(|error| {
+            self.record_error(validation_error(format!("MSL generation failed: {error}")));
             (
                 String::new(),
                 BindingMap {
@@ -790,17 +830,17 @@ impl Device {
         };
 
         let wg_total = wg_size[0].max(1) * wg_size[1].max(1) * wg_size[2].max(1);
-        let pso = self
-            .metal
-            .compile_compute_pipeline(
-                &metal::msl_for_pipeline(
-                    &desc.module.msl_source,
-                    desc.compilation_options.constants,
-                ),
-                msl_ep_name,
-                wg_total,
-            )
-            .expect("Metal compute pipeline compilation failed");
+        let pso =
+            metal::msl_for_pipeline(&desc.module.msl_source, desc.compilation_options.constants)
+                .and_then(|msl| {
+                    self.metal
+                        .compile_compute_pipeline(&msl, msl_ep_name, wg_total)
+                        .map_err(|error| {
+                            format!("Metal compute pipeline compilation failed: {error}")
+                        })
+                })
+                .map_err(|description| self.report_invalid_pipeline(description))
+                .ok();
 
         ComputePipeline {
             pso,
@@ -811,7 +851,12 @@ impl Device {
 
     #[inline]
     pub fn create_render_pipeline(&self, desc: &RenderPipelineDescriptor<'_>) -> RenderPipeline {
-        self.metal.create_render_pipeline(desc)
+        self.metal
+            .create_render_pipeline(desc)
+            .unwrap_or_else(|description| {
+                self.report_invalid_pipeline(description);
+                RenderPipeline::invalid(desc)
+            })
     }
 
     #[inline]
@@ -1692,6 +1737,9 @@ mod device_loss_delivery_tests {
         );
     }
 }
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod invalid_pipeline_tests;
 
 #[cfg(test)]
 mod pipeline_cache_and_buffer_safety_tests {

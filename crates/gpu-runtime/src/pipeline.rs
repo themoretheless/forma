@@ -172,7 +172,8 @@ pub struct ComputePipelineDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct ComputePipeline {
-    pub(crate) pso: Arc<ObjCObject>,
+    /// `None` for a pipeline that failed to compile; its dispatches are skipped.
+    pub(crate) pso: Option<Arc<ObjCObject>>,
     pub(crate) workgroup_size: [u32; 3],
     pub(crate) bindings: Arc<BindingMap>,
 }
@@ -541,7 +542,8 @@ pub struct RenderPipelineDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct RenderPipeline {
-    pub(crate) pso: Arc<ObjCObject>,
+    /// `None` for a pipeline that failed to compile; its draws are skipped.
+    pub(crate) pso: Option<Arc<ObjCObject>>,
     /// Texture/sampler slots of the vertex and fragment shaders (see `msl::write_string`).
     pub(crate) vertex_bindings: Arc<BindingMap>,
     pub(crate) fragment_bindings: Option<Arc<BindingMap>>,
@@ -551,6 +553,22 @@ pub struct RenderPipeline {
 }
 
 impl RenderPipeline {
+    /// The stand-in returned when creation fails.
+    pub(crate) fn invalid(desc: &RenderPipelineDescriptor<'_>) -> Self {
+        Self {
+            pso: None,
+            vertex_bindings: desc.vertex.module.bindings.clone(),
+            fragment_bindings: desc.fragment.as_ref().map(|fs| fs.module.bindings.clone()),
+            depth_stencil_state: None,
+            primitive: desc.primitive,
+            depth_bias: desc
+                .depth_stencil
+                .as_ref()
+                .map(|d| d.bias)
+                .unwrap_or_default(),
+        }
+    }
+
     pub fn get_bind_group_layout(&self, _index: u32) -> BindGroupLayout {
         BindGroupLayout {
             entries: Vec::new(),

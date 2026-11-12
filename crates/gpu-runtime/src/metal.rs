@@ -1430,7 +1430,7 @@ impl MetalDevice {
     pub fn create_render_pipeline(
         &self,
         desc: &crate::RenderPipelineDescriptor<'_>,
-    ) -> crate::RenderPipeline {
+    ) -> Result<crate::RenderPipeline, String> {
         let vs_ep_raw = desc.vertex.entry_point.unwrap_or("vs");
         let vs_ep = if vs_ep_raw == "main" {
             "_wgpu_entry_main"
@@ -1448,9 +1448,10 @@ impl MetalDevice {
         let vs_src = msl_for_pipeline(
             &desc.vertex.module.msl_source,
             desc.vertex.compilation_options.constants,
-        );
+        )?;
         let fs_src = fs_state
-            .map(|fs| msl_for_pipeline(&fs.module.msl_source, fs.compilation_options.constants));
+            .map(|fs| msl_for_pipeline(&fs.module.msl_source, fs.compilation_options.constants))
+            .transpose()?;
 
         let cache_key = RenderPipelineCacheKey {
             vs_src: vs_src.as_ref().to_owned(),
@@ -1479,8 +1480,8 @@ impl MetalDevice {
 
         if let Ok(cache) = self.render_pipeline_cache.lock() {
             if let Some((pso, dss)) = cache.get(&cache_key) {
-                return crate::RenderPipeline {
-                    pso: pso.clone(),
+                return Ok(crate::RenderPipeline {
+                    pso: Some(pso.clone()),
                     vertex_bindings: desc.vertex.module.bindings.clone(),
                     fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                     depth_stencil_state: dss.clone(),
@@ -1490,7 +1491,7 @@ impl MetalDevice {
                         .as_ref()
                         .map(|d| d.bias)
                         .unwrap_or_default(),
-                };
+                });
             }
         }
 
@@ -1529,11 +1530,11 @@ impl MetalDevice {
                 &mut err,
             );
             if vs_lib_ptr.is_null() {
-                panic!(
+                return Err(format!(
                     "Vertex MSL compilation failed: {}\n--- MSL ---\n{}",
                     nserror_description(err),
                     vs_src
-                );
+                ));
             }
             let vs_lib = ObjCObject(vs_lib_ptr);
 
@@ -1544,7 +1545,9 @@ impl MetalDevice {
                 s.new_function_with_name,
                 nsstring_from_str(vs_ep),
             );
-            assert!(!vs_fn_ptr.is_null(), "Vertex function `{vs_ep}` not found");
+            if vs_fn_ptr.is_null() {
+                return Err(format!("Vertex function `{vs_ep}` not found"));
+            }
             let vs_fn = ObjCObject(vs_fn_ptr);
 
             let rpd_ptr = f_init(
@@ -1570,10 +1573,10 @@ impl MetalDevice {
                         &mut err,
                     );
                     if p.is_null() {
-                        panic!(
+                        return Err(format!(
                             "Fragment MSL compilation failed: {}",
                             nserror_description(err)
-                        );
+                        ));
                     }
                     ObjCObject(p)
                 };
@@ -1582,10 +1585,9 @@ impl MetalDevice {
                     s.new_function_with_name,
                     nsstring_from_str(fs_ep),
                 );
-                assert!(
-                    !fs_fn_ptr.is_null(),
-                    "Fragment function `{fs_ep}` not found"
-                );
+                if fs_fn_ptr.is_null() {
+                    return Err(format!("Fragment function `{fs_ep}` not found"));
+                }
                 let fs_fn = ObjCObject(fs_fn_ptr);
                 f_set_obj(rpd.as_ptr(), s.set_fragment_function, fs_fn.as_ptr());
 
@@ -1718,17 +1720,17 @@ impl MetalDevice {
                 &mut pso_err,
             );
             if pso_ptr.is_null() {
-                panic!(
+                return Err(format!(
                     "MTLRenderPipelineState creation failed: {}",
                     nserror_description(pso_err)
-                );
+                ));
             }
             let pso = Arc::new(ObjCObject(pso_ptr));
             if let Ok(mut cache) = self.render_pipeline_cache.lock() {
                 cache.insert(cache_key, (pso.clone(), depth_stencil_state.clone()));
             }
-            crate::RenderPipeline {
-                pso,
+            Ok(crate::RenderPipeline {
+                pso: Some(pso),
                 vertex_bindings: desc.vertex.module.bindings.clone(),
                 fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                 depth_stencil_state,
@@ -1738,7 +1740,7 @@ impl MetalDevice {
                     .as_ref()
                     .map(|d| d.bias)
                     .unwrap_or_default(),
-            }
+            })
         }
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         unimplemented!("Metal render pipelines are only available on macOS and iOS")
@@ -2835,20 +2837,19 @@ mod command_failure_classification_tests {
 
 /// MSL for one pipeline stage: the module's source with its `override` values applied.
 ///
-/// # Panics
-/// An undeclared or non-finite constant is a validation error; like a shader that fails to
-/// compile, it stops pipeline creation here.
+/// # Errors
+/// An undeclared or non-finite constant: like a shader that fails to compile, it makes the
+/// pipeline invalid.
 pub(crate) fn msl_for_pipeline<'a>(
     msl: &'a str,
     constants: &[(&str, f64)],
-) -> std::borrow::Cow<'a, str> {
+) -> Result<std::borrow::Cow<'a, str>, String> {
     if constants.is_empty() {
-        std::borrow::Cow::Borrowed(msl)
+        Ok(std::borrow::Cow::Borrowed(msl))
     } else {
-        std::borrow::Cow::Owned(
-            gpu_shader::back::msl::with_pipeline_constants(msl, constants)
-                .unwrap_or_else(|error| panic!("invalid pipeline constant: {error}")),
-        )
+        gpu_shader::back::msl::with_pipeline_constants(msl, constants)
+            .map(std::borrow::Cow::Owned)
+            .map_err(|error| format!("invalid pipeline constant: {error}"))
     }
 }
 

@@ -731,7 +731,10 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
 
     let mut last_pso: *mut c_void = ptr::null_mut();
     for d in dispatches {
-        let pso_ptr = d.pipeline.pso.as_ptr();
+        let Some(pso) = &d.pipeline.pso else {
+            continue;
+        };
+        let pso_ptr = pso.as_ptr();
         if pso_ptr != last_pso {
             f_set_pso(enc, s.set_compute_pipeline_state, pso_ptr);
             last_pso = pso_ptr;
@@ -1232,11 +1235,15 @@ pub(crate) unsafe fn encode_render_pass(
     for cmd in commands.drain(..) {
         match cmd {
             RenderCommand::SetPipeline(pipe) => {
+                let Some(pso) = &pipe.pso else {
+                    current_pipeline = None;
+                    continue;
+                };
                 for (index, bind_group) in &bound_groups {
                     bind_render_handles(*index, bind_group, &pipe);
                 }
                 current_pipeline = Some(pipe.clone());
-                f_set_pso(enc, s.set_render_pipeline_state, pipe.pso.as_ptr());
+                f_set_pso(enc, s.set_render_pipeline_state, pso.as_ptr());
                 if let Some(dss) = &pipe.depth_stencil_state {
                     f_set_dss(enc, s.set_depth_stencil_state, dss.as_ptr());
                 }
@@ -1368,7 +1375,7 @@ pub(crate) unsafe fn encode_render_pass(
             } => {
                 let v_count = vertices.end.saturating_sub(vertices.start) as usize;
                 let i_count = instances.end.saturating_sub(instances.start) as usize;
-                if v_count > 0 && i_count > 0 {
+                if v_count > 0 && i_count > 0 && current_pipeline.is_some() {
                     f_draw(
                         enc,
                         s.draw_primitives,
@@ -1387,7 +1394,7 @@ pub(crate) unsafe fn encode_render_pass(
             } => {
                 let idx_count = indices.end.saturating_sub(indices.start) as usize;
                 let i_count = instances.end.saturating_sub(instances.start) as usize;
-                if idx_count > 0 && i_count > 0 {
+                if idx_count > 0 && i_count > 0 && current_pipeline.is_some() {
                     if let Some((ibuf, fmt, base_off)) = &active_index_buffer {
                         let elem_size = match fmt {
                             IndexFormat::Uint16 => 2u64,
