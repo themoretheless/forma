@@ -1,35 +1,35 @@
-//! Multi-target WGSL shader compiler & portable compute kernel generators (MSL, SPIR-V, HLSL, CUDA PTX, WebGPU WGSL).
+//! WGSL translation by target, and portable compute kernel generators.
 
-/// Hardware acceleration & shader translation targets supported across all 6 platforms.
+/// A shading language a WGSL module may be asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ComputeShaderTarget {
     /// Apple Metal Shading Language (macOS, iOS)
     MetalMsl,
-    /// Khronos SPIR-V (Linux, Windows, Android via Vulkan)
+    /// Khronos SPIR-V (Vulkan). Not implemented.
     VulkanSpirv,
-    /// Microsoft DirectX 12 HLSL / DXIL (Windows)
+    /// Microsoft DirectX 12 HLSL / DXIL. Not implemented.
     Dx12Hlsl,
-    /// NVIDIA CUDA PTX (`sm_75`..`sm_100` on Linux & Windows)
+    /// NVIDIA CUDA PTX. Not implemented.
     CudaPtx,
-    /// OpenGL 4.6 Core / OpenGL ES 3.2 GLSL (Windows, Linux, Android, macOS)
+    /// OpenGL / OpenGL ES GLSL. Not implemented.
     OpenGlGlsl,
-    /// W3C WebGPU WGSL (Browser WASM)
+    /// W3C WebGPU WGSL: the source itself, once it parses and validates.
     BrowserWgsl,
 }
 
-/// Multi-backend compiled artifact containing simultaneously generated Metal MSL, Vulkan SPIR-V,
-/// DirectX 12 HLSL, NVIDIA CUDA PTX, OpenGL GLSL, and Browser WebGPU WGSL from a single WGSL source.
-#[derive(Debug, Clone)]
-pub struct MultiTargetShaderArtifact {
-    pub msl: String,
-    pub spirv_words: Vec<u32>,
-    pub hlsl: String,
-    pub cuda_ptx: String,
-    pub glsl: String,
-    pub wgsl: String,
+impl ComputeShaderTarget {
+    /// Whether `compile_wgsl_for_target` can produce this target.
+    pub const fn is_implemented(self) -> bool {
+        matches!(self, Self::MetalMsl | Self::BrowserWgsl)
+    }
 }
 
-/// Compiles a WGSL shader source to any target backend (Metal MSL, Vulkan SPIR-V, DX12 HLSL, NVIDIA CUDA PTX, OpenGL GLSL, or Browser WebGPU WGSL).
+/// Translates a WGSL shader for `target`.
+///
+/// # Errors
+/// The source does not parse or validate, or `target` has no back end: only Metal MSL and
+/// WGSL itself are produced. The other targets are named so callers can ask, and say so
+/// instead of returning text that only looks like the target language.
 pub fn compile_wgsl_for_target(
     wgsl_source: &str,
     target: ComputeShaderTarget,
@@ -50,79 +50,14 @@ pub fn compile_wgsl_for_target(
             )?;
             Ok(msl)
         }
-        ComputeShaderTarget::VulkanSpirv => {
-            let words = crate::back::spv::write_words(
-                &module,
-                &info,
-                &crate::back::spv::Options::default(),
-                None,
-            )?;
-            Ok(format!("SPIR-V words: {}", words.len()))
-        }
-        ComputeShaderTarget::Dx12Hlsl => crate::back::hlsl::write_string(
-            &module,
-            &info,
-            &crate::back::hlsl::Options::default(),
-            &crate::back::hlsl::PipelineOptions::default(),
-        ),
-        ComputeShaderTarget::CudaPtx => crate::back::cuda::write_ptx(
-            &module,
-            &info,
-            &crate::back::cuda::Options { sm_version: (8, 9) },
-            &crate::back::cuda::PipelineOptions::default(),
-        ),
-        ComputeShaderTarget::OpenGlGlsl => crate::back::glsl::write_string(
-            &module,
-            &info,
-            &crate::back::glsl::Options::default(),
-            &crate::back::glsl::PipelineOptions::default(),
-        ),
         ComputeShaderTarget::BrowserWgsl => Ok(module.raw_source),
+        ComputeShaderTarget::VulkanSpirv
+        | ComputeShaderTarget::Dx12Hlsl
+        | ComputeShaderTarget::CudaPtx
+        | ComputeShaderTarget::OpenGlGlsl => {
+            Err(format!("no shader back end for {target:?} is implemented"))
+        }
     }
-}
-
-/// Compiles a single WGSL shader into all 6 backend representations simultaneously.
-pub fn compile_shader_multi_target(wgsl_source: &str) -> Result<MultiTargetShaderArtifact, String> {
-    let module = crate::front::wgsl::parse_str(wgsl_source).map_err(|e| e.to_string())?;
-    let mut validator = crate::valid::Validator::new(
-        crate::valid::ValidationFlags::all(),
-        crate::valid::Capabilities::all(),
-    );
-    let info = validator.validate(&module).map_err(|e| e.to_string())?;
-    let (msl, _) = crate::back::msl::write_string(
-        &module,
-        &info,
-        &crate::back::msl::Options::default(),
-        &crate::back::msl::PipelineOptions::default(),
-    )?;
-    let spirv_words =
-        crate::back::spv::write_words(&module, &info, &crate::back::spv::Options::default(), None)?;
-    let hlsl = crate::back::hlsl::write_string(
-        &module,
-        &info,
-        &crate::back::hlsl::Options::default(),
-        &crate::back::hlsl::PipelineOptions::default(),
-    )?;
-    let cuda_ptx = crate::back::cuda::write_ptx(
-        &module,
-        &info,
-        &crate::back::cuda::Options { sm_version: (8, 9) },
-        &crate::back::cuda::PipelineOptions::default(),
-    )?;
-    let glsl = crate::back::glsl::write_string(
-        &module,
-        &info,
-        &crate::back::glsl::Options::default(),
-        &crate::back::glsl::PipelineOptions::default(),
-    )?;
-    Ok(MultiTargetShaderArtifact {
-        msl,
-        spirv_words,
-        hlsl,
-        cuda_ptx,
-        glsl,
-        wgsl: module.raw_source,
-    })
 }
 
 /// Generates a complete, valid WGSL `@compute @workgroup_size(tile_size, tile_size, 1)` shared-memory

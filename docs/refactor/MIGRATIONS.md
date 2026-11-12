@@ -117,3 +117,15 @@
 - Замер `binding_sync_bench` (5 чередующихся запусков, минимум): аллокаций на рендер сцены
   меньше на 2,4–2,6 % (2058 → 2004 при 8 контролах, 24478 → 23896 при 96), на синхронизацию
   привязок на 1,1–1,3 %; время в пределах шума (−0,5…−1 %).
+
+## 12. `gpu-shader`: убраны бэкенды, которые ничего не транслировали
+
+- Затронуто: модули `gpu_shader::back::{spv, hlsl, glsl, cuda}`, тип
+  `MultiTargetShaderArtifact` и функция `compile_shader_multi_target` удалены (вместе с
+  реэкспортом из `gpu-compute`). Они возвращали успешный результат с текстом, который только
+  выглядел как SPIR-V, HLSL, GLSL или PTX.
+- `compile_wgsl_for_target` для `VulkanSpirv`, `Dx12Hlsl`, `CudaPtx` и `OpenGlGlsl` теперь
+  возвращает ошибку; `ComputeShaderTarget::is_implemented` отвечает, есть ли бэкенд.
+- Миграция: вместо `compile_shader_multi_target(src)?.msl` вызывать
+  `compile_wgsl_for_target(src, ComputeShaderTarget::MetalMsl)`. Остальные цели появятся вместе с
+  реализацией бэкендов (раздел 4 плана развития).

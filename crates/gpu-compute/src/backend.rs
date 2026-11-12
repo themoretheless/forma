@@ -10,8 +10,7 @@
 use crate::GpuContext;
 
 pub use gpu_shader::{
-    ComputeShaderTarget, MultiTargetShaderArtifact, compile_shader_multi_target,
-    compile_wgsl_for_target, generate_wgsl_cad_vertex_transform_shader,
+    ComputeShaderTarget, compile_wgsl_for_target, generate_wgsl_cad_vertex_transform_shader,
     generate_wgsl_parallel_reduction_shader, generate_wgsl_rtx_raytracing_shader,
     generate_wgsl_tiled_matmul_shader,
 };
@@ -251,20 +250,23 @@ mod tests {
     }
 
     #[test]
-    fn multi_target_shader_compiler_emits_msl_spirv_hlsl_ptx_glsl_and_wgsl() {
+    fn a_shader_is_translated_only_for_the_targets_that_have_a_back_end() {
         let wgsl = generate_wgsl_parallel_reduction_shader(128);
-        let artifact = compile_shader_multi_target(&wgsl).expect("valid multi-target compilation");
-        assert!(artifact.msl.contains("kernel void"));
-        assert!(!artifact.spirv_words.is_empty());
-        assert!(artifact.hlsl.contains("[numthreads(128, 1, 1)]"));
-        assert!(artifact.cuda_ptx.contains(".target sm_89"));
-        assert!(artifact.glsl.contains("#version 460 core"));
-        assert!(artifact.glsl.contains("layout(local_size_x = 128"));
-        assert!(
-            artifact
-                .wgsl
-                .contains("@compute @workgroup_size(128, 1, 1)")
-        );
+        let msl = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::MetalMsl).unwrap();
+        assert!(msl.contains("kernel void"));
+        let browser = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::BrowserWgsl).unwrap();
+        assert!(browser.contains("@compute @workgroup_size(128, 1, 1)"));
+        for target in [
+            ComputeShaderTarget::VulkanSpirv,
+            ComputeShaderTarget::Dx12Hlsl,
+            ComputeShaderTarget::CudaPtx,
+            ComputeShaderTarget::OpenGlGlsl,
+        ] {
+            assert!(!target.is_implemented());
+            let error = compile_wgsl_for_target(&wgsl, target).unwrap_err();
+            assert!(error.contains("is implemented"), "{error}");
+        }
+        assert!(compile_wgsl_for_target("fn (", ComputeShaderTarget::MetalMsl).is_err());
     }
 
     #[test]
@@ -293,14 +295,9 @@ mod tests {
         );
 
         let rtx_shader = generate_wgsl_rtx_raytracing_shader(8, 8);
-        let rtx_artifact =
-            compile_shader_multi_target(&rtx_shader).expect("RTX WGSL compiles to all 6 backends");
-        assert!(rtx_artifact.msl.contains("kernel void"));
-        assert!(
-            rtx_artifact
-                .glsl
-                .contains("layout(local_size_x = 8, local_size_y = 8")
-        );
+        let rtx_msl = compile_wgsl_for_target(&rtx_shader, ComputeShaderTarget::MetalMsl)
+            .expect("the ray tracing sample translates to MSL");
+        assert!(rtx_msl.contains("kernel void"));
 
         let webgpu = wgpu::webgpu::WebGpuDevice::reference_profile();
         assert_eq!(
