@@ -132,7 +132,6 @@ impl MetalDevice {
         any(test, feature = "test-hooks"),
         any(target_os = "macos", target_os = "ios")
     ))]
-
     pub(crate) fn inject_device_loss_for_test(&self, message: String) {
         let mut loss = self.backend_device_loss.lock().unwrap();
         if loss.is_none() {
