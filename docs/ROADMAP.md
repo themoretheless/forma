@@ -125,8 +125,8 @@
 
 ## 7. Вычислительные крейты и чистка
 
-- [ ] Разбиение `postprocess.rs` (873 строки) по семействам, таблица
-  `PipelineSpec` в `raster-core`, `// SAFETY:` по FFI, `expect` / `unwrap` в продакшен-коде.
+- [ ] Таблица `PipelineSpec` в `raster-core`, `// SAFETY:` по FFI, `expect` / `unwrap` в
+  продакшен-коде.
 - [ ] Базовая линия не доснята: покрытие и бенчмарки.
 - [ ] Финальная чистка: мёртвый код, таблица до/после в `BASELINE.md`, закрытие строк `INVENTORY.md`.
 - [ ] Зависимости с advisory без обновления: `quick-xml`, `ttf-parser`, `zvariant` и соседи.
