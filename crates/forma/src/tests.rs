@@ -110,6 +110,26 @@ fn scroll_is_an_element_and_clamps_offsets() {
     assert_eq!(b.scroll_offset(), vec![0., 0.]);
 }
 #[test]
+fn a_scrolled_control_has_the_same_range_alone_and_in_a_runtime() {
+    // F-7: a button that does not start at the padding edge. The scrollable extent is the
+    // content, of which the button is only the far end.
+    for (x, y) in [(10, 10), (40, 30), (0, 0)] {
+        let source = OVERFLOW
+            .replace("Button {", &format!("Scroll {{ Button {{ x:{x}; y:{y};"))
+            .replace("} } }", "} } } }");
+        let mut alone = Button::from_source(&source).unwrap();
+        let mut runtime = Runtime::from_source(&source).unwrap();
+        alone.scroll(5000., 5000.);
+        runtime.scroll(5000., 5000.);
+        assert_eq!(
+            alone.scroll_offset(),
+            runtime.scroll_offset(),
+            "button at {x},{y}"
+        );
+        assert_eq!(alone.viewport(), runtime.viewport(), "button at {x},{y}");
+    }
+}
+#[test]
 fn scroll_is_not_an_overflow_value() {
     assert!(markup::parse(&OVERFLOW.replace("padding:10;", "overflow:scroll;")).is_err());
 }

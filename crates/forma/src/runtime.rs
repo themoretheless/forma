@@ -1101,10 +1101,7 @@ impl Runtime {
         }
     }
     fn content_size(&self) -> [f32; 2] {
-        [
-            self.scene.content_width - self.scene.padding[1] - self.scene.padding[3],
-            self.scene.content_height - self.scene.padding[0] - self.scene.padding[2],
-        ]
+        crate::scroll_content_size(&self.scene)
     }
 }
 impl crate::form_document::WidgetState for Runtime {

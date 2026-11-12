@@ -64,6 +64,14 @@ pub fn shaped_text_metrics(value: &str, font_size: f32) -> Vec<f32> {
     vec![w, h, glyphs]
 }
 
+/// The extent a scroll container moves over: the scene's content without its padding.
+pub(crate) fn scroll_content_size(scene: &markup::Scene) -> [f32; 2] {
+    [
+        scene.content_width - scene.padding[1] - scene.padding[3],
+        scene.content_height - scene.padding[0] - scene.padding[2],
+    ]
+}
+
 use geometry::{inside, round_inside};
 #[cfg(test)]
 use geometry::{rect_area_coverage, rect_area_paint, round_coverage};
@@ -376,10 +384,9 @@ impl Button {
         if self.scene.scroll && dx.is_finite() && dy.is_finite() {
             let before = (self.scroll_x, self.scroll_y);
             let v = self.viewport_rect();
-            self.scroll_x =
-                (self.scroll_x + dx).clamp(0., (self.scene.button.width - v[2]).max(0.));
-            self.scroll_y =
-                (self.scroll_y + dy).clamp(0., (self.scene.button.height - v[3]).max(0.));
+            let [content_width, content_height] = scroll_content_size(&self.scene);
+            self.scroll_x = (self.scroll_x + dx).clamp(0., (content_width - v[2]).max(0.));
+            self.scroll_y = (self.scroll_y + dy).clamp(0., (content_height - v[3]).max(0.));
             if before != (self.scroll_x, self.scroll_y) {
                 self.visual_revision = self.visual_revision.wrapping_add(1);
             }
@@ -755,8 +762,7 @@ impl Button {
                     out[i..i + 4].copy_from_slice(&base);
                 }
                 if self.scene.scroll && vw > 0. && vh > 0. {
-                    let ch = self.scene.button.height;
-                    let cw = self.scene.button.width;
+                    let [cw, ch] = scroll_content_size(&self.scene);
                     let vertical = ch > vh
                         && px >= (vx + vw - 5.).max(vx)
                         && px < vx + vw
