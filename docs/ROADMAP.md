@@ -89,7 +89,6 @@
   до компилятора Metal. Нужна настоящая проверка типов.
 - [ ] `vulkan`, `dx12`, `opengl`, `webgpu`: «reference profile» с обещанными возможностями без
   реализации; оставить только то, что проверяется пробой устройства.
-- [ ] ABI `bounds` → `CGRect` на x86_64 (G-1).
 - [ ] Типизированные обёртки вместо `transmute` (проверено: 118 вхождений), `// SAFETY:`
   помодульно, декомпозиция `submit_with_error_sink`, `create_render_pipeline`, `encode_render_pass`.
 - [ ] Device loss, смена GPU, forced faults, квалификация signal-driven пути.

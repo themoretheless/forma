@@ -1720,6 +1720,9 @@ mod device_loss_delivery_tests {
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod invalid_pipeline_tests;
 
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod layer_bounds_tests;
+
 #[cfg(test)]
 mod pipeline_cache_and_buffer_safety_tests {
     use super::*;

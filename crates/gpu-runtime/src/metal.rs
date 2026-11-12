@@ -447,6 +447,36 @@ pub struct CGRect {
     pub size: CGSize,
 }
 
+#[cfg(all(any(target_os = "macos", target_os = "ios"), target_arch = "x86_64"))]
+#[link(name = "objc", kind = "dylib")]
+extern "C" {
+    fn objc_msgSend_stret();
+}
+
+/// The `bounds` of a `CALayer`.
+///
+/// A `CGRect` is too large for the x86_64 return registers, so there the message goes through
+/// `objc_msgSend_stret`, which writes the result through a hidden pointer. Sending it through
+/// `objc_msgSend` reads that pointer as the receiver and crashes. arm64 has one entry point
+/// for every return type.
+///
+/// # Safety
+/// `layer` must point to a live `CALayer`.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) unsafe fn layer_bounds(layer: *mut c_void) -> CGRect {
+    #[cfg(target_arch = "x86_64")]
+    let entry = objc_msgSend_stret as *const c_void;
+    #[cfg(not(target_arch = "x86_64"))]
+    let entry = objc_msgSend as *const c_void;
+    // SAFETY: `bounds` takes no arguments and returns a `CGRect` by value, and `entry` is the
+    // runtime's entry point for a return of that size on this architecture.
+    unsafe {
+        let send: unsafe extern "C" fn(*mut c_void, *mut c_void) -> CGRect =
+            std::mem::transmute(entry);
+        send(layer, selectors().bounds)
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct MTLSize {
@@ -2477,8 +2507,6 @@ impl MetalDevice {
             std::mem::transmute(objc_msgSend as *const c_void);
         let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
             std::mem::transmute(objc_msgSend as *const c_void);
-        let f_rect: unsafe extern "C" fn(*mut c_void, *mut c_void) -> CGRect =
-            std::mem::transmute(objc_msgSend as *const c_void);
         let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
             std::mem::transmute(objc_msgSend as *const c_void);
 
@@ -2514,7 +2542,7 @@ impl MetalDevice {
             f_set_obj(view_ptr, s.set_layer, new_layer);
             f_set_bool(view_ptr, s.set_wants_layer, true);
         } else if !root_layer.is_null() {
-            let b = f_rect(root_layer, s.bounds);
+            let b = layer_bounds(root_layer);
             f_set_rect(new_layer, s.set_frame, b);
             // kCALayerWidthSizable (2) | kCALayerHeightSizable (16) = 18
             f_set_u64(new_layer, s.set_autoresizing_mask, 18);
@@ -2549,8 +2577,6 @@ impl MetalDevice {
         let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
             std::mem::transmute(objc_msgSend as *const c_void);
         let f_set_size: unsafe extern "C" fn(*mut c_void, *mut c_void, CGSize) =
-            std::mem::transmute(objc_msgSend as *const c_void);
-        let f_rect: unsafe extern "C" fn(*mut c_void, *mut c_void) -> CGRect =
             std::mem::transmute(objc_msgSend as *const c_void);
         let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
             std::mem::transmute(objc_msgSend as *const c_void);
@@ -2596,7 +2622,7 @@ impl MetalDevice {
         if !view_ptr.is_null() {
             let root_layer = f_obj(view_ptr, s.view_layer);
             if !root_layer.is_null() && root_layer != layer_ptr {
-                let b = f_rect(root_layer, s.bounds);
+                let b = layer_bounds(root_layer);
                 f_set_rect(layer_ptr, s.set_frame, b);
             }
         }
