@@ -71,7 +71,25 @@ rustc 1.97.1, node 22.23.4. Сырые логи лежат в `.forma/baseline/`
 
 Studio `src/`: нет. `packages/svet/src/engine`: один, `gpu.ts` ↔ `gpu-resident-bridge.ts` (только по типам).
 
+## Покрытие тестами JavaScript Studio (2026-11-13, ревизия `871f3057`)
+
+`node --test --experimental-test-coverage` по `src/`, `protocol/`, `dev-server/`, `mcp/`; 619
+тестов. Считаются только файлы, которые загрузил хотя бы один тест: `src/main.js` и
+`src/vector-preview.js` в отчёт не попадают совсем.
+
+| Метрика | Значение |
+|---|---|
+| строки | 85,92 % |
+| ветви | 87,02 % |
+| функции | 85,30 % |
+
+Наименее покрытые файлы (строки): `canvas-tools.js` 7 %, `editor.js` 10 %, `layout-inspector.js`
+12 %, `mcp-commands-runtime.js` 26 %, `color-swatches.js` 38 %, `mcp-commands-design.js` 39 %,
+`mcp-commands-project.js` 42 %, `mcp-commands.js` 55 %, `layout-distances.js` 58 %,
+`mcp-bridge.js` 60 %. Компилятор (`components.js`) покрыт на 96 %.
+
 ## Ещё не измерено
 
-Счётчики clippy по линтам, длина и сложность каждой функции, покрытие, `cargo udeps`, `knip`,
-времена сборки, `npm run bench` и бенч-примеры на свободной машине, устройство CUDA.
+Покрытие Rust (`cargo llvm-cov` не установлен) и Svet (нет провайдера покрытия vitest), счётчики
+clippy по линтам, длина и сложность каждой функции, `cargo udeps`, `knip`, времена сборки,
+`npm run bench` и бенч-примеры на свободной машине, устройство CUDA.
