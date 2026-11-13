@@ -78,12 +78,18 @@ test('the compiler places a bound number on the scale of the slider', () => {
   const compiled = compileComponents(files, 'ui/Demo.ui', { level: 40 }, metrics);
   assert.ok(Math.abs(rangeInput(compiled.template) - 0.4) < 1e-9, '40 of 100');
   assert.deepEqual(compiled.previewControls[0].rangeBounds, { min: 0, max: 100, step: 5 });
+  assert.match(
+    compiled.template,
+    /RangeInput \{ value: [\d.e-]+; step: 0\.05; Minimum/,
+    'step as a fraction',
+  );
 
   // Without a scale the number is the fraction itself, as before.
   files['ui/Demo.ui'] = `component Demo { state level: Number = 0.25; Frame {
       Slider { key: 'level'; value <-> state.level; } } }`;
   const plain = compileComponents(files, 'ui/Demo.ui', { level: 0.25 }, metrics);
   assert.equal(rangeInput(plain.template), 0.25);
+  assert.doesNotMatch(plain.template, /step:/, 'no grid without a step');
 
   // A value off the scale is shown at its end instead of failing on the thumb's column width.
   const off = compileComponents(files, 'ui/Demo.ui', { level: 40 }, metrics);

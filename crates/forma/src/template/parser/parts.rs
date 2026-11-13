@@ -6,6 +6,7 @@ impl<'a> Parser<'a> {
     pub(in crate::template) fn range_input(&mut self) -> Result<RangeInput, String> {
         self.open()?;
         let mut value = 0.;
+        let mut step = 0.;
         let mut minimum = None;
         let mut maximum = None;
         let mut seen = SeenFields::default();
@@ -15,6 +16,10 @@ impl<'a> Parser<'a> {
             if name == "value" {
                 self.colon()?;
                 value = self.scalar("value", false)?;
+                self.semi()?;
+            } else if name == "step" {
+                self.colon()?;
+                step = self.scalar("step", false)?;
                 self.semi()?;
             } else if name == "Minimum" || name == "Maximum" {
                 self.open()?;
@@ -58,6 +63,11 @@ impl<'a> Parser<'a> {
         self.close()?;
         let range = RangeInput {
             value: value.clamp(0., 1.),
+            step: if step.is_finite() {
+                step.clamp(0., 1.)
+            } else {
+                0.
+            },
             minimum: minimum.ok_or("Missing Minimum")?,
             maximum: maximum.ok_or("Missing Maximum")?,
         };

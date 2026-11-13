@@ -245,6 +245,50 @@ fn a_slider_with_a_step_writes_values_on_the_step_grid() {
 }
 
 #[test]
+fn the_keys_and_the_pointer_of_a_stepped_slider_move_along_the_step_grid() {
+    let source = SCALED_SLIDER
+        .replace("LEVEL", "40")
+        .replace("STEP", "step: 25;");
+    let mut runtime = builtin(&source);
+    assert!(runtime.focus_control(0));
+    let mut positions = Vec::new();
+    for key in [
+        "ArrowRight",
+        "ArrowRight",
+        "ArrowLeft",
+        "PageUp",
+        "End",
+        "Home",
+    ] {
+        assert!(runtime.range_key(key), "{key}");
+        positions.push((runtime.range_value(0) * 100.).round() as i32);
+    }
+    // 40 is off the grid: the first press moves a step and lands on the grid.
+    assert_eq!(positions, [75, 100, 75, 100, 100, 0]);
+
+    // A press on the track shows the thumb on the grid at once, before any sync.
+    let bounds = runtime.control_bounds(0);
+    let (x, y) = (bounds[0] + 8. + 0.6 * (bounds[2] - 16.), bounds[1] + 5.);
+    runtime.pointer(x, y, 0);
+    runtime.pointer(x, y, 1);
+    assert_eq!(runtime.range_value(0), 0.5, "60 of 100 on a grid of 25");
+    runtime.pointer(x, y, 2);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(state(&runtime)["level"], 50.0);
+
+    // A page is never shorter than a tenth of the scale.
+    let fine = SCALED_SLIDER
+        .replace("LEVEL", "40")
+        .replace("STEP", "step: 2;");
+    let mut runtime = builtin(&fine);
+    assert!(runtime.focus_control(0));
+    runtime.range_key("ArrowRight");
+    assert!((runtime.range_value(0) - 0.42).abs() < 1e-6);
+    runtime.range_key("PageUp");
+    assert!((runtime.range_value(0) - 0.52).abs() < 1e-6);
+}
+
+#[test]
 fn a_slider_without_a_scale_still_treats_the_bound_number_as_a_fraction() {
     let mut runtime = builtin(&BOUND_SLIDER.replace("LEVEL", "0.25"));
     assert_eq!(runtime.range_value(0), 0.25);

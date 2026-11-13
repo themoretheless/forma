@@ -505,6 +505,10 @@ fn write_slider_range(
         .map_err(|_| "Invalid slider value")?
         / 100.;
     let _ = std::fmt::Write::write_fmt(content, format_args!("RangeInput {{ value:{v}; "));
+    let step = super::RangeBounds::of(|name| resolved.get(name)).step_fraction();
+    if step > 0. {
+        let _ = std::fmt::Write::write_fmt(content, format_args!("step:{step}; "));
+    }
     for (name, value_str) in [("Minimum", "0%"), ("Maximum", "100%")] {
         let mut endpoint = instance.clone();
         endpoint

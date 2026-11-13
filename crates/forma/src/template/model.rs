@@ -126,11 +126,32 @@ pub struct Text {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RangeInput {
     pub value: f32,
+    /// The step grid as a fraction of the scale; 0 when the control moves freely.
+    pub step: f32,
     pub minimum: Vec<Content>,
     pub maximum: Vec<Content>,
 }
 
 impl RangeInput {
+    /// Moves `fraction` to the step grid, which is anchored at the start of the scale.
+    pub fn snapped(&self, fraction: f32) -> f32 {
+        let fraction = fraction.clamp(0., 1.);
+        if self.step > 0. && fraction > 0. && fraction < 1. {
+            ((fraction / self.step).round() * self.step).clamp(0., 1.)
+        } else {
+            fraction
+        }
+    }
+
+    /// The distance of one arrow key press and of one page key press.
+    pub fn key_steps(&self) -> (f32, f32) {
+        if self.step > 0. {
+            (self.step, self.step.max(0.1))
+        } else {
+            (0.01, 0.1)
+        }
+    }
+
     pub(super) fn compatible(&self) -> bool {
         self.minimum.len() == self.maximum.len()
             && self

@@ -19,15 +19,17 @@ impl Runtime {
         let Some(range) = Arc::make_mut(&mut self.controls[i].template).range.as_mut() else {
             return false;
         };
-        range.value = match key {
+        let (arrow, page) = range.key_steps();
+        let moved = match key {
             "Home" => 0.,
             "End" => 1.,
-            "ArrowLeft" | "ArrowDown" => (range.value - 0.01).max(0.),
-            "ArrowRight" | "ArrowUp" => (range.value + 0.01).min(1.),
-            "PageDown" => (range.value - 0.1).max(0.),
-            "PageUp" => (range.value + 0.1).min(1.),
+            "ArrowLeft" | "ArrowDown" => range.value - arrow,
+            "ArrowRight" | "ArrowUp" => range.value + arrow,
+            "PageDown" => range.value - page,
+            "PageUp" => range.value + page,
             _ => return false,
         };
+        range.value = range.snapped(moved);
         self.refresh_editors();
         true
     }

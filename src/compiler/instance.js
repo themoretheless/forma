@@ -3,6 +3,7 @@
 
 import { matchesType, validateTypeName } from '../component-semantics.js';
 import { literal, serializeNode } from '../component-template.js';
+import { rangeBounds } from '../shared/range.js';
 import { flatten, num } from './content-layout.js';
 import { standard, visualTypes } from './vocabulary.js';
 
@@ -66,7 +67,9 @@ export function createInstanceCompiler({
             );
         return content.join(' ');
       };
-      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
+      const { min, max, step } = rangeBounds(name => resolved[name]);
+      const grid = step > 0 ? ` step: ${Math.min(1, step / (max - min))};` : '';
+      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100};${grid} Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
     }
     const root = roots[0],
       out = [],

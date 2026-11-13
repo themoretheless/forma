@@ -37,6 +37,11 @@ impl RangeBounds {
         }
     }
 
+    /// The step as a fraction of the scale; 0 without a grid.
+    pub(super) fn step_fraction(self) -> f64 {
+        (self.step / (self.max - self.min)).clamp(0., 1.)
+    }
+
     /// Where `value` lies on the scale, from 0 to 1.
     pub(super) fn fraction(self, value: f64) -> f64 {
         ((value - self.min) / (self.max - self.min)).clamp(0., 1.)
