@@ -187,6 +187,106 @@ pub(super) fn try_match_generic_type_ctor(
     None
 }
 
+/// WGSL value constructors and the Metal type each one builds.
+const CONSTRUCTORS: &[(&str, &str)] = &[
+    ("u32", "uint"),
+    ("i32", "int"),
+    ("f32", "float"),
+    ("f16", "half"),
+    ("bool", "bool"),
+    ("vec2f", "float2"),
+    ("vec2<f32>", "float2"),
+    ("vec3f", "float3"),
+    ("vec3<f32>", "float3"),
+    ("vec4f", "float4"),
+    ("vec4<f32>", "float4"),
+    ("vec2u", "uint2"),
+    ("vec2<u32>", "uint2"),
+    ("vec3u", "uint3"),
+    ("vec3<u32>", "uint3"),
+    ("vec4u", "uint4"),
+    ("vec4<u32>", "uint4"),
+    ("vec2i", "int2"),
+    ("vec2<i32>", "int2"),
+    ("vec3i", "int3"),
+    ("vec3<i32>", "int3"),
+    ("vec4i", "int4"),
+    ("vec4<i32>", "int4"),
+    ("mat2x2f", "float2x2"),
+    ("mat2x2<f32>", "float2x2"),
+    ("mat2x2", "float2x2"),
+    ("mat3x3f", "float3x3"),
+    ("mat3x3<f32>", "float3x3"),
+    ("mat3x3", "float3x3"),
+    ("mat4x4f", "float4x4"),
+    ("mat4x4<f32>", "float4x4"),
+    ("mat4x4", "float4x4"),
+];
+
+/// Atomic built-ins that take a pointer and a value and map onto one Metal function.
+const ATOMIC_UPDATES: &[(&str, &str)] = &[
+    ("atomicStore", "atomic_store_explicit"),
+    ("atomicAdd", "atomic_fetch_add_explicit"),
+    ("atomicSub", "atomic_fetch_sub_explicit"),
+    ("atomicMax", "atomic_fetch_max_explicit"),
+    ("atomicMin", "atomic_fetch_min_explicit"),
+    ("atomicAnd", "atomic_fetch_and_explicit"),
+    ("atomicOr", "atomic_fetch_or_explicit"),
+    ("atomicXor", "atomic_fetch_xor_explicit"),
+    ("atomicExchange", "atomic_exchange_explicit"),
+];
+
+/// Built-ins that only change name in Metal.
+const RENAMED_BUILTINS: &[(&str, &str)] = &[
+    ("inverseSqrt", "rsqrt"),
+    ("round", "rint"),
+    ("countLeadingZeros", "clz"),
+    ("countTrailingZeros", "ctz"),
+    ("countOneBits", "popcount"),
+    ("reverseBits", "reverse_bits"),
+    ("degrees", "_wgpu_degrees"),
+    ("frexp", "_wgpu_frexp"),
+    ("modf", "_wgpu_modf"),
+    ("radians", "_wgpu_radians"),
+    ("dpdx", "dfdx"),
+    ("dpdy", "dfdy"),
+];
+
+/// Built-ins that wrap their single argument, with the argument used when it is missing.
+const WRAPPED_BUILTINS: &[(&str, &str, &str, &str)] = &[
+    (
+        "unpack2x16float",
+        "float2(as_type<half2>(uint(",
+        ")))",
+        "0u",
+    ),
+    (
+        "pack2x16float",
+        "as_type<uint>(half2(float2(",
+        ")))",
+        "float2(0.0)",
+    ),
+    (
+        "unpack4x8unorm",
+        "unpack_unorm4x8_to_float(uint(",
+        "))",
+        "0u",
+    ),
+    (
+        "pack4x8unorm",
+        "pack_float_to_unorm4x8(float4(",
+        "))",
+        "float4(0.0)",
+    ),
+];
+
+fn lookup<'a>(table: &'a [(&str, &str)], name: &str) -> Option<&'a str> {
+    table
+        .iter()
+        .find(|(wgsl, _)| *wgsl == name)
+        .map(|(_, msl)| *msl)
+}
+
 pub(super) fn translate_call(
     module: &Module,
     ident: &str,
@@ -202,142 +302,74 @@ pub(super) fn translate_call(
         .map(|s| s.as_str())
         .unwrap_or(ident);
 
-    match resolved_ident {
-        "u32" => format!("uint({})", args.join(", ")),
-        "i32" => format!("int({})", args.join(", ")),
-        "f32" => format!("float({})", args.join(", ")),
-        "f16" => format!("half({})", args.join(", ")),
-        "bool" => format!("bool({})", args.join(", ")),
-        "vec2f" | "vec2<f32>" | "vec2" => {
-            let t = if resolved_ident == "vec2" {
-                infer_vec_ctor_type(2, args)
-            } else {
-                "float2"
-            };
-            format!("{t}({})", args.join(", "))
-        }
-        "vec3f" | "vec3<f32>" | "vec3" => {
-            let t = if resolved_ident == "vec3" {
-                infer_vec_ctor_type(3, args)
-            } else {
-                "float3"
-            };
-            format!("{t}({})", args.join(", "))
-        }
-        "vec4f" | "vec4<f32>" | "vec4" => {
-            let t = if resolved_ident == "vec4" {
-                infer_vec_ctor_type(4, args)
-            } else {
-                "float4"
-            };
-            format!("{t}({})", args.join(", "))
-        }
-        "vec2u" | "vec2<u32>" => format!("uint2({})", args.join(", ")),
-        "vec3u" | "vec3<u32>" => format!("uint3({})", args.join(", ")),
-        "vec4u" | "vec4<u32>" => format!("uint4({})", args.join(", ")),
-        "vec2i" | "vec2<i32>" => format!("int2({})", args.join(", ")),
-        "vec3i" | "vec3<i32>" => format!("int3({})", args.join(", ")),
-        "vec4i" | "vec4<i32>" => format!("int4({})", args.join(", ")),
-        "mat2x2f" | "mat2x2<f32>" | "mat2x2" => format!("float2x2({})", args.join(", ")),
-        "mat3x3f" | "mat3x3<f32>" | "mat3x3" => format!("float3x3({})", args.join(", ")),
-        "mat4x4f" | "mat4x4<f32>" | "mat4x4" => format!("float4x4({})", args.join(", ")),
+    if let Some(call) = translate_constructor(resolved_ident, args)
+        .or_else(|| translate_synchronization(resolved_ident, args))
+        .or_else(|| translate_numeric_builtin(resolved_ident, args, func_globals))
+        .or_else(|| translate_texture_builtin(module, resolved_ident, args))
+    {
+        return call;
+    }
+    if resolved_ident == "arrayLength" {
+        return translate_array_length(raw_args, binding_map);
+    }
+    translate_user_call(module, ident, resolved_ident, args, func_globals)
+}
 
-        // Synchronization barriers
+fn translate_constructor(name: &str, args: &[String]) -> Option<String> {
+    let ty = match name {
+        "vec2" => infer_vec_ctor_type(2, args),
+        "vec3" => infer_vec_ctor_type(3, args),
+        "vec4" => infer_vec_ctor_type(4, args),
+        _ => lookup(CONSTRUCTORS, name)?,
+    };
+    Some(format!("{ty}({})", args.join(", ")))
+}
+
+/// Barriers and atomics.
+fn translate_synchronization(name: &str, args: &[String]) -> Option<String> {
+    let arg = |i: usize, missing: &'static str| args.get(i).map(|s| s.as_str()).unwrap_or(missing);
+    Some(match name {
         "workgroupBarrier" => "threadgroup_barrier(mem_flags::mem_threadgroup)".to_string(),
         "storageBarrier" => "threadgroup_barrier(mem_flags::mem_device)".to_string(),
         "textureBarrier" => "threadgroup_barrier(mem_flags::mem_texture)".to_string(),
-
-        // Atomics
-        "atomicLoad" => format!(
-            "atomic_load_explicit({}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or("")
-        ),
-        "atomicStore" => format!(
-            "atomic_store_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicAdd" => format!(
-            "atomic_fetch_add_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicSub" => format!(
-            "atomic_fetch_sub_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicMax" => format!(
-            "atomic_fetch_max_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicMin" => format!(
-            "atomic_fetch_min_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicAnd" => format!(
-            "atomic_fetch_and_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicOr" => format!(
-            "atomic_fetch_or_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicXor" => format!(
-            "atomic_fetch_xor_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
-        "atomicExchange" => format!(
-            "atomic_exchange_explicit({}, {}, memory_order_relaxed)",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0")
-        ),
+        "atomicLoad" => format!("atomic_load_explicit({}, memory_order_relaxed)", arg(0, "")),
         "atomicCompareExchangeWeak" => format!(
             "_wgpu_atomic_compare_exchange_weak({}, {}, {})",
-            args.first().map(|s| s.as_str()).unwrap_or(""),
-            args.get(1).map(|s| s.as_str()).unwrap_or("0"),
-            args.get(2).map(|s| s.as_str()).unwrap_or("0")
+            arg(0, ""),
+            arg(1, "0"),
+            arg(2, "0")
         ),
-
-        // Math & Bitwise intrinsics
-        "distance" if !func_globals.contains_key("distance") => {
-            format!("metal::distance({})", args.join(", "))
+        _ => {
+            let update = lookup(ATOMIC_UPDATES, name)?;
+            format!(
+                "{update}({}, {}, memory_order_relaxed)",
+                arg(0, ""),
+                arg(1, "0")
+            )
         }
-        "inverseSqrt" => format!("rsqrt({})", args.join(", ")),
-        "round" => format!("rint({})", args.join(", ")),
-        "countLeadingZeros" => format!("clz({})", args.join(", ")),
-        "countTrailingZeros" => format!("ctz({})", args.join(", ")),
-        "countOneBits" => format!("popcount({})", args.join(", ")),
-        "reverseBits" => format!("reverse_bits({})", args.join(", ")),
-        "degrees" => format!("_wgpu_degrees({})", args.join(", ")),
-        "frexp" => format!("_wgpu_frexp({})", args.join(", ")),
-        "modf" => format!("_wgpu_modf({})", args.join(", ")),
-        "radians" => format!("_wgpu_radians({})", args.join(", ")),
-        "dpdx" => format!("dfdx({})", args.join(", ")),
-        "dpdy" => format!("dfdy({})", args.join(", ")),
-        "unpack2x16float" => format!(
-            "float2(as_type<half2>(uint({})))",
-            args.first().map(|s| s.as_str()).unwrap_or("0u")
-        ),
-        "pack2x16float" => format!(
-            "as_type<uint>(half2(float2({})))",
-            args.first().map(|s| s.as_str()).unwrap_or("float2(0.0)")
-        ),
-        "unpack4x8unorm" => format!(
-            "unpack_unorm4x8_to_float(uint({}))",
-            args.first().map(|s| s.as_str()).unwrap_or("0u")
-        ),
-        "pack4x8unorm" => format!(
-            "pack_float_to_unorm4x8(float4({}))",
-            args.first().map(|s| s.as_str()).unwrap_or("float4(0.0)")
-        ),
+    })
+}
 
-        // Texture intrinsics
+/// Math, bit and packing built-ins.
+fn translate_numeric_builtin(
+    name: &str,
+    args: &[String],
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+) -> Option<String> {
+    // A user function may be called `distance`; only the built-in needs the namespace.
+    if name == "distance" && !func_globals.contains_key("distance") {
+        return Some(format!("metal::distance({})", args.join(", ")));
+    }
+    if let Some(renamed) = lookup(RENAMED_BUILTINS, name) {
+        return Some(format!("{renamed}({})", args.join(", ")));
+    }
+    let (_, open, close, missing) = WRAPPED_BUILTINS.iter().find(|entry| entry.0 == name)?;
+    let value = args.first().map(|s| s.as_str()).unwrap_or(missing);
+    Some(format!("{open}{value}{close}"))
+}
+
+fn translate_texture_builtin(module: &Module, name: &str, args: &[String]) -> Option<String> {
+    Some(match name {
         "textureDimensions" => {
             let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
             if let Some(lod) = args.get(1) {
@@ -370,115 +402,119 @@ pub(super) fn translate_call(
             let dref = args.get(3).map(|s| s.as_str()).unwrap_or("0.0");
             format!("{tex}.sample_compare({samp}, {uv}, {dref})")
         }
-        "textureLoad" => {
-            let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
-            let coords = args.get(1).map(|s| s.as_str()).unwrap_or("uint2(0)");
-            let image = module
-                .global_variables
-                .iter()
-                .find(|(_, g)| g.name.as_deref() == Some(tex.trim()))
-                .and_then(|(_, g)| match &module.types[g.ty].inner {
-                    TypeInner::Image {
-                        dim,
-                        arrayed,
-                        class,
-                    } => Some((*dim, *arrayed, *class)),
-                    _ => None,
-                });
-            // A texture passed through a helper parameter has no global to inspect; WGSL's
-            // only four-argument form is the arrayed one.
-            let (dim, arrayed, class) = image.unwrap_or((
-                ImageDimension::D2,
-                args.len() == 4,
-                ImageClass::Sampled {
-                    kind: ScalarKind::Float,
-                    multi: false,
-                },
-            ));
-            let arg = |i: usize| args.get(i).map(|s| s.as_str()).unwrap_or("0");
-            match (dim, arrayed, class) {
-                (_, _, ImageClass::Storage { .. }) if arrayed => {
-                    format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
-                }
-                (ImageDimension::D1, _, ImageClass::Storage { .. }) => {
-                    format!("{tex}.read(uint({coords}))")
-                }
-                (ImageDimension::D3, _, ImageClass::Storage { .. }) => {
-                    format!("{tex}.read(uint3({coords}))")
-                }
-                (_, _, ImageClass::Storage { .. }) => format!("{tex}.read(uint2({coords}))"),
-                (
-                    _,
-                    _,
-                    ImageClass::Sampled { multi: true, .. } | ImageClass::Depth { multi: true },
-                ) => {
-                    format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
-                }
-                (_, true, _) => format!(
-                    "{tex}.read(uint2({coords}), uint({}), uint({}))",
-                    arg(2),
-                    arg(3)
-                ),
-                (ImageDimension::D1, _, _) => {
-                    format!("{tex}.read(uint({coords}), uint({}))", arg(2))
-                }
-                (ImageDimension::D3, _, _) => {
-                    format!("{tex}.read(uint3({coords}), uint({}))", arg(2))
-                }
-                _ => format!("{tex}.read(uint2({coords}), uint({}))", arg(2)),
-            }
+        "textureLoad" => translate_texture_load(module, args),
+        _ => return None,
+    })
+}
+
+fn translate_texture_load(module: &Module, args: &[String]) -> String {
+    let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
+    let coords = args.get(1).map(|s| s.as_str()).unwrap_or("uint2(0)");
+    let image = module
+        .global_variables
+        .iter()
+        .find(|(_, g)| g.name.as_deref() == Some(tex.trim()))
+        .and_then(|(_, g)| match &module.types[g.ty].inner {
+            TypeInner::Image {
+                dim,
+                arrayed,
+                class,
+            } => Some((*dim, *arrayed, *class)),
+            _ => None,
+        });
+    // A texture passed through a helper parameter has no global to inspect; WGSL's
+    // only four-argument form is the arrayed one.
+    let (dim, arrayed, class) = image.unwrap_or((
+        ImageDimension::D2,
+        args.len() == 4,
+        ImageClass::Sampled {
+            kind: ScalarKind::Float,
+            multi: false,
+        },
+    ));
+    let arg = |i: usize| args.get(i).map(|s| s.as_str()).unwrap_or("0");
+    match (dim, arrayed, class) {
+        (_, _, ImageClass::Storage { .. }) if arrayed => {
+            format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
         }
-
-        // Runtime-sized array length
-        "arrayLength" => {
-            let arg = raw_args.trim().trim_start_matches('&').trim();
-            let base_ident = arg.split('.').next().unwrap_or(arg).trim();
-            if let Some(&(slot, base_off, stride, _)) =
-                binding_map.array_length_slots.get(base_ident)
-            {
-                if base_off > 0 {
-                    format!(
-                        "((_wgpu_buffer_sizes[{slot}] > {base_off}u) ? ((_wgpu_buffer_sizes[{slot}] - {base_off}u) / {stride}u) : 0u)"
-                    )
-                } else {
-                    format!("(_wgpu_buffer_sizes[{slot}] / {stride}u)")
-                }
-            } else {
-                // No buffer to measure: the marker makes `write_string` fail instead of guessing.
-                format!("{UNRESOLVED_ARRAY_LENGTH}({base_ident})")
-            }
+        (ImageDimension::D1, _, ImageClass::Storage { .. }) => {
+            format!("{tex}.read(uint({coords}))")
         }
+        (ImageDimension::D3, _, ImageClass::Storage { .. }) => {
+            format!("{tex}.read(uint3({coords}))")
+        }
+        (_, _, ImageClass::Storage { .. }) => format!("{tex}.read(uint2({coords}))"),
+        (_, _, ImageClass::Sampled { multi: true, .. } | ImageClass::Depth { multi: true }) => {
+            format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
+        }
+        (_, true, _) => format!(
+            "{tex}.read(uint2({coords}), uint({}), uint({}))",
+            arg(2),
+            arg(3)
+        ),
+        (ImageDimension::D1, _, _) => {
+            format!("{tex}.read(uint({coords}), uint({}))", arg(2))
+        }
+        (ImageDimension::D3, _, _) => {
+            format!("{tex}.read(uint3({coords}), uint({}))", arg(2))
+        }
+        _ => format!("{tex}.read(uint2({coords}), uint({}))", arg(2)),
+    }
+}
 
-        // Struct constructor or user helper function call
-        _ => {
-            // Check if `ident` is a struct constructor
-            let is_struct = module
-                .types
-                .iter()
-                .any(|(_, t)| t.name.as_deref() == Some(resolved_ident));
-            if is_struct {
-                return format!("{resolved_ident}{{{}}}", args.join(", "));
-            }
+/// Length of a runtime-sized array, read from the buffer sizes passed to the entry point.
+fn translate_array_length(raw_args: &str, binding_map: &BindingMap) -> String {
+    let arg = raw_args.trim().trim_start_matches('&').trim();
+    let base_ident = arg.split('.').next().unwrap_or(arg).trim();
+    if let Some(&(slot, base_off, stride, _)) = binding_map.array_length_slots.get(base_ident) {
+        if base_off > 0 {
+            format!(
+                "((_wgpu_buffer_sizes[{slot}] > {base_off}u) ? ((_wgpu_buffer_sizes[{slot}] - {base_off}u) / {stride}u) : 0u)"
+            )
+        } else {
+            format!("(_wgpu_buffer_sizes[{slot}] / {stride}u)")
+        }
+    } else {
+        // No buffer to measure: the marker makes `write_string` fail instead of guessing.
+        format!("{UNRESOLVED_ARRAY_LENGTH}({base_ident})")
+    }
+}
 
-            // Check if `ident` is a user helper function that requires transitive globals
-            let mut full_args = args.to_vec();
-            if let Some(globals) = func_globals.get(ident) {
-                for &gh in globals {
-                    if let Some(gname) = &module.global_variables[gh].name {
-                        full_args.push(gname.clone());
-                    }
-                }
+/// A struct constructor or a call to a user function.
+fn translate_user_call(
+    module: &Module,
+    ident: &str,
+    resolved_ident: &str,
+    args: &[String],
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+) -> String {
+    // Check if `ident` is a struct constructor
+    let is_struct = module
+        .types
+        .iter()
+        .any(|(_, t)| t.name.as_deref() == Some(resolved_ident));
+    if is_struct {
+        return format!("{resolved_ident}{{{}}}", args.join(", "));
+    }
+
+    // Check if `ident` is a user helper function that requires transitive globals
+    let mut full_args = args.to_vec();
+    if let Some(globals) = func_globals.get(ident) {
+        for &gh in globals {
+            if let Some(gname) = &module.global_variables[gh].name {
+                full_args.push(gname.clone());
             }
-            let callee_needs_arr_len = module.functions.iter().any(|(_, f)| {
-                f.name.as_deref() == Some(ident) && f.body_src.contains("arrayLength")
-            });
-            if callee_needs_arr_len {
-                full_args.push("_wgpu_buffer_sizes".to_string());
-            }
-            let escaped_ident = msl_escape_ident(ident);
-            format!("{escaped_ident}({})", full_args.join(", "))
         }
     }
+    let callee_needs_arr_len = module
+        .functions
+        .iter()
+        .any(|(_, f)| f.name.as_deref() == Some(ident) && f.body_src.contains("arrayLength"));
+    if callee_needs_arr_len {
+        full_args.push("_wgpu_buffer_sizes".to_string());
+    }
+    let escaped_ident = msl_escape_ident(ident);
+    format!("{escaped_ident}({})", full_args.join(", "))
 }
 
 pub(super) fn infer_vec_ctor_type(dim: u32, args: &[String]) -> &'static str {
