@@ -150,6 +150,8 @@ import {
   applyFormaDocument,
   bindExternalFormaState,
   type FormaDocumentState,
+  rebuildFormaComputedLets,
+  satisfiesFormaConstraints,
 } from './forma-document.ts';
 import { createFormaRenderer } from './forma-render.ts';
 import { formaComponentRegistry } from './forma-registry.ts';
@@ -384,19 +386,7 @@ function instantiateForma(
     // Reactive `isValid` computed signal checking all `#[range]` and `#[pattern]` constraints!
     const isValid = ownComputed(() => {
       hmrRevision();
-      for (const c of propConstraints) {
-        const val = propSignals[c.name]?.();
-        if (c.required && (val === null || val === undefined || val === '')) {
-          return false;
-        }
-        if (c.range && typeof val === 'number') {
-          if (val < c.range[0] || val > c.range[1]) return false;
-        }
-        if (c.compiledPattern && typeof val === 'string') {
-          if (!c.compiledPattern.test(val)) return false;
-        }
-      }
-      return true;
+      return satisfiesFormaConstraints(propConstraints, propSignals);
     });
 
     const computedLets: Record<string, ReadonlySignal<any>> = Object.create(null);
@@ -418,22 +408,16 @@ function instantiateForma(
       },
     };
 
-    const rebuildComputedLets = (retirePrevious = true) => {
-      if (retirePrevious)
-        for (const oldComp of ownedComputedLets) {
-          oldComp?.dispose?.();
-        }
-      ownedComputedLets.clear();
-      for (const k of Object.keys(computedLets)) delete computedLets[k];
-      for (const l of letExpressions) {
-        const comp = ownComputed(() => {
-          hmrRevision();
-          return evaluateFormaExpression(l.expr, evalScope);
-        });
-        ownedComputedLets.add(comp);
-        computedLets[l.name] = comp;
-      }
-    };
+    const rebuildComputedLets = (retirePrevious = true) =>
+      rebuildFormaComputedLets(
+        { computedLets, ownedComputedLets, letExpressions },
+        expression =>
+          ownComputed(() => {
+            hmrRevision();
+            return evaluateFormaExpression(expression, evalScope);
+          }),
+        retirePrevious,
+      );
     rebuildComputedLets();
 
     // Built-in Forma `state.*` / `actions.*` mutators

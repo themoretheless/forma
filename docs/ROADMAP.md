@@ -131,9 +131,9 @@
   (`forma-registry.ts`), рендерер дерева (`forma-render.ts`, `createFormaRenderer`) и исполнитель
   действий с мутаторами состояния (`forma-actions.ts`: `createFormaActionRunner`,
   `createFormaStateMutator`) и загрузка документа в контейнеры экземпляра (`forma-document.ts`,
-  `applyFormaDocument`, `bindExternalFormaState`); `forma.ts` 1693 → 941 строка. В
-  `instantiateForma` остаются около 570 строк: вычисляемые `let`, окружение вычисления и сборка
-  экземпляра с горячей перезагрузкой.
+  `applyFormaDocument`, `bindExternalFormaState`, `satisfiesFormaConstraints`,
+  `rebuildFormaComputedLets`); `forma.ts` 1693 → 925 строк. В `instantiateForma` остаются около
+  550 строк, почти целиком сборка экземпляра с горячей перезагрузкой.
   Из `gpu.ts` вынесены типы (`gpu-types.ts`) и учёт асинхронных вычислений: кэш пайплайнов,
   лимиты допуска, ожидание с отменой (`gpu-compute-support.ts`); `gpu.ts` 1429 → 1242 строки.
   Из `gpu-scene3d.ts` вынесены модель сцены (`gpu-scene3d-model.ts`: трансформации, камера, меши)

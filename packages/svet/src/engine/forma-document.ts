@@ -6,7 +6,7 @@ import type { FormaAstNode, FormaDocumentAst, FormaPropConstraint } from './form
 import { FORBIDDEN_MEMBER_KEYS, isSafePatternRegex } from './forma-expr.ts';
 import type { FormaCompileOptions, FormaProperty, FormaRuntimeInstance } from './forma-instance.ts';
 import { structuredCloneIfObject } from './forma-reactive.ts';
-import type { Signal } from './reactivity.ts';
+import type { ReadonlySignal, Signal } from './reactivity.ts';
 
 /** The containers of one instance. They are updated in place, so readers keep their references. */
 export interface FormaDocumentState {
@@ -161,5 +161,58 @@ export function bindExternalFormaState(
         ensureStateSignal(k, cloned);
       }
     }
+  }
+}
+
+/** Whether every prop meets its `required`, `#[range]` and `#[pattern]` constraints. */
+export function satisfiesFormaConstraints(
+  propConstraints: FormaDocumentState['propConstraints'],
+  propSignals: FormaDocumentState['propSignals'],
+): boolean {
+  for (const c of propConstraints) {
+    const val = propSignals[c.name]?.();
+    if (c.required && (val === null || val === undefined || val === '')) {
+      return false;
+    }
+    if (c.range && typeof val === 'number') {
+      if (val < c.range[0] || val > c.range[1]) return false;
+    }
+    if (c.compiledPattern && typeof val === 'string') {
+      if (!c.compiledPattern.test(val)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Replaces the computed signals of the document's `let` declarations.
+ *
+ * @param compute creates the computed signal of one expression, owned by the instance
+ * @param retirePrevious disposes the signals being replaced; a hot reload that may still roll
+ *   back keeps them alive
+ */
+export function rebuildFormaComputedLets(
+  {
+    computedLets,
+    ownedComputedLets,
+    letExpressions,
+  }: {
+    computedLets: Record<string, ReadonlySignal<unknown>>;
+    ownedComputedLets: Set<ReadonlySignal<unknown>>;
+    letExpressions: FormaDocumentState['letExpressions'];
+  },
+  compute: (expression: string) => ReadonlySignal<unknown>,
+  retirePrevious: boolean,
+): void {
+  if (retirePrevious)
+    for (const oldComp of ownedComputedLets) {
+      oldComp?.dispose?.();
+    }
+  ownedComputedLets.clear();
+  for (const k of Object.keys(computedLets)) delete computedLets[k];
+  for (const l of letExpressions) {
+    const comp = compute(l.expr);
+    ownedComputedLets.add(comp);
+    computedLets[l.name] = comp;
   }
 }
