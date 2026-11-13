@@ -122,3 +122,161 @@ fn a_clear_past_the_buffer_is_refused() {
         [2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0]
     );
 }
+
+const SIDE: u32 = 4;
+
+fn texture(device: &Device) -> Texture {
+    device.create_texture(&TextureDescriptor {
+        label: None,
+        size: Extent3d {
+            width: SIDE,
+            height: SIDE,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Rgba8Unorm,
+        usage: TextureUsages::COPY_SRC | TextureUsages::COPY_DST,
+        view_formats: &[],
+    })
+}
+
+/// Records one texture copy against a 4x4 RGBA texture and a buffer of `buffer_size` bytes.
+fn texture_copy(
+    buffer_size: u64,
+    record: impl FnOnce(&mut CommandEncoder, &Texture, &Buffer),
+) -> Option<Option<Error>> {
+    let (device, queue) = device()?;
+    let texture = texture(&device);
+    let buffer = device.create_buffer(&BufferDescriptor {
+        label: None,
+        size: buffer_size,
+        usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let scope = device.push_error_scope(ErrorFilter::Validation);
+    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor::default());
+    record(&mut encoder, &texture, &buffer);
+    let error = block_on_ready(scope.pop());
+    queue.submit(Some(encoder.finish()));
+    device.poll(PollType::wait_indefinitely()).unwrap();
+    Some(error)
+}
+
+fn whole(texture: &Texture, origin: Origin3d) -> TexelCopyTextureInfo<'_> {
+    TexelCopyTextureInfo {
+        texture,
+        mip_level: 0,
+        origin,
+        aspect: TextureAspect::All,
+    }
+}
+
+fn rows(buffer: &Buffer, offset: u64) -> TexelCopyBufferInfo<'_> {
+    TexelCopyBufferInfo {
+        buffer,
+        layout: TexelCopyBufferLayout {
+            offset,
+            bytes_per_row: Some(SIDE * 4),
+            rows_per_image: Some(SIDE),
+        },
+    }
+}
+
+fn extent(width: u32, height: u32) -> Extent3d {
+    Extent3d {
+        width,
+        height,
+        depth_or_array_layers: 1,
+    }
+}
+
+#[test]
+fn texture_copies_that_fit_are_accepted() {
+    let full = u64::from(SIDE * SIDE * 4);
+    let to_buffer = texture_copy(full, |encoder, texture, buffer| {
+        encoder.copy_texture_to_buffer(
+            whole(texture, Origin3d::ZERO),
+            rows(buffer, 0),
+            extent(SIDE, SIDE),
+        );
+    });
+    let Some(error) = to_buffer else { return };
+    assert!(error.is_none(), "{error:?}");
+    let to_texture = texture_copy(full, |encoder, texture, buffer| {
+        encoder.copy_buffer_to_texture(
+            rows(buffer, 0),
+            whole(texture, Origin3d::ZERO),
+            extent(SIDE, SIDE),
+        );
+    });
+    assert!(matches!(to_texture, Some(None)), "{to_texture:?}");
+}
+
+#[test]
+fn a_texture_copy_needs_the_whole_region_in_the_buffer() {
+    let full = u64::from(SIDE * SIDE * 4);
+    for (buffer_size, offset) in [(full - 1, 0), (full, 4), (16, 0)] {
+        let to_buffer = texture_copy(buffer_size, |encoder, texture, buffer| {
+            encoder.copy_texture_to_buffer(
+                whole(texture, Origin3d::ZERO),
+                rows(buffer, offset),
+                extent(SIDE, SIDE),
+            );
+        });
+        let Some(error) = to_buffer else { return };
+        assert!(
+            matches!(error, Some(Error::Validation { .. })),
+            "texture to {buffer_size} bytes at {offset}: {error:?}"
+        );
+        let to_texture = texture_copy(buffer_size, |encoder, texture, buffer| {
+            encoder.copy_buffer_to_texture(
+                rows(buffer, offset),
+                whole(texture, Origin3d::ZERO),
+                extent(SIDE, SIDE),
+            );
+        });
+        assert!(
+            matches!(to_texture, Some(Some(Error::Validation { .. }))),
+            "{buffer_size} bytes at {offset} to texture: {to_texture:?}"
+        );
+    }
+}
+
+#[test]
+fn a_texture_copy_stays_inside_the_texture() {
+    let full = u64::from(SIDE * SIDE * 4);
+    let outside = Origin3d { x: 2, y: 0, z: 0 };
+    let to_buffer = texture_copy(full, |encoder, texture, buffer| {
+        encoder.copy_texture_to_buffer(
+            whole(texture, outside),
+            rows(buffer, 0),
+            extent(SIDE, SIDE),
+        );
+    });
+    let Some(error) = to_buffer else { return };
+    assert!(matches!(error, Some(Error::Validation { .. })), "{error:?}");
+    let to_texture = texture_copy(full, |encoder, texture, buffer| {
+        encoder.copy_buffer_to_texture(
+            rows(buffer, 0),
+            whole(texture, outside),
+            extent(SIDE, SIDE),
+        );
+    });
+    assert!(
+        matches!(to_texture, Some(Some(Error::Validation { .. }))),
+        "{to_texture:?}"
+    );
+    let between = texture_copy(full, |encoder, texture, _| {
+        encoder.copy_texture_to_texture(
+            whole(texture, Origin3d::ZERO),
+            whole(texture, outside),
+            extent(SIDE, SIDE),
+        );
+    });
+    assert!(
+        matches!(between, Some(Some(Error::Validation { .. }))),
+        "{between:?}"
+    );
+}

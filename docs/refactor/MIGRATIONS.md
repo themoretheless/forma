@@ -188,7 +188,8 @@
 
 ## 18. Команды копирования `gpu-runtime` проверяют границы
 
-- Затронуто: `CommandEncoder::copy_buffer_to_buffer`, `clear_buffer`, `resolve_query_set`.
+- Затронуто: `CommandEncoder::copy_buffer_to_buffer`, `clear_buffer`, `resolve_query_set`,
+  `copy_texture_to_buffer`, `copy_buffer_to_texture`, `copy_texture_to_texture`.
 - Диапазон вне буфера теперь ошибка валидации, команда не записывается (G-15, G-16). Раньше это
   была запись за пределы памяти или аварийное завершение.
 - `copy_buffer_to_buffer` с одним и тем же буфером в роли источника и назначения отклоняется,

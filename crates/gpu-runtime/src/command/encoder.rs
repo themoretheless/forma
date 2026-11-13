@@ -31,6 +31,57 @@ impl CommandEncoder {
         fits
     }
 
+    /// Whether a copy region lies inside mip `mip_level` of `texture`; reports a validation error
+    /// if not.
+    fn region_fits(
+        &self,
+        what: &str,
+        texture: &Texture,
+        mip_level: u32,
+        origin: Origin3d,
+        size: Extent3d,
+    ) -> bool {
+        let mip_extent = |extent: u32| (extent >> mip_level.min(31)).max(1);
+        let layers = if texture.dimension == crate::TextureDimension::D3 {
+            mip_extent(texture.size.depth_or_array_layers)
+        } else {
+            texture.size.depth_or_array_layers.max(1)
+        };
+        let inside = |start: u32, length: u32, limit: u32| {
+            start.checked_add(length).is_some_and(|end| end <= limit)
+        };
+        let fits = mip_level < texture.mip_level_count.max(1)
+            && inside(origin.x, size.width, mip_extent(texture.size.width))
+            && inside(origin.y, size.height, mip_extent(texture.size.height))
+            && inside(origin.z, size.depth_or_array_layers.max(1), layers);
+        if !fits {
+            self.refuse(format!(
+                "{what}: region {size:?} at {origin:?} of mip {mip_level} is outside a texture of {:?}",
+                texture.size
+            ));
+        }
+        fits
+    }
+
+    /// Whether the bytes a texture copy reads from or writes to `buffer` lie inside it; reports a
+    /// validation error if not. `images` is how many images of `bytes_per_image` are addressed.
+    fn copy_bytes_fit(
+        &self,
+        what: &str,
+        buffer: &Buffer,
+        offset: BufferAddress,
+        bytes_per_image: usize,
+        images: usize,
+    ) -> bool {
+        match (bytes_per_image as u64).checked_mul(images as u64) {
+            Some(bytes) => self.range_fits(what, buffer, offset, bytes),
+            None => {
+                self.refuse(format!("{what}: the copy size overflows"));
+                false
+            }
+        }
+    }
+
     pub(crate) fn record_error(&self, err: Error) {
         crate::dispatch_error(&self.error_stack, &self.uncaptured_error_handler, err);
     }
@@ -171,15 +222,40 @@ impl CommandEncoder {
         destination: TexelCopyBufferInfo<'_>,
         copy_size: Extent3d,
     ) {
+        let what = "copy_texture_to_buffer";
+        let bytes_per_row = destination
+            .layout
+            .row_stride(copy_size.width, source.texture.format);
+        // One image is copied, as the encoder does.
+        let (_, bytes_per_image) = metal_encode::metal_copy_strides(
+            bytes_per_row,
+            destination.layout.rows_per_image,
+            copy_size,
+            source.texture.format,
+            false,
+        );
+        if !self.region_fits(
+            what,
+            source.texture,
+            source.mip_level,
+            source.origin,
+            copy_size,
+        ) || !self.copy_bytes_fit(
+            what,
+            destination.buffer,
+            destination.layout.offset,
+            bytes_per_image,
+            1,
+        ) {
+            return;
+        }
         self.ops.push(RecordedOp::CopyTextureToBuffer {
             src_tex: source.texture.clone(),
             mip_level: source.mip_level,
             origin: source.origin,
             dst_buf: destination.buffer.clone(),
             dst_offset: destination.layout.offset,
-            bytes_per_row: destination
-                .layout
-                .row_stride(copy_size.width, source.texture.format),
+            bytes_per_row,
             rows_per_image: destination.layout.rows_per_image,
             size: copy_size,
         });
@@ -191,12 +267,41 @@ impl CommandEncoder {
         destination: TexelCopyTextureInfo<'_>,
         copy_size: Extent3d,
     ) {
+        let what = "copy_buffer_to_texture";
+        let bytes_per_row = source
+            .layout
+            .row_stride(copy_size.width, destination.texture.format);
+        let slices = crate::texture::CopySlices::new(
+            destination.texture.dimension,
+            destination.origin.z,
+            copy_size.depth_or_array_layers,
+        );
+        let (_, bytes_per_image) = metal_encode::metal_copy_strides(
+            bytes_per_row,
+            source.layout.rows_per_image,
+            copy_size,
+            destination.texture.format,
+            slices.is_3d() || copy_size.depth_or_array_layers > 1,
+        );
+        if !self.region_fits(
+            what,
+            destination.texture,
+            destination.mip_level,
+            destination.origin,
+            copy_size,
+        ) || !self.copy_bytes_fit(
+            what,
+            source.buffer,
+            source.layout.offset,
+            bytes_per_image,
+            slices.count.max(slices.depth),
+        ) {
+            return;
+        }
         self.ops.push(RecordedOp::CopyBufferToTexture {
             src_buf: source.buffer.clone(),
             src_offset: source.layout.offset,
-            bytes_per_row: source
-                .layout
-                .row_stride(copy_size.width, destination.texture.format),
+            bytes_per_row,
             rows_per_image: source.layout.rows_per_image,
             dst_tex: destination.texture.clone(),
             dst_mip: destination.mip_level,
@@ -211,6 +316,21 @@ impl CommandEncoder {
         destination: TexelCopyTextureInfo<'_>,
         copy_size: Extent3d,
     ) {
+        if !self.region_fits(
+            "copy_texture_to_texture source",
+            source.texture,
+            source.mip_level,
+            source.origin,
+            copy_size,
+        ) || !self.region_fits(
+            "copy_texture_to_texture destination",
+            destination.texture,
+            destination.mip_level,
+            destination.origin,
+            copy_size,
+        ) {
+            return;
+        }
         self.ops.push(RecordedOp::CopyTextureToTexture {
             src_tex: source.texture.clone(),
             src_mip: source.mip_level,
