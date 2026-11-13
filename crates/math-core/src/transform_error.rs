@@ -46,7 +46,7 @@ pub fn transformed_squared_distance_pair_sum_accelerated(
     target: &[V3],
     m: M3,
     t: V3,
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<f64> {
     if source.len() != target.len() {
         return Err(Error::new(
@@ -57,7 +57,6 @@ pub fn transformed_squared_distance_pair_sum_accelerated(
     if source.is_empty() {
         return Ok(0.);
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_distance_pairs(source.len());
     if acceleration.is_gpu() {
         if let Some(value) = crate::device::kernels().and_then(|kernels| {

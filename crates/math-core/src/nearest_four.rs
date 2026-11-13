@@ -37,12 +37,11 @@ pub fn nearest_four(queries: &[V3], targets: &[V3]) -> Vec<FourNearest> {
 pub fn nearest_four_accelerated(
     queries: &[V3],
     targets: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Vec<FourNearest> {
     if queries.is_empty() || targets.len() < 4 {
         return nearest_four(queries, targets);
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_nearest_neighbor(queries.len(), targets.len());
     if acceleration.is_gpu() {
         if let Some(values) = crate::device::kernels()

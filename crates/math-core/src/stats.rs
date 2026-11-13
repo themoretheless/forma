@@ -64,7 +64,7 @@ pub fn transformed_point_cloud_stats(points: &[V3], m: M3, t: V3) -> Result<Poin
 /// These convenience paths retain CPU fallback on device failure.
 pub fn point_cloud_stats_accelerated(
     points: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<PointCloudStats> {
     if points.is_empty() {
         return Err(Error::new(
@@ -78,7 +78,6 @@ pub fn point_cloud_stats_accelerated(
             "point_cloud_stats_accelerated expects finite point coordinates",
         ));
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_point_cloud_stats(points.len());
     if acceleration.is_gpu() {
         if let Some(stats) = crate::device::kernels()

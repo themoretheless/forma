@@ -82,10 +82,7 @@ pub fn transformed_point_bounds(points: &[V3], m: M3, t: V3) -> Result<PointBoun
 /// [`point_bounds`] with optional GPU/CUDA reduction kernels. `Auto` currently
 /// keeps the CPU reference; explicit `Gpu`/`Cuda` force device execution and
 /// fall back to CPU if no device is available.
-pub fn point_bounds_accelerated(
-    points: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
-) -> Result<PointBounds> {
+pub fn point_bounds_accelerated(points: &[V3], acceleration: Acceleration) -> Result<PointBounds> {
     if points.is_empty() {
         return Err(Error::new(
             "invalid_point_bounds_input",
@@ -113,7 +110,7 @@ pub fn transformed_point_bounds_accelerated(
     points: &[V3],
     m: M3,
     t: V3,
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<PointBounds> {
     if points.is_empty() {
         return Err(Error::new(
@@ -127,7 +124,6 @@ pub fn transformed_point_bounds_accelerated(
             "transformed_point_bounds_accelerated expects finite point coordinates",
         ));
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_transformed_point_bounds(points.len());
     if acceleration.is_gpu() {
         if let Some(bounds) = crate::device::kernels()

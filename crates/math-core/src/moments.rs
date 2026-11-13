@@ -180,7 +180,7 @@ pub fn point_moments(points: &[V3]) -> Result<PointMoments> {
 /// `Cuda` and browser adapters use f32 device execution and fall back to CPU if no device is available.
 pub fn point_moments_accelerated(
     points: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<PointMoments> {
     if points.is_empty() {
         return Err(Error::new(

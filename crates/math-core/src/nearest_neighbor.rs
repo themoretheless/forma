@@ -35,12 +35,11 @@ pub fn nearest_neighbor(queries: &[V3], targets: &[V3]) -> Vec<(u32, f64)> {
 pub fn nearest_neighbor_accelerated(
     queries: &[V3],
     targets: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Vec<(u32, f64)> {
     if queries.is_empty() || targets.is_empty() {
         return nearest_neighbor(queries, targets);
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_nearest_neighbor(queries.len(), targets.len());
     if acceleration.is_gpu() {
         if let Some(values) = crate::device::kernels()

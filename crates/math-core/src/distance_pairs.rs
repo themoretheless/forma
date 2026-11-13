@@ -26,7 +26,7 @@ pub fn squared_distance_pair_sum(a: &[V3], b: &[V3]) -> Result<f64> {
 pub fn squared_distance_pairs_accelerated(
     a: &[V3],
     b: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<Vec<f64>> {
     if a.len() != b.len() {
         return Err(Error::new(
@@ -37,7 +37,6 @@ pub fn squared_distance_pairs_accelerated(
     if a.is_empty() {
         return Ok(Vec::new());
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_distance_pairs(a.len());
     if acceleration.is_gpu() {
         if let Some(values) = crate::device::kernels()
@@ -53,7 +52,7 @@ pub fn squared_distance_pairs_accelerated(
 pub fn squared_distance_pair_sum_accelerated(
     a: &[V3],
     b: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Result<f64> {
     if a.len() != b.len() {
         return Err(Error::new(
@@ -64,7 +63,6 @@ pub fn squared_distance_pair_sum_accelerated(
     if a.is_empty() {
         return Ok(0.);
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_distance_pairs(a.len());
     if acceleration.is_gpu() {
         if let Some(value) = crate::device::kernels()

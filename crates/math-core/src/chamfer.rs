@@ -31,7 +31,6 @@ pub fn directed_chamfer_distance(
             "directed_chamfer_distance expects non-empty point clouds",
         ));
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_nearest_neighbor(queries.len(), targets.len());
     if acceleration.is_gpu() {
         if let Some(summary) = crate::device::kernels()

@@ -29,12 +29,11 @@ pub fn nearest_two(queries: &[V3], targets: &[V3]) -> Vec<TwoNearest> {
 pub fn nearest_two_accelerated(
     queries: &[V3],
     targets: &[V3],
-    #[allow(unused_variables)] acceleration: Acceleration,
+    acceleration: Acceleration,
 ) -> Vec<TwoNearest> {
     if queries.is_empty() || targets.len() < 2 {
         return nearest_two(queries, targets);
     }
-    #[allow(unused_variables)]
     let acceleration = acceleration.resolve_for_nearest_neighbor(queries.len(), targets.len());
     if acceleration.is_gpu() {
         if let Some(values) = crate::device::kernels()
