@@ -72,3 +72,18 @@ export function suggestComponentName(files, node) {
   for (let n = 2; Object.hasOwn(files, componentPath(name)); n++) name = `${base}${n}`;
   return name;
 }
+
+/**
+ * The text a file created from the tree starts with: a one-label form for a `.ui` file, nothing
+ * for any other. The component is named after the file, reduced to an identifier.
+ */
+export function newFileContent(path) {
+  if (!path.endsWith('.ui')) return '';
+  const stem = path
+    .slice(path.lastIndexOf('/') + 1)
+    .replace(/\.ui$/, '')
+    .replace(/[^a-zA-Z0-9_]/g, '');
+  // An identifier cannot start with a digit, and a name with no usable character has none.
+  const name = !stem ? 'NewWindow' : /^\d/.test(stem) ? `Form${stem}` : stem;
+  return `component ${name} {\n    Frame {\n        Text {\n            text: 'Новое окно';\n        }\n    }\n}\n`;
+}

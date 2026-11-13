@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { compileComponents } from '../src/components.js';
 import {
   componentPath,
   createFile,
   duplicateFile,
   moveDestination,
+  newFileContent,
   renameFile,
   suggestComponentName,
 } from '../src/project-files.js';
@@ -104,4 +106,29 @@ test('an extracted control is offered a component name no file has', () => {
   const files = { 'components/Searchbox.ui': 'x', 'components/Searchbox2.ui': '' };
   // An empty file still has the name.
   assert.equal(suggestComponentName(files, keyed), 'Searchbox3');
+});
+
+test('a form created from the tree compiles whatever the file is called', () => {
+  assert.equal(
+    newFileContent('ui/Card.ui'),
+    "component Card {\n    Frame {\n        Text {\n            text: 'Новое окно';\n        }\n    }\n}\n",
+  );
+  const names = {
+    'ui/my-form.ui': 'myform',
+    'ui/2col.ui': 'Form2col',
+    'ui/123.ui': 'Form123',
+    'ui/Окно.ui': 'NewWindow',
+    'ui/_x.ui': '_x',
+    'a.b/Deep Name.ui': 'DeepName',
+  };
+  for (const [path, name] of Object.entries(names)) {
+    const content = newFileContent(path);
+    assert.ok(content.startsWith(`component ${name} {`), `${path}: ${content.split('\n')[0]}`);
+    assert.doesNotThrow(
+      () => compileComponents({ [path]: content }, path, {}, { measureText: () => [80, 20] }),
+      path,
+    );
+  }
+  assert.equal(newFileContent('src/main.rs'), '');
+  assert.equal(newFileContent('notes'), '');
 });

@@ -5,6 +5,7 @@ import {
   createFile,
   duplicateFile,
   moveDestination,
+  newFileContent,
   renameFile,
   suggestComponentName,
 } from './project-files.js';
@@ -1024,10 +1025,7 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
       }
     } else if (inputMode === 'new-file') {
       const rel = dir ? `${dir}/${val}` : val;
-      const tpl = rel.endsWith('.ui')
-        ? `component ${val.replace(/\.ui$/, '').replace(/[^a-zA-Z0-9_]/g, '') || 'NewWindow'} {\n    Frame {\n        Text {\n            text: 'Новое окно';\n        }\n    }\n}\n`
-        : '';
-      if (!treeOutcome(createFile(files, rel, tpl))) return;
+      if (!treeOutcome(createFile(files, rel, newFileContent(rel)))) return;
       open(rel);
       persist();
     }
