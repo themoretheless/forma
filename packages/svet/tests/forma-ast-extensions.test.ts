@@ -14,7 +14,7 @@ for (const phase of ['construction', 'HMR'])
       const ast = parseFormaSource(source);
       let reads = 0;
       const arm = { pattern: '_', propertyAssignments: {}, childNodes: [] };
-      ast.rootAstNodes[0].matchArms = [arm];
+      ast.rootAstNodes[0]!.matchArms = [arm];
       const target =
         field === 'document'
           ? ast
@@ -44,7 +44,7 @@ for (const phase of ['construction', 'HMR'])
           handle = inst!.mount(container);
         try {
           expect(container.textContent).toBe('2');
-          inst!.state.count.set(2);
+          inst!.state.count!.set(2);
           expect(container.textContent).toBe('4');
           expect(reads).toBe(0);
         } finally {

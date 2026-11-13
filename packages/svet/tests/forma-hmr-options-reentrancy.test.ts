@@ -50,7 +50,7 @@ for (const kind of ['state', 'prop', 'computed'])
       inst = compileFormaComponent(source),
       container = document.createElement('div'),
       handle = inst.mount(container),
-      old = inst.computedLets.doubled,
+      old = inst.computedLets.doubled!,
       stopOld = old.dispose.bind(old);
     let oldCalls = 0,
       released = 0;
@@ -124,7 +124,7 @@ it('restores captured metadata without rereading options getters during rollback
   });
   const container = document.createElement('div'),
     handle = inst.mount(container),
-    old = inst.computedLets.doubled,
+    old = inst.computedLets.doubled!,
     stop = old.dispose.bind(old),
     set = inst.locale.set,
     nodes = getGraphTelemetry().nodes;

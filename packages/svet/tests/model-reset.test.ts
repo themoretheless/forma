@@ -232,7 +232,7 @@ it('a queued option observer cannot overwrite native reset defaults before publi
     one = signal('b');
   bind({ one });
   const select = document.getElementById('one') as HTMLSelectElement;
-  select.options[0].textContent = 'changed option';
+  select.options[0]!.textContent = 'changed option';
   f.reset();
   await tick();
   expect(one()).toBe('a');

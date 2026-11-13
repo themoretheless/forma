@@ -133,12 +133,12 @@ it('paused read prefixes include dependency storage beyond the inline pair', () 
   const sources = [signal(0), signal(0), signal(0), signal(0)],
     values: number[] = [];
   const observer = effect(() => {
-    sources[0]();
-    sources[1]();
-    const value = sources[2]();
-    sources[3]();
+    sources[0]!();
+    sources[1]!();
+    const value = sources[2]!();
+    sources[3]!();
     values.push(value);
-    if (value === 0) untrack(() => sources[2].set(1));
+    if (value === 0) untrack(() => sources[2]!.set(1));
   });
   expect(values).toEqual([0, 1]);
   observer.dispose();

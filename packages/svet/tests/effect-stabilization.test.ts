@@ -224,13 +224,13 @@ it.each(['direct', 'linked'] as const)(
         try {
           const value = source();
           if (mode === 'linked') gate();
-          if (value > 0) sources[i + 1].set(value + 1);
+          if (value > 0) sources[i + 1]!.set(value + 1);
         } finally {
           depth--;
         }
       }),
     );
-    expect(() => sources[0].set(1)).not.toThrow();
+    expect(() => sources[0]!.set(1)).not.toThrow();
     expect(sources.at(-1)!.peek()).toBe(1501);
     expect(peak).toBe(1);
     observers.forEach(observer => observer.dispose());
@@ -293,14 +293,14 @@ it('queued GPU tensor cascades run after each writer callback without stack grow
       depth++;
       peak = Math.max(peak, depth);
       try {
-        const value = tensor()[0];
-        if (value > 0) tensors[i + 1].setAt(0, value + 1);
+        const value = tensor()[0]!;
+        if (value > 0) tensors[i + 1]!.setAt(0, value + 1);
       } finally {
         depth--;
       }
     }),
   );
-  tensors[0].setAt(0, 1);
+  tensors[0]!.setAt(0, 1);
   expect(tensors.at(-1)!.peek()[0]).toBe(301);
   expect(peak).toBe(1);
   observers.forEach(observer => observer.dispose());
@@ -320,13 +320,13 @@ it('an effect reaching the queued-run budget can settle before an unrelated long
     const value = b();
     if (armed) {
       if (value < 200) a.set(value + 1);
-      else tail[0].set(1);
+      else tail[0]!.set(1);
     }
   });
   const observers = tail.slice(0, -1).map((source, i) =>
     effect(() => {
       const value = source();
-      if (value > 0) tail[i + 1].set(value + 1);
+      if (value > 0) tail[i + 1]!.set(value + 1);
     }),
   );
   armed = true;

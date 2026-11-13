@@ -33,8 +33,8 @@ it('multiple-select maps arrays in both directions and ignores input events', ()
   expect(selected(select)).toEqual(['a', 'c']);
   value.set(['b']);
   expect(selected(select)).toEqual(['b']);
-  select.options[0].selected = true;
-  select.options[1].selected = false;
+  select.options[0]!.selected = true;
+  select.options[1]!.selected = false;
   select.dispatchEvent(new Event('input'));
   expect(value()).toEqual(['b']);
   select.dispatchEvent(new Event('change'));
@@ -109,7 +109,7 @@ it('queued option mutations do not revive an unmounted model', async () => {
   app.unmount();
   value.set(['c']);
   await mutations();
-  select.options[0].selected = true;
+  select.options[0]!.selected = true;
   select.dispatchEvent(new Event('change'));
   expect(value()).toEqual(['c']);
   value.dispose();

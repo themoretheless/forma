@@ -32,7 +32,7 @@ for (const [name, change] of [
       expect(() => inst.hotReload(bad)).toThrow(/AST.*document/i);
       expect(container.firstChild).toBe(old);
       expect(getGraphTelemetry().nodes).toBe(nodes);
-      inst.state.count.set(2);
+      inst.state.count!.set(2);
       expect(container.textContent).toBe('2');
     } finally {
       handle.unmount();

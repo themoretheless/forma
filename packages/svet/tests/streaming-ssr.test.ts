@@ -69,7 +69,7 @@ it('delivers a shell before slow components, then patches and resumes state with
   expect(host.querySelector('input')).toBe(input);
   input.value = '9';
   input.dispatchEvent(new Event('input'));
-  expect(state.count()).toBe(9);
+  expect(state.count!()).toBe(9);
   expect((await stream.next()).done).toBe(true);
   expect(cleaned).toBe(1);
   expect(core.svet_get_node_count()).toBe(0);

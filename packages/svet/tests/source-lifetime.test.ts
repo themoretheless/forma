@@ -193,19 +193,19 @@ it('retired reads are compacted across inline and overflow dependencies', () => 
   const observer = effect(() => {
     runs++;
     for (let i = 0; i < sources.length; i++) {
-      if (runs === 1 || ![0, 2, 4].includes(i)) sources[i]();
+      if (runs === 1 || ![0, 2, 4].includes(i)) sources[i]!();
     }
     if (runs === 1)
       for (const i of [0, 2, 4]) {
-        sources[i].dispose();
+        sources[i]!.dispose();
         const replacement = signal(100);
-        expect(replacement.id).toBe(sources[i].id);
+        expect(replacement.id).toBe(sources[i]!.id);
         fresh.push(replacement);
       }
   });
   for (const replacement of fresh) replacement.set(101);
   expect(runs).toBe(1);
-  sources[6].set(20);
+  sources[6]!.set(20);
   expect(runs).toBe(2);
   observer.dispose();
   sources.forEach(source => source.dispose());

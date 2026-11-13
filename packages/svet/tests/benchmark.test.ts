@@ -61,7 +61,7 @@ function diffReactVNode(oldNode: VNode, newNode: VNode, domEl: HTMLElement): num
     const newChild = newNode.children[i];
     if (typeof oldChild === 'string' && typeof newChild === 'string') {
       if (oldChild !== newChild) {
-        childEls[i].textContent = newChild;
+        childEls[i]!.textContent = newChild;
         mutations++;
       }
     } else if (typeof oldChild === 'object' && typeof newChild === 'object') {
@@ -76,10 +76,10 @@ function diffVueBlockTree(oldBlock: VNode[], newBlock: VNode[], tableEl: HTMLEle
   let mutations = 0;
   const childEls = tableEl.childNodes;
   for (let i = 0; i < newBlock.length; i++) {
-    const oldRow = oldBlock[i];
-    const newRow = newBlock[i];
+    const oldRow = oldBlock[i]!;
+    const newRow = newBlock[i]!;
     if (oldRow.children[0] !== newRow.children[0]) {
-      childEls[i].textContent = newRow.children[0] as string;
+      childEls[i]!.textContent = newRow.children[0] as string;
       mutations++;
     }
   }
@@ -122,13 +122,13 @@ describe('Svet and local algorithm simulations', () => {
 
     // Warmup pass for V8 JIT compilation before timing
     for (let w = 0; w < 100; w++) {
-      rowSignals[w].set(w + 5000);
+      rowSignals[w]!.set(w + 5000);
     }
 
     const t0SvetDom = performance.now();
     for (let u = 0; u < UPDATES; u++) {
       const targetIdx = u % ROW_COUNT;
-      rowSignals[targetIdx].set(u + 10000);
+      rowSignals[targetIdx]!.set(u + 10000);
     }
     const svetDomMs = performance.now() - t0SvetDom;
 
@@ -185,7 +185,7 @@ describe('Svet and local algorithm simulations', () => {
     const t0VueDom = performance.now();
     for (let u = 0; u < UPDATES; u++) {
       const targetIdx = u % ROW_COUNT;
-      vueState[targetIdx].val = u + 10000;
+      vueState[targetIdx]!.val = u + 10000;
       const nextBlock = renderVueBlock();
       diffVueBlockTree(prevVueBlock, nextBlock, vueTableEl);
       prevVueBlock = nextBlock;
@@ -260,8 +260,8 @@ describe('Svet and local algorithm simulations', () => {
         fn: () => {
           const val = srcObj.proxy.value;
           const nextStr = `Row: ${val}`;
-          if (svelteTextNodes[i].nodeValue !== nextStr) {
-            svelteTextNodes[i].nodeValue = nextStr;
+          if (svelteTextNodes[i]!.nodeValue !== nextStr) {
+            svelteTextNodes[i]!.nodeValue = nextStr;
           }
         },
       };
@@ -271,7 +271,7 @@ describe('Svet and local algorithm simulations', () => {
     const t0SvelteDom = performance.now();
     for (let u = 0; u < UPDATES; u++) {
       const targetIdx = u % ROW_COUNT;
-      svelteSources[targetIdx].proxy.value = u + 10000;
+      svelteSources[targetIdx]!.proxy.value = u + 10000;
     }
     const svelteDomMs = performance.now() - t0SvelteDom;
 
@@ -321,7 +321,7 @@ describe('Svet and local algorithm simulations', () => {
       for (let depth = 0; depth < 30; depth++) {
         const d1: [number, number] = [l, r];
         const d2: [number, number] = [l, r];
-        const changed = prevDeps[depth * 2][0] !== d1[0] || prevDeps[depth * 2][1] !== d1[1];
+        const changed = prevDeps[depth * 2]![0] !== d1[0] || prevDeps[depth * 2]![1] !== d1[1];
         if (changed) {
           const nl = l + r;
           const nr = l - r;
@@ -570,7 +570,7 @@ describe('Svet and local algorithm simulations', () => {
     let reactDomMoves = 0;
     let lastPlacedIndex = 0;
     for (let i = 0; i < reordered.length; i++) {
-      const item = reordered[i];
+      const item = reordered[i]!;
       const oldIdx = item.id;
       const el = reactMap.get(item.id)!;
       if (oldIdx < lastPlacedIndex) {
@@ -595,19 +595,19 @@ describe('Svet and local algorithm simulations', () => {
     const vueNewVNodes = reordered.map(it => vnode('li', { key: it.id }, it.text));
     const keyToNewIndexMap = new Map<number, number>();
     for (let i = 0; i < vueNewVNodes.length; i++) {
-      keyToNewIndexMap.set(vueNewVNodes[i].props.key, i);
+      keyToNewIndexMap.set(vueNewVNodes[i]!.props.key, i);
     }
     const newIndexToOldIndexMap = new Int32Array(vueNewVNodes.length);
     for (let i = 0; i < vueNewVNodes.length; i++) {
-      const oldIdx = vueNewVNodes[i].props.key;
+      const oldIdx = vueNewVNodes[i]!.props.key;
       newIndexToOldIndexMap[i] = oldIdx + 1;
     }
     const vueP = newIndexToOldIndexMap.slice();
     const vueResult = [0];
     for (let i = 0; i < newIndexToOldIndexMap.length; i++) {
-      const arrI = newIndexToOldIndexMap[i];
-      const j = vueResult[vueResult.length - 1];
-      if (newIndexToOldIndexMap[j] < arrI) {
+      const arrI = newIndexToOldIndexMap[i]!;
+      const j = vueResult[vueResult.length - 1]!;
+      if (newIndexToOldIndexMap[j]! < arrI) {
         vueP[i] = j;
         vueResult.push(i);
         continue;
@@ -616,11 +616,11 @@ describe('Svet and local algorithm simulations', () => {
       let v = vueResult.length - 1;
       while (u < v) {
         const c = (u + v) >> 1;
-        if (newIndexToOldIndexMap[vueResult[c]] < arrI) u = c + 1;
+        if (newIndexToOldIndexMap[vueResult[c]!]! < arrI) u = c + 1;
         else v = c;
       }
-      if (arrI < newIndexToOldIndexMap[vueResult[u]]) {
-        if (u > 0) vueP[i] = vueResult[u - 1];
+      if (arrI < newIndexToOldIndexMap[vueResult[u]!]!) {
+        if (u > 0) vueP[i] = vueResult[u - 1]!;
         vueResult[u] = i;
       }
     }
@@ -629,7 +629,7 @@ describe('Svet and local algorithm simulations', () => {
       if (vueLisIdx >= 0 && i === vueResult[vueLisIdx]) {
         vueLisIdx--;
       } else {
-        const el = vueMap.get(vueNewVNodes[i].props.key)!;
+        const el = vueMap.get(vueNewVNodes[i]!.props.key)!;
         vueUl.insertBefore(el, vueUl.childNodes[i + 1] || null);
       }
     }
@@ -669,13 +669,13 @@ describe('Svet and local algorithm simulations', () => {
     const svelteMatched: Array<SvelteEachItem> = new Array(reordered.length);
     const svelteSeen = new Set<SvelteEachItem>();
     for (let i = 0; i < reordered.length; i++) {
-      const k = reordered[i].id;
+      const k = reordered[i]!.id;
       const entry = svelteItems.get(k)!;
       svelteNextMap.set(k, entry);
       svelteSeen.add(entry);
       svelteMatched[i] = entry;
-      if (entry.v.v !== reordered[i].text) {
-        entry.v.v = reordered[i].text;
+      if (entry.v.v !== reordered[i]!.text) {
+        entry.v.v = reordered[i]!.text;
       }
     }
     // Svelte 5 reconcile doubly-linked pointer relinking + internal_set(item.i, next_index) + DOM moves
@@ -683,7 +683,7 @@ describe('Svet and local algorithm simulations', () => {
     let bIdx = reordered.length - 1;
     const stashed = new Set<SvelteEachItem>();
     while (bIdx >= 0) {
-      const item = svelteMatched[bIdx];
+      const item = svelteMatched[bIdx]!;
       if (item.idx.v !== bIdx) {
         item.idx.v = bIdx;
         item.idx.reactions.forEach(r => r());
@@ -693,12 +693,12 @@ describe('Svet and local algorithm simulations', () => {
       bIdx--;
     }
     for (let i = 0; i < reordered.length; i++) {
-      const curr = svelteMatched[i];
+      const curr = svelteMatched[i]!;
       curr.prev = i > 0 ? svelteMatched[i - 1] : null;
       curr.next = i + 1 < reordered.length ? svelteMatched[i + 1] : null;
     }
-    svelteUl.insertBefore(svelteNextMap.get(lastItem.id)!.el, svelteUl.childNodes[1]);
-    svelteUl.insertBefore(svelteNextMap.get(midItem.id)!.el, svelteUl.childNodes[10]);
+    svelteUl.insertBefore(svelteNextMap.get(lastItem.id)!.el, svelteUl.childNodes[1]!);
+    svelteUl.insertBefore(svelteNextMap.get(midItem.id)!.el, svelteUl.childNodes[10]!);
     svelteMoves = 2;
     void stashed;
     const svelteListMs = performance.now() - t0SvelteList;
@@ -904,7 +904,7 @@ describe('Svet and local algorithm simulations', () => {
 
     const t0Resume = performance.now();
     const restored = resumeContainer(ssrRoot1, snapshot);
-    restored.activeUsers.set(1025);
+    restored.activeUsers!.set(1025);
     const resumeMs = performance.now() - t0Resume;
 
     // Local VNode construction and DOM traversal; no hydration runtime.
@@ -928,7 +928,7 @@ describe('Svet and local algorithm simulations', () => {
     const t0HydrateVue = performance.now();
     let vueWalkCount = 0;
     for (let i = 0; i < ssrRootVue.childNodes.length; i++) {
-      const node = ssrRootVue.childNodes[i];
+      const node = ssrRootVue.childNodes[i]!;
       if (node.firstChild) vueWalkCount++;
     }
     const hydrateVueMs = performance.now() - t0HydrateVue;

@@ -95,8 +95,8 @@ it('a context captured by an effect never revives on the next invocation', () =>
   });
   trigger.set(1);
   expect(contexts.map(context => context.active)).toEqual([false, true]);
-  expect(() => contexts[0].run(() => {})).toThrow(ReactiveContextDisposedError);
-  expect(contexts[1].run(() => 19)).toBe(19);
+  expect(() => contexts[0]!.run(() => {})).toThrow(ReactiveContextDisposedError);
+  expect(contexts[1]!.run(() => 19)).toBe(19);
 });
 it('graph reset rejects the old context and preserves replacement graph state', () => {
   let context!: CapturedReactiveContext;
@@ -352,11 +352,11 @@ it('parallel continuations keep distinct providers when completed in reverse ord
   const jobs = [
     (async () => {
       await a;
-      return contexts[0].run(() => useContext(provider));
+      return contexts[0]!.run(() => useContext(provider));
     })(),
     (async () => {
       await b;
-      return contexts[1].run(() => useContext(provider));
+      return contexts[1]!.run(() => useContext(provider));
     })(),
   ];
   resolveB();
@@ -389,11 +389,11 @@ it('canceling one awaited owner leaves an independent continuation live', async 
     callback = vi.fn();
   const pending = (async () => {
     await gate;
-    return contexts[0].run(callback);
+    return contexts[0]!.run(callback);
   })();
   const results = Promise.allSettled([
     pending,
-    Promise.resolve().then(() => contexts[1].run(() => useContext(provider))),
+    Promise.resolve().then(() => contexts[1]!.run(() => useContext(provider))),
   ]);
   stopA();
   release();
@@ -592,7 +592,7 @@ it('many captures share one owner cleanup registration and release without per-t
     expect(contexts.every(context => !context.active)).toBe(true);
     const fresh = captureReactiveContext();
     expect(fresh.active).toBe(true);
-    expect(contexts[0].active).toBe(false);
+    expect(contexts[0]!.active).toBe(false);
     fresh.dispose();
     expect(owner.disposables.length).toBe(before);
   });
@@ -651,9 +651,9 @@ it('bulk cleanup invalidates every capture before an effect owner is reused', ()
   });
   trigger.set(1);
   trigger.set(2);
-  expect(versions[0].every(context => !context.active)).toBe(true);
-  expect(versions[1].every(context => !context.active)).toBe(true);
-  expect(versions[2].every(context => context.active)).toBe(true);
+  expect(versions[0]!.every(context => !context.active)).toBe(true);
+  expect(versions[1]!.every(context => !context.active)).toBe(true);
+  expect(versions[2]!.every(context => context.active)).toBe(true);
 });
 it('capture methods remain detachable and retain the public own-property shape', () => {
   createRoot(stop => {

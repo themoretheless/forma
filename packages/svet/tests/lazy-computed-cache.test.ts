@@ -48,7 +48,7 @@ it('invalidates an effect-free diamond on every source write', () => {
 
 it('keeps lazy tensor-derived values current without an effect subscriber', () => {
   const tensor = createGpuTensor([0]),
-    value = computed(() => tensor()[0] * 2);
+    value = computed(() => tensor()[0]! * 2);
   for (let i = 0; i < 5; i++) {
     tensor.setAt(0, i);
     expect(value.peek()).toBe(i * 2);

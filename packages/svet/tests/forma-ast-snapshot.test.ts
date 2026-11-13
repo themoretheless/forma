@@ -14,21 +14,21 @@ for (const phase of ['construction', 'HMR'])
       const ast = parseFormaSource(source),
         inst = compileFormaAst(phase === 'construction' ? ast : parseFormaSource(source));
       if (phase === 'HMR') inst.hotReload(ast);
-      if (mutation === 'tree') ast.rootAstNodes[0].children[0].properties.text = "'tampered'";
-      if (mutation === 'let') ast.letExpressions[0].expr = 'state.count * 100';
-      if (mutation === 'range') ast.propConstraints[0].range![1] = 1;
-      if (mutation === 'cycle') ast.rootAstNodes[0].children.push(ast.rootAstNodes[0]);
-      if (mutation === 'shortcut') ast.shortcuts[0].action = "state.increment('count',100)";
+      if (mutation === 'tree') ast.rootAstNodes[0]!.children[0]!.properties.text = "'tampered'";
+      if (mutation === 'let') ast.letExpressions[0]!.expr = 'state.count * 100';
+      if (mutation === 'range') ast.propConstraints[0]!.range![1] = 1;
+      if (mutation === 'cycle') ast.rootAstNodes[0]!.children.push(ast.rootAstNodes[0]!);
+      if (mutation === 'shortcut') ast.shortcuts[0]!.action = "state.increment('count',100)";
       const container = document.createElement('div'),
         handle = inst.mount(container);
       try {
         expect(container.textContent).toBe('2');
-        inst.state.count.set(2);
+        inst.state.count!.set(2);
         expect(container.textContent).toBe('4');
-        inst.props.limit.set(6);
+        inst.props.limit!.set(6);
         expect(inst.isValid()).toBe(true);
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', ctrlKey: true }));
-        expect(inst.state.count()).toBe(3);
+        expect(inst.state.count!()).toBe(3);
         expect(container.textContent).toBe('6');
       } finally {
         handle.unmount();
@@ -38,11 +38,11 @@ for (const phase of ['construction', 'HMR'])
     });
 it('isolates object default values from later caller AST edits', () => {
   const ast = parseFormaSource(`component App { prop data: Any = null; Column {} }`);
-  ast.propConstraints[0].defaultValue = { name: 'seed' };
+  ast.propConstraints[0]!.defaultValue = { name: 'seed' };
   const inst = compileFormaAst(ast);
   try {
-    ast.propConstraints[0].defaultValue.name = 'tampered';
-    expect(inst.props.data()).toEqual({ name: 'seed' });
+    ast.propConstraints[0]!.defaultValue.name = 'tampered';
+    expect(inst.props.data!()).toEqual({ name: 'seed' });
   } finally {
     inst.dispose();
   }
@@ -54,10 +54,10 @@ it('preserves an explicit undefined state field while detaching the state defaul
   const inst = compileFormaAst(ast);
   try {
     expect(Object.hasOwn(inst.state, 'maybe')).toBe(true);
-    expect(inst.state.maybe()).toBeUndefined();
+    expect(inst.state.maybe!()).toBeUndefined();
     ast.initialStateValues.maybe = 'tampered';
     inst.actions.reset('maybe');
-    expect(inst.state.maybe()).toBeUndefined();
+    expect(inst.state.maybe!()).toBeUndefined();
   } finally {
     inst.dispose();
   }

@@ -132,7 +132,7 @@ it('retained unused index accessors cannot allocate signals after row disposal',
   );
   items.set([]);
   const baseline = getGraphTelemetry().nodes;
-  expect(indexes[0]()).toBe(0);
+  expect(indexes[0]!()).toBe(0);
   expect(getGraphTelemetry().nodes).toBe(baseline);
   app.unmount();
   items.dispose();

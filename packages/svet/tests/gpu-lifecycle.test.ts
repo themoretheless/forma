@@ -301,8 +301,8 @@ it('creates a valid arena buffer and uploads the complete arena again after grow
   const b = createGpuTensor([5, 6, 7, 8]);
   syncGpuArena();
   expect(gpu.buffers).toHaveLength(2);
-  expect(gpu.buffers[0].destroyed).toBe(true);
-  expect(Array.from(new Float32Array(gpu.buffers[1].bytes.buffer))).toEqual([
+  expect(gpu.buffers[0]!.destroyed).toBe(true);
+  expect(Array.from(new Float32Array(gpu.buffers[1]!.bytes.buffer))).toEqual([
     1, 2, 3, 4, 5, 6, 7, 8,
   ]);
   a.dispose();
@@ -331,9 +331,9 @@ it('attaching a different device uploads existing data even when the arena was c
   const second = device();
   configureGpuSubsystem({ device: second });
   syncGpuArena();
-  expect(first.buffers[0].destroyed).toBe(true);
+  expect(first.buffers[0]!.destroyed).toBe(true);
   expect(second.writes).toEqual([16]);
-  expect(Array.from(new Float32Array(second.buffers[0].bytes.buffer))).toEqual(
+  expect(Array.from(new Float32Array(second.buffers[0]!.bytes.buffer))).toEqual(
     Array.from(tensor()),
   );
   configureGpuSubsystem({ device: null });
@@ -421,7 +421,7 @@ it('preserves dirty state after a queue failure so synchronization can be retrie
   expect(() => syncGpuArena()).toThrow('queue failed');
   fail = false;
   expect(syncGpuArena().bytesTransferred).toBe(16);
-  expect(Array.from(new Float32Array(gpu.buffers[0].bytes.buffer))).toEqual([1, 2, 3, 4]);
+  expect(Array.from(new Float32Array(gpu.buffers[0]!.bytes.buffer))).toEqual([1, 2, 3, 4]);
   configureGpuSubsystem({ device: null });
 });
 
@@ -440,7 +440,7 @@ it('owner teardown releases its configured arena buffer', () => {
     syncGpuArena();
   });
   stop();
-  expect(gpu.buffers[0].destroyed).toBe(true);
+  expect(gpu.buffers[0]!.destroyed).toBe(true);
   expect(getGpuTelemetry().webgpuAvailable).toBe(false);
 });
 
@@ -576,7 +576,7 @@ it('captures scene dependency descriptors instead of following caller mutation',
   child.position.set([2, 0, 0]);
   flushEffects();
   expect(child.worldMatrix.peek()[12]).toBe(3);
-  const expected = child.worldMatrix.peek()[12];
+  const expected = child.worldMatrix.peek()[12]!;
   const plainOptions = { positions: [1, 0, 0], transform: child },
     plain = createMesh3D(plainOptions);
   plainOptions.transform = other;
@@ -602,7 +602,7 @@ it('retains the original mesh camera after the caller edits its descriptor', () 
   expect(Array.from(mesh.mvpMatrix.peek())).toEqual(original);
   camera.aspect.set(2);
   flushEffects();
-  expect(mesh.mvpMatrix.peek()[0]).toBeCloseTo(original[0] / 2);
+  expect(mesh.mvpMatrix.peek()[0]).toBeCloseTo(original[0]! / 2);
   mesh.dispose();
   other.dispose();
   camera.dispose();
@@ -1116,15 +1116,15 @@ it('configuration reads each user-controlled field once', () => {
     reads = [0, 0, 0];
   configureGpuSubsystem({
     get device() {
-      reads[0]++;
+      reads[0]!++;
       return gpu;
     },
     get architecture(): 'DUMA' {
-      reads[1]++;
+      reads[1]!++;
       return 'DUMA';
     },
     get maxPendingComputeBytes() {
-      reads[2]++;
+      reads[2]!++;
       return 100;
     },
   });
@@ -1166,7 +1166,7 @@ it.each(['root stop', 'effect rerun'] as const)(
             );
             attempt(() => tensor.view());
             attempt(() => tensor());
-            observed = borrowed[0];
+            observed = borrowed[0]!;
           }),
         );
         runWithOwnerScope([], () => {
@@ -1303,7 +1303,7 @@ it('tensor scalar conversion reacquires its view after WASM memory growth', () =
     tensor = createGpuTensor([7]),
     seen: number[] = [];
   const observer = effect(() => {
-    seen.push(tensor()[0]);
+    seen.push(tensor()[0]!);
   });
   tensor.setAt(0, {
     valueOf() {

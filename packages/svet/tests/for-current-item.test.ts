@@ -167,13 +167,13 @@ it('Forma same-key replacements update text and actions while preserving the DOM
   const instance = compileFormaComponent(
     `component LiveList { state rows: List = []; Column { for row in state.rows key row.id { Text { text: row.label; } Button { text: 'select'; clicked -> events.selected(row.label); } } } }`,
   );
-  instance.state.rows.set([{ id: 1, label: 'old' }]);
+  instance.state.rows!.set([{ id: 1, label: 'old' }]);
   const app = instance.mount(document.body),
     text = document.querySelector('[data-forma-type="Text"]')!,
     button = document.querySelector('button')!,
     events: string[] = [];
   instance.onEvent('selected', value => events.push(value));
-  instance.state.rows.set([{ id: 1, label: 'new' }]);
+  instance.state.rows!.set([{ id: 1, label: 'new' }]);
   expect(text.textContent).toBe('new');
   expect(document.querySelector('[data-forma-type="Text"]')).toBe(text);
   button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -187,12 +187,12 @@ it('nested Forma loop locals retain live outer and inner values', () => {
   const instance = compileFormaComponent(
     `component NestedList { state groups: List = []; Column { for group in state.groups key group.id { for child in group.children key child.id { Text { text: group.title + ':' + child.label; } } } } }`,
   );
-  instance.state.groups.set([
+  instance.state.groups!.set([
     { id: 1, title: 'old group', children: [{ id: 1, label: 'old child' }] },
   ]);
   const app = instance.mount(document.body),
     text = document.querySelector('[data-forma-type="Text"]')!;
-  instance.state.groups.set([
+  instance.state.groups!.set([
     { id: 1, title: 'new group', children: [{ id: 1, label: 'new child' }] },
   ]);
   expect(text.textContent).toBe('new group:new child');
@@ -225,7 +225,7 @@ it('pure reorder of identical objects does not rerun current-only bindings', () 
       }),
     document.body,
   );
-  items.set([values[1], values[0]]);
+  items.set([values[1]!, values[0]!]);
   expect(document.body.textContent).toBe('BA');
   expect([...runs.values()]).toEqual([1, 1]);
   app.unmount();
@@ -237,10 +237,10 @@ it('Forma positional loops update replaced primitive values without rebuilding e
   const instance = compileFormaComponent(
     `component PositionalList { state rows: List = []; Column { for row in state.rows { Text { text: row; } } } }`,
   );
-  instance.state.rows.set(['old A', 'old B']);
+  instance.state.rows!.set(['old A', 'old B']);
   const app = instance.mount(document.body),
     nodes = Array.from(document.querySelectorAll('[data-forma-type="Text"]'));
-  instance.state.rows.set(['new A', 'new B']);
+  instance.state.rows!.set(['new A', 'new B']);
   expect(nodes.map(node => node.textContent)).toEqual(['new A', 'new B']);
   expect(Array.from(document.querySelectorAll('[data-forma-type="Text"]'))).toEqual(nodes);
   app.unmount();
@@ -257,10 +257,10 @@ it('Forma current loop values propagate through nested component props', () => {
       },
     },
   );
-  instance.state.rows.set([{ id: 1, label: 'old' }]);
+  instance.state.rows!.set([{ id: 1, label: 'old' }]);
   const app = instance.mount(document.body),
     node = document.querySelector('[data-forma-component="ItemView"] [data-forma-type="Text"]')!;
-  instance.state.rows.set([{ id: 1, label: 'new' }]);
+  instance.state.rows!.set([{ id: 1, label: 'new' }]);
   expect(node.textContent).toBe('new');
   expect(document.querySelector('[data-forma-component="ItemView"] [data-forma-type="Text"]')).toBe(
     node,

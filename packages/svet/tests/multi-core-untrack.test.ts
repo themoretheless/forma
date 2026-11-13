@@ -116,19 +116,19 @@ it.each(['untrack', 'throw', 'action'] as const)(
     try {
       handles.push(
         effect(() => {
-          runs[0]++;
+          runs[0]!++;
           if (!madeB) {
             madeB = true;
-            withWasmCore(cores[1], () =>
+            withWasmCore(cores[1]!, () =>
               handles.push(
                 effect(() => {
-                  runs[1]++;
+                  runs[1]!++;
                   if (!madeC) {
                     madeC = true;
-                    withWasmCore(cores[2], () =>
+                    withWasmCore(cores[2]!, () =>
                       handles.push(
                         effect(() => {
-                          runs[2]++;
+                          runs[2]!++;
                           if (!invoked) {
                             invoked = true;
                             if (mode === 'action') {
@@ -143,17 +143,17 @@ it.each(['untrack', 'throw', 'action'] as const)(
                               ).toThrow('untracked failure');
                             else untrack(read);
                           }
-                          required[2]();
+                          required[2]!();
                         }),
                       ),
                     );
                   }
-                  required[1]();
+                  required[1]!();
                 }),
               ),
             );
           }
-          required[0]();
+          required[0]!();
         }),
       );
       incidental.forEach(source => source.set(1));

@@ -23,7 +23,7 @@ it('radio models preserve option values and synchronize a group in both directio
   const inputs = Array.from(document.querySelectorAll('input'));
   expect(inputs.map(input => input.value)).toEqual(['a', 'b', 'c']);
   expect(inputs.map(input => input.checked)).toEqual([false, true, false]);
-  inputs[2].click();
+  inputs[2]!.click();
   expect(selected()).toBe('c');
   expect(inputs.map(input => input.checked)).toEqual([false, false, true]);
   selected.set('a');
@@ -31,8 +31,8 @@ it('radio models preserve option values and synchronize a group in both directio
   selected.set('missing');
   expect(inputs.every(input => !input.checked)).toBe(true);
   app.unmount();
-  inputs[1].checked = true;
-  inputs[1].dispatchEvent(new Event('change'));
+  inputs[1]!.checked = true;
+  inputs[1]!.dispatchEvent(new Event('change'));
   expect(selected()).toBe('missing');
   selected.dispose();
   expect(getGraphTelemetry().nodes).toBe(0);

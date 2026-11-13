@@ -68,7 +68,7 @@ function scene(count = 3) {
   };
 }
 async function result(gpu: ReturnType<typeof device>, values = triangle) {
-  gpu.compute = (inputs, output) => output.set(inputs[0]);
+  gpu.compute = (inputs, output) => output.set(inputs[0]!);
   const source = createGpuTensor(values);
   try {
     return await dispatchGpuComputeResident({
@@ -101,8 +101,8 @@ it('binds resident vertex storage directly without host uploads, maps or transfo
   });
   expect(canvas.dataset.renderBackend).toBe('webgpu-depth24plus');
   expect(hostReads).not.toHaveBeenCalled();
-  expect(gpu.renderDraws[0].values).toEqual(triangle.map(Math.fround));
-  expect(gpu.renderDraws[0].buffer.usage & 0x80).toBeTruthy();
+  expect(gpu.renderDraws[0]!.values).toEqual(triangle.map(Math.fround));
+  expect(gpu.renderDraws[0]!.buffer.usage & 0x80).toBeTruthy();
   expect(writes.mock.calls.map(args => args[4])).toEqual([8]); // Padded uint16 topology only.
   expect(gpu.buffers.filter(buffer => buffer.usage & 0x20 && !(buffer.usage & 0x80))).toHaveLength(
     0,
@@ -110,7 +110,7 @@ it('binds resident vertex storage directly without host uploads, maps or transfo
   expect(gpu.buffers.reduce((sum, buffer) => sum + buffer.maps, 0)).toBe(0);
   stop();
   expect(handle.active).toBe(true);
-  expect(gpu.renderDraws[0].buffer.destroyed).toBe(false);
+  expect(gpu.renderDraws[0]!.buffer.destroyed).toBe(false);
   handle.dispose();
   s.dispose();
 });
@@ -141,15 +141,15 @@ it('reads GPU vertex data only on click and reports the actual GPU frame with it
   click(viewport);
   await drain();
   expect(viewport.dataset.pickReadback).toBe('passed');
-  expect(pick.mock.calls[0].slice(0, 3)).toEqual([0, 0, expect.closeTo(0.4)]);
-  expect(pick.mock.calls[0][3]).toMatchObject({
+  expect(pick.mock.calls[0]!.slice(0, 3)).toEqual([0, 0, expect.closeTo(0.4)]);
+  expect(pick.mock.calls[0]![3]).toMatchObject({
     mesh: s.mesh,
     width: 200,
     height: 200,
     backend: 'webgpu-depth24plus',
   });
-  expect(pick.mock.calls[0][3].gpuVertices).toBe(handle);
-  expect(Object.keys(pick.mock.calls[0][3]).sort()).toEqual([
+  expect(pick.mock.calls[0]![3].gpuVertices).toBe(handle);
+  expect(Object.keys(pick.mock.calls[0]![3]).sort()).toEqual([
     'backend',
     'gpuVertices',
     'height',
@@ -195,12 +195,12 @@ it('keeps indexed occlusion picking on GPU positions and supports explicit throu
       }),
     ];
   });
-  click(views[0]);
+  click(views[0]!);
   await drain();
   expect(visible).not.toHaveBeenCalled();
-  click(views[1]);
+  click(views[1]!);
   await drain();
-  expect(through.mock.calls[0][0]).toBe(3);
+  expect(through.mock.calls[0]![0]).toBe(3);
   stop();
   handle.dispose();
   s.dispose();

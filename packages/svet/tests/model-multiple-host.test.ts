@@ -35,7 +35,7 @@ it('supports attribute-backed multiple DOM hosts without selectedOptions reflect
   expect(selected()).toEqual(['a', 'c']);
   value.set(['b']);
   expect(selected()).toEqual(['b']);
-  select.options[0].setAttribute('selected', '');
+  select.options[0]!.setAttribute('selected', '');
   select.dispatchEvent(new Event('change'));
   expect(value()).toEqual(['a', 'b']);
   value.set([]);

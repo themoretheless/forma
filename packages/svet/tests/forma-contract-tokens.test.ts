@@ -18,7 +18,7 @@ it('applies an inline range to its prop at runtime', () => {
   );
   try {
     expect(instance.isValid()).toBe(true);
-    instance.props.x.set(20);
+    instance.props.x!.set(20);
     expect(instance.isValid()).toBe(false);
   } finally {
     instance.dispose();
@@ -30,7 +30,7 @@ it('preserves quoted brackets in inline pattern contracts', () => {
   const instance = compileFormaComponent(source);
   try {
     expect(instance.isValid()).toBe(true);
-    instance.props.name.set('123');
+    instance.props.name!.set('123');
     expect(instance.isValid()).toBe(false);
   } finally {
     instance.dispose();
@@ -68,11 +68,11 @@ it('applies a multiline quoted pattern rather than silently dropping it', () => 
 b$')] prop name: String = 'wrong'; Column {} }`;
   expect(validateFormaSource(source).valid).toBe(true);
   const ast = parseFormaSource(source);
-  expect(ast.propConstraints[0].patternSource).toBe('^a\nb$');
+  expect(ast.propConstraints[0]!.patternSource).toBe('^a\nb$');
   const instance = compileFormaComponent(source);
   try {
     expect(instance.isValid()).toBe(false);
-    instance.props.name.set('a\nb');
+    instance.props.name!.set('a\nb');
     expect(instance.isValid()).toBe(true);
   } finally {
     instance.dispose();

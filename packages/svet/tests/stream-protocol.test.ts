@@ -88,7 +88,7 @@ it('keeps pre-existing resumed bindings when protocol validation fails before a 
   expect(() => receiver.apply({ version: 99 } as any)).toThrow(/Unsupported SSR stream version/);
   input.value = '5';
   input.dispatchEvent(new Event('input'));
-  expect(state.count()).toBe(5);
+  expect(state.count!()).toBe(5);
   disposeResumedContainer(host);
   expect(getGraphTelemetry().nodes).toBe(0);
 });
@@ -213,7 +213,7 @@ it('keeps completed resumed bindings active after EOF validation', () => {
   const input = host.querySelector('input')!;
   input.value = '9';
   input.dispatchEvent(new Event('input'));
-  expect(state.count()).toBe(9);
+  expect(state.count!()).toBe(9);
   expect(receiver.active).toBe(true);
   receiver.dispose();
   expect(getGraphTelemetry().nodes).toBe(0);
@@ -230,6 +230,6 @@ it('preserves unrelated resumed bindings when EOF arrives before any shell', () 
   const input = host.querySelector('input')!;
   input.value = '4';
   input.dispatchEvent(new Event('input'));
-  expect(state.count()).toBe(4);
+  expect(state.count!()).toBe(4);
   disposeResumedContainer(host);
 });

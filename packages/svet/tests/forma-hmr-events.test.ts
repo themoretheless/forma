@@ -29,14 +29,14 @@ it('HMR and individual view unmount retire retained click/input callbacks', () =
     oldButton.click();
     oldInput.value = 'active';
     oldInput.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(inst.state.count()).toBe(2);
-    expect(inst.state.name()).toBe('active');
+    expect(inst.state.count!()).toBe(2);
+    expect(inst.state.name!()).toBe('active');
     inst.hotReload(source.replace('v1:', 'v2:'));
     oldButton.click();
     oldInput.value = 'stale';
     oldInput.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(inst.state.count()).toBe(2);
-    expect(inst.state.name()).toBe('active');
+    expect(inst.state.count!()).toBe(2);
+    expect(inst.state.name!()).toBe('active');
     const currentButton = a.querySelector('button')!,
       currentInput = a.querySelector('input')!;
     left.unmount();
@@ -44,14 +44,14 @@ it('HMR and individual view unmount retire retained click/input callbacks', () =
     currentButton.click();
     currentInput.value = 'unmounted';
     currentInput.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(inst.state.count()).toBe(2);
-    expect(inst.state.name()).toBe('active');
+    expect(inst.state.count!()).toBe(2);
+    expect(inst.state.name!()).toBe('active');
     const live = b.querySelector('input')!;
     live.value = 'live';
     live.dispatchEvent(new Event('input', { bubbles: true }));
     b.querySelector('button')!.click();
-    expect(inst.state.count()).toBe(4);
-    expect(inst.state.name()).toBe('live');
+    expect(inst.state.count!()).toBe(4);
+    expect(inst.state.name!()).toBe('live');
   } finally {
     left.unmount();
     right.unmount();
@@ -336,12 +336,12 @@ it('failed HMR child rendering preserves the mounted DOM, callbacks and key look
     expect(inst.getElementByKey('inc')).toBe(button);
     expect(getGraphTelemetry().nodes).toBe(baseline);
     button.click();
-    expect(inst.state.count()).toBe(1);
+    expect(inst.state.count!()).toBe(1);
     fail = false;
     inst.hotReload(source.replace("text:'old'", "text:'recovered'"));
     expect(container.textContent).toBe('recovered2');
     button.click();
-    expect(inst.state.count()).toBe(1);
+    expect(inst.state.count!()).toBe(1);
     expect(getGraphTelemetry().nodes).toBe(baseline);
   } finally {
     handle.unmount();
@@ -372,7 +372,7 @@ it('failed staged DOM insertion removes candidate nodes and preserves the previo
     expect(inst.getElementByKey('inc')).toBe(button);
     expect(getGraphTelemetry().nodes).toBe(baseline);
     button.click();
-    expect(inst.state.count()).toBe(1);
+    expect(inst.state.count!()).toBe(1);
     container.insertBefore = original;
     inst.hotReload(source.replace("text:'old'", "text:'retry'"));
     expect(container.textContent).toBe('retrytail');
@@ -452,7 +452,7 @@ it('failed preparation restores document data, original computed handles and rea
   });
   const container = document.createElement('div'),
     handle = inst.mount(container),
-    oldLet = inst.computedLets.doubled,
+    oldLet = inst.computedLets.doubled!,
     baseline = getGraphTelemetry().nodes;
   try {
     fail = true;
@@ -470,7 +470,7 @@ it('failed preparation restores document data, original computed handles and rea
     expect('added' in inst.state).toBe(false);
     expect('extra' in inst.props).toBe(false);
     expect(getGraphTelemetry().nodes).toBe(baseline);
-    inst.state.count.set(3);
+    inst.state.count!.set(3);
     expect(oldLet()).toBe(6);
     expect(container.textContent).toBe('6child');
     fail = false;
@@ -507,7 +507,7 @@ it('refuses a nested document update during preparation and leaves the original 
     expect(() => inst.hotReload(source)).toThrow(/already in progress/);
     expect(container.textContent).toBe('1child');
     expect(getGraphTelemetry().nodes).toBe(baseline);
-    inst.state.count.set(2);
+    inst.state.count!.set(2);
     expect(container.textContent).toBe('2child');
     nested = false;
     inst.hotReload(source);
@@ -679,9 +679,9 @@ it.each(['throw', 'nested-update'] as const)(
       expect(b.textContent).toBe('new2');
       expect(getGraphTelemetry().nodes).toBe(baseline);
       oldButtons.forEach(button => button.click());
-      expect(inst.state.count()).toBe(0);
+      expect(inst.state.count!()).toBe(0);
       a.querySelector('button')!.click();
-      expect(inst.state.count()).toBe(1);
+      expect(inst.state.count!()).toBe(1);
       inst.hotReload(source.replace("text:'old'", "text:'retry'"));
       expect(a.textContent).toBe('retry2');
       expect(b.textContent).toBe('retry2');
@@ -711,11 +711,11 @@ it('nested contract refusal preserves the mounted document and admits a valid re
     expect(container.querySelector('button')).toBe(old);
     expect(getGraphTelemetry().nodes).toBe(baseline);
     old.click();
-    expect(inst.state.count()).toBe(2);
+    expect(inst.state.count!()).toBe(2);
     inst.hotReload(source.replace("text:'old'", "text:'new'"));
     expect(container.textContent).toBe('new');
     old.click();
-    expect(inst.state.count()).toBe(2);
+    expect(inst.state.count!()).toBe(2);
     expect(getGraphTelemetry().nodes).toBe(baseline);
   } finally {
     handle.unmount();
@@ -773,7 +773,7 @@ it('unlocks HMR after a retired computed disposer throws at the final cleanup bo
     inst = compileFormaComponent(source),
     container = document.createElement('div'),
     handle = inst.mount(container);
-  const old = inst.computedLets.doubled,
+  const old = inst.computedLets.doubled!,
     dispose = old.dispose.bind(old);
   old.dispose = () => {
     dispose();
@@ -782,7 +782,7 @@ it('unlocks HMR after a retired computed disposer throws at the final cleanup bo
   try {
     expect(() => inst.hotReload(source)).toThrow('retired computed cleanup');
     expect(() => inst.hotReload(source)).not.toThrow();
-    inst.state.count.set(2);
+    inst.state.count!.set(2);
     expect(container.textContent).toBe('4');
   } finally {
     handle.unmount();
@@ -808,7 +808,7 @@ it('preserves a primary commit failure while draining throwing retired computed 
   });
   const container = document.createElement('div'),
     handle = inst.mount(container),
-    old = inst.computedLets.doubled,
+    old = inst.computedLets.doubled!,
     dispose = old.dispose.bind(old);
   old.dispose = () => {
     dispose();
@@ -835,7 +835,7 @@ it('restores old computed handles and primary error when candidate cleanup throw
       Child: () => {
         const child = compileFormaComponent(`component Child { Text { text:'child'; } }`);
         if (fail) {
-          const candidate = inst.computedLets.doubled,
+          const candidate = inst.computedLets.doubled!,
             dispose = candidate.dispose.bind(candidate);
           candidate.dispose = () => {
             dispose();
@@ -871,7 +871,7 @@ it('restores old computed handles and primary error when candidate cleanup throw
     expect(inst.computedLets.doubled).toBe(old);
     expect('added' in inst.state).toBe(false);
     expect(getGraphTelemetry().nodes).toBe(nodes);
-    inst.state.count.set(2);
+    inst.state.count!.set(2);
     expect(container.textContent).toBe('4child');
     fail = false;
     inst.hotReload(source);
@@ -892,7 +892,7 @@ it('does not restore or allocate a closed document when candidate rollback clean
       Child: () => {
         const child = compileFormaComponent(`component Child { Column {} }`);
         if (fail) {
-          const candidate = inst.computedLets.doubled,
+          const candidate = inst.computedLets.doubled!,
             dispose = candidate.dispose.bind(candidate);
           candidate.dispose = () => {
             dispose();

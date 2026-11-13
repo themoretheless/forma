@@ -25,7 +25,7 @@ for (const name of ['__proto__', 'constructor', 'prototype'])
       try {
         expect(() => inst.hotReload(bad)).toThrow(/AST.*document/i);
         expect(getGraphTelemetry().nodes).toBe(nodes);
-        inst.state.count.set(2);
+        inst.state.count!.set(2);
         expect(container.textContent).toBe('2');
       } finally {
         handle.unmount();
@@ -55,9 +55,9 @@ for (const name of ['toString', 'valueOf', 'hasOwnProperty'])
       handle = inst.mount(container);
     try {
       expect(container.textContent).toBe('1');
-      expect(inst.props[name]()).toBe(2);
-      expect(inst.computedLets[name]()).toBe(3);
-      inst.state[name].set(4);
+      expect(inst.props[name]!()).toBe(2);
+      expect(inst.computedLets[name]!()).toBe(3);
+      inst.state[name]!.set(4);
       expect(container.textContent).toBe('4');
     } finally {
       handle.unmount();
@@ -70,9 +70,9 @@ for (const name of ['toString', 'valueOf', 'hasOwnProperty'])
     const inst = compileFormaAst(parseFormaSource(source));
     try {
       inst.hotReload(`component App { state ${name}: Number = 7; Text { text:state.${name}; } }`);
-      inst.state[name].set(9);
+      inst.state[name]!.set(9);
       inst.actions.reset(name);
-      expect(inst.state[name]()).toBe(7);
+      expect(inst.state[name]!()).toBe(7);
     } finally {
       inst.dispose();
     }

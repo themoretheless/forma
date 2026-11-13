@@ -143,8 +143,8 @@ it('renders and resumes independently interleaved async views with escaped snaps
     expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('p')!.textContent).toBe(title);
     const restored = resumeContainer(container, result.stateJson);
-    expect(restored.value()).toBe(title);
-    restored.value.set('resumed');
+    expect(restored.value!()).toBe(title);
+    restored.value!.set('resumed');
     expect(container.querySelector('p')!.textContent).toBe('resumed');
   }
 });

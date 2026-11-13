@@ -192,7 +192,7 @@ it('releases vertex/index buffers, depth texture and canvas configuration on own
   stop();
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
   expect(device.textures.every(texture => texture.destroyed)).toBe(true);
-  expect(contexts[0].unconfigure).toHaveBeenCalledOnce();
+  expect(contexts[0]!.unconfigure).toHaveBeenCalledOnce();
   s.dispose();
 });
 
@@ -207,7 +207,7 @@ it('pads a three-index uint16 upload to a four-byte boundary', () => {
   });
   expect(device.draws).toBe(1);
   expect(canvas.dataset.renderBackend).toBe('webgpu-depth24plus');
-  expect(Array.from(device.uploads[0])).toEqual([0, 0, 1, 0, 2, 0, 0, 0]);
+  expect(Array.from(device.uploads[0]!)).toEqual([0, 0, 1, 0, 2, 0, 0, 0]);
   stop();
   s.dispose();
 });
@@ -226,7 +226,7 @@ it('device replacement frees old resources and renders with the new device witho
   expect(first.buffers.every(buffer => buffer.destroyed)).toBe(true);
   expect(first.textures.every(texture => texture.destroyed)).toBe(true);
   expect(second.draws).toBe(1);
-  expect(contexts[0].configure).toHaveBeenLastCalledWith(
+  expect(contexts[0]!.configure).toHaveBeenLastCalledWith(
     expect.objectContaining({ device: second }),
   );
   stop();
@@ -244,7 +244,7 @@ it('partial initialization failure destroys already-created resources', () => {
   });
   expect(device.buffers.length).toBeGreaterThan(0);
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
-  expect(contexts[0].unconfigure).toHaveBeenCalled();
+  expect(contexts[0]!.unconfigure).toHaveBeenCalled();
   stop();
   s.dispose();
 });
@@ -384,12 +384,12 @@ it('orbit controls work through the fallback canvas and stop after owner disposa
     stop = dispose;
     return Viewport3D({ mesh: s.mesh, orbitTransform: s.transform });
   });
-  const fallback = viewport.children[1];
+  const fallback = viewport.children[1]!;
   fallback.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, bubbles: true, cancelable: true }));
   expect(s.transform.scale.peek()[0]).toBeCloseTo(1.08);
   const device = renderDevice();
   configureGpuSubsystem({ device });
-  viewport.children[0].dispatchEvent(
+  viewport.children[0]!.dispatchEvent(
     new MouseEvent('mousedown', { clientX: 10, clientY: 10, bubbles: true }),
   );
   window.dispatchEvent(new MouseEvent('mousemove', { clientX: 20, clientY: 20 }));
@@ -441,7 +441,7 @@ it('reactive resize updates both surfaces and replaces only the depth attachment
   expect(originalBuffers.every(buffer => !buffer.destroyed)).toBe(true);
   expect(device.buffers).toEqual(originalBuffers);
   expect(device.pipelines).toHaveLength(1);
-  expect(contexts[0].configure).toHaveBeenCalledOnce();
+  expect(contexts[0]!.configure).toHaveBeenCalledOnce();
   expect(originalTextures.every(texture => texture.destroyed)).toBe(true);
   expect(device.textures.at(-1).descriptor.size).toEqual([480, 280, 1]);
   configureGpuSubsystem({ device: null });
@@ -483,8 +483,8 @@ it('Forma viewport tracks dimension expressions and preserves its stable wrapper
     mounted = instance.mount(document.createElement('div'));
   const viewport = instance.getElementByKey('view')!;
   batch(() => {
-    instance.state.w.set(400);
-    instance.state.h.set(250);
+    instance.state.w!.set(400);
+    instance.state.h!.set(250);
   });
   expect(instance.getElementByKey('view')).toBe(viewport);
   for (const canvas of Array.from(viewport.children) as HTMLCanvasElement[])
@@ -537,8 +537,8 @@ it('2D picking uses resized drawing-buffer dimensions and the visible canvas CSS
     height: 560,
   } as DOMRect);
   fallback.dispatchEvent(new MouseEvent('click', { clientX: 490, clientY: 300, bubbles: true }));
-  expect(pick.mock.calls[0].slice(0, 3)).toEqual([0, 0, 0]);
-  expect(pick.mock.calls[0][3].mesh).toBe(s.mesh);
+  expect(pick.mock.calls[0]!.slice(0, 3)).toEqual([0, 0, 0]);
+  expect(pick.mock.calls[0]![3].mesh).toBe(s.mesh);
   stop();
   width.dispose();
   height.dispose();
@@ -568,7 +568,7 @@ it('mesh replacement grows buffers, changes topology and detaches old dependenci
   expect(originalBuffers.every(buffer => buffer.destroyed)).toBe(true);
   expect(originalTextures.every(texture => !texture.destroyed)).toBe(true);
   expect(device.textures).toHaveLength(1);
-  expect(contexts[0].configure).toHaveBeenCalledOnce();
+  expect(contexts[0]!.configure).toHaveBeenCalledOnce();
   expect(device.pipelines.map(pipeline => pipeline.primitive.topology)).toEqual([
     'triangle-list',
     'line-strip',
@@ -601,10 +601,10 @@ it('picking resolves the replacement mesh rather than the initially rendered ver
     return Viewport3D({ mesh, onVertexPick: pick, width: 200, height: 200 });
   });
   mesh.set(second);
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[0][0]).toBe(1);
+  expect(pick.mock.calls[0]![0]).toBe(1);
   stop();
   mesh.dispose();
   first.dispose();
@@ -657,7 +657,7 @@ it('2D vertex projection and Rust picking use the WebGPU viewport scale', () => 
     return Canvas3D({ mesh, width: 200, height: 200 });
   });
   const ctx = canvas.getContext('2d')!;
-  const arc = vi.mocked(ctx.arc).mock.calls[0];
+  const arc = vi.mocked(ctx.arc).mock.calls[0]!;
   expect(arc[0]).toBeCloseTo(180);
   expect(arc[1]).toBeCloseTo(60);
   const pick = pickNearestVertex3D(mesh, 180, 60, {
@@ -775,7 +775,7 @@ it('uploads uint32 indices above 65535 without truncation and binds uint32 forma
   });
   expect(device.indexFormats).toEqual(['uint32']);
   expect(device.draws).toBe(1);
-  expect(Array.from(new Uint32Array(device.uploads[0].buffer))).toEqual([0, 1, 65536]);
+  expect(Array.from(new Uint32Array(device.uploads[0]!.buffer))).toEqual([0, 1, 65536]);
   stop();
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
   mesh.dispose();
@@ -961,7 +961,7 @@ it('reuses index capacity, vertex buffer, depth texture and pipeline for fitting
   expect(device.indexFormats).toEqual(['uint16', 'uint32']);
   expect(device.textures).toHaveLength(1);
   expect(device.pipelines).toHaveLength(1);
-  expect(contexts[0].configure).toHaveBeenCalledOnce();
+  expect(contexts[0]!.configure).toHaveBeenCalledOnce();
   const uploads = device.uploads.length;
   s.transform.rotation.set([0.1, 0, 0]);
   expect(device.uploads.length).toBe(uploads + 1); // Only vertices, indices unchanged.
@@ -996,7 +996,7 @@ it('only replaces the pipeline and index allocation when switching between trian
   s.mesh.updateIndices([0, 1, 2]);
   expect(device.buffers.filter(buffer => buffer.usage & 0x20)).toEqual([vertex]);
   expect(device.textures).toHaveLength(1);
-  expect(contexts[0].configure).toHaveBeenCalledOnce();
+  expect(contexts[0]!.configure).toHaveBeenCalledOnce();
   stop();
   s.dispose();
 });
@@ -1129,7 +1129,7 @@ it('async render validation failure releases GPU resources and draws the indepen
     return Viewport3D({ mesh: s.mesh });
   });
   expect(viewport.dataset.renderValidation).toBe('pending');
-  device.scopes[0].resolve({ message: 'invalid pipeline' });
+  device.scopes[0]!.resolve({ message: 'invalid pipeline' });
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
   expect(viewport.dataset.renderValidation).toBe('failed');
@@ -1137,7 +1137,7 @@ it('async render validation failure releases GPU resources and draws the indepen
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
   expect(device.textures.every(texture => texture.destroyed)).toBe(true);
   s.transform.rotation.set([0.1, 0, 0]);
-  device.scopes[1].resolve(null);
+  device.scopes[1]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('webgpu-depth24plus');
   expect(viewport.dataset.renderValidation).toBe('passed');
@@ -1156,9 +1156,9 @@ it('a late old-frame validation error cannot destroy a newer validated frame', a
     return Viewport3D({ mesh: s.mesh });
   });
   s.transform.rotation.set([0.1, 0, 0]);
-  device.scopes[1].resolve(null);
+  device.scopes[1]!.resolve(null);
   await drainValidation();
-  device.scopes[0].resolve({ message: 'old frame' });
+  device.scopes[0]!.resolve({ message: 'old frame' });
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('passed');
   expect(viewport.dataset.renderBackend).toBe('webgpu-depth24plus');
@@ -1178,7 +1178,7 @@ it('scope rejection after owner disposal cannot redraw or mutate the disposed vi
   });
   stop();
   const draws = device.draws;
-  device.scopes[0].reject(new Error('late rejection'));
+  device.scopes[0]!.reject(new Error('late rejection'));
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('disposed');
   expect(device.draws).toBe(draws);
@@ -1196,9 +1196,9 @@ it('device replacement isolates late validation errors from the previous device'
     return Viewport3D({ mesh: s.mesh });
   });
   configureGpuSubsystem({ device: second });
-  second.scopes[0].resolve(null);
+  second.scopes[0]!.resolve(null);
   await drainValidation();
-  first.scopes[0].resolve({ message: 'old device' });
+  first.scopes[0]!.resolve({ message: 'old device' });
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('passed');
   expect(second.buffers.every(buffer => !buffer.destroyed)).toBe(true);
@@ -1217,7 +1217,7 @@ it('a synchronous initialization failure pops each opened render error scope exa
   });
   expect(device.pushErrorScope).toHaveBeenCalledTimes(3);
   expect(device.popErrorScope).toHaveBeenCalledTimes(3);
-  device.scopes[0].resolve(null);
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('failed');
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
@@ -1236,7 +1236,7 @@ it('reset invalidates pending render validation without reading recycled mesh ha
   });
   resetReactiveSystem();
   const replacement = scene();
-  device.scopes[0].resolve({ message: 'pre-reset frame' });
+  device.scopes[0]!.resolve({ message: 'pre-reset frame' });
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('unavailable');
   expect(viewport.dataset.renderValidation).toBe('inactive');
@@ -1254,7 +1254,7 @@ it('active render scope rejection is handled as a validation failure', async () 
     stop = dispose;
     return Viewport3D({ mesh: s.mesh });
   });
-  device.scopes[0].reject(new Error('scope rejected'));
+  device.scopes[0]!.reject(new Error('scope rejected'));
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
   expect(viewport.dataset.renderError).toBe('scope rejected');
@@ -1290,15 +1290,15 @@ it('a stream of newer pending frames cannot hide an unresolved validation failur
     return Viewport3D({ mesh: s.mesh });
   });
   s.transform.rotation.set([0.1, 0, 0]);
-  device.scopes[0].resolve({ message: 'invalid cached resource' });
+  device.scopes[0]!.resolve({ message: 'invalid cached resource' });
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
-  device.scopes[1].resolve(null);
+  device.scopes[1]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('failed');
   s.transform.rotation.set([0.2, 0, 0]);
-  device.scopes[2].resolve(null);
+  device.scopes[2]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('passed');
   stop();
@@ -1406,12 +1406,12 @@ it.each(['out-of-memory', 'internal'])(
       stop = dispose;
       return Viewport3D({ mesh: s.mesh });
     });
-    device.scopes[0].byFilter[filter].resolve({ message: 'injected failure' });
+    device.scopes[0]!.byFilter[filter]!.resolve({ message: 'injected failure' });
     await drainValidation();
     expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
     expect(viewport.dataset.renderError).toContain(filter);
     expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
-    device.scopes[0].resolve(null);
+    device.scopes[0]!.resolve(null);
     await drainValidation();
     expect(viewport.dataset.renderValidation).toBe('failed');
     stop();
@@ -1433,11 +1433,11 @@ it('success waits for all three error filters regardless of resolution order', a
     'out-of-memory',
     'internal',
   ]);
-  device.scopes[0].byFilter.validation.resolve(null);
-  device.scopes[0].byFilter.internal.resolve(null);
+  device.scopes[0]!.byFilter.validation!.resolve(null);
+  device.scopes[0]!.byFilter.internal!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('pending');
-  device.scopes[0].byFilter['out-of-memory'].resolve(null);
+  device.scopes[0]!.byFilter['out-of-memory']!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('passed');
   stop();
@@ -1460,7 +1460,7 @@ it('partial scope setup failure still pops all scopes successfully opened before
   });
   expect(device.popErrorScope).toHaveBeenCalledTimes(2);
   expect(device.buffers).toHaveLength(0);
-  device.scopes[0].resolve(null);
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderValidation).toBe('failed');
   stop();
@@ -1531,12 +1531,12 @@ it('viewport click handlers honor explicit through-surface picking', () => {
     ];
   });
   for (const viewport of views)
-    viewport.children[1].dispatchEvent(
+    viewport.children[1]!.dispatchEvent(
       new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
     );
   expect(visible).not.toHaveBeenCalled();
-  expect(through.mock.calls[0][0]).toBe(3);
-  expect(wireframe.mock.calls[0][0]).toBe(3);
+  expect(through.mock.calls[0]![0]).toBe(3);
+  expect(wireframe.mock.calls[0]![0]).toBe(3);
   stop();
   mesh.dispose();
   transform.dispose();
@@ -1686,10 +1686,10 @@ it('animation-frame mode coalesces changes and waits for both GPU queue and all 
   for (let i = 1; i <= 20; i++) s.transform.rotation.set([i / 100, 0, 0]);
   expect(device.draws).toBe(1);
   expect(frames.callbacks.size).toBe(0);
-  device.completion[0].resolve();
+  device.completion[0]!.resolve();
   await drainValidation();
   expect(frames.callbacks.size).toBe(0);
-  device.scopes[0].resolve(null);
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   expect(frames.callbacks.size).toBe(1);
   frames.flush();
@@ -1735,16 +1735,16 @@ it('queue rejection after scope success frees resources and permits a later sche
     stop = dispose;
     return Viewport3D({ mesh: s.mesh, renderMode: 'animation-frame' });
   });
-  device.scopes[0].resolve(null);
+  device.scopes[0]!.resolve(null);
   await drainValidation();
-  device.completion[0].reject(new Error('queue failed'));
+  device.completion[0]!.reject(new Error('queue failed'));
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
   expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
   s.transform.rotation.set([0.1, 0, 0]);
   frames.flush();
-  device.completion[1].resolve();
-  device.scopes[1].resolve(null);
+  device.completion[1]!.resolve();
+  device.scopes[1]!.resolve(null);
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('webgpu-depth24plus');
   stop();
@@ -1763,8 +1763,8 @@ it('late queue completion cannot redraw a disposed scheduled viewport', async ()
   });
   s.transform.rotation.set([0.1, 0, 0]);
   stop();
-  device.completion[0].resolve();
-  device.scopes[0].resolve(null);
+  device.completion[0]!.resolve();
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   expect(frames.callbacks.size).toBe(0);
   expect(device.draws).toBe(1);
@@ -1783,13 +1783,13 @@ it('device replacement discards old queue credit without unlocking the new pendi
     Canvas3D({ mesh: s.mesh, renderMode: 'animation-frame' });
   });
   configureGpuSubsystem({ device: second });
-  first.completion[0].resolve();
-  first.scopes[0].resolve(null);
+  first.completion[0]!.resolve();
+  first.scopes[0]!.resolve(null);
   await drainValidation();
   s.transform.rotation.set([0.1, 0, 0]);
   expect(frames.callbacks.size).toBe(0);
-  second.completion[0].resolve();
-  second.scopes[0].resolve(null);
+  second.completion[0]!.resolve();
+  second.scopes[0]!.resolve(null);
   await drainValidation();
   expect(frames.callbacks.size).toBe(1);
   frames.flush();
@@ -1839,11 +1839,11 @@ it('Forma exposes frame scheduling and cancels its pending callback on unmount',
   );
   const mounted = instance.mount(document.createElement('div')),
     viewport = instance.getElementByKey('view')!;
-  instance.state.w.set(300);
+  instance.state.w!.set(300);
   expect((viewport.children[1] as HTMLCanvasElement).width).toBe(200);
   frames.flush();
   expect((viewport.children[1] as HTMLCanvasElement).width).toBe(300);
-  instance.state.w.set(320);
+  instance.state.w!.set(320);
   mounted.unmount();
   expect(frames.callbacks.size).toBe(0);
   instance.dispose();
@@ -1867,14 +1867,14 @@ it('a failed scheduled frame retains backpressure until its submitted GPU work s
     return Viewport3D({ mesh: s.mesh, renderMode: 'animation-frame' });
   });
   s.transform.rotation.set([0.1, 0, 0]);
-  device.scopes[0].resolve({ message: 'frame failed' });
+  device.scopes[0]!.resolve({ message: 'frame failed' });
   await drainValidation();
   expect(viewport.dataset.renderBackend).toBe('canvas2d-zsort');
   expect(frames.callbacks.size).toBe(0);
   s.transform.rotation.set([0.2, 0, 0]);
   expect(frames.callbacks.size).toBe(0);
   expect(device.draws).toBe(1);
-  device.completion[0].resolve();
+  device.completion[0]!.resolve();
   await drainValidation();
   expect(frames.callbacks.size).toBe(1);
   frames.flush();
@@ -1899,21 +1899,21 @@ it('deferred CPU picking uses drawn vertices until the next animation frame', ()
     });
   });
   s.mesh.vertices.setAt(0, 0.5);
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[0][0]).toBe(0);
-  expect(pick.mock.calls[0][1]).toBe(0);
-  const id = pick.mock.calls[0][3].id;
+  expect(pick.mock.calls[0]![0]).toBe(0);
+  expect(pick.mock.calls[0]![1]).toBe(0);
+  const id = pick.mock.calls[0]![3].id;
   frames.flush();
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
   expect(pick).toHaveBeenCalledOnce();
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 150, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[1][3].id).toBeGreaterThan(id);
+  expect(pick.mock.calls[1]![3].id).toBeGreaterThan(id);
   stop();
   s.dispose();
 });
@@ -1939,19 +1939,19 @@ it('queued GPU picking retains the submitted geometry without changing live aren
   const nodes = getGraphTelemetry().nodes,
     arenaBytes = getGpuTelemetry().arenaByteLength;
   const before = Array.from(s.mesh.transformedVertices.peek());
-  viewport.children[0].dispatchEvent(
+  viewport.children[0]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[0][0]).toBe(0);
-  expect(pick.mock.calls[0][3].backend).toBe('webgpu-depth24plus');
+  expect(pick.mock.calls[0]![0]).toBe(0);
+  expect(pick.mock.calls[0]![3].backend).toBe('webgpu-depth24plus');
   expect(getGraphTelemetry().nodes).toBe(nodes);
   expect(getGpuTelemetry().arenaByteLength).toBe(arenaBytes);
   expect(Array.from(s.mesh.transformedVertices.peek())).toEqual(before);
-  device.completion[0].resolve();
-  device.scopes[0].resolve(null);
+  device.completion[0]!.resolve();
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   frames.flush();
-  viewport.children[0].dispatchEvent(
+  viewport.children[0]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
   expect(pick).toHaveBeenCalledOnce();
@@ -1979,18 +1979,18 @@ it('a pending mesh replacement picks the old drawn identity even after that mesh
   });
   selected.set(second);
   first.dispose();
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[0][0]).toBe(0);
-  expect(pick.mock.calls[0][3].mesh).toBe(first.mesh);
+  expect(pick.mock.calls[0]![0]).toBe(0);
+  expect(pick.mock.calls[0]![3].mesh).toBe(first.mesh);
   frames.flush();
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[1][0]).toBe(1);
-  expect(pick.mock.calls[1][3].mesh).toBe(second);
-  expect(Object.keys(pick.mock.calls[1][3]).sort()).toEqual([
+  expect(pick.mock.calls[1]![0]).toBe(1);
+  expect(pick.mock.calls[1]![3].mesh).toBe(second);
+  expect(Object.keys(pick.mock.calls[1]![3]).sort()).toEqual([
     'backend',
     'height',
     'id',
@@ -2026,23 +2026,23 @@ it('queued picking uses drawn triangle occlusion rather than pending index updat
     });
   });
   const click = () =>
-    viewport.children[0].dispatchEvent(
+    viewport.children[0]!.dispatchEvent(
       new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
     );
   mesh.updateIndices([]);
   click();
   expect(pick).not.toHaveBeenCalled();
-  device.completion[0].resolve();
-  device.scopes[0].resolve(null);
+  device.completion[0]!.resolve();
+  device.scopes[0]!.resolve(null);
   await drainValidation();
   frames.flush();
   click();
-  expect(pick.mock.calls[0][0]).toBe(3);
+  expect(pick.mock.calls[0]![0]).toBe(3);
   mesh.updateIndices([0, 1, 2]);
   click();
   expect(pick).toHaveBeenCalledTimes(2);
-  device.completion[1].resolve();
-  device.scopes[1].resolve(null);
+  device.completion[1]!.resolve();
+  device.scopes[1]!.resolve(null);
   await drainValidation();
   frames.flush();
   click();
@@ -2062,11 +2062,11 @@ it('an invalid size update preserves picking for the unchanged drawn canvas', ()
     return Viewport3D({ mesh: s.mesh, width, height: 200, onVertexPick: pick });
   });
   expect(() => width.set(0)).toThrow(RangeError);
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
-  expect(pick.mock.calls[0][0]).toBe(0);
-  expect(pick.mock.calls[0][3].width).toBe(200);
+  expect(pick.mock.calls[0]![0]).toBe(0);
+  expect(pick.mock.calls[0]![3].width).toBe(200);
   stop();
   width.dispose();
   s.dispose();
@@ -2091,7 +2091,7 @@ it('snapshot picking invokes the callback in its captured WASM context', () => {
       });
     }),
   );
-  viewport.children[1].dispatchEvent(
+  viewport.children[1]!.dispatchEvent(
     new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }),
   );
   expect(observed).toBe(core);

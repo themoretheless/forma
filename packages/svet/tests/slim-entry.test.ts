@@ -47,7 +47,7 @@ describe('svet-engine/slim', () => {
     const host = document.createElement('div');
     const mounted = view.mount(host);
     expect(host.textContent).toBe('one');
-    view.state.title.set('two');
+    view.state.title!.set('two');
     expect(host.textContent).toBe('two');
 
     expect(() => instantiateFormaAst(CARD as never)).toThrow(/pre-parsed AST/);

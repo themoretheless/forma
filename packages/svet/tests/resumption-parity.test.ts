@@ -30,7 +30,7 @@ it('resumed checkbox models use checked and boolean change values', () => {
   expect(input.checked).toBe(false);
   input.checked = true;
   input.dispatchEvent(new Event('change'));
-  expect(state.value()).toBe(true);
+  expect(state.value!()).toBe(true);
   finish(host);
 });
 
@@ -40,10 +40,10 @@ it('resumed numeric models preserve number and empty-input conversions', () => {
     input = host.querySelector('input')!;
   input.value = '3.5';
   input.dispatchEvent(new Event('input'));
-  expect(state.value()).toBe(3.5);
+  expect(state.value!()).toBe(3.5);
   input.value = '';
   input.dispatchEvent(new Event('input'));
-  expect(state.value()).toBe(0);
+  expect(state.value!()).toBe(0);
   finish(host);
 });
 
@@ -55,7 +55,7 @@ it('resumed radio groups keep option values and synchronize selection', () => {
     [a, b] = Array.from(host.querySelectorAll('input'));
   expect([a.value, b.value, a.checked, b.checked]).toEqual(['a', 'b', false, true]);
   a.click();
-  expect(state.value()).toBe('a');
+  expect(state.value!()).toBe('a');
   expect(b.checked).toBe(false);
   finish(host);
 });
@@ -67,11 +67,11 @@ it('resumed multiple selects support arrays and later option insertion', async (
     state = resumeContainer(host, snapshot({ value: ['a', 'c'] })),
     select = host.querySelector('select')!;
   expect(Array.from(select.selectedOptions, option => option.value)).toEqual(['a', 'c']);
-  select.options[0].selected = false;
-  select.options[1].selected = true;
+  select.options[0]!.selected = false;
+  select.options[1]!.selected = true;
   select.dispatchEvent(new Event('change'));
-  expect(state.value()).toEqual(['b', 'c']);
-  state.value.set(['x']);
+  expect(state.value!()).toEqual(['b', 'c']);
+  state.value!.set(['x']);
   const option = document.createElement('option');
   option.value = 'x';
   select.append(option);
@@ -88,14 +88,14 @@ it('resumed text models defer IME composition and remove listeners on disposal',
   input.dispatchEvent(new CompositionEvent('compositionstart'));
   input.value = '途中';
   input.dispatchEvent(new InputEvent('input', { isComposing: true }));
-  expect(state.value()).toBe('old');
+  expect(state.value!()).toBe('old');
   input.value = '完成';
   input.dispatchEvent(new CompositionEvent('compositionend'));
-  expect(state.value()).toBe('完成');
+  expect(state.value!()).toBe('完成');
   finish(host);
   input.value = 'late';
   input.dispatchEvent(new Event('input'));
-  expect(state.value()).toBe('完成');
+  expect(state.value!()).toBe('完成');
 });
 
 it('resumed attributes use presence booleans, explicit tokens and null removal', () => {
@@ -116,7 +116,7 @@ it('resumed attributes use presence booleans, explicit tokens and null removal',
   expect(button.disabled).toBe(false);
   for (const name of ['aria-pressed', 'data-ready', 'contenteditable'])
     expect(button.getAttribute(name)).toBe('false');
-  state.value.set(null);
+  state.value!.set(null);
   for (const name of ['disabled', 'aria-pressed', 'data-ready', 'contenteditable'])
     expect(button.hasAttribute(name)).toBe(false);
   finish(host);
@@ -132,7 +132,7 @@ it('resumed type attributes refresh model output without a model value change', 
       ]),
     ),
     input = host.querySelector('input')!;
-  state.type.set('checkbox');
+  state.type!.set('checkbox');
   expect(input.type).toBe('checkbox');
   expect(input.checked).toBe(true);
   finish(host);
@@ -174,10 +174,10 @@ it('shared attribute application preserves resumption event-name and URL filteri
     link = host.querySelector('a')!;
   expect(link.getAttribute('href')).toBe('/safe');
   expect(link.hasAttribute('onclick')).toBe(false);
-  state.value.set('/updated');
+  state.value!.set('/updated');
   expect(link.getAttribute('href')).toBe('/updated');
   expect(link.hasAttribute('onclick')).toBe(false);
-  state.value.set(' \n javascript:alert(1)');
+  state.value!.set(' \n javascript:alert(1)');
   expect(link.getAttribute('href')).toBe('/updated');
   finish(host);
 });

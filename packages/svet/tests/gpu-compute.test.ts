@@ -149,7 +149,7 @@ function gpu(
                   outputBinding.size / 4,
                 );
                 for (let i = 0; i < (options.partialWrites ? 1 : output.length); i++)
-                  output[i] = input[i] * 2 + 1;
+                  output[i] = input[i]! * 2 + 1;
               });
             },
             end() {},
@@ -334,7 +334,7 @@ it('captures private stage lengths before asynchronous execution', async () => {
   const options = { wgsl, inputs: [input], output, outputLength: 4, chain };
   const pending = dispatchGpuComputeKernelAsync(options);
   options.outputLength = 999;
-  chain[0].outputLength = 999;
+  chain[0]!.outputLength = 999;
   chain.length = 0;
   await pending;
   expect(Array.from(output())).toEqual([15, 0]);
@@ -523,7 +523,7 @@ it('snapshots chain shaders and workgroup arrays before asynchronous execution',
   const groups: [number] = [1],
     chain = [{ wgsl, workgroups: groups }];
   const pending = dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, chain });
-  chain[0].wgsl = 'bad shader';
+  chain[0]!.wgsl = 'bad shader';
   groups[0] = 0;
   chain.length = 0;
   await pending;
@@ -604,7 +604,7 @@ it('uses the explicit host fallback once for the whole chain when hardware is ab
   const input = createGpuTensor([1]),
     output = createGpuTensor([17]);
   const fallback = vi.fn((inputs: Float32Array[], values: Float32Array) => {
-    values[0] = inputs[0][0] * 4 + 3;
+    values[0] = inputs[0]![0]! * 4 + 3;
   });
   const result = await dispatchGpuComputeKernelAsync({
     wgsl,
@@ -812,7 +812,7 @@ it('uses explicit async fallback with input snapshots and no reported GPU traffi
     output,
     async fallbackKernel([values], result) {
       await Promise.resolve();
-      result[0] = values[0] * 2 + 1;
+      result[0] = values[0]! * 2 + 1;
     },
   });
   input.setAt(0, 99);
@@ -998,7 +998,7 @@ it('an old lost device cannot invalidate its replacement or be reattached as liv
         inputs: [input],
         output,
         fallbackKernel([values], result) {
-          result[0] = values[0];
+          result[0] = values[0]!;
         },
       })
     ).backend,
@@ -1017,7 +1017,7 @@ it('reset also cancels a pending asynchronous host fallback', async () => {
     async fallbackKernel([values], result) {
       ready.resolve();
       await release.promise;
-      result[0] = values[0];
+      result[0] = values[0]!;
     },
   });
   await ready.promise;
@@ -1136,7 +1136,7 @@ it('removes completed operation cleanup registrations from their owner', async (
       inputs: [input],
       output,
       fallbackKernel([values], result) {
-        result[0] = values[0];
+        result[0] = values[0]!;
       },
     });
   });
@@ -2183,7 +2183,7 @@ for (const inherited of [false, true])
         wgsl: '',
         output,
         fallbackKernel([values]: Float32Array[], result: Float32Array) {
-          result[0] = values[0] * 2;
+          result[0] = values[0]! * 2;
         },
       });
       if (mode === 'sync') dispatchGpuComputeKernel(options);
@@ -2209,7 +2209,7 @@ it('synchronous fallback reads stay untracked while input tensors remain reactiv
       fallbackKernel([values], result) {
         calls++;
         incidental();
-        result[0] = values[0] * 2;
+        result[0] = values[0]! * 2;
       },
     }),
   );
@@ -2253,7 +2253,7 @@ it('deferred fallback restores its owned core and owner for synchronous resource
           onCleanup(() => {
             cleanups++;
           });
-          result[0] = values[0] * 2;
+          result[0] = values[0]! * 2;
         },
       });
     }),

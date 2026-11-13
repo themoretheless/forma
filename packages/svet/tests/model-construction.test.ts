@@ -157,12 +157,12 @@ it('failed observer setup disconnects queued selection work and releases the par
     expect(getGraphTelemetry().nodes).toBe(1);
   });
   observe.mockRestore();
-  select.options[0].selected = false;
-  select.options[1].selected = true;
+  select.options[0]!.selected = false;
+  select.options[1]!.selected = true;
   select.append(document.createElement('option'));
   await Promise.resolve();
   await Promise.resolve();
-  expect(select.options[1].selected).toBe(true);
+  expect(select.options[1]!.selected).toBe(true);
   stop();
   value.dispose();
   expect(getGraphTelemetry().nodes).toBe(0);

@@ -13,7 +13,7 @@ it('drains all owned resources when a computed disposer throws and stays idempot
     ),
     container = document.createElement('div'),
     handle = inst.mount(container);
-  const comp = inst.computedLets.doubled,
+  const comp = inst.computedLets.doubled!,
     dispose = comp.dispose.bind(comp),
     failure = Error('computed dispose refused');
   comp.dispose = () => {
@@ -47,7 +47,7 @@ it('does not classify a skipped ViewModel entry as an external owned-state bindi
   const inst = compileFormaComponent(`component App { state owned: Number = 1; Column {} }`, {
     viewModel: { owned: {} as any },
   });
-  expect(inst.state.owned()).toBe(1);
+  expect(inst.state.owned!()).toBe(1);
   inst.dispose();
   expect(getGraphTelemetry().nodes).toBe(0);
 });
@@ -55,8 +55,8 @@ it('disposes originally allocated state handles once despite aliases in the publ
   const inst = compileFormaComponent(
       `component App { state a: Number = 1; state b: Number = 2; Column {} }`,
     ),
-    a = inst.state.a,
-    b = inst.state.b;
+    a = inst.state.a!,
+    b = inst.state.b!;
   let aCalls = 0,
     bCalls = 0;
   const da = a.dispose.bind(a),
@@ -79,7 +79,7 @@ it('disposes originally allocated state handles once despite aliases in the publ
 it('does not acquire an external signal assigned over an owned field after construction', () => {
   const external = signal(7),
     inst = compileFormaComponent(`component App { state owned: Number = 1; Column {} }`),
-    owned = inst.state.owned;
+    owned = inst.state.owned!;
   let released = 0;
   const stop = owned.dispose.bind(owned);
   owned.dispose = () => {
@@ -109,7 +109,7 @@ it('rollback releases an allocated candidate state replaced by an external alias
       Child: () => {
         const child = compileFormaComponent(`component Child { Column {} }`);
         if (fail) {
-          const allocated = inst.state.added,
+          const allocated = inst.state.added!,
             stop = allocated.dispose.bind(allocated);
           allocated.dispose = () => {
             released++;
@@ -144,7 +144,7 @@ it('rollback releases an allocated candidate state replaced by an external alias
     expect(external()).toBe(9);
     expect(released).toBe(1);
     expect(getGraphTelemetry().nodes).toBe(nodes);
-    inst.state.count.set(2);
+    inst.state.count!.set(2);
     expect(container.textContent).toBe('2');
   } finally {
     fail = false;
@@ -165,7 +165,7 @@ it('preserves the preparation failure when owned candidate state cleanup closes 
       Child: () => {
         const child = compileFormaComponent(`component Child { Column {} }`);
         if (fail) {
-          const added = inst.state.added,
+          const added = inst.state.added!,
             stop = added.dispose.bind(added);
           added.dispose = () => {
             stop();
@@ -183,8 +183,8 @@ it('preserves the preparation failure when owned candidate state cleanup closes 
   });
   const container = document.createElement('div'),
     handle = inst.mount(container),
-    set = inst.props.limit.set;
-  inst.props.limit.set = value => {
+    set = inst.props.limit!.set;
+  inst.props.limit!.set = value => {
     if (closed) closedWrites++;
     return set(value);
   };

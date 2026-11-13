@@ -73,7 +73,7 @@ it('leaves spreads and constructor helpers intact while transforming nested JSX'
 it('maps an original expression through inserted thunk code', () => {
   const source = 'const view = <p>\n  {count()}\n</p>;';
   const { code, map } = transformSvetJsxWithMap(source, '/app/Counter.tsx');
-  const column = code.split('\n')[1].indexOf('count');
+  const column = code.split('\n')[1]!.indexOf('count');
   expect(originalPositionFor(new TraceMap(map.toString()), { line: 2, column })).toMatchObject({
     source: '/app/Counter.tsx',
     line: 2,

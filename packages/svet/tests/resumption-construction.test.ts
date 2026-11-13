@@ -33,7 +33,7 @@ it('rejects a disposed calling owner before replacing existing live bindings', (
     dispose();
     expect(() => resumeContainer(container, snapshot('stale'))).toThrow('disposed');
   });
-  state.value.set('still live');
+  state.value!.set('still live');
   expect(container.textContent).toBe('still live');
   disposeResumedContainer(container);
   expect(getGraphTelemetry().nodes).toBe(0);
@@ -111,7 +111,7 @@ it('newer independently owned reentrant resumption keeps its registry entry and 
   );
   set.mockRestore();
   expect(element.getAttribute('title')).toBe('newer');
-  newer.value.set('latest');
+  newer.value!.set('latest');
   expect(element.getAttribute('title')).toBe('latest');
   disposeResumedContainer(container);
   expect(getGraphTelemetry().nodes).toBe(0);
@@ -128,7 +128,7 @@ it('runtime attribute writes reject graph reset without corrupting new slots', (
     fresh = signal(9);
     native(name, value);
   });
-  expect(() => state.value.set('next')).toThrow('reset');
+  expect(() => state.value!.set('next')).toThrow('reset');
   set.mockRestore();
   disposeResumedContainer(container);
   expect(fresh()).toBe(9);
@@ -157,7 +157,7 @@ it('a newer resumption from old listener cleanup supersedes the waiting replacem
   );
   remove.mockRestore();
   expect(input.getAttribute('title')).toBe('newer');
-  newer.value.set('live');
+  newer.value!.set('live');
   expect(input.getAttribute('title')).toBe('live');
   disposeResumedContainer(container);
   expect(getGraphTelemetry().nodes).toBe(0);

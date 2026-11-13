@@ -36,7 +36,7 @@ for (const [name, change] of changes) {
       expect(inst.isValid()).toBe(true);
       expect(getGraphTelemetry().nodes).toBe(baseline);
       old.click();
-      expect(inst.state.count()).toBe(2);
+      expect(inst.state.count!()).toBe(2);
       inst.hotReload(parseFormaSource(source));
       expect(container.textContent).toBe('2');
     } finally {

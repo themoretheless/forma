@@ -239,7 +239,7 @@ it('reset aborts and rejects all overlapping calls without waiting for an uncoop
   const action = createServerAction<void, number>({
     rpc: (_, abort) => {
       signals.push(abort);
-      return requests[calls++].promise;
+      return requests[calls++]!.promise;
     },
     optimisticUpdate: () => () => {
       rollbacks++;

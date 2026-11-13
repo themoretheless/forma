@@ -49,7 +49,7 @@ it('keeps Suspense pending when an obsolete request settles before its replaceme
       Suspense({
         fallback: 'waiting',
         children: () => {
-          resource = createResource(source, value => requests[value].promise);
+          resource = createResource(source, value => requests[value]!.promise);
           return document.createTextNode('ready');
         },
       }),
@@ -57,12 +57,12 @@ it('keeps Suspense pending when an obsolete request settles before its replaceme
   });
   const fallback = container.querySelector<HTMLElement>('[data-svet-suspense-fallback]')!;
   source.set(1);
-  requests[0].resolve('stale');
-  await requests[0].promise;
+  requests[0]!.resolve('stale');
+  await requests[0]!.promise;
   expect(resource.loading()).toBe(true);
   expect(fallback.style.display).toBe('contents');
-  requests[1].resolve('current');
-  await requests[1].promise;
+  requests[1]!.resolve('current');
+  await requests[1]!.promise;
   expect(resource()).toBe('current');
   expect(resource.loading()).toBe(false);
   expect(fallback.style.display).toBe('none');
@@ -247,12 +247,12 @@ it.each(['abort', 'dispose', 'reset'] as const)(
   async mode => {
     const requests = [deferred<string>(), deferred<string>()];
     let calls = 0;
-    const resource = createResource(() => requests[calls++].promise),
+    const resource = createResource(() => requests[calls++]!.promise),
       job = resource.refetch();
     if (mode === 'reset') resetReactiveSystem();
     else resource[mode]();
-    requests[0].resolve('obsolete initial');
-    requests[1].resolve('obsolete refetch');
+    requests[0]!.resolve('obsolete initial');
+    requests[1]!.resolve('obsolete refetch');
     expect(await job).toBeUndefined();
     expect(resource()).toBeUndefined();
     resource.dispose();
@@ -262,16 +262,16 @@ it.each(['abort', 'dispose', 'reset'] as const)(
 it('a superseded refetch returns no data while its replacement remains pending', async () => {
   const requests = [deferred<string>(), deferred<string>(), deferred<string>()];
   let calls = 0;
-  const resource = createResource(() => requests[calls++].promise),
+  const resource = createResource(() => requests[calls++]!.promise),
     obsolete = resource.refetch(),
     current = resource.refetch();
-  requests[1].resolve('obsolete');
+  requests[1]!.resolve('obsolete');
   expect(await obsolete).toBeUndefined();
   expect(resource.loading()).toBe(true);
-  requests[2].resolve('current');
+  requests[2]!.resolve('current');
   expect(await current).toBe('current');
   expect(resource()).toBe('current');
-  requests[0].resolve('obsolete initial');
+  requests[0]!.resolve('obsolete initial');
   resource.dispose();
 });
 
@@ -320,7 +320,7 @@ it('refetch from an abort listener supersedes the outer refetch without an extra
     armed = false,
     nested!: Promise<string | undefined>;
   const resource = createResource(ctx => {
-    const request = requests[calls++];
+    const request = requests[calls++]!;
     ctx.signal.addEventListener('abort', () => {
       if (armed) {
         armed = false;
@@ -347,7 +347,7 @@ it('abort does not clear loading for a replacement started by its abort listener
     armed = false,
     nested!: Promise<string | undefined>;
   const resource = createResource(ctx => {
-    const request = requests[calls++];
+    const request = requests[calls++]!;
     ctx.signal.addEventListener('abort', () => {
       if (armed) {
         armed = false;
@@ -360,8 +360,8 @@ it('abort does not clear loading for a replacement started by its abort listener
   resource.abort();
   expect(resource.loading()).toBe(true);
   expect(calls).toBe(2);
-  requests[0].resolve('obsolete');
-  requests[1].resolve('current');
+  requests[0]!.resolve('obsolete');
+  requests[1]!.resolve('current');
   expect(await nested).toBe('current');
   resource.dispose();
 });
@@ -375,7 +375,7 @@ it('an error observer that starts recovery prevents stale boundary error forward
     () =>
       ErrorBoundary({
         children: () => {
-          resource = createResource(() => requests[calls++].promise);
+          resource = createResource(() => requests[calls++]!.promise);
           effect(() => {
             if (resource.error()) recovered = resource.refetch();
           });
@@ -385,12 +385,12 @@ it('an error observer that starts recovery prevents stale boundary error forward
       }),
     document.body,
   );
-  requests[0].reject(new Error('first request failed'));
-  await requests[0].promise.catch(() => {});
+  requests[0]!.reject(new Error('first request failed'));
+  await requests[0]!.promise.catch(() => {});
   expect(document.body.textContent).toBe('content');
   expect(resource.loading()).toBe(true);
   expect(calls).toBe(2);
-  requests[1].resolve('recovered');
+  requests[1]!.resolve('recovered');
   expect(await recovered).toBe('recovered');
   expect(resource()).toBe('recovered');
   app.unmount();
@@ -486,18 +486,18 @@ it.each(['abort', 'dispose', 'owner stop', 'supersede', 'disable source'] as con
     for (let i = 0; i < 12; i++) await Promise.resolve();
     expect(settled).toBe(true);
     expect(value).toBeUndefined();
-    expect(signals[1].aborted).toBe(true);
+    expect(signals[1]!.aborted).toBe(true);
     expect(resource.loading()).toBe(mode === 'supersede');
     expect(resource.error()).toBeNull();
     expect(resource()).toBeUndefined();
     if (replacement) {
-      requests[2].resolve('current');
+      requests[2]!.resolve('current');
       expect(await replacement).toBe('current');
       expect(resource()).toBe('current');
     }
     // Late cancellation failures must stay observed and cannot alter current state.
-    requests[0].reject(new Error('late initial'));
-    requests[1].reject(new Error('late refetch'));
+    requests[0]!.reject(new Error('late initial'));
+    requests[1]!.reject(new Error('late refetch'));
     await Promise.allSettled(requests.map(request => request.promise));
     expect(resource.error()).toBeNull();
     expect(resource()).toBe(replacement ? 'current' : undefined);
@@ -567,12 +567,12 @@ it('reset cancellation is confined to its WASM core', async () => {
   let localSignal!: AbortSignal, foreignSignal!: AbortSignal;
   const local = createResource(ctx => {
     localSignal = ctx.signal;
-    return requests[0].promise;
+    return requests[0]!.promise;
   });
   const foreign = withWasmCore(other, () =>
     createResource(ctx => {
       foreignSignal = ctx.signal;
-      return requests[1].promise;
+      return requests[1]!.promise;
     }),
   );
   const localJob = local.refetch(),
@@ -581,8 +581,8 @@ it('reset cancellation is confined to its WASM core', async () => {
   expect(localSignal.aborted).toBe(true);
   expect(foreignSignal.aborted).toBe(false);
   expect(await localJob).toBeUndefined();
-  requests[0].resolve('obsolete');
-  requests[1].resolve('foreign');
+  requests[0]!.resolve('obsolete');
+  requests[1]!.resolve('foreign');
   expect(await foreignJob).toBe('foreign');
   expect(foreign()).toBe('foreign');
   local.dispose();

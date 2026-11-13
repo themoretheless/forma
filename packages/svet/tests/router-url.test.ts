@@ -24,7 +24,7 @@ it.each([
   expect(router.query()).toEqual(Object.fromEntries(url.searchParams));
   expect(router.hash()).toBe(url.hash.slice(1));
   expect(window.location.pathname + window.location.search + window.location.hash).toBe(expected);
-  expect(guard.mock.calls[0][0].path).toBe(url.pathname);
+  expect(guard.mock.calls[0]![0].path).toBe(url.pathname);
   router.dispose();
 });
 

@@ -18,11 +18,11 @@ it('allows action overrides to wrap originals and intercept mounted events', () 
   try {
     container.querySelector('button')!.click();
     expect(wrapped).toHaveBeenCalledTimes(1);
-    expect(instance.state.count()).toBe(2);
+    expect(instance.state.count!()).toBe(2);
     instance.actions.increment = original;
     container.querySelector('button')!.click();
     expect(wrapped).toHaveBeenCalledTimes(1);
-    expect(instance.state.count()).toBe(3);
+    expect(instance.state.count!()).toBe(3);
   } finally {
     instance.dispose();
     mount.unmount();
@@ -33,14 +33,14 @@ it('keeps cached reads and inert actions after disposal', () => {
   const instance = compileFormaComponent(source),
     container = document.createElement('div'),
     mount = instance.mount(container);
-  expect(instance.computedLets.doubled()).toBe(2);
+  expect(instance.computedLets.doubled!()).toBe(2);
   instance.dispose();
-  expect(instance.state.count()).toBe(1);
-  expect(instance.props.limit()).toBe(5);
-  expect(instance.computedLets.doubled()).toBe(2);
-  instance.state.count.set(99);
+  expect(instance.state.count!()).toBe(1);
+  expect(instance.props.limit!()).toBe(5);
+  expect(instance.computedLets.doubled!()).toBe(2);
+  instance.state.count!.set(99);
   instance.actions.increment('count', 10);
-  expect(instance.state.count()).toBe(1);
+  expect(instance.state.count!()).toBe(1);
   expect(instance.exportHmrSnapshot().state.count).toBe(1);
   expect(() => instance.render()).toThrow('disposed');
   mount.unmount();
@@ -53,12 +53,12 @@ it('does not evaluate unused lazy expressions during terminal snapshot', () => {
   const instance = compileFormaComponent(
     `component App { state count: Number = 1; let unused = state.count * 2; Column {} }`,
   );
-  const peek = vi.spyOn(instance.computedLets.unused, 'peek').mockImplementation(() => {
+  const peek = vi.spyOn(instance.computedLets.unused!, 'peek').mockImplementation(() => {
     throw Error('lazy evaluated');
   });
   expect(() => instance.dispose()).not.toThrow();
   expect(peek).not.toHaveBeenCalled();
-  expect(instance.computedLets.unused()).toBeUndefined();
+  expect(instance.computedLets.unused!()).toBeUndefined();
   expect(getGraphTelemetry().nodes).toBe(0);
 });
 it('preserves cached external signal values without private cache metadata', () => {
@@ -68,10 +68,10 @@ it('preserves cached external signal values without private cache metadata', () 
     viewModel: { count: external },
   });
   try {
-    expect(instance.state.count()).toBe(7);
+    expect(instance.state.count!()).toBe(7);
     instance.dispose();
-    expect(instance.state.count()).toBe(7);
-    instance.state.count.set(9);
+    expect(instance.state.count!()).toBe(7);
+    instance.state.count!.set(9);
     expect(external()).toBe(7);
   } finally {
     instance.dispose();

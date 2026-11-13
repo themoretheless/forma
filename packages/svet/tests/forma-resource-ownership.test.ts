@@ -12,8 +12,8 @@ it('owns original prop handles once despite aliases in the public map', () => {
   const inst = compileFormaComponent(
       `component App { prop a: Number = 1; prop b: Number = 2; Column {} }`,
     ),
-    a = inst.props.a,
-    b = inst.props.b,
+    a = inst.props.a!,
+    b = inst.props.b!,
     da = a.dispose.bind(a),
     db = b.dispose.bind(b);
   let ac = 0,
@@ -36,7 +36,7 @@ it('owns original prop handles once despite aliases in the public map', () => {
 it('does not acquire an external prop replacement or lose the original own handle', () => {
   const external = signal(7),
     inst = compileFormaComponent(`component App { prop own: Number = 1; Column {} }`),
-    own = inst.props.own,
+    own = inst.props.own!,
     stop = own.dispose.bind(own);
   let calls = 0;
   own.dispose = () => {
@@ -56,8 +56,8 @@ it('does not acquire an external prop replacement or lose the original own handl
 });
 it('owns original computed handles once despite public aliases', () => {
   const inst = compileFormaComponent(`component App { let a = 1; let b = 2; Column {} }`),
-    a = inst.computedLets.a,
-    b = inst.computedLets.b,
+    a = inst.computedLets.a!,
+    b = inst.computedLets.b!,
     da = a.dispose.bind(a),
     db = b.dispose.bind(b);
   let ac = 0,
@@ -82,7 +82,7 @@ it('HMR retires allocated computed handles and preserves a public foreign replac
     foreign = computed(() => external()),
     source = `component App { let a = 1; let b = 2; Column {} }`,
     inst = compileFormaComponent(source),
-    old = inst.computedLets.a,
+    old = inst.computedLets.a!,
     stop = old.dispose.bind(old),
     foreignStop = foreign.dispose.bind(foreign);
   let ownCalls = 0,
@@ -124,7 +124,7 @@ for (const kind of ['prop', 'computed'])
           if (fail) {
             const map = kind === 'prop' ? inst.props : inst.computedLets,
               key = kind === 'prop' ? 'added' : 'value',
-              own = map[key],
+              own = map[key]!,
               stop = own.dispose.bind(own);
             own.dispose = () => {
               released++;

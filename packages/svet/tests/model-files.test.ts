@@ -132,8 +132,8 @@ it('resumes a nullable file model through the common native binding', () => {
   const files = emptyFiles();
   input.files = files;
   input.dispatchEvent(new Event('change'));
-  expect(state.upload()).toBe(files);
-  state.upload.set(null);
+  expect(state.upload!()).toBe(files);
+  state.upload!.set(null);
   expect(input.value).toBe('');
   disposeResumedContainer(document.body);
   expect(getGraphTelemetry().nodes).toBe(0);

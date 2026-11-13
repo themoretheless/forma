@@ -77,7 +77,7 @@ for (const [name, change] of changes)
       expect(() => inst.hotReload(ast)).toThrow(/AST.*tree/i);
       expect(container.firstChild).toBe(old);
       expect(getGraphTelemetry().nodes).toBe(nodes);
-      inst.state.count.set(2);
+      inst.state.count!.set(2);
       expect(container.textContent).toBe('2');
     } finally {
       handle.unmount();
@@ -87,13 +87,13 @@ for (const [name, change] of changes)
   });
 it('permits a shared acyclic child and renders both occurrences', () => {
   const ast = parseFormaSource(source);
-  ast.rootAstNodes[0].children.push(ast.rootAstNodes[0].children[0]);
+  ast.rootAstNodes[0]!.children.push(ast.rootAstNodes[0]!.children[0]!);
   const inst = compileFormaAst(ast),
     container = document.createElement('div'),
     handle = inst.mount(container);
   try {
     expect(container.textContent).toBe('11');
-    inst.state.count.set(2);
+    inst.state.count!.set(2);
     expect(container.textContent).toBe('22');
   } finally {
     handle.unmount();
@@ -146,7 +146,7 @@ it('renders wrapped Text, multiline TextInput, and two-way Slider in DOM', () =>
     expect(slider.value).toBe('42');
     slider.value = '75';
     slider.dispatchEvent(new Event('input'));
-    expect(inst.state.level()).toBe(75);
+    expect(inst.state.level!()).toBe(75);
   } finally {
     handle.unmount();
     inst.dispose();

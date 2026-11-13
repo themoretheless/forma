@@ -192,9 +192,9 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const strongNodeBefore = ssrContainer.querySelector('strong');
 
     const clientSignals = resumeContainer(ssrContainer, jsonSnapshot);
-    expect(clientSignals.visitors()).toBe(42);
+    expect(clientSignals.visitors!()).toBe(42);
 
-    clientSignals.visitors.set(108);
+    clientSignals.visitors!.set(108);
     expect(ssrContainer.querySelector('strong')?.textContent).toBe('108');
     expect(ssrContainer.querySelector('strong')).toBe(strongNodeBefore);
   });
@@ -604,7 +604,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // Verify the discrete GPU queue received ONLY the 16-byte aligned partial DMA slice (16 bytes instead of 1024 bytes!)
     expect(dmaWrites.length).toBe(1);
-    expect(dmaWrites[0].size).toBe(16);
+    expect(dmaWrites[0]!.size).toBe(16);
 
     // Now mutate two distant cache lines (index 2 and index 240) -> DUMA multi-span collector transfers ONLY 2 cache lines (256 bytes) instead of the entire 960-byte gap!
     dmaWrites.length = 0;
@@ -643,7 +643,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         output: out,
         fallbackKernel: ([inA, inB], dst) => {
           for (let i = 0; i < dst.length; i++) {
-            dst[i] = inA[i] + inB[i];
+            dst[i] = inA[i]! + inB[i]!;
           }
         },
       });
@@ -680,7 +680,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     });
 
     const restored = resumeContainer(clientContainer, snapshotJson);
-    restored.title.set('Svet Edge GPU');
+    restored.title!.set('Svet Edge GPU');
     expect(clientContainer.querySelector('h1')?.textContent).toBe('Svet Edge GPU');
     expect(clientContainer.querySelector('section')?.getAttribute('data-title')).toBe(
       'Svet Edge GPU',
@@ -808,8 +808,8 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     // 3. Click '+1' button (`clicked -> state.increment('count', 1)`)
     const incBtn = instance.getElementByKey('incBtn') as HTMLButtonElement;
     incBtn.click();
-    expect(instance.state.count()).toBe(3);
-    expect(instance.computedLets.doubled()).toBe(6);
+    expect(instance.state.count!()).toBe(3);
+    expect(instance.computedLets.doubled!()).toBe(6);
     expect(headerEl.textContent).toBe('Inbox: 3 (x2 = 6)');
 
     // 4. Two-way binding `value <-> state.name` and event emission `events.saveRequested(state.name, doubled)`
@@ -817,7 +817,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(nameInput.value).toBe('Анна');
     nameInput.value = 'Мария';
     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(instance.state.name()).toBe('Мария');
+    expect(instance.state.name!()).toBe('Мария');
 
     let savedPayload: any[] = [];
     instance.onEvent('saveRequested', (userName, dbl) => {
@@ -828,11 +828,11 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // 5. Validation constraints (`#[range(0, 100)]` and `#[pattern('^[a-z0-9_-]+$')]`) -> reactive `isValid`
     expect(instance.isValid()).toBe(true);
-    instance.props.progress.set(150); // violates #[range(0, 100)]
+    instance.props.progress!.set(150); // violates #[range(0, 100)]
     expect(instance.isValid()).toBe(false);
-    instance.props.progress.set(80);
+    instance.props.progress!.set(80);
     expect(instance.isValid()).toBe(true);
-    instance.props.slug.set('INVALID SLUG!'); // violates #[pattern]
+    instance.props.slug!.set('INVALID SLUG!'); // violates #[pattern]
     expect(instance.isValid()).toBe(false);
 
     // 6. Test Forma `for ... empty` collection backed by Svet's WASM LIS <For>
@@ -916,27 +916,27 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     // 2. `forward props { placeholder }`
     const inp = inst.getElementByKey('forwardedInput') as HTMLInputElement;
     expect(inp.placeholder).toBe('Enter text...');
-    inst.props.placeholder.set('Updated placeholder');
+    inst.props.placeholder!.set('Updated placeholder');
     expect(inp.placeholder).toBe('Updated placeholder');
 
     // 3. Property-group `match props.tone`
     const rootBox = inst.getElementByKey('rootBox')!;
     expect(rootBox.style.background).toContain('rgb(15, 23, 42)'); // #0f172a
-    inst.props.tone.set('Danger');
+    inst.props.tone!.set('Danger');
     expect(rootBox.style.background).toContain('rgb(127, 29, 29)'); // #7f1d1d
 
     // 4. Structural `match props.status` with OR-patterns (`'loading' | 'pending'`)
     expect(inst.getElementByKey('statusBadge')?.textContent).toBe('Загрузка...');
-    inst.props.status.set('pending');
+    inst.props.status!.set('pending');
     expect(inst.getElementByKey('statusBadge')?.textContent).toBe('Загрузка...');
-    inst.props.status.set('done');
+    inst.props.status!.set('done');
     expect(inst.getElementByKey('statusBadge')?.textContent).toBe('Готово');
 
     // 5. Numeric range `match props.score` (`1..=5`, `6..10`, `_`)
     expect(inst.getElementByKey('tierBadge')?.textContent).toBe('Bronze');
-    inst.props.score.set(8);
+    inst.props.score!.set(8);
     expect(inst.getElementByKey('tierBadge')?.textContent).toBe('Silver');
-    inst.props.score.set(99);
+    inst.props.score!.set(99);
     expect(inst.getElementByKey('tierBadge')?.textContent).toBe('Gold');
   });
 
@@ -989,8 +989,8 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(canvasEl.tagName.toLowerCase()).toBe('canvas');
     expect(canvasEl.getAttribute('data-forma-type')).toBe('Scene3D');
 
-    inst1.state.rotY.set(2.25);
-    inst1.state.title.set('HMR Preserved');
+    inst1.state.rotY!.set(2.25);
+    inst1.state.title!.set('HMR Preserved');
     const hmrSnap = inst1.exportHmrSnapshot();
     mounted1.unmount();
 
@@ -998,8 +998,8 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     inst2.restoreHmrSnapshot(hmrSnap);
     inst2.mount(container);
 
-    expect(inst2.state.rotY()).toBe(2.25);
-    expect(inst2.state.title()).toBe('HMR Preserved');
+    expect(inst2.state.rotY!()).toBe(2.25);
+    expect(inst2.state.title!()).toBe('HMR Preserved');
     expect(inst2.getElementByKey('lbl')?.textContent).toBe('HMR PRESERVED');
   });
 
@@ -1064,7 +1064,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     // Despite 100,000 items, only 5 + 2 = 7 rows are mounted at scrollTop = 0!
     const initialRendered = vList.querySelectorAll('.v-row');
     expect(initialRendered.length).toBe(7);
-    expect(initialRendered[0].textContent).toBe('Item #1');
+    expect(initialRendered[0]!.textContent).toBe('Item #1');
 
     // Scroll to index 50,000 in O(1)
     vList.scrollToIndex(50_000);
@@ -1073,7 +1073,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const [startIdx, endIdx] = vList.getVisibleRange();
     expect(startIdx).toBe(49_998);
     expect(endIdx).toBe(50_007);
-    expect(midRendered[2].textContent).toBe('Item #50001');
+    expect(midRendered[2]!.textContent).toBe('Item #50001');
   });
 
   it('27. Eliminates All 6 Architectural Weaknesses: CSP-Safe AST Eval (No new Function), WASM Memory Growth Resilience, Dynamic VirtualList Heights & WebGPU Depth24Plus RenderPass', () => {
@@ -1094,7 +1094,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
       const box = document.createElement('div');
       ui.mount(box);
       expect(ui.getElementByKey('out')?.textContent).toBe('Val=20');
-      ui.state.count.set(3);
+      ui.state.count!.set(3);
       expect(ui.getElementByKey('out')?.textContent).toBe('Val=13');
       evalSucceededUnderStrictCsp = true;
     } finally {
@@ -1292,17 +1292,17 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // Click button with comma-containing string argument
     (parentUi.getElementByKey('complexActionBtn') as HTMLButtonElement).click();
-    expect(parentUi.state.mainLabel()).toBe('Иванов, И.И., отдел R&D');
+    expect(parentUi.state.mainLabel!()).toBe('Иванов, И.И., отдел R&D');
     expect(childWrapper.textContent).toBe('Иванов, И.И., отдел R&D');
 
     // Click button with array literal containing commas
     (parentUi.getElementByKey('arrayActionBtn') as HTMLButtonElement).click();
-    expect(parentUi.state.nums()).toEqual([100, 200, 300]);
+    expect(parentUi.state.nums!()).toEqual([100, 200, 300]);
 
     // Click nested child component button -> emits `pillClicked('Клик, подтверждён!', [10, 20, 30])` to parent
     const innerBtn = childWrapper.querySelector('button') as HTMLButtonElement;
     innerBtn.click();
-    expect(parentUi.state.lastPayload()).toBe('Клик, подтверждён!');
+    expect(parentUi.state.lastPayload!()).toBe('Клик, подтверждён!');
 
     // 2. Dynamic `VirtualList` memoizes prefix sums: scrolling does NOT re-invoke `itemHeight`!
     let heightCalcCalls = 0;
@@ -1396,7 +1396,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const snaps = tt.history();
     expect(snaps.length).toBe(2);
     // Since `bigArraySig` did not change between snapshot 0 and snapshot 1, its array reference is shared!
-    expect(snaps[0].values.bigArraySig).toBe(snaps[1].values.bigArraySig);
+    expect(snaps[0]!.values.bigArraySig).toBe(snaps[1]!.values.bigArraySig);
     tt.dispose();
   });
 

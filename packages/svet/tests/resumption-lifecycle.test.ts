@@ -22,7 +22,7 @@ it('limits ID bindings to the requested container even with duplicate IDs', () =
     container,
     snapshot([{ elementId: 'label', signal: 'value', type: 'text' }]),
   );
-  restored.value.set('updated');
+  restored.value!.set('updated');
   expect(document.body.firstElementChild!.textContent).toBe('outside');
   expect(container.textContent).toBe('updated');
   disposeResumedContainer(container);
@@ -33,7 +33,7 @@ it('binds annotations on the container itself', () => {
   container.dataset.svetText = 'value';
   const restored = resumeContainer(container, snapshot());
   expect(container.textContent).toBe('initial');
-  restored.value.set('updated');
+  restored.value!.set('updated');
   expect(container.textContent).toBe('updated');
   disposeResumedContainer(container);
 });
@@ -46,9 +46,9 @@ it('replaces previous resumption without retaining old model listeners or subscr
   const input = container.querySelector('input')!;
   input.value = 'typed';
   input.dispatchEvent(new Event('input'));
-  expect(second.value()).toBe('typed');
-  expect(first.value()).toBe('initial');
-  first.value.set('stale');
+  expect(second.value!()).toBe('typed');
+  expect(first.value!()).toBe('initial');
+  first.value!.set('stale');
   expect(input.value).toBe('typed');
   expect(getGraphTelemetry().nodes).toBe(2);
   disposeResumedContainer(container);
@@ -66,7 +66,7 @@ it('owner disposal removes resumed event listeners and reactive graph nodes', ()
   const input = container.querySelector('input')!;
   input.value = 'after disposal';
   input.dispatchEvent(new Event('input'));
-  expect(restored.value()).toBe('initial');
+  expect(restored.value!()).toBe('initial');
   expect(getGraphTelemetry().nodes).toBe(0);
 });
 
@@ -83,7 +83,7 @@ it('explicit disposal is idempotent and releases both binding paths', () => {
     const input = container.querySelector('input')!;
     input.value = 'late';
     input.dispatchEvent(new Event('input'));
-    restored.value.set('stale');
+    restored.value!.set('stale');
     expect(input.value).toBe('late');
     expect(getGraphTelemetry().nodes).toBe(0);
   }
@@ -98,7 +98,7 @@ it('accepts literal unusual IDs in detached containers without selector injectio
     container,
     snapshot([{ elementId: child.id, signal: 'value', type: 'text' }]),
   );
-  restored.value.set('updated');
+  restored.value!.set('updated');
   expect(child.textContent).toBe('updated');
   disposeResumedContainer(container);
 });
@@ -112,7 +112,7 @@ it('rejects malformed snapshots before allocating nodes or replacing live bindin
     expect(() => resumeContainer(container, bad)).toThrow(TypeError);
     expect(getGraphTelemetry().nodes).toBe(count);
   }
-  restored.value.set('still live');
+  restored.value!.set('still live');
   expect(container.querySelector('input')!.value).toBe('still live');
   disposeResumedContainer(container);
 });

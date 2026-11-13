@@ -410,6 +410,6 @@ it('earlier sibling cleanup cannot invoke handlers or effects under a stopping a
     input = h('input', { model: modelValue }) as HTMLInputElement;
     document.body.append(button, input);
   });
-  stops[0]();
+  stops[0]!();
   expect([calls, runs, modelValue()]).toEqual([0, 1, 'kept']);
 });

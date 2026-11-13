@@ -234,8 +234,8 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
       const segButtons = () =>
         Array.from(container.querySelectorAll<HTMLButtonElement>('.forma-seg-btn'));
       expect(segButtons().map(b => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
-      expect(segButtons()[0].classList.contains('active')).toBe(true);
-      expect(segButtons()[1].classList.contains('active')).toBe(false);
+      expect(segButtons()[0]!.classList.contains('active')).toBe(true);
+      expect(segButtons()[1]!.classList.contains('active')).toBe(false);
 
       const cmdBtn = container.querySelector<HTMLButtonElement>('.command-btn')!;
       expect(cmdBtn.querySelector('svg')).not.toBeNull();
@@ -244,8 +244,8 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
       // Update state reactively via setState()
       inst.setState({ workspaceMode: 'mesh', editorOpen: true });
       expect(segButtons().map(b => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
-      expect(segButtons()[0].classList.contains('active')).toBe(false);
-      expect(segButtons()[1].classList.contains('active')).toBe(true);
+      expect(segButtons()[0]!.classList.contains('active')).toBe(false);
+      expect(segButtons()[1]!.classList.contains('active')).toBe(true);
 
       const sourceToggle = container.querySelector<HTMLButtonElement>('.source-toggle')!;
       expect(sourceToggle.getAttribute('aria-pressed')).toBe('true');
@@ -262,7 +262,7 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
         ],
       });
       expect(segButtons()).toHaveLength(3);
-      segButtons()[2].click();
+      segButtons()[2]!.click();
       expect(onAction).toHaveBeenLastCalledWith('openWorkspaceMode', ['code'], expect.any(Event));
     } finally {
       handle.unmount();
@@ -297,7 +297,7 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
 
       chk.checked = false;
       chk.dispatchEvent(new Event('change', { bubbles: true }));
-      expect(toolbar.state.autoRender()).toBe(false);
+      expect(toolbar.state.autoRender!()).toBe(false);
       expect(onBinding).toHaveBeenCalledWith('autoRender', false);
     } finally {
       hToolbar.unmount();
