@@ -116,3 +116,7 @@ pub fn place_ime_caret(window: &winit::window::Window, caret: &[f32]) {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "ime_session_tests.rs"]
+mod tests;
