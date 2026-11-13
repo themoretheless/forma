@@ -81,6 +81,8 @@
 
 `gpu-runtime`:
 
+- [ ] G-14: изменяемые срезы буфера выдаются без учёта уже выданных; нужен учёт диапазонов с
+  отказом при пересечении, как в wgpu.
 - [ ] `gpu_shader::valid::Validator` не возвращает ошибок (проверено): ill-typed шейдер доходит
   до компилятора Metal. Нужна настоящая проверка типов.
 - [ ] `vulkan`, `dx12`, `opengl`, `webgpu`: «reference profile» с обещанными возможностями без
@@ -126,10 +128,10 @@
 
 ## 7. Вычислительные крейты и чистка
 
-- [ ] `// SAFETY:` по FFI; `expect` / `unwrap` в библиотечном коде (по clippy: `compute-core` 56,
-  `compute-cuda` 48, `raster-core` 18, `gpu-runtime` 12, `swap-store` 11, `math-core` 8,
-  `math-compute` 8, `compute-mlx` 7, `memory-budget` 6; `gpu-shader` и `tensor-core` 0). Часть из
-  них проверенные инварианты, часть достижима с пользовательского ввода.
+- [ ] `// SAFETY:` по FFI. `expect` / `unwrap` в библиотечном коде просмотрены (по clippy:
+  `compute-core` 56, `compute-cuda` 48, `raster-core` 18, `gpu-runtime` 12, `swap-store` 11,
+  `math-core` 8, `math-compute` 8, `compute-mlx` 7, `memory-budget` 6): достижимые с ввода
+  исправлены (G-12, G-13), остальные стоят за проверкой рядом и ждут только перевода на типы.
 - [ ] Базовая линия не доснята: покрытие и бенчмарки.
 - [ ] Финальная чистка: мёртвый код, таблица до/после в `BASELINE.md`, закрытие строк `INVENTORY.md`.
 - [ ] Зависимости с advisory без обновления: `quick-xml`, `ttf-parser`, `zvariant` и соседи.
