@@ -98,9 +98,14 @@
       "count": 6
     }
   },
+  "src/engine/forma-render.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
   "src/engine/forma.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 45
+      "count": 40
     },
     "no-unsafe-finally": {
       "count": 2
