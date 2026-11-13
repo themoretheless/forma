@@ -182,3 +182,6 @@
   форматов WGSL), `textureStore` транслируется, а
   `textureDimensions` возвращает столько компонент, сколько измерений у текстуры (раньше всегда
   две).
+- `gpu_runtime::TextureFormat` получил целочисленные и snorm-форматы (`R32Uint`, `R32Sint`,
+  `Rg32Uint`, `Rg32Sint`, `Rgba8Snorm`, `Rgba8Uint`, `Rgba8Sint`, `Rgba16Uint`, `Rgba16Sint`,
+  `Rgba32Uint`, `Rgba32Sint`): исчерпывающий `match` по формату во внешнем коде нужно дополнить.

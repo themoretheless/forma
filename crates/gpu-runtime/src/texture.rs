@@ -18,11 +18,22 @@ pub enum TextureFormat {
     R16Uint,
     Rgba8Unorm,
     Rgba8UnormSrgb,
+    Rgba8Snorm,
+    Rgba8Uint,
+    Rgba8Sint,
     Bgra8Unorm,
     Bgra8UnormSrgb,
+    R32Uint,
+    R32Sint,
     R32Float,
+    Rg32Uint,
+    Rg32Sint,
     Rg32Float,
+    Rgba16Uint,
+    Rgba16Sint,
     Rgba16Float,
+    Rgba32Uint,
+    Rgba32Sint,
     Rgba32Float,
     /// BC1 block compression, sRGB. Sampled only; never a render target.
     Bc1RgbaUnormSrgb,
@@ -37,6 +48,17 @@ impl TextureFormat {
             Self::R16Uint => 23,           // MTLPixelFormatR16Uint
             Self::Rgba8Unorm => 70,        // MTLPixelFormatRGBA8Unorm
             Self::Rgba8UnormSrgb => 71,    // MTLPixelFormatRGBA8Unorm_sRGB
+            Self::Rgba8Snorm => 72,        // MTLPixelFormatRGBA8Snorm
+            Self::Rgba8Uint => 73,         // MTLPixelFormatRGBA8Uint
+            Self::Rgba8Sint => 74,         // MTLPixelFormatRGBA8Sint
+            Self::R32Uint => 53,           // MTLPixelFormatR32Uint
+            Self::R32Sint => 54,           // MTLPixelFormatR32Sint
+            Self::Rg32Uint => 103,         // MTLPixelFormatRG32Uint
+            Self::Rg32Sint => 104,         // MTLPixelFormatRG32Sint
+            Self::Rgba16Uint => 113,       // MTLPixelFormatRGBA16Uint
+            Self::Rgba16Sint => 114,       // MTLPixelFormatRGBA16Sint
+            Self::Rgba32Uint => 123,       // MTLPixelFormatRGBA32Uint
+            Self::Rgba32Sint => 124,       // MTLPixelFormatRGBA32Sint
             Self::Bgra8Unorm => 80,        // MTLPixelFormatBGRA8Unorm
             Self::Bgra8UnormSrgb => 81,    // MTLPixelFormatBGRA8Unorm_sRGB
             Self::R32Float => 55,          // MTLPixelFormatR32Float
@@ -57,11 +79,21 @@ impl TextureFormat {
             | Self::Rgba8UnormSrgb
             | Self::Bgra8Unorm
             | Self::Bgra8UnormSrgb
+            | Self::Rgba8Snorm
+            | Self::Rgba8Uint
+            | Self::Rgba8Sint
+            | Self::R32Uint
+            | Self::R32Sint
             | Self::R32Float
             | Self::Depth24Plus
             | Self::Depth32Float => 4,
-            Self::Rg32Float | Self::Rgba16Float => 8,
-            Self::Rgba32Float => 16,
+            Self::Rg32Uint
+            | Self::Rg32Sint
+            | Self::Rg32Float
+            | Self::Rgba16Uint
+            | Self::Rgba16Sint
+            | Self::Rgba16Float => 8,
+            Self::Rgba32Uint | Self::Rgba32Sint | Self::Rgba32Float => 16,
             // Block compressed: 8 bytes per 4x4 block, so there is no whole byte count per pixel.
             Self::Bc1RgbaUnormSrgb => 0,
         }
