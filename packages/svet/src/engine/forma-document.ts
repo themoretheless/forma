@@ -3,8 +3,8 @@
  * styles, prop constraints, state and prop signals, `let` expressions, shortcuts and the tree.
  */
 import type { FormaAstNode, FormaDocumentAst, FormaPropConstraint } from './forma-ast.ts';
-import { isSafePatternRegex } from './forma-expr.ts';
-import type { FormaRuntimeInstance } from './forma-instance.ts';
+import { FORBIDDEN_MEMBER_KEYS, isSafePatternRegex } from './forma-expr.ts';
+import type { FormaCompileOptions, FormaProperty, FormaRuntimeInstance } from './forma-instance.ts';
 import { structuredCloneIfObject } from './forma-reactive.ts';
 import type { Signal } from './reactivity.ts';
 
@@ -110,4 +110,56 @@ export function applyFormaDocument(
 
   rootAstNodes.length = 0;
   rootAstNodes.push(...docAst.rootAstNodes);
+}
+
+/**
+ * Binds the state a host passes in: a view model's properties and signals are used as they are,
+ * so the host and the component share them; plain values in `options.state` become signals the
+ * instance owns. Runs before the document is loaded, so declared defaults do not replace them.
+ */
+export function bindExternalFormaState(
+  {
+    stateSignals,
+    initialStateValues,
+  }: Pick<FormaDocumentState, 'stateSignals' | 'initialStateValues'>,
+  options: FormaCompileOptions | undefined,
+  ensureStateSignal: (key: string, initialVal?: unknown) => FormaRuntimeInstance['state'][string],
+): void {
+  // Bind external Rust/TS ViewModel properties if provided
+  if (options?.viewModel) {
+    for (const [k, propOrSig] of Object.entries(options.viewModel)) {
+      if ('signal' in propOrSig) {
+        stateSignals[k] = propOrSig.signal;
+        initialStateValues[k] = propOrSig.signal.peek();
+      } else if (typeof propOrSig === 'function') {
+        stateSignals[k] = propOrSig;
+        initialStateValues[k] = propOrSig.peek();
+      }
+    }
+  }
+
+  // Bind initial external `options.state` fields or signals if provided
+  if (options?.state) {
+    for (const [k, valOrSig] of Object.entries(options.state)) {
+      if (FORBIDDEN_MEMBER_KEYS.has(k)) continue;
+      if (
+        valOrSig &&
+        typeof valOrSig === 'object' &&
+        'signal' in valOrSig &&
+        typeof (valOrSig as any).signal === 'function'
+      ) {
+        const extSig = (valOrSig as FormaProperty<any>).signal;
+        stateSignals[k] = extSig;
+        initialStateValues[k] = extSig.peek();
+      } else if (typeof valOrSig === 'function' && '__svet_sig' in (valOrSig as any)) {
+        const extSig = valOrSig as Signal<any>;
+        stateSignals[k] = extSig;
+        initialStateValues[k] = extSig.peek();
+      } else {
+        const cloned = structuredCloneIfObject(valOrSig);
+        initialStateValues[k] = cloned;
+        ensureStateSignal(k, cloned);
+      }
+    }
+  }
 }

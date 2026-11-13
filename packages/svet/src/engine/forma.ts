@@ -146,7 +146,11 @@ import {
   type FormaValidationReport,
 } from './forma-aot.ts';
 import { createFormaActionRunner, createFormaStateMutator } from './forma-actions.ts';
-import { applyFormaDocument, type FormaDocumentState } from './forma-document.ts';
+import {
+  applyFormaDocument,
+  bindExternalFormaState,
+  type FormaDocumentState,
+} from './forma-document.ts';
 import { createFormaRenderer } from './forma-render.ts';
 import { formaComponentRegistry } from './forma-registry.ts';
 
@@ -342,43 +346,7 @@ function instantiateForma(
       return sig;
     };
 
-    // Bind external Rust/TS ViewModel properties if provided
-    if (options?.viewModel) {
-      for (const [k, propOrSig] of Object.entries(options.viewModel)) {
-        if ('signal' in propOrSig) {
-          stateSignals[k] = propOrSig.signal;
-          initialStateValues[k] = propOrSig.signal.peek();
-        } else if (typeof propOrSig === 'function') {
-          stateSignals[k] = propOrSig;
-          initialStateValues[k] = propOrSig.peek();
-        }
-      }
-    }
-
-    // Bind initial external `options.state` fields or signals if provided
-    if (options?.state) {
-      for (const [k, valOrSig] of Object.entries(options.state)) {
-        if (FORBIDDEN_MEMBER_KEYS.has(k)) continue;
-        if (
-          valOrSig &&
-          typeof valOrSig === 'object' &&
-          'signal' in valOrSig &&
-          typeof (valOrSig as any).signal === 'function'
-        ) {
-          const extSig = (valOrSig as FormaProperty<any>).signal;
-          stateSignals[k] = extSig;
-          initialStateValues[k] = extSig.peek();
-        } else if (typeof valOrSig === 'function' && '__svet_sig' in (valOrSig as any)) {
-          const extSig = valOrSig as Signal<any>;
-          stateSignals[k] = extSig;
-          initialStateValues[k] = extSig.peek();
-        } else {
-          const cloned = structuredCloneIfObject(valOrSig);
-          initialStateValues[k] = cloned;
-          ensureStateSignal(k, cloned);
-        }
-      }
-    }
+    bindExternalFormaState({ stateSignals, initialStateValues }, options, ensureStateSignal);
 
     const documentState: FormaDocumentState = {
       tokens,
