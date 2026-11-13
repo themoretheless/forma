@@ -379,49 +379,15 @@ function open(path) {
   refreshStatesPanel();
 }
 function lines() {
-  if (codeEditor) {
-    const { line, column } = codeEditor.position();
-    $('position').textContent = `Ln ${line}, Col ${column}`;
-  } else {
-    const text = $('code').value,
-      total = countLines(text);
-    $('lines').textContent = Array.from({ length: total }, (_, i) => i + 1).join('\n');
-    const sel = $('code').selectionStart,
-      line = countLines(text, sel),
-      lastNl = text.lastIndexOf('\n', sel - 1);
-    $('position').textContent = `Ln ${line}, Col ${sel - lastNl}`;
-  }
+  const { line, column } = codeEditor.position();
+  $('position').textContent = `Ln ${line}, Col ${column}`;
   highlightSource();
 }
 function highlightSource() {
   spacingOverlay?.update();
   canvasTools?.update();
   elementTools?.update();
-  if (codeEditor) {
-    codeEditor.highlight(selected && active === selectedPath ? selected : null);
-    return;
-  }
-  const code = $('code');
-  let layer = $('source-highlight');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'source-highlight';
-    layer.setAttribute('aria-hidden', 'true');
-    code.parentElement.append(layer);
-  }
-  layer.hidden = !selected || active !== selectedPath;
-  if (layer.hidden) return;
-  const first = countLines(code.value, selected.start) - 1;
-  const last = countLines(code.value, selected.end) - 1;
-  const lineHeight = parseFloat(getComputedStyle(code).lineHeight);
-  const start = first * lineHeight - code.scrollTop;
-  const end = (last + 1) * lineHeight - code.scrollTop;
-  const top = Math.max(0, start),
-    bottom = Math.min(code.clientHeight, end);
-  layer.hidden = bottom <= top;
-  layer.style.top = code.offsetTop + top + 'px';
-  layer.style.height = Math.max(0, bottom - top) + 'px';
-  layer.dataset.lines = `${first + 1}-${last + 1}`;
+  codeEditor.highlight(selected && active === selectedPath ? selected : null);
 }
 function log(text) {
   appendLog(logs, text, new Date().toLocaleTimeString());
