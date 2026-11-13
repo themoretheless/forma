@@ -1,3 +1,4 @@
+import { createProjectStore } from './project-store.js';
 import { createPreviewDebugger } from './preview-debugger.js';
 import {
   readStorage,
@@ -207,9 +208,7 @@ document.querySelector('#app').innerHTML = `
   if (damaged !== null)
     saveStatus('damaged', 'Сохранённый проект повреждён: открыта исходная версия');
 }
-let directoryHandle = null,
-  directorySavedFiles = {},
-  selectedTreeItem = active,
+let selectedTreeItem = active,
   treeFilter = '',
   draggedTreePath = null;
 function resetProjectEditing() {
@@ -223,24 +222,14 @@ function saveStatus(status, text) {
   $('saved').textContent = text;
   studioEvents.emit(studioEventTypes.save, { status, text });
 }
+const projectStore = createProjectStore({
+  key: storageKey('forma-project'),
+  writeProject,
+  writeDirectoryProject,
+  status: saveStatus,
+});
 function persist() {
-  try {
-    if (!writeProject(storageKey('forma-project'), files)) throw Error('Storage unavailable');
-    if (directoryHandle) {
-      const snap = { ...files };
-      writeDirectoryProject(directoryHandle, snap, directorySavedFiles)
-        .then(() => {
-          directorySavedFiles = snap;
-          saveStatus('saved', `Сохранено (${directoryHandle.name})`);
-        })
-        .catch(() => {
-          directoryHandle = null;
-          saveStatus('saved', 'Сохранено в браузере (доступ к папке потерян)');
-        });
-    } else saveStatus('saved', 'Сохранено');
-  } catch {
-    saveStatus('unsaved', 'Не сохранено: экспортируйте проект');
-  }
+  projectStore.save(files);
 }
 function selectTreeRow(targetPath) {
   selectedTreeItem = targetPath;
@@ -1274,8 +1263,7 @@ $('open-folder').onclick = async () => {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     const data = await readDirectoryProject(handle);
     resetProjectEditing();
-    directoryHandle = handle;
-    directorySavedFiles = { ...data };
+    projectStore.attach(handle, data);
     files = data;
     if ($('project-switcher-label')) $('project-switcher-label').textContent = handle.name;
     const titleNode = document.querySelector('.project-title')?.childNodes?.[0];
@@ -1316,12 +1304,12 @@ $('export-native').onclick = async () => {
     const bundle = buildNativeRustExport(files, entry, {
       name: isStudioControls ? 'forma-studio-controls' : 'forma-workspace-app',
     });
-    if (directoryHandle) {
-      await writeDirectoryProject(directoryHandle, bundle.files, directorySavedFiles);
-      directorySavedFiles = { ...bundle.files };
+    const folder = projectStore.directory;
+    if (folder) {
+      await projectStore.writeToDirectory(bundle.files);
       files = { ...bundle.files };
       tree();
-      saveStatus('saved', `Rust-крейт записан (${directoryHandle.name})`);
+      saveStatus('saved', `Rust-крейт записан (${folder.name})`);
     } else {
       downloadJson(`${bundle.name}-rust-crate.json`, JSON.stringify(bundle.files, null, 2));
       $('status').textContent = `Экспортирован нативный Rust-проект (${bundle.entry})`;
@@ -1338,8 +1326,7 @@ $('upload').onchange = async e => {
     const data = validateProject(JSON.parse(await f.text()));
     if (!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.')) return;
     resetProjectEditing();
-    directoryHandle = null;
-    directorySavedFiles = {};
+    projectStore.detach();
     files = data;
     active = Object.keys(files)[0];
     entry = Object.keys(files).find(p => p.endsWith('.ui') && !p.endsWith('.design.ui'));
