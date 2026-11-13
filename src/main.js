@@ -1,3 +1,4 @@
+import { appendLog, diagnosticTargets, outputHtml, problemCount } from './output-panel.js';
 import { fileTreeHtml, visibleTreePaths } from './file-tree-model.js';
 import { createFile, duplicateFile, moveDestination, renameFile } from './project-files.js';
 import { createProjectStore } from './project-store.js';
@@ -413,41 +414,21 @@ function highlightSource() {
   layer.dataset.lines = `${first + 1}-${last + 1}`;
 }
 function log(text) {
-  logs.push({ time: new Date().toLocaleTimeString(), text });
-  if (logs.length > 200) logs.shift();
+  appendLog(logs, text, new Date().toLocaleTimeString());
   output();
 }
 function output() {
-  const problemTotal = (error ? 1 : 0) + (error ? 0 : lintWarnings.length);
+  const problemTotal = problemCount(error, lintWarnings);
   $('problem-count').textContent = problemTotal;
   studioEvents.emit(studioEventTypes.problems, { count: problemTotal });
   $('event-count').textContent = logs.length;
-  $('output').innerHTML =
-    tab === 'state'
-      ? `<pre>${esc(JSON.stringify(state, null, 2))}</pre>`
-      : tab === 'events'
-        ? logs.map(l => `<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('') ||
-          '<p class="muted">События появятся при взаимодействии с предпросмотром.</p>'
-        : error
-          ? `<p class="error">● ${esc(error)}</p>`
-          : lintWarnings.length
-            ? lintWarnings.map(w => `<p class="warn">⚠ ${esc(w.message)}</p>`).join('')
-            : '<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';
-  diagnosticLinks();
-}
-function diagnosticLinks() {
-  if (tab !== 'problems' || sourceDiagnostic?.message !== error) return;
-  for (const [label, source] of [
-    ['К ошибке', sourceDiagnostic.source],
-    ['К определению узла', sourceDiagnostic.related],
-  ]) {
-    if (!source || typeof files[source.file] !== 'string') continue;
-    const button = document.createElement('button'),
-      line = files[source.file].slice(0, source.from).split('\n').length;
-    button.textContent = `${label} · ${source.file}:${line}`;
+  $('output').innerHTML = outputHtml({ tab, state, logs, error, warnings: lintWarnings });
+  for (const target of diagnosticTargets({ tab, error, diagnostic: sourceDiagnostic, files })) {
+    const button = document.createElement('button');
+    button.textContent = target.label;
     button.onclick = () => {
-      open(source.file);
-      $('code').setSelectionRange(source.from, source.to);
+      open(target.file);
+      $('code').setSelectionRange(target.from, target.to);
       $('code').focus();
     };
     $('output').append(button);
