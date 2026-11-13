@@ -101,7 +101,7 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
       continue;
     }
 
-    const ch = src[i];
+    const ch = src.charAt(i);
     if (code === 39 || code === 34) {
       const q = ch;
       let s = '';
@@ -215,7 +215,8 @@ function compileInterpParts(template: string): InterpPart[] {
     if (match[0].startsWith('\\')) {
       parts.push({ literal: true, text: match[0].slice(1) });
     } else {
-      parts.push({ literal: false, ast: parseFormaExprAst(match[1].trim()) });
+      // The group is not optional, so it is present whenever the pattern matched.
+      parts.push({ literal: false, ast: parseFormaExprAst((match[1] ?? '').trim()) });
     }
     lastIdx = re.lastIndex;
   }
@@ -424,13 +425,13 @@ export function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
         return scope.locals[name];
       }
       if (Object.prototype.hasOwnProperty.call(scope.computedLets, name)) {
-        return scope.computedLets[name]();
+        return (scope.computedLets[name] as (typeof scope.computedLets)[string])();
       }
       if (Object.prototype.hasOwnProperty.call(scope.state, name)) {
-        return scope.state[name]();
+        return (scope.state[name] as (typeof scope.state)[string])();
       }
       if (Object.prototype.hasOwnProperty.call(scope.props, name)) {
-        return scope.props[name]();
+        return (scope.props[name] as (typeof scope.props)[string])();
       }
       if (Object.prototype.hasOwnProperty.call(formaStdlib, name)) {
         return formaStdlib[name];
@@ -501,7 +502,7 @@ export function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
         node.callee.type === 'ident' &&
         Object.prototype.hasOwnProperty.call(formaStdlib, node.callee.name)
       ) {
-        return formaStdlib[node.callee.name](...argVals);
+        return (formaStdlib[node.callee.name] as (typeof formaStdlib)[string])(...argVals);
       }
       if (node.callee.type === 'member') {
         if (FORBIDDEN_MEMBER_KEYS.has(node.callee.property)) {
@@ -679,8 +680,8 @@ export function compileFormaPatternMatcher(pattern: string): (val: any) => boole
   } else if (pat.includes('|')) {
     const subMatchers = pat.split('|').map(sub => compileFormaPatternMatcher(sub.trim()));
     matcher = (actualValue: any) => {
-      for (let i = 0; i < subMatchers.length; i++) {
-        if (subMatchers[i](actualValue)) return true;
+      for (const matches of subMatchers) {
+        if (matches(actualValue)) return true;
       }
       return false;
     };
