@@ -315,7 +315,7 @@ function App() {
           <button
             onClick={() => {
               const idx = Math.floor(Math.random() * 16);
-              gpuInput.setAt(idx, gpuInput.peek()[idx] + 4.5);
+              gpuInput.setAt(idx, (gpuInput.peek()[idx] ?? 0) + 4.5);
               refreshMetrics();
             }}
           >

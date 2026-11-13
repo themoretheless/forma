@@ -187,6 +187,9 @@ export function createTimeTravelDebugger<T extends Record<string, Signal<any>>>(
       return false;
     }
     const targetSnap = list[targetIndex];
+    if (!targetSnap) {
+      return false;
+    }
     isTimeTraveling = true;
     try {
       batch(() => {
@@ -279,7 +282,7 @@ function binarySearchPrefixOffset(prefixOffsets: Float64Array, targetScrollTop: 
   let high = Math.max(0, prefixOffsets.length - 2);
   while (low < high) {
     const mid = (low + high + 1) >>> 1;
-    if (prefixOffsets[mid] <= targetScrollTop) {
+    if ((prefixOffsets[mid] ?? 0) <= targetScrollTop) {
       low = mid;
     } else {
       high = mid - 1;
@@ -316,7 +319,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
         const heightFn = props.itemHeight as (item: T, index: number) => number;
         const prefixes = new Float64Array(totalCount + 1);
         for (let i = 0; i < totalCount; i++) {
-          prefixes[i + 1] = prefixes[i] + Math.max(1, heightFn(list[i], i));
+          prefixes[i + 1] = (prefixes[i] ?? 0) + Math.max(1, heightFn(list[i] as T, i));
         }
         return prefixes;
       })
@@ -385,7 +388,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
       const rawEnd = binarySearchPrefixOffset(prefixes, scrollTop + viewportHeight) + 1;
       startIdx = Math.max(0, rawStart - overscan);
       endIdx = Math.min(totalCount, rawEnd + overscan);
-      topOffsetPx = prefixes[startIdx];
+      topOffsetPx = prefixes[startIdx] ?? 0;
     }
 
     visibleRangeSig.set([startIdx, endIdx]);
@@ -396,7 +399,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
     for (let idx = startIdx; idx < endIdx; idx++) {
       const rowH =
         isDynamicHeight && prefixes
-          ? Math.max(1, prefixes[idx + 1] - prefixes[idx])
+          ? Math.max(1, (prefixes[idx + 1] ?? 0) - (prefixes[idx] ?? 0))
           : fixedItemHeight;
       const rowWrapper = document.createElement('div');
       rowWrapper.setAttribute('data-virtual-index', String(idx));
@@ -404,7 +407,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
       rowWrapper.style.boxSizing = 'border-box';
       rowWrapper.style.display = 'flex';
       rowWrapper.style.alignItems = 'center';
-      insertChild(rowWrapper, props.renderItem(list[idx], idx));
+      insertChild(rowWrapper, props.renderItem(list[idx] as T, idx));
       frag.appendChild(rowWrapper);
     }
     contentLayer.appendChild(frag);
@@ -415,7 +418,7 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
     if (isDynamicHeight && dynamicPrefixOffsets) {
       const prefixes = dynamicPrefixOffsets.peek();
       if (index >= 0 && index < prefixes.length) {
-        clampedTop = prefixes[index];
+        clampedTop = prefixes[index] ?? 0;
       }
     } else {
       clampedTop = Math.max(0, index * fixedItemHeight);

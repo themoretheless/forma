@@ -10,11 +10,8 @@
 function parseHexToRgb(hex: string): [number, number, number] {
   const clean = hex.replace(/^#/, '').trim();
   if (clean.length === 3) {
-    return [
-      parseInt(clean[0] + clean[0], 16),
-      parseInt(clean[1] + clean[1], 16),
-      parseInt(clean[2] + clean[2], 16),
-    ];
+    const doubled = (index: number) => parseInt(clean.charAt(index).repeat(2), 16);
+    return [doubled(0), doubled(1), doubled(2)];
   }
   const num = parseInt(clean.slice(0, 6), 16) || 0;
   return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
@@ -29,11 +26,12 @@ function rgbToHex(r: number, g: number, b: number): string {
 }
 
 function relativeLuminance(hex: string): number {
-  const [r, g, b] = parseHexToRgb(hex).map(v => {
+  const linear = (v: number) => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [r, g, b] = parseHexToRgb(hex);
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
 }
 
 export const formaStdlib: Record<string, (...args: any[]) => any> = {
@@ -164,9 +162,9 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
 export function transformFormaPipes(expr: string): string {
   if (!expr.includes('|>')) return expr;
   const stages = expr.split('|>').map(s => s.trim());
-  let acc = stages[0];
-  for (let i = 1; i < stages.length; i++) {
-    const stage = stages[i];
+  // split always yields at least one piece: the expression before the first pipe.
+  let acc = stages[0] ?? '';
+  for (const stage of stages.slice(1)) {
     const openParen = stage.indexOf('(');
     if (openParen !== -1 && stage.endsWith(')')) {
       const fnName = stage.slice(0, openParen).trim();
