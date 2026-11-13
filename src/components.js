@@ -1,10 +1,8 @@
 // Component linking is shared by Studio preview and native launch. It emits the
 // same concrete primitive template; there is no DOM rendering of button content.
-import { parse, validateDesign, designStatePatch } from './language.js';
-import { designReference, readDesignData } from './design-data.js';
+import { parse } from './language.js';
 import { propertyOrigins } from './property-origins.js';
 import { similarName, sourceError } from './diagnostics.js';
-import { parseSvgShapes, placeSvgShapes } from './svg-shapes.js';
 import { attachSources, createElementTree } from './element-tree.js';
 import { createCacheBudget } from './cache-budget.js';
 import {
@@ -27,6 +25,9 @@ import {
 } from './component-layout.js';
 import { frameTemplates, literal, serialize, serializeNode } from './component-template.js';
 import { own } from './shared/object.js';
+import { clone, visit } from './compiler/data.js';
+import { cachingMetrics } from './compiler/metrics-cache.js';
+import { applyDesigns } from './compiler/design-patch.js';
 import { contentProps, layoutProps, standard, visualTypes } from './compiler/vocabulary.js';
 import {
   cell,
@@ -41,33 +42,6 @@ import {
 export { evaluate } from './component-semantics.js';
 export { contentProps, layoutProps, standard } from './compiler/vocabulary.js';
 
-// Compiling clones a cached parse and the linked definitions on every run, and
-// those graphs are plain object/array/scalar data. Copying them recursively with
-// an identity map keeps shared subgraphs shared, the way structuredClone did,
-// without paying the structured-clone setup on the hot path.
-const isPlain = value => {
-  if (value === null || typeof value !== 'object') return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
-function copyData(value, seen) {
-  if (value === null || typeof value !== 'object') return value;
-  const known = seen.get(value);
-  if (known !== undefined) return known;
-  if (Array.isArray(value)) {
-    const out = [];
-    seen.set(value, out);
-    for (const item of value) out.push(copyData(item, seen));
-    return out;
-  }
-  if (!isPlain(value)) return structuredClone(value);
-  const out = {};
-  seen.set(value, out);
-  for (const key of Object.keys(value)) out[key] = copyData(value[key], seen);
-  return out;
-}
-const clone = value =>
-  typeof value === 'object' && value !== null ? copyData(value, new WeakMap()) : value;
 const primitiveTypes = new Set([
   ...visualTypes,
   'ContentPresenter',
@@ -117,15 +91,6 @@ const fallback = {
   focusBorderColor: { expr: '#ffffff' },
   transitionDuration: { expr: '140ms' },
 };
-function visit(nodes, fn) {
-  for (const n of nodes) {
-    fn(n);
-    visit(n.children ?? [], fn);
-    visit(n.elseChildren ?? [], fn);
-    visit(n.emptyChildren ?? [], fn);
-    if (n.branches) for (const b of n.branches) visit(b.children ?? [], fn);
-  }
-}
 function substitute(v, key, base) {
   if (v?.expr?.startsWith('base.')) {
     if (v.expr !== `base.${key}`) throw Error(`В override ${key} допустим только base.${key}`);
@@ -214,123 +179,12 @@ export function linkComponentDefinitions(files) {
   );
 }
 function compile(files, entry, state, metrics, read, links) {
-  // Measurement and lowered SVG geometry are deterministic within one compile.
-  // Keep these caches local so edits, state, fonts and metrics callbacks are
-  // re-read on the next compilation, without retaining large output strings.
-  const textSizes = new Map(),
-    images = new Map(),
-    parsedIcons = new Map(),
-    measureText = metrics.measureText,
-    metricsContext = metrics;
-  // Parsed icon geometry is compile-local and bounded like the output strings below.
-  const iconGeometryBudget = 1_000_000;
-  let imageUnits = 0,
-    iconGeometryUnits = 0;
-  metrics = {
-    ...metrics,
-    measureText: measureText
-      ? function (text, size, family = 'sans') {
-          // The default family keeps the bare size as its key and the two-argument call.
-          const sizeKey = family === 'sans' ? size : `${family}:${size}`;
-          let byText = textSizes.get(sizeKey);
-          if (!byText) {
-            byText = new Map();
-            textSizes.set(sizeKey, byText);
-          }
-          if (!byText.has(text)) {
-            const measured =
-              family === 'sans'
-                ? measureText.call(metricsContext, text, size)
-                : measureText.call(metricsContext, text, size, family);
-            byText.set(text, [measured[0], measured[1]]);
-          }
-          return byText.get(text);
-        }
-      : undefined,
-    imageContent(source, box, currentColor) {
-      let byBox = images.get(source);
-      const key = `${box[0]},${box[1]},${box[2]},${box[3]},${currentColor}`;
-      if (byBox?.has(key)) return byBox.get(key);
-      const cached = parsedIcons.get(source);
-      let parsed;
-      if (cached?.color === currentColor) parsed = cached.parsed;
-      else {
-        parsed = parseSvgShapes(source, currentColor);
-        if (iconGeometryUnits <= iconGeometryBudget) {
-          parsedIcons.set(source, { color: currentColor, parsed });
-          iconGeometryUnits += parsed.shapes.reduce(
-            (total, shape) => total + shape.points.length * 16,
-            64,
-          );
-        }
-      }
-      const content = placeSvgShapes(parsed, box)
-        .map(s => {
-          let pts = '';
-          for (let i = 0; i < s.points.length; i++)
-            pts += (i ? ' ' : '') + s.points[i][0] + ' ' + s.points[i][1];
-          return `ContentShape { points: '${pts}'; color: ${s.color}; }`;
-        })
-        .join(' ');
-      if (imageUnits + content.length <= 1_000_000) {
-        if (!byBox) {
-          byBox = new Map();
-          images.set(source, byBox);
-        }
-        byBox.set(key, content);
-        imageUnits += content.length;
-      }
-      return content;
-    },
-  };
+  const metricsContext = metrics;
+  metrics = cachingMetrics(metrics);
   const document = read(files[entry], entry);
   let scene = clone(document.nodes);
-  if (document.designs?.length && metricsContext.designMode !== false) {
-    const merged = { overrides: {}, states: [] };
-    const baseDir = entry.includes('/') ? entry.slice(0, entry.lastIndexOf('/') + 1) : '';
-    for (const ref of document.designs) {
-      const designPath = baseDir + String(ref).replace(/^\.\//, '');
-      if (!own(files, designPath)) throw Error(`Дизайн-файл не найден: ${designPath}`);
-      const design = read(files[designPath], designPath);
-      if (Object.keys(design.overrides ?? {}).length || (design.states?.length ?? 0)) {
-        validateDesign(document, design);
-        for (const [key, props] of Object.entries(design.overrides ?? {})) {
-          if (own(merged.overrides, key)) throw Error(`Повторный дизайн-key ${key}`);
-          merged.overrides[key] = props;
-        }
-        for (const s of design.states ?? []) {
-          if (merged.states.some(other => other.name === s.name))
-            throw Error(`Повторное состояние ${s.name}`);
-          merged.states.push({ ...s, file: designPath });
-        }
-      }
-    }
-    const activeState =
-      metricsContext.designState === undefined
-        ? (merged.states[0]?.name ?? null)
-        : metricsContext.designState;
-    const designPatch = designStatePatch(merged, activeState);
-    const resolveDesignValue = value => {
-      const ref = designReference(value);
-      if (ref) return readDesignData(ref);
-      if (Array.isArray(value)) return value.map(resolveDesignValue);
-      if (value && typeof value === 'object' && !own(value, 'expr'))
-        return Object.fromEntries(
-          Object.entries(value).map(([k, v]) => [k, resolveDesignValue(v)]),
-        );
-      return value;
-    };
-    visit(scene, n => {
-      const key = n.props?.key;
-      if (typeof key === 'string' && own(designPatch, key)) {
-        const resolvedPatch = Object.fromEntries(
-          Object.entries(designPatch[key]).map(([k, v]) => [k, resolveDesignValue(v)]),
-        );
-        n.props = { ...n.props, ...resolvedPatch };
-        if (n.bindings) for (const k of Object.keys(resolvedPatch)) delete n.bindings[k];
-      }
-    });
-  }
+  if (document.designs?.length && metricsContext.designMode !== false)
+    applyDesigns(scene, document, files, entry, read, metricsContext.designState);
   metricsContext.transformScene?.(scene);
   visit(scene, n => {
     const patch = metricsContext.instanceProps?.(n);
