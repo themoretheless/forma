@@ -126,7 +126,10 @@
 
 ## 7. Вычислительные крейты и чистка
 
-- [ ] `// SAFETY:` по FFI, `expect` / `unwrap` в продакшен-коде вычислительных крейтов.
+- [ ] `// SAFETY:` по FFI; `expect` / `unwrap` в библиотечном коде (по clippy: `compute-core` 56,
+  `compute-cuda` 48, `raster-core` 18, `gpu-runtime` 12, `swap-store` 11, `math-core` 8,
+  `math-compute` 8, `compute-mlx` 7, `memory-budget` 6; `gpu-shader` и `tensor-core` 0). Часть из
+  них проверенные инварианты, часть достижима с пользовательского ввода.
 - [ ] Базовая линия не доснята: покрытие и бенчмарки.
 - [ ] Финальная чистка: мёртвый код, таблица до/после в `BASELINE.md`, закрытие строк `INVENTORY.md`.
 - [ ] Зависимости с advisory без обновления: `quick-xml`, `ttf-parser`, `zvariant` и соседи.

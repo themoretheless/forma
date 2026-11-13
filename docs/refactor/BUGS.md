@@ -32,6 +32,7 @@
 | G-9 | `crates/gpu-shader/src/front/wgsl.rs` `parse_error_at` | исправлено (`42fcd08`, тест `parse_errors_report_exact_line_and_column`) | `split_top_level_items` возвращает заимствованные срезы `&str` внутри `clean`, а все ошибки разбора вычисляют точные 1-базовые `(line, column)` по смещению среза |
 | G-10 | `crates/gpu-shader/src/back/msl.rs` `arrayLength` | исправлено (тест `array_length_of_something_that_is_not_a_bound_runtime_array_is_rejected`) | для аргумента, которому не соответствует буфер, подставлялось `_wgpu_buffer_sizes[0] / 4u`. Теперь `write_string` возвращает ошибку |
 | G-11 | `crates/gpu-shader/src/back/{spv,hlsl,glsl,cuda}.rs`, `compile_shader_multi_target` | исправлено (тесты `tests/targets.rs`) | «бэкенды» возвращали `Ok` с текстом, похожим на целевой язык: заголовок SPIR-V с вложенным WGSL, обёртку из комментариев HLSL и GLSL, PTX с точкой входа из одного `ret`. `compile_shader_multi_target` обещал компиляцию «во все шесть бэкендов». Фиктивные модули и эта функция удалены; `compile_wgsl_for_target` выдаёт MSL и WGSL, для остальных целей возвращает ошибку |
+| G-12 | `crates/gpu-shader/src/back/msl/mod.rs` константа-массив | исправлено (тест `an_array_constant_with_an_unclosed_type_is_an_error_not_a_panic`, падал паникой на прежнем коде) | шейдер с незакрытым `array<` в константе (`const W = array<f32, 2(…)`) проходил разбор и ронял генерацию MSL через `unwrap`. Теперь `write_string` возвращает ошибку. В библиотечном коде `gpu-shader` не осталось `unwrap` и `expect` |
 
 ## Зависимости (cargo-deny)
 

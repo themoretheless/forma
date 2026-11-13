@@ -132,8 +132,11 @@ pub(super) fn translate_expr_with_ctx(
         }
 
         // Handle `&arr[idx]` or `&global` when taking pointer to atomic or workgroup/function variable
-        out.push(expr[i..].chars().next().unwrap());
-        i += expr[i..].chars().next().unwrap().len_utf8();
+        let Some(ch) = expr[i..].chars().next() else {
+            break;
+        };
+        out.push(ch);
+        i += ch.len_utf8();
     }
 
     out

@@ -178,3 +178,29 @@ fn run() { let count = arrayLength(&valeus); }";
     let message = msl(unbound).unwrap_err();
     assert!(message.contains("arrayLength(&valeus)"), "{message}");
 }
+
+#[test]
+fn an_array_constant_with_an_unclosed_type_is_an_error_not_a_panic() {
+    let closed = msl(
+        "const WEIGHTS = array<f32, 2>(0.25, 0.75);\n@compute @workgroup_size(1)\nfn run() { let w = WEIGHTS[0]; }",
+    );
+    assert!(closed.unwrap().contains("WEIGHTS"));
+
+    let module = parse_str(
+        "const WEIGHTS = array<f32, 2(0.25, 0.75);\n@compute @workgroup_size(1)\nfn run() {}",
+    );
+    let Ok(module) = module else {
+        return; // rejected by the front end, which is as good
+    };
+    let info = Validator::new(ValidationFlags::all(), Capabilities::all())
+        .validate(&module)
+        .unwrap();
+    let error = msl::write_string(
+        &module,
+        &info,
+        &msl::Options::default(),
+        &Default::default(),
+    )
+    .unwrap_err();
+    assert!(error.contains("`array<` is never closed"), "{error}");
+}

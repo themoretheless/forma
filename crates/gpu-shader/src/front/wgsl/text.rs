@@ -39,7 +39,9 @@ pub fn strip_comments(src: &str) -> String {
             out.push_str("  ");
             i += 2;
         } else {
-            let ch = src[i..].chars().next().unwrap();
+            let Some(ch) = src[i..].chars().next() else {
+                break;
+            };
             out.push(ch);
             i += ch.len_utf8();
         }

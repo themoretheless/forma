@@ -265,9 +265,17 @@ struct _wgpu_arr {
         let Some(name) = &c.name else { continue };
         let ty_str = if let Some(th) = c.ty {
             msl_type_for_handle(module, th, false)
-        } else if c.expr_src.trim_start().starts_with("array<") {
-            let open = c.expr_src.find('<').unwrap();
-            let close = find_matching_delim(&c.expr_src[open..], '<', '>').unwrap() + open;
+        } else if let Some(open) = c
+            .expr_src
+            .find('<')
+            .filter(|_| c.expr_src.trim_start().starts_with("array<"))
+        {
+            let close = find_matching_delim(&c.expr_src[open..], '<', '>').ok_or_else(|| {
+                format!(
+                    "constant `{name}`: `array<` is never closed in `{}`",
+                    c.expr_src
+                )
+            })? + open;
             wgsl_type_str_to_msl(module, &c.expr_src[..=close])
         } else if c.expr_src.contains('.') {
             "float".to_string()
