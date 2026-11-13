@@ -48,7 +48,7 @@ class FakeElement {
 }
 
 /** Renders `source` and returns the element of the preview root. */
-function render(t, source, { interactive = true, state = {} } = {}) {
+function render(t, source, { interactive = true, state = {}, files } = {}) {
   const previous = globalThis.document;
   globalThis.document = {
     activeElement: null,
@@ -67,6 +67,7 @@ function render(t, source, { interactive = true, state = {} } = {}) {
     preview,
     compiled: parse(source),
     state,
+    files,
     interactive,
     design: null,
     onSelect() {},
@@ -76,6 +77,8 @@ function render(t, source, { interactive = true, state = {} } = {}) {
   });
   return preview.children[0];
 }
+
+const SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>';
 
 const BUTTON = `component Demo { Frame { Button { text: 'Go'; background: #aad9bd;
   hoverBackground: #c7eed7; pressedBackground: #78b493; disabledBackground: #596273; STATE } } }`;
@@ -152,15 +155,54 @@ test('every property the inspector offers for a control renders in the preview',
     'Stack',
     'Checkbox',
     'Slider',
+    'Rectangle',
+    'Image',
   ])
     for (const name of addableProperties(type)) {
       if (needsLayout.has(name)) continue;
       const source = `component Demo { Frame { ${type} { ${name}: ${propertyStart[name]}; } } }`;
       try {
-        render(t, source);
+        render(t, source, { files: { 'asset.png': SVG } });
       } catch (error) {
         rejected.push(`${type}.${name}: ${error.message}`);
       }
     }
   assert.deepEqual(rejected, []);
+});
+
+test('a rectangle is a box with its background, border and radius', t => {
+  const box = render(
+    t,
+    'component Demo { Frame { Rectangle { width: 40; height: 20; background: #123456; radius: 4; } } }',
+  ).children[0];
+  assert.equal(box.tagName, 'DIV');
+  assert.deepEqual(
+    [box.style.width, box.style.height, box.style.background, box.style.borderRadius],
+    ['40px', '20px', '#123456', '4px'],
+  );
+});
+
+test('an image shows the project file it names', t => {
+  const source =
+    "component Demo { Frame { Image { source: 'assets/dot.svg'; width: 24; height: 24; } } }";
+  const image = render(t, source, { files: { 'assets/dot.svg': SVG } }).children[0];
+  assert.equal(image.tagName, 'IMG');
+  assert.equal(image.src, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SVG));
+  assert.equal(image.style.width, '24px');
+  // An image is drawn, never run: markup inside it stays text of a data URL.
+  const hostile = '<svg onload="alert(1)"><script>alert(2)</script></svg>';
+  const drawn = render(t, source, { files: { 'assets/dot.svg': hostile } }).children[0];
+  assert.equal(drawn.tagName, 'IMG');
+  assert.ok(!drawn.src.includes('<'), drawn.src);
+
+  for (const files of [{}, undefined])
+    assert.throws(
+      () => render(t, source, { files }),
+      /SVG-файл не найден в проекте: assets\/dot.svg/,
+    );
+  // A name every object has is not a project file.
+  assert.throws(
+    () => render(t, source.replace('assets/dot.svg', 'toString'), { files: {} }),
+    /SVG-файл не найден в проекте: toString/,
+  );
 });

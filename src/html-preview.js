@@ -40,6 +40,8 @@ const ELEMENT_TYPES = {
   Checkbox: 'input',
   Slider: 'input',
   Button: 'button',
+  Rectangle: 'div',
+  Image: 'img',
   Panel: 'div',
   Badge: 'span',
   Tag: 'span',
@@ -60,7 +62,8 @@ const WEIGHT_STAR_RE = /^(?:\d+(?:\.\d+)?)?\*$/;
 
 // The HTML preview: the compiled tree becomes DOM inside `preview`. The editor passes the state
 // the bindings read and write, the design patch lying over the base values, and four callbacks,
-// so this module knows nothing about selection, the debugger, the journal or the file set.
+// so this module knows nothing about selection, the debugger or the journal.
+//   files       — the project files, read only for the image an Image names.
 //   interactive — clicks fire events instead of selecting; focus survives a re-render.
 //   design      — the active design state's overrides by key, or null when running.
 //   onSelect(sourceNode), onEvent(action,node,event), onLog(text), onChange() after a binding wrote state.
@@ -102,6 +105,7 @@ export function renderHtmlPreview({
   preview,
   compiled,
   state,
+  files,
   interactive,
   design,
   onSelect,
@@ -246,6 +250,13 @@ export function renderHtmlPreview({
       // Painted by `stateBackgrounds` once the resting background is known.
       if (STATE_BACKGROUNDS.includes(k)) continue;
       if (k === 'multiline') continue;
+      if (n.type === 'Image' && k === 'source') {
+        if (typeof x !== 'string' || !files || !Object.hasOwn(files, x))
+          throw Error(`SVG-файл не найден в проекте: ${x}`);
+        // As an image the file is drawn and never run, whatever markup it holds.
+        el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(files[x]);
+        continue;
+      }
       // Neither a placeholder nor a focused border can be styled inline, so the value goes to
       // a custom property that a rule in style.css reads for elements carrying the marker.
       if (k === 'placeholderColor' || k === 'focusBorderColor') {

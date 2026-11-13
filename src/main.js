@@ -599,6 +599,7 @@ function render(designMode = mode === 'design') {
     preview: $('preview'),
     compiled,
     state,
+    files,
     interactive: mode !== 'design',
     design: designMode ? designStatePatch(compiled, compiled.states[scenario]?.name) : null,
     onSelect: select,
