@@ -329,29 +329,15 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             )
         {
             if pressed && !self.ime.composing {
-                // Ctrl+Option belongs to macOS accessibility, not text editing.
-                if cfg!(target_os = "macos") && self.control && self.alt {
+                let modifiers = self.modifiers();
+                if modifiers.accessibility_chord() {
                     return Ok(());
                 }
-                let shift = self.shift;
-                // Ctrl+Alt is AltGr for text-producing keys on Windows and Linux.
-                let alt_gr = cfg!(not(target_os = "macos"))
-                    && self.command
-                    && self.alt
-                    && event.text.is_some();
-                let command = self.command && !alt_gr;
-                let word_modifier = if cfg!(target_os = "macos") {
-                    self.alt && !self.command
-                } else {
-                    self.command && !self.alt
-                };
                 let press = TextKey {
                     logical_key: &event.logical_key,
                     physical_key: &event.physical_key,
                     text: event.text.as_deref(),
-                    shift,
-                    command,
-                    word_modifier,
+                    modifiers,
                 };
                 self.app
                     .update(&mut |runtime| text_edit_key(runtime, &press))?;

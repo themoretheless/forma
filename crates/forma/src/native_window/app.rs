@@ -93,6 +93,45 @@ pub struct NativeModifiers {
     pub command: bool,
 }
 
+impl NativeModifiers {
+    pub fn from_state(state: winit::keyboard::ModifiersState) -> Self {
+        Self {
+            shift: state.shift_key(),
+            control: state.control_key(),
+            alt: state.alt_key(),
+            command: if cfg!(target_os = "macos") {
+                state.super_key()
+            } else {
+                state.control_key()
+            },
+        }
+    }
+
+    /// Ctrl+Option belongs to macOS accessibility, not text editing.
+    pub fn accessibility_chord(self) -> bool {
+        cfg!(target_os = "macos") && self.control && self.alt
+    }
+
+    /// Ctrl+Alt is AltGr for text-producing keys on Windows and Linux.
+    pub fn alt_gr(self, produces_text: bool) -> bool {
+        cfg!(not(target_os = "macos")) && self.command && self.alt && produces_text
+    }
+
+    /// The shortcut modifier applies to this key press.
+    pub fn shortcut(self, produces_text: bool) -> bool {
+        self.command && !self.alt_gr(produces_text)
+    }
+
+    /// The modifier for moving by words: Option on macOS, Control elsewhere.
+    pub fn word_modifier(self) -> bool {
+        if cfg!(target_os = "macos") {
+            self.alt && !self.command
+        } else {
+            self.command && !self.alt
+        }
+    }
+}
+
 /// Key event offered to [`NativeApp::on_key_event`].
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]

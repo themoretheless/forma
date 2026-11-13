@@ -8,8 +8,8 @@ use forma::native_window::{
 use forma::{
     frame_stats::{FrameRate, FrameStats},
     native_window::{
-        ImeSession, TargetPlatform, TextKey, UiBackend, activation_key, apply_egui_frame_bar,
-        build_chooser_runtime, focus_traversal, text_edit_key,
+        ImeSession, NativeModifiers, TargetPlatform, TextKey, UiBackend, activation_key,
+        apply_egui_frame_bar, build_chooser_runtime, focus_traversal, text_edit_key,
     },
 };
 use std::{
@@ -55,10 +55,7 @@ struct App {
     inspect_mode: bool,
     inspect_report: String,
     a11y_report: String,
-    shift: bool,
-    command: bool,
-    control: bool,
-    alt: bool,
+    modifiers: NativeModifiers,
     ime: ImeSession,
     ime_allowed: bool,
     accessibility: Option<accesskit_winit::Adapter>,
@@ -822,14 +819,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     }
                 }
                 WindowEvent::ModifiersChanged(modifiers) => {
-                    self.shift = modifiers.state().shift_key();
-                    self.control = modifiers.state().control_key();
-                    self.alt = modifiers.state().alt_key();
-                    self.command = if cfg!(target_os = "macos") {
-                        modifiers.state().super_key()
-                    } else {
-                        modifiers.state().control_key()
-                    };
+                    self.modifiers = NativeModifiers::from_state(modifiers.state());
                 }
                 WindowEvent::KeyboardInput { event, .. } => {
                     let pressed = event.state == ElementState::Pressed;
@@ -865,7 +855,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                             && pressed
                             && !event.repeat
                         {
-                            focus_traversal(chooser, self.shift);
+                            focus_traversal(chooser, self.modifiers.shift);
                         }
                         let key = activation_key(&event.logical_key);
                         let before = chooser.clicks();
@@ -991,14 +981,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => {
-                self.shift = modifiers.state().shift_key();
-                self.control = modifiers.state().control_key();
-                self.alt = modifiers.state().alt_key();
-                self.command = if cfg!(target_os = "macos") {
-                    modifiers.state().super_key()
-                } else {
-                    modifiers.state().control_key()
-                };
+                self.modifiers = NativeModifiers::from_state(modifiers.state());
             }
             WindowEvent::Ime(event) => self.ime_event(event),
             WindowEvent::KeyboardInput { event, .. } => {
@@ -1069,27 +1052,15 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 {
                     if event.state == ElementState::Pressed
                         && !self.ime.composing
-                        && !(cfg!(target_os = "macos") && self.control && self.alt)
+                        && !self.modifiers.accessibility_chord()
                     {
-                        let alt_gr = cfg!(not(target_os = "macos"))
-                            && self.control
-                            && self.alt
-                            && event.text.is_some();
-                        let command = self.command && !alt_gr;
-                        let word_modifier = if cfg!(target_os = "macos") {
-                            self.alt && !command
-                        } else {
-                            self.control && !self.alt
-                        };
                         text_edit_key(
                             &mut self.button,
                             &TextKey {
                                 logical_key: &event.logical_key,
                                 physical_key: &event.physical_key,
                                 text: event.text.as_deref(),
-                                shift: self.shift,
-                                command,
-                                word_modifier,
+                                modifiers: self.modifiers,
                             },
                         );
                     }
@@ -1099,7 +1070,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         && event.state == ElementState::Pressed
                         && !event.repeat
                     {
-                        focus_traversal(&mut self.button, self.shift);
+                        focus_traversal(&mut self.button, self.modifiers.shift);
                     }
                     self.button
                         .key_event(key, event.state == ElementState::Pressed, event.repeat);
@@ -1108,10 +1079,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             WindowEvent::Focused(focused) => {
                 self.button.focus(focused);
                 if !focused {
-                    self.shift = false;
-                    self.command = false;
-                    self.control = false;
-                    self.alt = false;
+                    self.modifiers = NativeModifiers::default();
                     self.ime.cancel(&mut self.button);
                     self.button.pointer(-1., -1., 3);
                 }
@@ -1603,10 +1571,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         inspect_mode: false,
         inspect_report: String::new(),
         a11y_report: String::new(),
-        shift: false,
-        command: false,
-        control: false,
-        alt: false,
+        modifiers: NativeModifiers::default(),
         ime: ImeSession::default(),
         ime_allowed: false,
         accessibility: None,

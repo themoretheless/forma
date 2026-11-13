@@ -256,14 +256,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             WindowEvent::Focused(focused) => self.focus_changed(focused)?,
 
             WindowEvent::ModifiersChanged(modifiers) => {
-                self.shift = modifiers.state().shift_key();
-                self.alt = modifiers.state().alt_key();
-                self.control = modifiers.state().control_key();
-                self.command = if cfg!(target_os = "macos") {
-                    modifiers.state().super_key()
-                } else {
-                    modifiers.state().control_key()
-                };
+                let held = NativeModifiers::from_state(modifiers.state());
+                (self.shift, self.alt) = (held.shift, held.alt);
+                (self.control, self.command) = (held.control, held.command);
             }
             WindowEvent::Ime(event) => self.ime_event(event)?,
             #[cfg(feature = "native-test-hooks")]
