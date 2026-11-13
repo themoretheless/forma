@@ -342,6 +342,56 @@ pub(super) fn collect_component_names(node: &Node, out: &mut std::collections::B
     for child in &node.children {
         collect_component_names(child, out);
     }
+    // A component can also stand as a property value: the content of a presenter, directly or as
+    // the result of a `match` arm or a conditional.
+    for value in node.props.values() {
+        collect_component_names_in_value(value, out);
+    }
+}
+
+fn collect_component_names_in_value(value: &Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        Value::Node(node) => collect_component_names(node, out),
+        Value::Match(subject, branches) => {
+            collect_component_names_in_value(subject, out);
+            for (pattern, result) in branches {
+                collect_component_names_in_value(pattern, out);
+                collect_component_names_in_value(result, out);
+            }
+        }
+        Value::List(items) | Value::Interpolation(items) => {
+            for item in items {
+                collect_component_names_in_value(item, out);
+            }
+        }
+        Value::Object(fields) => {
+            for field in fields.values() {
+                collect_component_names_in_value(field, out);
+            }
+        }
+        Value::Expression(expression) => match expression.as_ref() {
+            Expression::Unary(_, operand) => collect_component_names_in_value(operand, out),
+            Expression::Binary(_, left, right) => {
+                collect_component_names_in_value(left, out);
+                collect_component_names_in_value(right, out);
+            }
+            Expression::Conditional(condition, then, otherwise) => {
+                for part in [condition, then, otherwise] {
+                    collect_component_names_in_value(part, out);
+                }
+            }
+            Expression::Member(object, member, _) => {
+                collect_component_names_in_value(object, out);
+                collect_component_names_in_value(member, out);
+            }
+            Expression::Call(_, arguments) => {
+                for argument in arguments {
+                    collect_component_names_in_value(argument, out);
+                }
+            }
+        },
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::Text(_) | Value::Expr(_) => {}
+    }
 }
 
 pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 3] {

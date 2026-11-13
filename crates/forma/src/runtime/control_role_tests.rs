@@ -59,6 +59,17 @@ fn library(body: &str) -> Result<Runtime, String> {
         let source = materialize(&std::fs::read_to_string(path).unwrap());
         files.insert(format!("components/{name}"), source);
     }
+    let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("controls/assets");
+    for entry in std::fs::read_dir(assets).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|extension| extension == "svg") {
+            let name = path.file_name().unwrap().to_str().unwrap().to_owned();
+            files.insert(
+                format!("assets/{name}"),
+                std::fs::read_to_string(path).unwrap(),
+            );
+        }
+    }
     Runtime::from_ui_files(&files, "App.ui", &Default::default())
 }
 
@@ -280,36 +291,46 @@ fn a_radio_button_toggles_like_a_checkbox_because_nothing_groups_radios() {
     );
 }
 
-/// F-10: the check mark of the library is a component used as the value of a `match` arm, and
-/// the runtime does not expand it there, so a checked checkbox does not load. When this starts
-/// passing, replace it with a test that a checked checkbox renders.
+/// F-10: the check mark of the library is a component named only as the value of a `match` arm.
+/// Components were collected from child nodes alone, so it was never linked and a checked
+/// checkbox did not load.
 #[test]
-fn a_checked_library_checkbox_does_not_load() {
+fn a_checked_library_checkbox_loads_and_a_bound_one_survives_being_toggled() {
     let column = |control: &str| format!("Column {{ width: 320; height: 200; {control} }}");
-    assert_eq!(
-        library(&column("Checkbox { key: 'c'; checked: true; }"))
-            .err()
-            .as_deref(),
-        Some("Unknown visual CheckMark"),
-    );
-    // Its other states load, and so do a checked switch and radio button, which draw no mark.
     for control in [
         "Checkbox { key: 'c'; }",
+        "Checkbox { key: 'c'; checked: true; }",
         "Checkbox { key: 'c'; indeterminate: true; }",
         "Switch { key: 'c'; checked: true; }",
         "RadioButton { key: 'c'; checked: true; }",
     ] {
-        assert!(library(&column(control)).is_ok(), "{control}");
+        assert_eq!(
+            library(&column(control)).map(|runtime| runtime.control_count()),
+            Ok(1),
+            "{control}"
+        );
     }
-    // So toggling a bound checkbox on writes the state and then fails to rebuild the scene.
+    // The mark is drawn: a checked box paints something an empty one does not.
+    let pixels = |control: &str| {
+        let runtime = library(&column(control)).unwrap();
+        let mut frame = vec![0; 320 * 200 * 4];
+        runtime.paint_rgba(&mut frame, 320, 200, 1., true).unwrap();
+        frame
+    };
+    assert_ne!(
+        pixels("Checkbox { key: 'c'; checked: true; }"),
+        pixels("Checkbox { key: 'c'; }"),
+    );
+
     let mut runtime = library(&format!(
         "state on: Bool = false; {}",
         column("Checkbox { key: 'c'; checked <-> state.on; }")
     ))
     .unwrap();
     click(&mut runtime, 0);
-    assert_eq!(
-        runtime.sync_ui_bindings_native(),
-        Err("Unknown visual CheckMark".to_owned())
-    );
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["on"], true);
+    click(&mut runtime, 0);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["on"], false);
 }
