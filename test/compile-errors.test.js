@@ -203,6 +203,22 @@ const cases = {
   'event arguments without a declaration': withHandler('', `events.pressed('x')`),
   'event argument of another type': withHandler('event open(id: Int);', `events.open('x')`),
   'event argument of an unknown type': withHandler('event open(id: Blob);', `events.open('x')`),
+  'override of properties on content that is not an element': {
+    'components/Button.ui': button.replace(
+      "ContentPresenter { key: 'content'; Text { text: props.text; } }",
+      "ContentPresenter { key: 'content'; content: props.text; }",
+    ),
+    'components/B2.ui': `component B2 : Button { override content { color: #ffffff; } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'content that cannot be drawn': {
+    'components/Button.ui': `component Button { Rectangle { Frame { PointerArea { } } } }`,
+    ...demo(`Frame { Button { } }`),
+  },
+  'content that cannot be measured': {
+    'components/Button.ui': `component Button { Rectangle { Row { PointerArea { } } } }`,
+    ...demo(`Frame { Button { } }`),
+  },
 };
 
 function messageFor(project) {
