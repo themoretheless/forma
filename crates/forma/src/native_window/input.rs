@@ -63,7 +63,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         &mut self,
         input: &mut dyn FnMut(&mut crate::Runtime),
     ) -> Result<(), String> {
-        if !self.ime.composing && self.ime.owner.is_none() {
+        if !self.ime.pending() {
             return self.app.update(input);
         }
         let mut retired = false;
@@ -170,7 +170,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     pub(super) fn focus_changed(&mut self, focused: bool) -> Result<(), String> {
         if !focused {
             // OS focus loss may omit the matching IME/modifier/touch end events.
-            self.ime.cancelled |= self.ime.composing || self.ime.owner.is_some();
+            self.ime.cancelled |= self.ime.pending();
             self.ime.composing = false;
             self.shift = false;
             self.command = false;
@@ -353,7 +353,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         pressed: bool,
         repeat: bool,
     ) -> Result<(), String> {
-        let cancel_composition = (self.ime.composing || self.ime.owner.is_some())
+        let cancel_composition = self.ime.pending()
             && pressed
             && !repeat
             && matches!(logical_key, Key::Named(NamedKey::Tab | NamedKey::Escape));

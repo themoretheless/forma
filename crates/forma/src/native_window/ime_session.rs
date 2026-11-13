@@ -1,5 +1,6 @@
 //! Input method composition state shared by the native window hosts.
 
+#[cfg(test)]
 use winit::event::Ime;
 
 /// Which editor a composition belongs to, and whether its commit may still land.
@@ -31,6 +32,7 @@ impl ImeSession {
     }
 
     /// Abandon the composition and remove its marked text.
+    #[cfg(test)]
     pub fn cancel(&mut self, runtime: &mut crate::Runtime) {
         self.retire();
         runtime.text_preedit("");
@@ -85,7 +87,9 @@ impl ImeSession {
         }
     }
 
-    /// Apply one platform event to a runtime the caller owns directly.
+    /// Apply one platform event to a runtime the caller owns directly. The host applies events
+    /// through its application instead; the tests drive the session with this.
+    #[cfg(test)]
     pub fn event(&mut self, runtime: &mut crate::Runtime, event: Ime) {
         self.observe(runtime);
         match event {

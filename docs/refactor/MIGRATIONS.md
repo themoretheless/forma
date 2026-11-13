@@ -263,3 +263,12 @@
 6. iOS: `scripts/run-ios-simulator.sh` (экран выбора и демо двух кнопок занимают весь экран,
    нажатие меняет подпись и цвет кнопки); Android: `scripts/run-android-emulator.sh`.
 7. Studio и MCP: `npm run dev`, запуск native-приложения из Studio, `node mcp/smoke.js`.
+
+## 20. Помощники оконного хоста больше не публичны
+
+После слияния хостов (раздел 19) бинарник `forma` не обращается к внутренностям окна, поэтому из
+публичного API `forma::native_window` убраны: `wheel_scroll`, `touch_scroll_step`, `ImeSession`,
+`ime_target`, `place_ime_caret`, `chooser_pick`, `TextKey`, `text_edit_key`, `activation_key`,
+`focus_traversal`. В репозитории ими пользовался только сам хост (проверено поиском по примерам,
+`native-app`, генератору экспорта и скриптам). Внешнему коду, который звал `wheel_scroll` или
+`touch_scroll_step`, нужно перенести эти несколько строк к себе.

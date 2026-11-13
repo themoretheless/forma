@@ -40,13 +40,13 @@ pub use dev_app::*;
 pub use dev_project::*;
 use extension::*;
 use frame::*;
-pub use ime_session::{ImeSession, ime_target, place_ime_caret};
-pub use keys::*;
+use ime_session::{ImeSession, ime_target, place_ime_caret};
+use keys::*;
 pub use waker::*;
 
 /// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is
 /// divided by the window's scale factor. The sign turns "wheel down" into "content up".
-pub fn wheel_scroll(delta: MouseScrollDelta, scale: f32) -> (f32, f32) {
+pub(crate) fn wheel_scroll(delta: MouseScrollDelta, scale: f32) -> (f32, f32) {
     match delta {
         MouseScrollDelta::LineDelta(x, y) => (-x * 32., -y * 32.),
         MouseScrollDelta::PixelDelta(position) => {
@@ -60,7 +60,11 @@ pub fn wheel_scroll(delta: MouseScrollDelta, scale: f32) -> (f32, f32) {
 ///
 /// `last` advances only when a scroll is produced. Advancing it on every event loses a slow
 /// drag for good: on a high-frequency touch device each step is below the threshold.
-pub fn touch_scroll_step(last: &mut Option<(f32, f32)>, x: f32, y: f32) -> Option<(f32, f32)> {
+pub(crate) fn touch_scroll_step(
+    last: &mut Option<(f32, f32)>,
+    x: f32,
+    y: f32,
+) -> Option<(f32, f32)> {
     let (dx, dy) = last.map_or((0., 0.), |(last_x, last_y)| (last_x - x, last_y - y));
     (dx.abs() > 0.5 || dy.abs() > 0.5).then(|| {
         *last = Some((x, y));

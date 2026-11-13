@@ -442,7 +442,7 @@ pub fn apply_mobile_chrome(
 }
 
 /// Feed input to the backend chooser; the backend it picked when that input produced a click.
-pub fn chooser_pick(
+pub(crate) fn chooser_pick(
     chooser: &mut crate::Runtime,
     input: impl FnOnce(&mut crate::Runtime),
 ) -> Option<UiBackend> {
