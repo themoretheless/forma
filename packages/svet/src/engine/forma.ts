@@ -42,14 +42,6 @@ import {
 // 1. Forma `Property<T>` & `Context<T>` (Rust ViewModel Binding Compatibility)
 // ============================================================================
 
-export interface FormaProperty<T> {
-  readonly signal: Signal<T>;
-  get(): T;
-  set(val: T): void;
-  update(fn: (prev: T) => T): void;
-  subscribe(listener: (val: T) => void): () => void;
-}
-
 export function createFormaProperty<T>(initial: T): FormaProperty<T> {
   const sig = signal<T>(initial);
   return {
@@ -168,14 +160,20 @@ import {
   cachedFormaValue,
   createFormaPublicHandle,
   formaConstructionDomain,
+  type FormaCompileOptions,
   type FormaHmrSnapshot,
+  type FormaProperty,
   type FormaRuntimeInstance,
+  type FormaSlotMap,
   type FormaStateMutator,
 } from './forma-instance.ts';
 
 export type {
+  FormaCompileOptions,
   FormaHmrSnapshot,
+  FormaProperty,
   FormaRuntimeInstance,
+  FormaSlotMap,
   FormaStateMutator,
 } from './forma-instance.ts';
 
@@ -212,11 +210,6 @@ export {
 // 3. Forma `.ui` Runtime Compiler & Lifecycle (`compileFormaComponent`, `FormaHost`)
 // ============================================================================
 
-export interface FormaSlotMap {
-  defaultSlot?: Node | (() => Node);
-  namedSlots?: Record<string, Node | (() => Node)>;
-}
-
 /**
  * Registers a reusable Forma `.ui` component globally so any other `.ui` component
  * can embed `<ComponentName> { propA: ...; }` declaratively.
@@ -230,18 +223,6 @@ export function registerFormaComponent(name: string, uiSource: string): void {
 function snapshotFormaAst(ast: FormaDocumentAst): FormaDocumentAst {
   void assertFormaAstContracts;
   return snapshotFormaAstImpl(ast);
-}
-
-export interface FormaCompileOptions {
-  props?: Record<string, any> | undefined;
-  state?: Record<string, any> | undefined;
-  locale?: string | undefined;
-  viewModel?: Record<string, FormaProperty<any> | Signal<any>> | undefined;
-  slots?: FormaSlotMap | undefined;
-  components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)> | undefined;
-  actions?: Record<string, (...args: any[]) => void> | undefined;
-  onAction?: ((name: string, args: any[], event?: Event) => void) | undefined;
-  onBinding?: ((path: string, value: any) => void) | undefined;
 }
 
 /**

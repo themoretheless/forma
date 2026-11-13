@@ -13,6 +13,14 @@ import {
   type Signal,
 } from './reactivity.ts';
 
+export interface FormaProperty<T> {
+  readonly signal: Signal<T>;
+  get(): T;
+  set(val: T): void;
+  update(fn: (prev: T) => T): void;
+  subscribe(listener: (val: T) => void): () => void;
+}
+
 export interface FormaStateMutator {
   toggle(field: string): void;
   set(field: string, value: any): void;
@@ -54,6 +62,23 @@ export interface FormaRuntimeInstance {
   mount(container: HTMLElement): { unmount(): void };
   /** Disposes all internal state/prop/computed signals owned by this Forma component instance */
   dispose(): void;
+}
+
+export interface FormaSlotMap {
+  defaultSlot?: Node | (() => Node);
+  namedSlots?: Record<string, Node | (() => Node)>;
+}
+
+export interface FormaCompileOptions {
+  props?: Record<string, any> | undefined;
+  state?: Record<string, any> | undefined;
+  locale?: string | undefined;
+  viewModel?: Record<string, FormaProperty<any> | Signal<any>> | undefined;
+  slots?: FormaSlotMap | undefined;
+  components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)> | undefined;
+  actions?: Record<string, (...args: any[]) => void> | undefined;
+  onAction?: ((name: string, args: any[], event?: Event) => void) | undefined;
+  onBinding?: ((path: string, value: any) => void) | undefined;
 }
 
 // Synchronous factory construction owns every completed Forma instance it creates,

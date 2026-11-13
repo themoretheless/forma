@@ -92,7 +92,7 @@
   },
   "src/engine/forma-instance.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 23
+      "count": 31
     },
     "@typescript-eslint/no-unsafe-function-type": {
       "count": 6
@@ -105,7 +105,7 @@
   },
   "src/engine/forma.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 40
+      "count": 32
     },
     "no-unsafe-finally": {
       "count": 2

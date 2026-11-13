@@ -4,7 +4,6 @@
  */
 
 import { For, insertChild, Show } from './dom.ts';
-import type { FormaCompileOptions } from './forma.ts';
 import type { FormaAstNode, FormaDocumentAst } from './forma-ast.ts';
 import { renderFormaBuiltinElement } from './forma-dom.ts';
 import {
@@ -15,7 +14,11 @@ import {
   type FormaEvalScope,
   parseFormaExprAst,
 } from './forma-expr.ts';
-import { constructFormaChild, type FormaRuntimeInstance } from './forma-instance.ts';
+import {
+  constructFormaChild,
+  type FormaCompileOptions,
+  type FormaRuntimeInstance,
+} from './forma-instance.ts';
 import { FORMA_3D_TAGS, formaComponentRegistry, formaElementRenderers } from './forma-registry.ts';
 import {
   createRoot,
