@@ -13,6 +13,8 @@ export default [
       '.release/**',
       'output/**',
       'node_modules/**',
+      // other checkouts of this repository that tools create inside it
+      '.claude/**',
       'packages/**',
       'crates/**',
       'native-app/**',
