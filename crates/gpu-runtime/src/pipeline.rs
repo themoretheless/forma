@@ -25,7 +25,6 @@ pub struct ShaderModuleDescriptor<'a> {
 #[derive(Clone)]
 pub struct ShaderModule {
     pub(crate) module: Arc<naga::Module>,
-    pub(crate) info: Arc<naga::valid::ModuleInfo>,
     pub(crate) msl_source: Arc<String>,
     pub(crate) bindings: Arc<BindingMap>,
 }
@@ -104,9 +103,8 @@ pub struct BindGroupLayoutDescriptor<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct BindGroupLayout {
-    pub(crate) entries: Vec<BindGroupLayoutEntry>,
-}
+/// Bindings are resolved from the shader, so a layout carries nothing.
+pub struct BindGroupLayout;
 
 #[derive(Clone)]
 pub struct BufferBinding<'a> {
@@ -150,9 +148,8 @@ pub struct PipelineLayoutDescriptor<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct PipelineLayout {
-    pub(crate) immediate_size: u32,
-}
+/// Bindings are resolved from the shader, so a layout carries nothing.
+pub struct PipelineLayout;
 
 #[derive(Debug, Clone, Default)]
 pub struct PipelineCompilationOptions<'a> {
@@ -180,9 +177,7 @@ pub struct ComputePipeline {
 
 impl ComputePipeline {
     pub fn get_bind_group_layout(&self, _index: u32) -> BindGroupLayout {
-        BindGroupLayout {
-            entries: Vec::new(),
-        }
+        BindGroupLayout
     }
 }
 
@@ -570,8 +565,6 @@ impl RenderPipeline {
     }
 
     pub fn get_bind_group_layout(&self, _index: u32) -> BindGroupLayout {
-        BindGroupLayout {
-            entries: Vec::new(),
-        }
+        BindGroupLayout
     }
 }

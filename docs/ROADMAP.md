@@ -82,6 +82,8 @@
 - [ ] `gpu_shader::valid::Validator` не возвращает ошибок (проверено): ill-typed шейдер доходит
   до компилятора Metal. Нужна настоящая проверка типов.
 - [ ] `// SAFETY:` помодульно со снятием crate-wide `allow(unsafe_op_in_unsafe_fn)`.
+  `allow(dead_code, unused_variables)` уже действует только вне Apple-платформ, где половина
+  крейта состоит из заглушек Metal; убрать его там можно после отделения заглушек.
 - [ ] Device loss, смена GPU, forced faults, квалификация signal-driven пути.
 
 Бэкенды (реализации нет, по порядку проверяемости):

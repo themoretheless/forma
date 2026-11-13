@@ -564,6 +564,7 @@ pub(crate) unsafe fn encode_render_pass(
         index_buffer: None,
         pipeline: None,
         bound_groups: Default::default(),
+        immediates: Vec::new(),
     };
     for cmd in commands.drain(..) {
         pass.encode(cmd);
@@ -662,6 +663,8 @@ struct RenderPassEncoder {
     /// current pipeline; groups set before a pipeline are bound when it arrives.
     pipeline: Option<RenderPipeline>,
     bound_groups: std::collections::BTreeMap<u32, BindGroup>,
+    /// The immediate data set so far in this pass.
+    immediates: Vec<u8>,
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -697,7 +700,15 @@ impl RenderPassEncoder {
             } => {
                 self.index_buffer = Some((buffer, format, offset));
             }
-            RenderCommand::SetImmediates { offset: _, data } => {
+            RenderCommand::SetImmediates { offset, data } => {
+                // Metal replaces the whole block, so the pieces set so far are kept here.
+                let start = offset as usize;
+                let end = start + data.len();
+                if self.immediates.len() < end {
+                    self.immediates.resize(end, 0);
+                }
+                self.immediates[start..end].copy_from_slice(&data);
+                let data = &self.immediates;
                 let f_set_bytes: unsafe extern "C" fn(
                     *mut c_void,
                     *mut c_void,

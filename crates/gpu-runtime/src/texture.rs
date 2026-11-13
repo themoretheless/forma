@@ -532,7 +532,6 @@ pub struct QuerySetDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct QuerySet {
-    pub(crate) count: u32,
     pub(crate) timestamps_ns: Arc<Mutex<Vec<u64>>>,
 }
 

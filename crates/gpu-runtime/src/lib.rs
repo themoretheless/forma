@@ -1,4 +1,9 @@
-#![allow(unsafe_code, unsafe_op_in_unsafe_fn, unused_variables, dead_code)]
+#![allow(unsafe_code, unsafe_op_in_unsafe_fn)]
+// Off Apple targets the Metal half of the crate is stubs, which leaves most of it unused.
+#![cfg_attr(
+    not(any(target_os = "macos", target_os = "ios")),
+    allow(unused_variables, dead_code)
+)]
 
 //! Modular, zero-overhead cross-platform GPU abstraction layer (`wgpu` drop-in replacement).
 //!
@@ -83,10 +88,10 @@ pub const COPY_BUFFER_ALIGNMENT: u64 = 4;
 pub const COPY_BYTES_PER_ROW_ALIGNMENT: u32 = 256;
 pub const MAP_ALIGNMENT: u64 = 8;
 
+/// The entry point for finding adapters. The descriptor selects nothing in this runtime: there
+/// is one backend.
 #[derive(Clone)]
-pub struct Instance {
-    desc: InstanceDescriptor,
-}
+pub struct Instance {}
 
 impl Default for Instance {
     fn default() -> Self {
@@ -95,8 +100,8 @@ impl Default for Instance {
 }
 
 impl Instance {
-    pub fn new(desc: InstanceDescriptor) -> Self {
-        Self { desc }
+    pub fn new(_desc: InstanceDescriptor) -> Self {
+        Self {}
     }
 
     /// Backends this build can drive. Only Metal has an implementation in this runtime.
@@ -736,7 +741,6 @@ impl Device {
 
         ShaderModule {
             module: Arc::new(module),
-            info: Arc::new(info),
             msl_source: Arc::new(msl_source),
             bindings: Arc::new(bindings),
         }
@@ -744,11 +748,9 @@ impl Device {
 
     pub fn create_bind_group_layout(
         &self,
-        desc: &BindGroupLayoutDescriptor<'_>,
+        _desc: &BindGroupLayoutDescriptor<'_>,
     ) -> BindGroupLayout {
-        BindGroupLayout {
-            entries: desc.entries.to_vec(),
-        }
+        BindGroupLayout
     }
 
     pub fn create_bind_group(&self, desc: &BindGroupDescriptor<'_>) -> BindGroup {
@@ -781,10 +783,8 @@ impl Device {
         }
     }
 
-    pub fn create_pipeline_layout(&self, desc: &PipelineLayoutDescriptor<'_>) -> PipelineLayout {
-        PipelineLayout {
-            immediate_size: desc.immediate_size,
-        }
+    pub fn create_pipeline_layout(&self, _desc: &PipelineLayoutDescriptor<'_>) -> PipelineLayout {
+        PipelineLayout
     }
 
     pub fn create_compute_pipeline(&self, desc: &ComputePipelineDescriptor<'_>) -> ComputePipeline {
@@ -857,7 +857,6 @@ impl Device {
 
     pub fn create_query_set(&self, desc: &QuerySetDescriptor<'_>) -> QuerySet {
         QuerySet {
-            count: desc.count,
             timestamps_ns: Arc::new(Mutex::new(vec![0u64; desc.count as usize])),
         }
     }
@@ -1039,6 +1038,9 @@ mod pipeline_cache_and_buffer_safety_tests;
 
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod copy_bounds_tests;
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod immediates_tests;
 
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod private_texture_tests;
