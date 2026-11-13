@@ -82,18 +82,9 @@ pub const MSL_ARRAY_LENGTHS_BUFFER_SLOT: u32 = 30;
 /// rejected rather than given a made-up length.
 const UNRESOLVED_ARRAY_LENGTH: &str = "_wgpu_unresolved_array_length";
 
-pub fn write_string(
-    module: &Module,
-    _info: &ModuleInfo,
-    _options: &Options,
-    pipeline_options: &PipelineOptions,
-) -> Result<(String, BindingMap), String> {
-    let mut out = String::with_capacity(module.raw_source.len() + 2048);
-    out.push_str("#include <metal_stdlib>\n#include <simd/simd.h>\nusing namespace metal;\n\n");
-
-    // Helper templates & structs for WGSL intrinsics in MSL
-    out.push_str(
-        r#"struct _wgpu_atomic_cmp_exch_u32 {
+/// Declarations every translated shader starts with: the helpers behind WGSL built-ins that Metal
+/// has no direct counterpart for, and the array wrapper that gives WGSL arrays value semantics.
+const MSL_PRELUDE: &str = r#"struct _wgpu_atomic_cmp_exch_u32 {
     uint old_value;
     bool exchanged;
 };
@@ -151,11 +142,29 @@ struct _wgpu_arr {
     threadgroup T& operator[](int i) threadgroup { return inner[i]; }
     const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
 };
-"#,
-    );
+"#;
+
+pub fn write_string(
+    module: &Module,
+    _info: &ModuleInfo,
+    _options: &Options,
+    pipeline_options: &PipelineOptions,
+) -> Result<(String, BindingMap), String> {
+    let mut out = String::with_capacity(module.raw_source.len() + 2048);
+    out.push_str("#include <metal_stdlib>\n#include <simd/simd.h>\nusing namespace metal;\n\n");
+    out.push_str(MSL_PRELUDE);
     out.push('\n');
 
-    // Emit type aliases
+    emit_aliases(&mut out, module);
+    emit_structs(&mut out, module);
+    emit_constants(&mut out, module)?;
+    let binding_map = build_binding_map(module);
+    emit_functions(&mut out, module, pipeline_options, &binding_map);
+    reject_unresolved_array_length(&out)?;
+    Ok((out, binding_map))
+}
+
+fn emit_aliases(out: &mut String, module: &Module) {
     for (alias_name, target) in &module.aliases {
         let msl_ty = wgsl_type_str_to_msl(module, target);
         out.push_str(&format!("using {alias_name} = {msl_ty};\n"));
@@ -163,9 +172,10 @@ struct _wgpu_arr {
     if !module.aliases.is_empty() {
         out.push('\n');
     }
+}
 
-    // Emit structs in declaration order with exact WGSL byte-for-byte padding
-    let mut packed_vec3_fields: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+/// Emits structs in declaration order.
+fn emit_structs(out: &mut String, module: &Module) {
     for &struct_handle in &module.struct_order {
         let ty = &module.types[struct_handle];
         let Some(struct_name) = &ty.name else {
@@ -174,93 +184,109 @@ struct _wgpu_arr {
         let TypeInner::Struct { members, span } = &ty.inner else {
             continue;
         };
-        let is_io_struct = members.iter().any(|m| m.binding.is_some());
-        if is_io_struct {
-            // Stage I/O struct (vertex output / fragment input / fragment output)
-            // Keep attributes per entry point or emit standard Metal stage I/O struct
-            out.push_str(&format!("struct {struct_name} {{\n"));
-            for m in members {
-                let m_name = m.name.as_deref().unwrap_or("field");
-                let m_ty = msl_type_for_handle(module, m.ty, false);
-                let attr = match m.binding {
-                    Some(Binding::BuiltIn(BuiltIn::Position)) => " [[position]]".to_string(),
-                    Some(Binding::BuiltIn(BuiltIn::FragDepth)) => " [[depth(any)]]".to_string(),
-                    Some(Binding::BuiltIn(BuiltIn::FrontFacing)) => " [[front_facing]]".to_string(),
-                    Some(Binding::Location {
-                        location,
-                        interpolation,
-                        ..
-                    }) => {
-                        let flat_str = if interpolation == Some(Interpolation::Flat) {
-                            " [[flat]]"
-                        } else {
-                            ""
-                        };
-                        // Note: for fragment return structs `@location(0)` is `[[color(0)]]`, while for vertex output / fragment input it's `[[user(locN)]]`.
-                        // Determine whether this struct is used only as fragment return:
-                        if is_vertex_input_struct(module, struct_handle) {
-                            format!(" [[attribute({location})]]")
-                        } else if is_fragment_return_struct(module, struct_handle) {
-                            format!(" [[color({location})]]")
-                        } else {
-                            format!(" [[user(loc{location})]]{flat_str}")
-                        }
-                    }
-                    _ => String::new(),
-                };
-                out.push_str(&format!("    {m_ty} {m_name}{attr};\n"));
-            }
-            out.push_str("};\n\n");
+        if members.iter().any(|m| m.binding.is_some()) {
+            emit_io_struct(out, module, struct_handle, struct_name, members);
         } else {
-            // Buffer/value struct: enforce 100% WGSL byte layout
-            out.push_str(&format!("struct {struct_name} {{\n"));
-            let mut cursor = 0u32;
-            let mut pad_idx = 0u32;
-            for (mi, m) in members.iter().enumerate() {
-                let m_name = m.name.as_deref().unwrap_or("field");
-                let layout = compute_type_layout(&module.types, m.ty);
-                if m.offset > cursor {
-                    let gap = m.offset - cursor;
-                    emit_padding_fields(&mut out, gap, &mut pad_idx);
-                    cursor = m.offset;
-                }
-                // Check if this field is a `vec3<T>`: in Metal, `float3` has sizeof == 16, whereas in WGSL `vec3<f32>` has size 12, align 16!
-                // If we use `packed_float3` / `packed_uint3` / `packed_int3` whenever the next field is at offset `m.offset + 12` (or always use `packed_*3` + explicit padding),
-                // then `sizeof` and every field offset in Metal is guaranteed to match WGSL!
-                let next_offset = members.get(mi + 1).map(|nm| nm.offset).unwrap_or(*span);
-                let is_vec3 = matches!(
-                    module.types[m.ty].inner,
-                    TypeInner::Vector {
-                        size: VectorSize::Tri,
-                        ..
-                    }
-                );
-                if is_vec3 && next_offset < m.offset + 16 {
-                    let m_ty = msl_type_for_handle(module, m.ty, true);
-                    out.push_str(&format!("    {m_ty} {m_name};\n"));
-                    packed_vec3_fields
-                        .entry(struct_name.clone())
-                        .or_default()
-                        .insert(m_name.to_string());
-                    cursor += 12;
-                } else if is_vec3 {
-                    let m_ty = msl_type_for_handle(module, m.ty, false);
-                    out.push_str(&format!("    {m_ty} {m_name};\n"));
-                    cursor += 16;
-                } else {
-                    let m_ty = msl_type_for_handle(module, m.ty, false);
-                    out.push_str(&format!("    {m_ty} {m_name};\n"));
-                    cursor += layout.size;
-                }
-            }
-            if *span > cursor {
-                emit_padding_fields(&mut out, *span - cursor, &mut pad_idx);
-            }
-            out.push_str("};\n\n");
+            emit_layout_struct(out, module, struct_name, members, *span);
         }
     }
+}
 
-    // Emit module-scope constants
+/// A stage I/O struct: vertex input or output, fragment input or output.
+fn emit_io_struct(
+    out: &mut String,
+    module: &Module,
+    struct_handle: Handle<Type>,
+    struct_name: &str,
+    members: &[crate::StructMember],
+) {
+    out.push_str(&format!("struct {struct_name} {{\n"));
+    for m in members {
+        let m_name = m.name.as_deref().unwrap_or("field");
+        let m_ty = msl_type_for_handle(module, m.ty, false);
+        let attr = match m.binding {
+            Some(Binding::BuiltIn(BuiltIn::Position)) => " [[position]]".to_string(),
+            Some(Binding::BuiltIn(BuiltIn::FragDepth)) => " [[depth(any)]]".to_string(),
+            Some(Binding::BuiltIn(BuiltIn::FrontFacing)) => " [[front_facing]]".to_string(),
+            Some(Binding::Location {
+                location,
+                interpolation,
+                ..
+            }) => {
+                let flat_str = if interpolation == Some(Interpolation::Flat) {
+                    " [[flat]]"
+                } else {
+                    ""
+                };
+                // Note: for fragment return structs `@location(0)` is `[[color(0)]]`, while for vertex output / fragment input it's `[[user(locN)]]`.
+                // Determine whether this struct is used only as fragment return:
+                if is_vertex_input_struct(module, struct_handle) {
+                    format!(" [[attribute({location})]]")
+                } else if is_fragment_return_struct(module, struct_handle) {
+                    format!(" [[color({location})]]")
+                } else {
+                    format!(" [[user(loc{location})]]{flat_str}")
+                }
+            }
+            _ => String::new(),
+        };
+        out.push_str(&format!("    {m_ty} {m_name}{attr};\n"));
+    }
+    out.push_str("};\n\n");
+}
+
+/// A buffer or value struct, padded so every field sits at its WGSL byte offset.
+fn emit_layout_struct(
+    out: &mut String,
+    module: &Module,
+    struct_name: &str,
+    members: &[crate::StructMember],
+    span: u32,
+) {
+    out.push_str(&format!("struct {struct_name} {{\n"));
+    let mut cursor = 0u32;
+    let mut pad_idx = 0u32;
+    for (mi, m) in members.iter().enumerate() {
+        let m_name = m.name.as_deref().unwrap_or("field");
+        let layout = compute_type_layout(&module.types, m.ty);
+        if m.offset > cursor {
+            let gap = m.offset - cursor;
+            emit_padding_fields(out, gap, &mut pad_idx);
+            cursor = m.offset;
+        }
+        // Check if this field is a `vec3<T>`: in Metal, `float3` has sizeof == 16, whereas in WGSL `vec3<f32>` has size 12, align 16!
+        // If we use `packed_float3` / `packed_uint3` / `packed_int3` whenever the next field is at offset `m.offset + 12` (or always use `packed_*3` + explicit padding),
+        // then `sizeof` and every field offset in Metal is guaranteed to match WGSL!
+        let next_offset = members.get(mi + 1).map(|nm| nm.offset).unwrap_or(span);
+        let is_vec3 = matches!(
+            module.types[m.ty].inner,
+            TypeInner::Vector {
+                size: VectorSize::Tri,
+                ..
+            }
+        );
+        if is_vec3 && next_offset < m.offset + 16 {
+            let m_ty = msl_type_for_handle(module, m.ty, true);
+            out.push_str(&format!("    {m_ty} {m_name};\n"));
+            cursor += 12;
+        } else if is_vec3 {
+            let m_ty = msl_type_for_handle(module, m.ty, false);
+            out.push_str(&format!("    {m_ty} {m_name};\n"));
+            cursor += 16;
+        } else {
+            let m_ty = msl_type_for_handle(module, m.ty, false);
+            out.push_str(&format!("    {m_ty} {m_name};\n"));
+            cursor += layout.size;
+        }
+    }
+    if span > cursor {
+        emit_padding_fields(out, span - cursor, &mut pad_idx);
+    }
+    out.push_str("};\n\n");
+}
+
+/// Emits module-scope constants.
+fn emit_constants(out: &mut String, module: &Module) -> Result<(), String> {
     for (_, c) in module.constants.iter() {
         let Some(name) = &c.name else { continue };
         let ty_str = if let Some(th) = c.ty {
@@ -295,8 +321,10 @@ struct _wgpu_arr {
     if !module.constants.is_empty() {
         out.push('\n');
     }
+    Ok(())
+}
 
-    // Build global binding map
+fn build_binding_map(module: &Module) -> BindingMap {
     let mut binding_map = BindingMap {
         buffers: BTreeMap::new(),
         textures: BTreeMap::new(),
@@ -352,8 +380,16 @@ struct _wgpu_arr {
             _ => {}
         }
     }
+    binding_map
+}
 
-    // Forward-declare and emit helper functions
+/// Emits helper functions and the requested entry points.
+fn emit_functions(
+    out: &mut String,
+    module: &Module,
+    pipeline_options: &PipelineOptions,
+    binding_map: &BindingMap,
+) {
     // Note: in WGSL, helper functions can access module-scope globals (`var<storage>`, `var<uniform>`, `var<workgroup>`, textures, samplers)
     // and can call functions declared later in the file.
     // In MSL, globals must be passed as parameters from the entry point to any helper function that uses them,
@@ -362,12 +398,12 @@ struct _wgpu_arr {
 
     for (fh, func) in module.functions.iter() {
         emit_helper_function_prototype(
-            &mut out,
+            out,
             module,
             func,
             &func_transitive_globals,
             fh,
-            &binding_map,
+            binding_map,
         );
     }
     if !module.functions.is_empty() {
@@ -375,14 +411,7 @@ struct _wgpu_arr {
     }
 
     for (fh, func) in module.functions.iter() {
-        emit_helper_function(
-            &mut out,
-            module,
-            func,
-            &func_transitive_globals,
-            fh,
-            &binding_map,
-        );
+        emit_helper_function(out, module, func, &func_transitive_globals, fh, binding_map);
     }
 
     // Emit entry points
@@ -392,9 +421,11 @@ struct _wgpu_arr {
                 continue;
             }
         }
-        emit_entry_point(&mut out, module, ep, &func_transitive_globals, &binding_map);
+        emit_entry_point(out, module, ep, &func_transitive_globals, binding_map);
     }
+}
 
+fn reject_unresolved_array_length(out: &str) -> Result<(), String> {
     if let Some(found) = out.find(UNRESOLVED_ARRAY_LENGTH) {
         let argument = out[found + UNRESOLVED_ARRAY_LENGTH.len()..]
             .trim_start_matches('(')
@@ -405,7 +436,7 @@ struct _wgpu_arr {
             "arrayLength(&{argument}): `{argument}` is not a runtime-sized array in a bound buffer"
         ));
     }
-    Ok((out, binding_map))
+    Ok(())
 }
 
 fn emit_padding_fields(out: &mut String, mut gap: u32, pad_idx: &mut u32) {
