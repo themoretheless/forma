@@ -9,7 +9,7 @@ use winit::event::Ime;
 /// that session is gone (focus moved, the scene was rebuilt), the commit which the platform
 /// still delivers must not enter whatever replaced it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ImeSession {
+pub(super) struct ImeSession {
     /// Marked text is on screen.
     pub composing: bool,
     /// The composition was abandoned; its commit is dropped.
@@ -20,12 +20,12 @@ pub struct ImeSession {
 
 impl ImeSession {
     /// A composition is in progress or its commit is still expected.
-    pub fn pending(&self) -> bool {
+    pub(super) fn pending(&self) -> bool {
         self.composing || self.owner.is_some()
     }
 
     /// Abandon the composition without touching the runtime.
-    pub fn retire(&mut self) {
+    pub(super) fn retire(&mut self) {
         self.composing = false;
         self.cancelled = true;
         self.owner = None;
@@ -33,14 +33,14 @@ impl ImeSession {
 
     /// Abandon the composition and remove its marked text.
     #[cfg(test)]
-    pub fn cancel(&mut self, runtime: &mut crate::Runtime) {
+    pub(crate) fn cancel(&mut self, runtime: &mut crate::Runtime) {
         self.retire();
         runtime.text_preedit("");
     }
 
     /// Drop the composition when the editor that owns it no longer exists. The owner is kept
     /// so the commit that follows is recognised as belonging to the retired editor.
-    pub fn observe(&mut self, runtime: &crate::Runtime) {
+    pub(super) fn observe(&mut self, runtime: &crate::Runtime) {
         if self.owner.is_some() && self.owner != runtime.native_editor_session() {
             self.composing = false;
             self.cancelled = true;
@@ -48,13 +48,13 @@ impl ImeSession {
     }
 
     /// The platform enabled input method editing; earlier cancellations no longer apply.
-    pub fn enabled(&mut self) {
+    pub(super) fn enabled(&mut self) {
         self.composing = false;
         self.cancelled = false;
         self.owner = None;
     }
 
-    pub fn preedit(&mut self, runtime: &mut crate::Runtime, text: &str) {
+    pub(super) fn preedit(&mut self, runtime: &mut crate::Runtime, text: &str) {
         let previous = self.owner;
         self.composing = !text.is_empty();
         if !text.is_empty() {
@@ -68,7 +68,7 @@ impl ImeSession {
         }
     }
 
-    pub fn commit(&mut self, runtime: &mut crate::Runtime, text: &str) {
+    pub(super) fn commit(&mut self, runtime: &mut crate::Runtime, text: &str) {
         let owner = self.owner.take();
         self.composing = false;
         if self.cancelled {
@@ -90,7 +90,7 @@ impl ImeSession {
     /// Apply one platform event to a runtime the caller owns directly. The host applies events
     /// through its application instead; the tests drive the session with this.
     #[cfg(test)]
-    pub fn event(&mut self, runtime: &mut crate::Runtime, event: Ime) {
+    pub(crate) fn event(&mut self, runtime: &mut crate::Runtime, event: Ime) {
         self.observe(runtime);
         match event {
             Ime::Enabled => self.enabled(),
@@ -103,7 +103,7 @@ impl ImeSession {
 
 /// Whether the focused control accepts composed text, and its caret rectangle (x, y, width,
 /// height in logical pixels; empty when there is no caret).
-pub fn ime_target(runtime: &crate::Runtime) -> (bool, Vec<f32>) {
+pub(super) fn ime_target(runtime: &crate::Runtime) -> (bool, Vec<f32>) {
     (
         runtime.text_editing()
             && !runtime.control_readonly(runtime.focused_index().max(0) as usize),
@@ -112,7 +112,7 @@ pub fn ime_target(runtime: &crate::Runtime) -> (bool, Vec<f32>) {
 }
 
 /// Tell the platform where the caret is, so the candidate window opens next to it.
-pub fn place_ime_caret(window: &winit::window::Window, caret: &[f32]) {
+pub(super) fn place_ime_caret(window: &winit::window::Window, caret: &[f32]) {
     if let [x, y, width, height] = *caret {
         window.set_ime_cursor_area(
             winit::dpi::LogicalPosition::new(x as f64, y as f64),

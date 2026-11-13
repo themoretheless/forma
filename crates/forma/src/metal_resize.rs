@@ -58,7 +58,7 @@ unsafe fn layer_for(window: &Window) -> Result<*mut Object, String> {
 
 /// Softbuffer owns a sibling CALayer. Keep its last CPU frame from covering
 /// subsequent Metal frames, and hide Metal while the software layer presents.
-pub fn set_visible(window: &Window, visible: bool) -> Result<(), String> {
+pub(super) fn set_visible(window: &Window, visible: bool) -> Result<(), String> {
     // SAFETY: winit main thread; the window retains the view and its layers.
     unsafe {
         let layer = layer_for(window)?;
@@ -73,7 +73,7 @@ pub fn set_visible(window: &Window, visible: bool) -> Result<(), String> {
     Ok(())
 }
 
-pub fn configure(window: &Window) -> Result<(), String> {
+pub(super) fn configure(window: &Window) -> Result<(), String> {
     // SAFETY: winit main thread; layers are retained by the window.
     unsafe {
         let layer = layer_for(window)?;

@@ -1,3 +1,4 @@
+#![warn(unreachable_pub)]
 use wasm_bindgen::prelude::*;
 mod blend;
 pub mod frame_stats;

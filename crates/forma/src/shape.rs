@@ -9,7 +9,7 @@ thread_local! {
 }
 
 #[allow(dead_code)]
-pub fn draw(
+pub(crate) fn draw(
     out: &mut [u8],
     width: u32,
     height: u32,

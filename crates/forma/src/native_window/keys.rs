@@ -3,7 +3,7 @@
 use winit::keyboard::{Key, NamedKey, PhysicalKey};
 
 /// Runtime key code of the keys that activate or dismiss a control; 0 for any other key.
-pub fn activation_key(key: &Key) -> u8 {
+pub(super) fn activation_key(key: &Key) -> u8 {
     match key {
         Key::Named(NamedKey::Space) => 1,
         Key::Named(NamedKey::Enter) => 2,
@@ -13,7 +13,7 @@ pub fn activation_key(key: &Key) -> u8 {
 }
 
 /// Move focus with Tab, wrapping to the other end once the last control is passed.
-pub fn focus_traversal(runtime: &mut crate::Runtime, shift: bool) {
+pub(super) fn focus_traversal(runtime: &mut crate::Runtime, shift: bool) {
     if !runtime.focus_next(shift) {
         runtime.focus(false);
         runtime.focus_next(shift);
@@ -21,7 +21,7 @@ pub fn focus_traversal(runtime: &mut crate::Runtime, shift: bool) {
 }
 
 /// A key press delivered to the focused text editor.
-pub struct TextKey<'a> {
+pub(super) struct TextKey<'a> {
     pub logical_key: &'a Key,
     pub physical_key: &'a PhysicalKey,
     /// Text the key produces, when it produces any.
@@ -30,7 +30,7 @@ pub struct TextKey<'a> {
 }
 
 /// Route a key press to word movement, the clipboard, editing commands or text insertion.
-pub fn text_edit_key(runtime: &mut crate::Runtime, press: &TextKey) {
+pub(super) fn text_edit_key(runtime: &mut crate::Runtime, press: &TextKey) {
     let shift = press.modifiers.shift;
     let command = press.modifiers.shortcut(press.text.is_some());
     let word_modifier = press.modifiers.word_modifier();

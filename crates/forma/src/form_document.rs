@@ -124,13 +124,18 @@ pub struct SceneArtifact {
     pub logical_content_end: Option<[f64; 2]>,
 }
 mod finite_number {
-    pub fn serialize<S: serde::Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+    pub(super) fn serialize<S: serde::Serializer>(
+        value: &f64,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         if !value.is_finite() {
             return Err(serde::ser::Error::custom("Nonfinite scene value"));
         }
         serializer.serialize_f64(*value)
     }
-    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<f64, D::Error> {
         let value = <f64 as serde::Deserialize>::deserialize(deserializer)?;
         if !value.is_finite() {
             return Err(serde::de::Error::custom("Nonfinite scene value"));

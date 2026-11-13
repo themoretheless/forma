@@ -43,7 +43,7 @@ struct VisualRowContext<'a> {
 }
 
 impl Editor {
-    pub fn new(spec: Input, base: Vec<Content>) -> Result<Self, String> {
+    pub(crate) fn new(spec: Input, base: Vec<Content>) -> Result<Self, String> {
         let model = TextEdit::with_multiline(spec.value.clone(), spec.multiline)
             .map_err(|e| e.to_string())?;
         Ok(Self {
@@ -61,13 +61,13 @@ impl Editor {
             semantic_revision: next_semantic_revision(),
         })
     }
-    pub fn needs_content(&self, focused: bool) -> bool {
+    pub(crate) fn needs_content(&self, focused: bool) -> bool {
         self.dirty || self.focused != focused
     }
-    pub fn invalidate_content(&mut self) {
+    pub(crate) fn invalidate_content(&mut self) {
         self.dirty = true;
     }
-    pub fn set_preedit(&mut self, text: &str) {
+    pub(crate) fn set_preedit(&mut self, text: &str) {
         if self.spec.read_only && !text.is_empty() {
             return;
         }
@@ -77,10 +77,10 @@ impl Editor {
             self.dirty = true;
         }
     }
-    pub fn is_animating(&self) -> bool {
+    pub(crate) fn is_animating(&self) -> bool {
         !self.reduced && (self.focused || !self.fades.is_empty())
     }
-    pub fn reduced_motion(&mut self, reduced: bool) {
+    pub(crate) fn reduced_motion(&mut self, reduced: bool) {
         self.dirty |= self.reduced != reduced;
         self.reduced = reduced;
         if reduced {
@@ -88,7 +88,7 @@ impl Editor {
             self.phase = 0.;
         }
     }
-    pub fn tick(&mut self, dt: f32) {
+    pub(crate) fn tick(&mut self, dt: f32) {
         if !dt.is_finite() || dt <= 0. || self.reduced {
             return;
         }
@@ -157,7 +157,7 @@ impl Editor {
             (self.spec.bounds[3] - self.line_height()) * 0.5
         }
     }
-    pub fn hit(&mut self, x: f32, y: f32, extend: bool) {
+    pub(crate) fn hit(&mut self, x: f32, y: f32, extend: bool) {
         if self.spec.multiline && self.spec.wrap {
             self.hit_soft_wrapped(x, y, extend);
             return;
@@ -190,10 +190,10 @@ impl Editor {
         };
         let _ = self.model.set_selection(anchor, start + pos);
     }
-    pub fn select_utf16(&mut self, anchor: u32, caret: u32) -> bool {
+    pub(crate) fn select_utf16(&mut self, anchor: u32, caret: u32) -> bool {
         self.select_utf16_in_value(anchor, caret, true)
     }
-    pub fn select_original_utf16(&mut self, anchor: u32, caret: u32) -> bool {
+    pub(crate) fn select_original_utf16(&mut self, anchor: u32, caret: u32) -> bool {
         self.select_utf16_in_value(anchor, caret, false)
     }
     fn select_utf16_in_value(&mut self, anchor: u32, caret: u32, normalized: bool) -> bool {
@@ -236,7 +236,7 @@ impl Editor {
         }
         changed
     }
-    pub fn word_key(&mut self, key: &str, shift: bool) -> bool {
+    pub(crate) fn word_key(&mut self, key: &str, shift: bool) -> bool {
         if !matches!(key, "ArrowLeft" | "ArrowRight" | "Backspace" | "Delete") {
             return false;
         }
@@ -267,7 +267,7 @@ impl Editor {
         self.preedit.clear();
         true
     }
-    pub fn key(&mut self, key: &str, shift: bool, command: bool) -> bool {
+    pub(crate) fn key(&mut self, key: &str, shift: bool, command: bool) -> bool {
         if self.spec.read_only
             && (matches!(key, "Backspace" | "Delete" | "Enter")
                 || command && matches!(key.to_ascii_lowercase().as_str(), "z" | "y"))
@@ -373,7 +373,7 @@ impl Editor {
         self.preedit.clear();
         true
     }
-    pub fn insert(&mut self, text: &str) {
+    pub(crate) fn insert(&mut self, text: &str) {
         if self.spec.read_only {
             return;
         }
@@ -476,7 +476,7 @@ impl Editor {
             }
         }
     }
-    pub fn content(&mut self, focused: bool) -> Vec<Content> {
+    pub(crate) fn content(&mut self, focused: bool) -> Vec<Content> {
         if focused != self.focused {
             self.phase = 0.;
             self.focused = focused;
@@ -578,7 +578,7 @@ impl Editor {
         self.dirty = false;
         out
     }
-    pub fn caret_rect(&self) -> [f32; 4] {
+    pub(crate) fn caret_rect(&self) -> [f32; 4] {
         let p = self.caret_point();
         [
             self.spec.bounds[0] + p[0] - self.offset[0],
@@ -588,7 +588,7 @@ impl Editor {
         ]
     }
     /// Computes visual soft-wrapped lines for this editor's current value constrained by its bounding width.
-    pub fn soft_wrapped_lines(&self) -> Vec<crate::text::SoftWrappedLine> {
+    pub(crate) fn soft_wrapped_lines(&self) -> Vec<crate::text::SoftWrappedLine> {
         crate::text::wrap_shaped_text(
             self.model.value(),
             self.spec.font_size,
@@ -596,7 +596,7 @@ impl Editor {
         )
     }
     /// Hit-tests `(x, y)` in visual soft-wrapped layout coordinates and updates the editor selection/caret.
-    pub fn hit_soft_wrapped(&mut self, x: f32, y: f32, extend: bool) {
+    pub(crate) fn hit_soft_wrapped(&mut self, x: f32, y: f32, extend: bool) {
         self.semantic_revision = next_semantic_revision();
         self.preferred_x = None;
         self.phase = 0.;

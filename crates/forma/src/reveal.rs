@@ -90,7 +90,7 @@ pub(crate) struct Paint {
 }
 
 impl Paint {
-    pub fn color_at(self, p: [f32; 2]) -> [u8; 4] {
+    pub(crate) fn color_at(self, p: [f32; 2]) -> [u8; 4] {
         let mut color = self.color;
         let amount = if self.full {
             1.
@@ -109,7 +109,7 @@ impl Paint {
         color
     }
     /// Two vec4 paint records; geometry references the first record's index.
-    pub fn gpu(self) -> [f32; 8] {
+    pub(crate) fn gpu(self) -> [f32; 8] {
         [
             self.pointer[0],
             self.pointer[1],
@@ -155,10 +155,10 @@ fn ease(t: f32) -> f32 {
 }
 
 impl State {
-    pub fn rebase(&mut self, bounds: [f32; 4], spec: &Reveal) {
+    pub(crate) fn rebase(&mut self, bounds: [f32; 4], spec: &Reveal) {
         self.pointer(self.pointer, bounds, spec);
     }
-    pub fn pointer(&mut self, pointer: Option<[f32; 2]>, bounds: [f32; 4], spec: &Reveal) {
+    pub(crate) fn pointer(&mut self, pointer: Option<[f32; 2]>, bounds: [f32; 4], spec: &Reveal) {
         self.pointer = pointer.filter(|p| p.iter().all(|n| n.is_finite()));
         let Some([x, y]) = self.pointer else {
             self.progress = 0.;
@@ -186,17 +186,17 @@ impl State {
             }
         }
     }
-    pub fn reduced_motion(&mut self, reduced: bool) {
+    pub(crate) fn reduced_motion(&mut self, reduced: bool) {
         self.reduced_motion = reduced;
         if reduced {
             self.progress = self.target;
             self.duration = 0.;
         }
     }
-    pub fn active(&self) -> bool {
+    pub(crate) fn active(&self) -> bool {
         self.progress != self.target && self.elapsed < self.duration
     }
-    pub fn tick(&mut self, dt: f32) -> bool {
+    pub(crate) fn tick(&mut self, dt: f32) -> bool {
         if self.active() {
             self.elapsed = (self.elapsed + dt).min(self.duration);
             self.progress =
@@ -207,7 +207,13 @@ impl State {
         }
         self.active()
     }
-    pub fn paint(&self, spec: &Reveal, bounds: [f32; 4], disabled: bool, focused: bool) -> Paint {
+    pub(crate) fn paint(
+        &self,
+        spec: &Reveal,
+        bounds: [f32; 4],
+        disabled: bool,
+        focused: bool,
+    ) -> Paint {
         if disabled || spec.width == 0. || spec.color[3] == 0 {
             return Paint::default();
         }
