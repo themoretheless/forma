@@ -1,4 +1,5 @@
-node_modules/
+# no trailing slash: a link to an installed tree is ignored like the tree itself
+node_modules
 dist/
 .forma/
 native-app/target/
@@ -7,9 +8,9 @@ crates/*/target/
 crates/forma/examples/*/target/
 packages/svet/crates/svet-wasm/target/
 packages/svet/dist/
-packages/svet/node_modules/
+packages/svet/node_modules
 packages/svet/benchmarks/*wasm-bundle*.tar.gz
-public/vector-pkg/
+public/vector-pkg
 .DS_Store
 .env
 .env.*
