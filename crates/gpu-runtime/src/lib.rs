@@ -17,12 +17,9 @@
 pub mod asd;
 pub mod buffer;
 pub mod command;
-pub mod cuda;
 pub mod duma;
-pub mod dx12;
 pub mod flags;
 pub mod metal;
-pub mod opengl;
 pub mod pipeline;
 pub mod platform;
 pub mod texture;
@@ -30,8 +27,6 @@ pub mod transfer;
 pub mod types;
 pub mod uma;
 pub mod util;
-pub mod vulkan;
-pub mod webgpu;
 
 /// `Debug` for GPU handles whose contents are opaque backend objects.
 macro_rules! impl_opaque_debug {
@@ -63,14 +58,12 @@ pub use buffer::*;
 pub use command::*;
 pub use duma::*;
 pub use flags::*;
-pub use opengl::*;
 pub use pipeline::*;
 pub use platform::*;
 pub use texture::*;
 pub use transfer::*;
 pub use types::*;
 pub use uma::*;
-pub use webgpu::*;
 
 use gpu_shader as naga;
 use gpu_shader::back::msl::BindingMap;

@@ -150,3 +150,15 @@
   `WriteOnly<'_, [u8]>` вместо `&mut [u8]`: вид должен жить, пока диапазон занят.
 - Миграция: уничтожать вид до запроса следующего на те же байты; там, где нужен `&[u8]` с
   временем жизни буфера, держать `BufferView` и брать срез через `Deref`.
+
+## 15. Заготовки бэкендов убраны из `gpu-runtime`
+
+- Затронуто: модули `gpu_runtime::{vulkan, dx12, opengl, webgpu, cuda}` и их типы
+  (`VulkanDevice`, `VkMemoryPropertyFlags`, `Dx12Device`, `OpenGlDevice`, `GlProfile`,
+  `WebGpuDevice`, `WgslLanguageFeature`, `CudaDevice` и псевдонимы `CU*`) удалены. Они не
+  обращались к драйверу: `probe_available()` всегда возвращал `None`, а `reference_profile()`
+  описывал выдуманное устройство.
+- Миграция: наличие бэкенда узнавать через `ComputeShaderTarget::is_implemented` и
+  `gpu_compute::available_backend_report`; CUDA живёт в `gpu-compute` и `compute-cuda`. Типы
+  вернутся вместе с реализацией бэкендов (раздел 4 плана развития) и будут заполняться пробой
+  устройства.

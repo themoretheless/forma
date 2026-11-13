@@ -83,8 +83,6 @@
 
 - [ ] `gpu_shader::valid::Validator` не возвращает ошибок (проверено): ill-typed шейдер доходит
   до компилятора Metal. Нужна настоящая проверка типов.
-- [ ] `vulkan`, `dx12`, `opengl`, `webgpu`: «reference profile» с обещанными возможностями без
-  реализации; оставить только то, что проверяется пробой устройства.
 - [ ] `// SAFETY:` помодульно со снятием crate-wide `allow(unsafe_op_in_unsafe_fn)`, декомпозиция
   `submit_with_error_sink`, `create_render_pipeline`, `encode_render_pass`.
 - [ ] Device loss, смена GPU, forced faults, квалификация signal-driven пути.

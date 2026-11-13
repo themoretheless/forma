@@ -270,47 +270,10 @@ mod tests {
     }
 
     #[test]
-    fn opengl_vulkan_and_rtx_raytracing_subsystems_work() {
-        // None of these backends is implemented: probing finds no device on any platform, and the
-        // derived planning helpers are exercised on the static reference profiles instead.
-        assert!(wgpu::opengl::OpenGlDevice::probe_available().is_none());
-        assert!(wgpu::vulkan::VulkanDevice::probe_available().is_none());
-        assert!(wgpu::webgpu::WebGpuDevice::probe_available().is_none());
-        assert!(wgpu::dx12::Dx12Device::probe_available().is_none());
-
-        let gl = wgpu::opengl::OpenGlDevice::reference_profile();
-        assert!(gl.supports_compute_shaders);
-        assert!(gl.supports_persistent_coherent_mapping);
-        assert_ne!(gl.recommended_buffer_storage_flags(), 0);
-
-        let vk = wgpu::vulkan::VulkanDevice::reference_profile();
-        assert_eq!(vk.api_version.0, 1);
-        assert_eq!(vk.api_version.1, 3);
-        assert!(vk.supports_ray_tracing_pipeline);
-        assert!(vk.supports_ray_query);
-        assert!(vk.supports_external_memory_host_asd);
-        assert_eq!(
-            vk.storage_direct_capability(),
-            StorageDirectCapability::VulkanExternalMemoryHost
-        );
-
+    fn the_ray_tracing_sample_translates_to_msl() {
         let rtx_shader = generate_wgsl_rtx_raytracing_shader(8, 8);
         let rtx_msl = compile_wgsl_for_target(&rtx_shader, ComputeShaderTarget::MetalMsl)
             .expect("the ray tracing sample translates to MSL");
         assert!(rtx_msl.contains("kernel void"));
-
-        let webgpu = wgpu::webgpu::WebGpuDevice::reference_profile();
-        assert_eq!(
-            webgpu.backend_report().environment,
-            ApiEnvironment::BrowserSandbox
-        );
-        assert_eq!(webgpu.backend_report().shader_ir, BackendShaderIr::Wgsl);
-        assert_eq!(
-            webgpu.storage_direct_capability(),
-            StorageDirectCapability::None
-        );
-        let webgpu_plan = webgpu.transfer_plan(1024 * 1024);
-        assert_eq!(webgpu_plan.memory_architecture, MemoryArchitecture::Duma);
-        assert_eq!(webgpu_plan.tech, TransferStrategy::DumaRebarWindow);
     }
 }
