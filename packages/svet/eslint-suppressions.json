@@ -126,9 +126,19 @@
       "count": 7
     }
   },
+  "src/engine/gpu-compute-support.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/engine/gpu-types.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 17
+    }
+  },
   "src/engine/gpu.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 30
+      "count": 10
     }
   },
   "src/engine/jsx.ts": {

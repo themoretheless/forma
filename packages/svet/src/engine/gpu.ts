@@ -15,7 +15,6 @@ import {
   runWithCapturedOwner,
   runUntrackedInCore,
   onCleanup,
-  type ReadonlySignal,
   trackNodeRead,
   triggerNodeWrite,
   disposeTrackedNode,
@@ -26,93 +25,44 @@ import {
   KIND_SIGNAL,
   type SvetWasmExports,
 } from './wasm-bridge.ts';
+import {
+  cacheComputePipeline,
+  checkGpuSignals,
+  computePipelineCaches,
+  computePipelineKey,
+  computeQueues,
+  computeQueueTelemetry,
+  computeSnapshotBudgets,
+  DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
+  findComputePipeline,
+  forgetComputePipeline,
+  GpuComputeCapacityError,
+  MAX_PENDING_COMPUTATIONS,
+  pendingComputations,
+  pendingSnapshotBytes,
+  reserveGpuComputeAdmission,
+  residentComputeBudgets,
+  residentComputeUsage,
+  waitForGpu,
+} from './gpu-compute-support.ts';
+import type {
+  GpuDeviceTelemetry,
+  GpuSubsystemConfig,
+  GpuTensorSignal,
+  MemoryArchitecture,
+  WebGpuDeviceLike,
+} from './gpu-types.ts';
 
-export type MemoryArchitecture = 'UMA' | 'DUMA';
-
-export interface GpuComputeQueueTelemetry {
-  /** Device-wide unfinished hardware calls, including cancelled queue entries awaiting drainage. */
-  pendingComputeCount: number;
-  /** Logical input/private-output snapshot bytes reserved by those calls; not total GPU/process memory. */
-  pendingComputeSnapshotBytes: number;
-  maxPendingComputeCount: number;
-  maxPendingComputeBytes: number;
-}
-
-export interface GpuDeviceTelemetry extends GpuComputeQueueTelemetry {
-  /** Persistent-result reservations, including pending creation; excludes transient GPU buffers. */
-  residentComputeBytes: number;
-  residentComputeCount: number;
-  maxResidentComputeBytes: number;
-
-  architecture: MemoryArchitecture;
-  webgpuAvailable: boolean;
-  arenaFloatCount: number;
-  arenaByteLength: number;
-  lastSyncBytesTransferred: number;
-  totalSyncCount: number;
-  totalBytesTransferred: number;
-}
-
-export interface GpuTensorSignal extends ReadonlySignal<Float32Array> {
-  /** Starting float index in the WASM `gpu_f32_arena` */
-  readonly offset: number;
-  /** Number of `f32` elements in this tensor */
-  readonly length: number;
-  /** Byte offset inside the GPU arena buffer */
-  readonly byteOffset: number;
-  /** Logical byte length; the arena allocation is padded to 16 bytes. */
-  readonly byteLength: number;
-  /** Returns a live zero-copy `Float32Array` view into WASM linear memory */
-  view(): Float32Array;
-  /** Writes values into the tensor at `startIndex`, marks dirty cache lines in WASM, and triggers reactive dependents */
-  write(values: ArrayLike<number>, startIndex?: number): void;
-  /** Mutates a single scalar element in-place, marks its 128-byte cache line dirty, and triggers dependents */
-  setAt(index: number, value: number): void;
-}
-
-export interface WebGpuQueueLike {
-  writeBuffer(
-    buffer: any,
-    bufferOffset: number,
-    data: BufferSource | SharedArrayBuffer,
-    dataOffset?: number,
-    size?: number,
-  ): void;
-  submit?(commandBuffers: any[]): void;
-  onSubmittedWorkDone?(): PromiseLike<void>;
-}
-
-export interface WebGpuDeviceLike {
-  queue: WebGpuQueueLike;
-  createBuffer?(descriptor: { size: number; usage: number; mappedAtCreation?: boolean }): any;
-  createShaderModule?(descriptor: { code: string }): any;
-  createComputePipeline?(descriptor: any): any;
-  createRenderPipeline?(descriptor: any): any;
-  createTexture?(descriptor: any): any;
-  createCommandEncoder?(): any;
-  createBindGroup?(descriptor: any): any;
-  createBindGroupLayout?(descriptor: any): any;
-  createPipelineLayout?(descriptor: any): any;
-  pushErrorScope?(filter: 'validation' | 'out-of-memory' | 'internal'): void;
-  popErrorScope?(): PromiseLike<{ message: string } | null>;
-  lost?: PromiseLike<{ reason?: string; message?: string }>;
-  destroy?(): void;
-  limits?: {
-    maxComputeWorkgroupsPerDimension?: number;
-    maxBufferSize?: number;
-    maxStorageBufferBindingSize?: number;
-    maxTextureDimension2D?: number;
-  };
-}
-
-export interface GpuSubsystemConfig {
-  /** Shared device snapshot budget; default 256 MiB. Existing work is never evicted. */
-  maxPendingComputeBytes?: number | undefined;
-  /** Shared persistent compute-result budget; default 256 MiB. Existing results are retained. */
-  maxResidentComputeBytes?: number | undefined;
-  architecture?: MemoryArchitecture | undefined;
-  device?: WebGpuDeviceLike | null | undefined;
-}
+export { GpuComputeCapacityError } from './gpu-compute-support.ts';
+export type {
+  GpuComputeQueueTelemetry,
+  GpuDeviceTelemetry,
+  GpuSubsystemConfig,
+  GpuTensorSignal,
+  MemoryArchitecture,
+  WebGpuDeviceLike,
+  WebGpuQueueLike,
+} from './gpu-types.ts';
 
 interface GpuState {
   renderers: Set<(reset: boolean) => void>;
@@ -186,6 +136,15 @@ function detachDevice(state: GpuState, reason: Error, notify = true): void {
 }
 type DeviceLossHub = { states: Set<WeakRef<GpuState>>; message?: string };
 const deviceLossHubs = new WeakMap<WebGpuDeviceLike, DeviceLossHub>();
+/** A lost device keeps no pipelines: nothing compiled for it can run again. */
+function retainComputePipeline(
+  device: WebGpuDeviceLike,
+  key: string | undefined,
+  pipeline: unknown,
+): void {
+  if (deviceLossHubs.get(device)?.message !== undefined) return;
+  cacheComputePipeline(device, key, pipeline);
+}
 function subscribeDeviceLoss(device: WebGpuDeviceLike, hub: DeviceLossHub): void {
   const lost = (message: string) => {
     hub.message = message;
@@ -807,152 +766,6 @@ export interface GpuComputeResult {
   elements: number;
   uploadedBytes: number;
   readbackBytes: number;
-}
-
-/** An admission failure; no tensor snapshots or output revisions were reserved. */
-export class GpuComputeCapacityError extends Error {
-  readonly queue: Readonly<GpuComputeQueueTelemetry>;
-  constructor(
-    readonly reason: 'count' | 'snapshot-bytes',
-    queue: GpuComputeQueueTelemetry,
-    /** Null when the count limit rejects before tensor inspection. */
-    readonly requestedSnapshotBytes: number | null = null,
-  ) {
-    super(
-      reason === 'count'
-        ? 'WebGPU compute queue is full (32 pending computations)'
-        : 'WebGPU compute snapshot byte budget exceeded',
-    );
-    this.name = 'GpuComputeCapacityError';
-    this.queue = Object.freeze({ ...queue });
-  }
-}
-
-const computeQueues = new WeakMap<WebGpuDeviceLike, Promise<void>>();
-type ComputePipelineCache = { entries: Map<string, any>; keyBytes: number };
-const computePipelineCaches = new WeakMap<WebGpuDeviceLike, ComputePipelineCache>();
-const MAX_COMPUTE_PIPELINES = 32;
-const MAX_COMPUTE_PIPELINE_KEY_BYTES = 1024 * 1024;
-function computePipelineKey(wgsl: string, entryPoint: string, namespace = ''): string | undefined {
-  // Do not coerce user objects or retain unbounded shader source in cache keys.
-  if (
-    typeof wgsl !== 'string' ||
-    typeof entryPoint !== 'string' ||
-    (wgsl.length + entryPoint.length) * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES
-  )
-    return;
-  const key = `${namespace}${entryPoint.length}:${entryPoint}${wgsl}`;
-  return key.length * 2 <= MAX_COMPUTE_PIPELINE_KEY_BYTES ? key : undefined;
-}
-function findComputePipeline(device: WebGpuDeviceLike, key: string | undefined): any {
-  if (key === undefined) return;
-  const cache = computePipelineCaches.get(device),
-    pipeline = cache?.entries.get(key);
-  if (pipeline) {
-    cache!.entries.delete(key);
-    cache!.entries.set(key, pipeline);
-  }
-  return pipeline;
-}
-function forgetComputePipeline(device: WebGpuDeviceLike, key: string | undefined): void {
-  if (key === undefined) return;
-  const cache = computePipelineCaches.get(device);
-  if (cache?.entries.delete(key)) cache.keyBytes -= key.length * 2;
-}
-function retainComputePipeline(
-  device: WebGpuDeviceLike,
-  key: string | undefined,
-  pipeline: any,
-): void {
-  if (key === undefined || deviceLossHubs.get(device)?.message !== undefined) return;
-  let cache = computePipelineCaches.get(device);
-  if (!cache) {
-    cache = { entries: new Map(), keyBytes: 0 };
-    computePipelineCaches.set(device, cache);
-  }
-  forgetComputePipeline(device, key);
-  while (
-    cache.entries.size >= MAX_COMPUTE_PIPELINES ||
-    cache.keyBytes + key.length * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES
-  ) {
-    forgetComputePipeline(device, cache.entries.keys().next().value!);
-  }
-  cache.entries.set(key, pipeline);
-  cache.keyBytes += key.length * 2;
-}
-// Includes running work and cancelled entries whose queue closures still retain snapshots.
-const pendingComputations = new WeakMap<WebGpuDeviceLike, number>();
-const MAX_PENDING_COMPUTATIONS = 32;
-const pendingSnapshotBytes = new WeakMap<WebGpuDeviceLike, number>();
-const computeSnapshotBudgets = new WeakMap<WebGpuDeviceLike, number>();
-const DEFAULT_COMPUTE_SNAPSHOT_BUDGET = 256 * 1024 * 1024;
-const residentComputeBudgets = new WeakMap<WebGpuDeviceLike, number>();
-const residentComputeUsage = new WeakMap<WebGpuDeviceLike, { bytes: number; count: number }>();
-function computeQueueTelemetry(device: WebGpuDeviceLike | null): GpuComputeQueueTelemetry {
-  return {
-    pendingComputeCount: device ? (pendingComputations.get(device) ?? 0) : 0,
-    pendingComputeSnapshotBytes: device ? (pendingSnapshotBytes.get(device) ?? 0) : 0,
-    maxPendingComputeCount: MAX_PENDING_COMPUTATIONS,
-    maxPendingComputeBytes: device
-      ? (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET)
-      : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
-  };
-}
-
-/** @internal Reserve before copying host data; retain queued credits until drainage. */
-function reserveGpuComputeAdmission(device: WebGpuDeviceLike, snapshotBytes: number): () => void {
-  const pending = pendingComputations.get(device) ?? 0;
-  if (pending >= MAX_PENDING_COMPUTATIONS)
-    throw new GpuComputeCapacityError('count', computeQueueTelemetry(device));
-  const retained = pendingSnapshotBytes.get(device) ?? 0;
-  if (
-    !Number.isSafeInteger(snapshotBytes) ||
-    snapshotBytes < 0 ||
-    snapshotBytes >
-      (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET) - retained
-  ) {
-    throw new GpuComputeCapacityError(
-      'snapshot-bytes',
-      computeQueueTelemetry(device),
-      snapshotBytes,
-    );
-  }
-  pendingComputations.set(device, pending + 1);
-  pendingSnapshotBytes.set(device, retained + snapshotBytes);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    const remaining = pendingComputations.get(device)! - 1;
-    const bytes = pendingSnapshotBytes.get(device)! - snapshotBytes;
-    if (remaining) pendingComputations.set(device, remaining);
-    else pendingComputations.delete(device);
-    if (bytes) pendingSnapshotBytes.set(device, bytes);
-    else pendingSnapshotBytes.delete(device);
-  };
-}
-
-function checkGpuSignals(signals: AbortSignal[]): void {
-  for (const signal of signals) signal.throwIfAborted();
-}
-async function waitForGpu<T>(promise: PromiseLike<T>, signals: AbortSignal[]): Promise<T> {
-  // Always observe the operation, including when cancellation has already occurred.
-  const operation = Promise.resolve(promise);
-  operation.catch(() => {});
-  checkGpuSignals(signals);
-  const remove: Array<() => void> = [];
-  const cancelled = new Promise<never>((_, reject) => {
-    for (const signal of signals) {
-      const abort = () => reject(signal.reason);
-      signal.addEventListener('abort', abort, { once: true });
-      remove.push(() => signal.removeEventListener('abort', abort));
-    }
-  });
-  try {
-    return await Promise.race([operation, cancelled]);
-  } finally {
-    for (const cleanup of remove) cleanup();
-  }
 }
 
 /**
