@@ -120,8 +120,9 @@
   правила его времени жизни (`forma-instance.ts`), реестры внешних элементов и компонентов
   (`forma-registry.ts`), рендерер дерева (`forma-render.ts`, `createFormaRenderer`) и исполнитель
   действий с мутаторами состояния (`forma-actions.ts`: `createFormaActionRunner`,
-  `createFormaStateMutator`); `forma.ts` 1693 → 1011 строк. В `instantiateForma` остаются около
-  640 строк: разбор документа в сигналы, вычисляемые `let`, сборка экземпляра с горячей
+  `createFormaStateMutator`) и загрузка документа в контейнеры экземпляра (`forma-document.ts`,
+  `applyFormaDocument`); `forma.ts` 1693 → 973 строки. В `instantiateForma` остаются около 600
+  строк: привязка внешнего состояния, вычисляемые `let`, сборка экземпляра с горячей
   перезагрузкой.
   Из `gpu.ts` вынесены типы (`gpu-types.ts`) и учёт асинхронных вычислений: кэш пайплайнов,
   лимиты допуска, ожидание с отменой (`gpu-compute-support.ts`); `gpu.ts` 1429 → 1242 строки.

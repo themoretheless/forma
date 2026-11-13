@@ -114,7 +114,6 @@ import {
   type InterpPart,
   type ExprAst,
   FORBIDDEN_MEMBER_KEYS,
-  isSafePatternRegex,
   evaluateFormaExpression,
   compileFormaPatternMatcher,
   doesFormaPatternMatch,
@@ -147,6 +146,7 @@ import {
   type FormaValidationReport,
 } from './forma-aot.ts';
 import { createFormaActionRunner, createFormaStateMutator } from './forma-actions.ts';
+import { applyFormaDocument, type FormaDocumentState } from './forma-document.ts';
 import { createFormaRenderer } from './forma-render.ts';
 import { formaComponentRegistry } from './forma-registry.ts';
 
@@ -380,68 +380,30 @@ function instantiateForma(
       }
     }
 
+    const documentState: FormaDocumentState = {
+      tokens,
+      i18nDictionaries,
+      styles,
+      propConstraints,
+      initialStateValues,
+      stateSignals,
+      propSignals,
+      ownedStateSignals,
+      ownedPropSignals,
+      letExpressions,
+      shortcuts,
+      rootAstNodes,
+    };
     const applyDocumentAst = (
       docAst: FormaDocumentAst,
       isHotReload = false,
       readOptionProps = true,
-    ) => {
-      for (const k of Object.keys(tokens)) delete tokens[k];
-      Object.assign(tokens, structuredCloneIfObject(docAst.tokens));
-
-      for (const k of Object.keys(i18nDictionaries)) delete i18nDictionaries[k];
-      Object.assign(i18nDictionaries, structuredCloneIfObject(docAst.i18nDictionaries));
-
-      for (const k of Object.keys(styles)) delete styles[k];
-      Object.assign(styles, structuredCloneIfObject(docAst.styles));
-
-      propConstraints.length = 0;
-      for (const c of docAst.propConstraints) {
-        const defVal =
-          readOptionProps &&
-          options?.props &&
-          Object.prototype.hasOwnProperty.call(options.props, c.name)
-            ? options.props[c.name]
-            : c.defaultValue;
-        let compiledPattern: RegExp | undefined;
-        if (c.patternSource && isSafePatternRegex(c.patternSource)) {
-          try {
-            compiledPattern = new RegExp(c.patternSource);
-          } catch {
-            compiledPattern = undefined;
-          }
-        }
-        propConstraints.push({
-          ...c,
-          defaultValue: defVal,
-          compiledPattern,
-        });
-        if (!propSignals[c.name]) {
-          const sig = ownSignal(defVal);
-          ownedPropSignals.set(c.name, sig);
-          propSignals[c.name] = sig;
-        }
-      }
-
-      for (const [name, initVal] of Object.entries(docAst.initialStateValues)) {
-        if (!isHotReload || !(name in initialStateValues)) {
-          initialStateValues[name] = structuredCloneIfObject(initVal);
-        }
-        if (!stateSignals[name]) {
-          const sig = ownSignal(structuredCloneIfObject(initVal));
-          ownedStateSignals.set(name, sig);
-          stateSignals[name] = sig;
-        }
-      }
-
-      letExpressions.length = 0;
-      letExpressions.push(...docAst.letExpressions);
-
-      shortcuts.length = 0;
-      shortcuts.push(...docAst.shortcuts);
-
-      rootAstNodes.length = 0;
-      rootAstNodes.push(...docAst.rootAstNodes);
-    };
+    ) =>
+      applyFormaDocument(documentState, docAst, {
+        isHotReload,
+        optionProps: readOptionProps ? options?.props : undefined,
+        ownSignal,
+      });
 
     applyDocumentAst(initialAst, false);
 
