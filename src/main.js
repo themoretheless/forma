@@ -1,3 +1,4 @@
+import { fileTreeHtml, visibleTreePaths } from './file-tree-model.js';
 import { createFile, duplicateFile, moveDestination, renameFile } from './project-files.js';
 import { createProjectStore } from './project-store.js';
 import { createPreviewDebugger } from './preview-debugger.js';
@@ -340,35 +341,14 @@ function bindTreeEvents(scope = $('tree')) {
   });
 }
 function tree(force = false) {
-  const allPaths = Object.keys(files),
-    hasAppUi = allPaths.some(p => p.startsWith('ui/')),
-    paths = (
-      hasAppUi
-        ? allPaths.filter(p => !p.startsWith('components/') && !p.startsWith('assets/'))
-        : allPaths
-    ).filter(p => !treeFilter || p.toLowerCase().includes(treeFilter.toLowerCase()));
+  const paths = visibleTreePaths(files, treeFilter);
   const buttons = [...$('tree').querySelectorAll('[data-path]')],
     existing = new Set(buttons.map(b => b.dataset.path));
   if (!force && buttons.length === paths.length && paths.every(path => existing.has(path))) {
     selectTreeRow(selectedTreeItem);
     return;
   }
-  const groups = {},
-    rootFiles = [];
-  for (const path of paths) {
-    if (path.includes('/')) {
-      (groups[path.slice(0, path.lastIndexOf('/'))] ??= []).push(path);
-    } else rootFiles.push(path);
-  }
-  const fileBtn = (p, root = false) =>
-    `<button class="file ${root ? 'root-file ' : ''}${p === selectedTreeItem ? 'active' : ''}" draggable="true" data-path="${esc(p)}"><span class="${p.endsWith('.rs') || p.endsWith('.toml') ? 'rust' : 'ui'}">${p.endsWith('.rs') ? 'R' : p.endsWith('.toml') ? '⚙' : '◇'}</span>${esc(p.split('/').at(-1))}</button>`;
-  $('tree').innerHTML =
-    Object.entries(groups)
-      .map(
-        ([folder, items]) =>
-          `<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${items.map(p => fileBtn(p)).join('')}`,
-      )
-      .join('') + rootFiles.map(p => fileBtn(p, true)).join('');
+  $('tree').innerHTML = fileTreeHtml(paths, selectedTreeItem);
   bindTreeEvents();
 }
 function open(path) {
