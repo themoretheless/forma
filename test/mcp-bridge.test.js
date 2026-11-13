@@ -109,3 +109,133 @@ test('a server off loopback announces nothing and refuses every request', async 
   assert.equal(existsSync(descriptorPath), false);
   assert.equal(await request({ host: '192.168.1.20:4321' }), 403);
 });
+
+/** A dev server double with a connected IDE tab that records what the bridge sends it. */
+function connected(t) {
+  const directory = mkdtempSync(join(tmpdir(), 'forma-bridge-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const httpServer = new EventEmitter();
+  httpServer.address = () => ({ address: '127.0.0.1', family: 'IPv4', port: 4321 });
+  const sockets = new EventEmitter();
+  let handler;
+  const currentClient = registerMcpBridge(
+    {
+      httpServer,
+      ws: { on: (name, listener) => sockets.on(name, listener) },
+      middlewares: { use: (_, registered) => (handler = registered) },
+    },
+    directory,
+  );
+  httpServer.emit('listening');
+  const descriptorPath = join(directory, 'bridge.json');
+  const { token } = JSON.parse(readFileSync(descriptorPath, 'utf8'));
+  const tab = () => {
+    const sent = [];
+    return { sent, socket: { readyState: 1 }, send: (name, data) => sent.push([name, data]) };
+  };
+  /** Sends `chunks` as the body of a request and resolves with its status and JSON. */
+  const post = (chunks, method = 'POST') => {
+    const response = { setHeader() {} };
+    const done = new Promise(resolve => {
+      response.end = body => resolve({ status: response.statusCode, body: JSON.parse(body) });
+    });
+    const request = {
+      method,
+      headers: { authorization: `Bearer ${token}`, host: '127.0.0.1:4321' },
+      async *[Symbol.asyncIterator]() {
+        yield* chunks;
+      },
+    };
+    handler(request, response);
+    return done;
+  };
+  return { httpServer, sockets, post, tab, currentClient, descriptorPath };
+}
+
+/** Lets the bridge read the request body and forward the command. */
+const forwarded = () => new Promise(resolve => setImmediate(resolve));
+
+test('a command goes to the connected tab and its result comes back', async t => {
+  const { sockets, post, tab, currentClient, httpServer } = connected(t);
+  t.after(() => httpServer.emit('close'));
+  const ide = tab();
+  sockets.emit('forma:hello', null, ide);
+  assert.equal(currentClient(), ide);
+
+  const reply = post(['{"command":"ide_', 'status","args":{}}']);
+  await forwarded();
+  assert.equal(ide.sent.length, 1);
+  const [name, command] = ide.sent[0];
+  assert.equal(name, 'forma:command');
+  assert.deepEqual({ ...command, id: null }, { id: null, command: 'ide_status', args: {} });
+
+  // A result from a tab that is not the client, or for another id, is ignored.
+  sockets.emit('forma:result', { id: command.id, value: 'spoofed' }, tab());
+  sockets.emit('forma:result', { id: 'unknown', value: 'stray' }, ide);
+  sockets.emit('forma:result', { id: command.id, value: 'done' }, ide);
+  assert.deepEqual(await reply, { status: 200, body: { id: command.id, value: 'done' } });
+});
+
+test('the first live tab stays the client until its socket closes', async t => {
+  const { sockets, tab, currentClient, httpServer } = connected(t);
+  t.after(() => httpServer.emit('close'));
+  const first = tab(),
+    second = tab();
+  sockets.emit('forma:hello', null, first);
+  sockets.emit('forma:hello', null, second);
+  assert.equal(currentClient(), first);
+  first.socket.readyState = 3;
+  sockets.emit('forma:hello', null, second);
+  assert.equal(currentClient(), second);
+});
+
+test('requests the bridge cannot forward are answered without reaching the tab', async t => {
+  const { sockets, post, tab, httpServer } = connected(t);
+  t.after(() => httpServer.emit('close'));
+  assert.deepEqual(await post(['{}']), {
+    status: 503,
+    body: { error: 'Open the IDE browser tab first' },
+  });
+  const ide = tab();
+  sockets.emit('forma:hello', null, ide);
+
+  assert.deepEqual(await post(['{}'], 'GET'), { status: 405, body: { error: 'POST required' } });
+  assert.equal((await post(['not json'])).status, 500);
+  assert.deepEqual(await post(['x'.repeat(1_500_000), 'x'.repeat(600_000)]), {
+    status: 413,
+    body: { error: 'Request too large' },
+  });
+  assert.deepEqual(ide.sent, []);
+
+  ide.socket.readyState = 3;
+  assert.equal((await post(['{}'])).status, 503);
+});
+
+test('stopping the server fails commands in flight and removes the descriptor', async t => {
+  const { sockets, post, tab, httpServer, descriptorPath } = connected(t);
+  sockets.emit('forma:hello', null, tab());
+  const reply = post(['{"command":"ide_status"}']);
+  await forwarded();
+  assert.equal(existsSync(descriptorPath), true);
+  httpServer.emit('close');
+  assert.deepEqual(await reply, { status: 500, body: { error: 'IDE server stopped' } });
+  assert.equal(existsSync(descriptorPath), false);
+});
+
+test('a tab that never replies fails the command and a late reply is dropped', async t => {
+  const { sockets, post, tab, httpServer } = connected(t);
+  t.after(() => httpServer.emit('close'));
+  const ide = tab();
+  sockets.emit('forma:hello', null, ide);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const reply = post(['{"command":"file_write"}']);
+  // The body is read on microtasks; the mocked clock leaves them alone.
+  for (let turn = 0; turn < 10 && !ide.sent.length; turn++) await Promise.resolve();
+  assert.equal(ide.sent.length, 1);
+  t.mock.timers.tick(8_000);
+  const { status, body } = await reply;
+  assert.equal(status, 500);
+  assert.match(body.error, /IDE did not reply\. Outcome may be unknown/);
+  // The late result finds no pending command and is ignored.
+  sockets.emit('forma:result', { id: ide.sent[0][1].id, value: 'late' }, ide);
+});
