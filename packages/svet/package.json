@@ -75,7 +75,6 @@
     "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs",
     "bench:resident-app:prepare": "node scripts/prepare-resident-app-bench.mjs",
     "test:edge": "npm run build:package && node scripts/check-edge-ssr.mjs",
-    "typecheck:indexed": "node scripts/check-indexed-access.mjs",
     "lint": "eslint --max-warnings 0 ."
   },
   "devDependencies": {

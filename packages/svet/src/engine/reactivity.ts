@@ -149,7 +149,7 @@ const observationHost = globalThis as unknown as Record<
 >;
 const observationCopies = (observationHost[observationCopiesKey] ??= []);
 for (let i = observationCopies.length - 1; i >= 0; i--) {
-  if (!observationCopies[i].deref()) observationCopies.splice(i, 1);
+  if (!observationCopies[i]!.deref()) observationCopies.splice(i, 1);
 }
 observationCopies.push(new WeakRef(activeObservationContexts));
 function enterObservationContext(ctx: JsReactiveContext): void {
@@ -232,7 +232,7 @@ const retireLocalCache = (core: SvetWasmExports) => {
   }
 };
 for (let i = reactiveDomains.cacheRetirements.length - 1; i >= 0; i--) {
-  if (!reactiveDomains.cacheRetirements[i].deref()) reactiveDomains.cacheRetirements.splice(i, 1);
+  if (!reactiveDomains.cacheRetirements[i]!.deref()) reactiveDomains.cacheRetirements.splice(i, 1);
 }
 reactiveDomains.cacheRetirements.push(new WeakRef(retireLocalCache));
 
@@ -294,7 +294,7 @@ let asyncOwnerResolver: AsyncOwnerResolver | undefined;
 const resolveAsyncOwnerForCopy: AsyncOwnerResolver = core => asyncOwnerResolver?.(core);
 const compatibleOwnerResolvers = (reactiveDomains.ownerResolvers ??= []);
 for (let i = compatibleOwnerResolvers.length - 1; i >= 0; i--) {
-  if (!compatibleOwnerResolvers[i].deref()) compatibleOwnerResolvers.splice(i, 1);
+  if (!compatibleOwnerResolvers[i]!.deref()) compatibleOwnerResolvers.splice(i, 1);
 }
 compatibleOwnerResolvers.push(new WeakRef(resolveAsyncOwnerForCopy));
 export function installAsyncOwnerResolver(resolve: AsyncOwnerResolver): void {
@@ -329,7 +329,7 @@ function flushUnlinkedEffectsToWasm(core: SvetWasmExports, ctx: JsReactiveContex
   const len = list.length;
   if (len === 0) return;
   for (let i = 0; i < len; i++) {
-    const eff = list[i];
+    const eff = list[i]!;
     eff.inUnlinkedList = false;
     if (!eff.disposed && !eff.wasmLinked && eff.depsCount === 1) {
       eff.wasmLinked = true;
@@ -342,7 +342,7 @@ function flushUnlinkedEffectsToWasm(core: SvetWasmExports, ctx: JsReactiveContex
 function flushPooledDisposalsToWasm(core: SvetWasmExports, ctx: JsReactiveContext): void {
   const pool = ctx.effectPool;
   for (let i = 0; i < pool.length; i++) {
-    const eff = pool[i];
+    const eff = pool[i]!;
     if (eff.id >= 0) {
       core.svet_dispose_node(eff.id);
       eff.id = -1;
@@ -457,7 +457,7 @@ function refreshForeignTracking(
   // Refresh their foreign boundaries before trusting this core's clock/state.
   for (let i = 0; i < entry.depsCount; i++) {
     const id = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
-    const dependency = ctx.computedRegistry[id];
+    const dependency = ctx.computedRegistry[id!];
     if (dependency) refreshForeignTracking(dependency, ctx, seen);
   }
 }
@@ -670,7 +670,7 @@ function commitTrackingFast(
   if (entry.retiredDependencies?.size) {
     let kept = 0;
     for (let i = 0; i < cur; i++) {
-      const source = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
+      const source = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2]!;
       if (entry.retiredDependencies.has(source)) continue;
       if (kept === 0) entry.dep0 = source;
       else if (kept === 1) entry.dep1 = source;
@@ -718,7 +718,7 @@ function commitTrackingFast(
       if (s1) invalidateDirectEffect(s1, true);
     }
     for (let i = 2; i < cur; i++) {
-      const sN = ctx.signalRegistry[entry.deps[i - 2]];
+      const sN = ctx.signalRegistry[entry.deps[i - 2]!];
       if (sN) invalidateDirectEffect(sN, true);
     }
   } else if (entry.kind === 2 && cur >= 1) {
@@ -729,7 +729,7 @@ function commitTrackingFast(
       if (s1) invalidateDirectEffect(s1);
     }
     for (let i = 2; i < cur; i++) {
-      const sN = ctx.signalRegistry[entry.deps[i - 2]];
+      const sN = ctx.signalRegistry[entry.deps[i - 2]!];
       if (sN) invalidateDirectEffect(sN);
     }
   }
@@ -748,7 +748,7 @@ function commitTrackingFast(
     buf[0] = entry.dep0;
     buf[1] = entry.dep1;
     for (let i = 2; i < cur; i++) {
-      buf[i] = entry.deps[i - 2];
+      buf[i] = entry.deps[i - 2]!;
     }
     core.svet_sync_sources_buffered(targetId, cur);
   }
@@ -781,7 +781,7 @@ function getNodeStateFast(core: SvetWasmExports, ctx: JsReactiveContext, id: num
     ctx.statesPtr = ptr;
     ctx.statesCap = cap;
   }
-  return view[id];
+  return view[id]!;
 }
 
 let ownerTeardownDepth = 0;
@@ -797,7 +797,7 @@ function finishOwnerScope(current: OwnerScope): void {
   current.children?.clear();
   for (let i = current.disposables.length - 1; i >= 0; i--) {
     try {
-      current.disposables[i]();
+      current.disposables[i]!();
     } catch {
       /* Continue teardown after cleanup failure. */
     }
@@ -841,7 +841,7 @@ function disposeOwnerScope(scope: OwnerScope): void {
         { scope, children: scope.children?.values() },
       ];
       while (frames.length > 0) {
-        const frame = frames[frames.length - 1];
+        const frame = frames[frames.length - 1]!;
         const next = frame.children?.next();
         if (next && !next.done) {
           const child = next.value;
@@ -1404,10 +1404,10 @@ function requestActiveEffectRerun(
     const cursor = entry === ctx.activeEntry ? ctx.activeCursor : entry.pausedCursor;
     for (let i = 0; i < cursor; i++) {
       const dependency = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
-      if (entry.retiredDependencies?.has(dependency)) continue;
+      if (entry.retiredDependencies?.has(dependency!)) continue;
       if (
         dependency === source ||
-        (ctx.computedRegistry[dependency] && core.svet_depends_on(dependency, source))
+        (ctx.computedRegistry[dependency!] && core.svet_depends_on(dependency!, source))
       ) {
         entry.rerunRequested = true;
         break;
@@ -1430,7 +1430,7 @@ function runQueuedEffects(
     failure: unknown;
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i],
-      id = ids[i];
+      id = ids[i]!;
     if (
       entry &&
       !entry.disposed &&
@@ -1540,7 +1540,7 @@ export function flushEffects(): void {
       const queue = readFlushedEffects(core);
       if (queue.length === 0) break;
       if (queue.length === 1) {
-        const id = queue[0],
+        const id = queue[0]!,
           entry = ctx.effectRegistry[id];
         if (entry && !entry.disposed && core.svet_get_state(id) !== STATE_CLEAN) {
           onRun(entry);
@@ -1944,7 +1944,7 @@ export function computed<T>(
     if (entry.initialized && !entry.failed) {
       const view = ctx.statesView;
       if (view && view.buffer === core.memory.buffer && id < ctx.statesCap) {
-        state = view[id];
+        state = view[id]!;
       } else {
         state = getNodeStateFast(core, ctx, id);
       }
@@ -2166,7 +2166,7 @@ function cleanupEffectOwnerScope(effectOwner: OwnerScope | null): void {
         const disposables = effectOwner.disposables.splice(0);
         for (let i = disposables.length - 1; i >= 0; i--) {
           try {
-            disposables[i]();
+            disposables[i]!();
           } catch {
             // ignore
           }
@@ -2210,7 +2210,7 @@ function rearmAfterCleanupFailure(
     for (let i = 0; i < observer.depsCount; i++)
       pending.push([
         observer.id,
-        i === 0 ? observer.dep0 : i === 1 ? observer.dep1 : observer.deps[i - 2],
+        i === 0 ? observer.dep0 : i === 1 ? observer.dep1 : observer.deps[i - 2]!,
       ]);
   };
   append(entry);
@@ -2236,7 +2236,7 @@ function drainEffectCleanups(callbacks: Array<() => void>): void {
     failure: unknown;
   for (let i = pending.length - 1; i >= 0; i--) {
     try {
-      pending[i]();
+      pending[i]!();
     } catch (error) {
       if (!failed) {
         failed = true;
@@ -2710,7 +2710,7 @@ export function untrack<T>(fn: () => T): T {
     }
     if (suspended)
       for (let i = suspended.length - 1; i >= 0; i--) {
-        const saved = suspended[i];
+        const saved = suspended[i]!;
         if (saved.generation === saved.ctx.generation) {
           saved.ctx.activeObserverId = saved.id;
           saved.ctx.activeEntry = saved.entry;
@@ -2792,7 +2792,7 @@ export function resetReactiveSystem(): void {
     const callbacks = owner.disposables;
     let write = 0;
     for (let read = 0; read < callbacks.length; read++) {
-      const callback = callbacks[read];
+      const callback = callbacks[read]!;
       if (!retired.has(callback)) callbacks[write++] = callback;
     }
     callbacks.length = write;

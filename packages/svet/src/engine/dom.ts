@@ -541,14 +541,14 @@ function synchronizeSelectValue(
   let selected = -1;
   for (let index = 0; index < options.length; index++) {
     assertCurrent();
-    if (selected < 0 && options[index].value === next) selected = index;
+    if (selected < 0 && options[index]!.value === next) selected = index;
     assertCurrent();
   }
   // Avoid rewriting an already coherent selection (including default state).
   let coherent = true;
   for (let index = 0; index < options.length; index++) {
     assertCurrent();
-    if (options[index].selected !== (index === selected)) coherent = false;
+    if (options[index]!.selected !== (index === selected)) coherent = false;
     assertCurrent();
   }
   if (coherent) return;
@@ -563,7 +563,7 @@ function synchronizeSelectValue(
   }
   if (selected >= 0) {
     assertCurrent();
-    options[selected].selected = true;
+    options[selected]!.selected = true;
     domMutationCounter++;
     assertCurrent();
   } else if (select.selectedIndex !== -1) {
@@ -1169,7 +1169,7 @@ function applyStyle(
   const entries: Array<[string, any]> = new Array(keys.length);
   const nextProperties = new Set<string>();
   for (let i = 0; i < keys.length; i++) {
-    const prop = keys[i];
+    const prop = keys[i]!;
     assertCurrent();
     const raw = (styleVal as Record<string, any>)[prop];
     assertCurrent();
@@ -1816,7 +1816,7 @@ function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
   ) {
     const svgClone = document.createElementNS(SVG_NAMESPACE, element.tagName.toLowerCase());
     for (let i = 0; i < element.attributes.length; i++) {
-      const attr = element.attributes[i];
+      const attr = element.attributes[i]!;
       if (attr.namespaceURI) {
         svgClone.setAttributeNS(attr.namespaceURI, attr.name, attr.value);
       } else {
@@ -2276,7 +2276,7 @@ export function For<T, K = T>(props: {
       const keys: K[] = [],
         seen = new Set<K>();
       for (let i = 0; i < items.length; i++) {
-        const key = getKey(items[i], i);
+        const key = getKey(items[i]!, i);
         assertViewCurrent();
         if (seen.has(key)) throw new Error('Duplicate For key');
         seen.add(key);
@@ -2303,8 +2303,8 @@ export function For<T, K = T>(props: {
       try {
         // Prepare rows without publishing lookup entries or changing existing indexes.
         for (let i = 0; i < nextLen; i++) {
-          const item = items[i],
-            key = keys[i];
+          const item = items[i]!,
+            key = keys[i]!;
           const existing = isIntKey(key) ? intKeyTable[key as number] : recordMap.get(key);
           if (existing) {
             reusedCount++;
@@ -2314,8 +2314,8 @@ export function For<T, K = T>(props: {
               anyMovedOrNew = true;
               const prevWasJump =
                 i >= 2
-                  ? oldIndices[i - 1] > oldIdx && oldIdx > oldIndices[i - 2]
-                  : oldIndices[0] > oldIdx && i + 1 < nextLen;
+                  ? oldIndices[i - 1]! > oldIdx && oldIdx > oldIndices[i - 2]!
+                  : oldIndices[0]! > oldIdx && i + 1 < nextLen;
               const displacedPos = prevWasJump ? i - 1 : i;
               displacedCount++;
               if (displacedCount === 1) firstDisplacedIdx = displacedPos;
@@ -2393,11 +2393,11 @@ export function For<T, K = T>(props: {
         }
         if (reusedCount < oldLen) {
           if (reusedCount === 0) {
-            for (let i = 0; i < oldLen; i++) removed.push(oldRecords[i]);
+            for (let i = 0; i < oldLen; i++) removed.push(oldRecords[i]!);
           } else {
             const nextSet = new Set(nextRecords);
             for (let i = 0; i < oldLen; i++) {
-              const rec = oldRecords[i];
+              const rec = oldRecords[i]!;
               if (!nextSet.has(rec)) removed.push(rec);
             }
           }
@@ -2411,8 +2411,8 @@ export function For<T, K = T>(props: {
           ) {
             // Move only displaced rows; fragment rows move their complete live ranges.
             const moveIdx = (idx: number) => {
-              const rec = nextRecords[idx];
-              const anchor = idx + 1 < nextLen ? nextRecords[idx + 1].node : endMarker;
+              const rec = nextRecords[idx]!;
+              const anchor = idx + 1 < nextLen ? nextRecords[idx + 1]!.node : endMarker;
               moveRow(rec, parent, anchor);
             };
             if (displacedCount === 2) {
@@ -2423,7 +2423,7 @@ export function For<T, K = T>(props: {
             // Initial mount or full replacement: no existing rows are reused, so LIS is empty.
             let anchorNode: Node = endMarker;
             for (let i = nextLen - 1; i >= 0; i--) {
-              const rec = nextRecords[i];
+              const rec = nextRecords[i]!;
               moveRow(rec, parent, anchorNode);
               anchorNode = rec.node;
             }
@@ -2433,7 +2433,7 @@ export function For<T, K = T>(props: {
 
             let anchorNode: Node = endMarker;
             for (let i = nextLen - 1; i >= 0; i--) {
-              const rec = nextRecords[i];
+              const rec = nextRecords[i]!;
               const isNew = oldIndices[i] === NEW_ITEM_MARKER;
               let isStationary = false;
               if (!isNew && lisCursor >= 0 && lisPositions[lisCursor] === i) {
