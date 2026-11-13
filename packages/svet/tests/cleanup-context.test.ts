@@ -1,3 +1,4 @@
+import { restoreAsyncCoreResolver, stubAsyncCoreResolver } from './helpers/async-core-stub.ts';
 import { beforeEach, expect, it } from 'vitest';
 import {
   createRoot,
@@ -8,12 +9,7 @@ import {
   runWithOwnerScope,
   signal,
 } from '../src/engine';
-import {
-  createWasmCoreInstance,
-  getWasmCore,
-  installAsyncCoreResolver,
-  withWasmCore,
-} from '../src/engine/wasm-bridge';
+import { createWasmCoreInstance, getWasmCore, withWasmCore } from '../src/engine/wasm-bridge';
 beforeEach(() => resetReactiveSystem());
 
 it('a retained root disposer runs cleanup in its creation core and restores the calling core', () => {
@@ -277,13 +273,13 @@ it('captured disposal still runs after the calling core resolver starts rejectin
       });
     }),
   );
-  installAsyncCoreResolver(() => {
+  stubAsyncCoreResolver(() => {
     throw Error('request closed');
   });
   try {
     expect(stop).not.toThrow();
     expect(cleaned).toBe(1);
   } finally {
-    installAsyncCoreResolver(() => undefined);
+    restoreAsyncCoreResolver();
   }
 });

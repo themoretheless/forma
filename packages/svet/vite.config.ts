@@ -20,6 +20,9 @@ export default defineConfig({
             'tests/slim-entry.test.ts',
             'tests/ssr-carrier.test.ts',
             'tests/ssr-deep-tree.test.ts',
+            // Drops its views with resetReactiveSystem(), which never runs their cleanups: the
+            // shared document listeners it leaves behind break the files that count them.
+            'tests/svet.test.ts',
             'tests/wasm-build-paths.test.ts',
           ],
           isolate: false,
@@ -37,6 +40,7 @@ export default defineConfig({
             'tests/slim-entry.test.ts',
             'tests/ssr-carrier.test.ts',
             'tests/ssr-deep-tree.test.ts',
+            'tests/svet.test.ts',
             'tests/wasm-build-paths.test.ts',
           ],
           isolate: true,

@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { restoreAsyncCoreResolver, stubAsyncCoreResolver } from './helpers/async-core-stub.ts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   captureReactiveContext,
@@ -16,12 +17,7 @@ import {
   type CapturedReactiveContext,
   type Signal,
 } from '../src/engine';
-import {
-  createWasmCoreInstance,
-  getWasmCore,
-  installAsyncCoreResolver,
-  withWasmCore,
-} from '../src/engine/wasm-bridge';
+import { createWasmCoreInstance, getWasmCore, withWasmCore } from '../src/engine/wasm-bridge';
 let stops: Array<() => void> = [],
   sources: Array<Signal<any>> = [];
 beforeEach(() => {
@@ -29,7 +25,7 @@ beforeEach(() => {
   document.body.replaceChildren();
 });
 afterEach(() => {
-  installAsyncCoreResolver(() => undefined);
+  restoreAsyncCoreResolver();
   for (const stop of stops.reverse()) stop();
   for (const source of sources) source.dispose();
   stops = [];
@@ -270,7 +266,7 @@ it('rechecks lifetime after an ambient core resolver disposes the owner', () => 
   });
   const callback = vi.fn();
   let once = true;
-  installAsyncCoreResolver(() => {
+  stubAsyncCoreResolver(() => {
     if (once) {
       once = false;
       dispose();
@@ -281,7 +277,7 @@ it('rechecks lifetime after an ambient core resolver disposes the owner', () => 
     expect(() => context.run(callback)).toThrow(ReactiveContextDisposedError);
     expect(callback).not.toHaveBeenCalled();
   } finally {
-    installAsyncCoreResolver(() => undefined);
+    restoreAsyncCoreResolver();
   }
 });
 it('captured reentry is independent of a closed ambient request resolver', () => {
@@ -291,13 +287,13 @@ it('captured reentry is independent of a closed ambient request resolver', () =>
     stops.push(stop);
     context = captureReactiveContext();
   });
-  installAsyncCoreResolver(() => {
+  stubAsyncCoreResolver(() => {
     throw Error('request closed');
   });
   try {
     expect(context.run(() => getWasmCore())).toBe(owned);
   } finally {
-    installAsyncCoreResolver(() => undefined);
+    restoreAsyncCoreResolver();
   }
 });
 it('marks contexts inactive throughout rerun cleanup before their own cleanup hook executes', () => {
@@ -469,7 +465,7 @@ it('generation changes inside ambient resolution reject continuation before touc
     stops.push(stop);
     context = captureReactiveContext();
   });
-  installAsyncCoreResolver(() => {
+  stubAsyncCoreResolver(() => {
     if (once) {
       once = false;
       resetReactiveSystem();
@@ -482,7 +478,7 @@ it('generation changes inside ambient resolution reject continuation before touc
     expect(() => context.run(() => fresh.set(0))).toThrow(ReactiveContextDisposedError);
     expect(fresh()).toBe(17);
   } finally {
-    installAsyncCoreResolver(() => undefined);
+    restoreAsyncCoreResolver();
     context.dispose();
   }
 });

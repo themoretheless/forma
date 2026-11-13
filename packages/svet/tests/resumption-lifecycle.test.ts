@@ -25,6 +25,7 @@ it('limits ID bindings to the requested container even with duplicate IDs', () =
   restored.value.set('updated');
   expect(document.body.firstElementChild!.textContent).toBe('outside');
   expect(container.textContent).toBe('updated');
+  disposeResumedContainer(container);
 });
 
 it('binds annotations on the container itself', () => {
@@ -34,6 +35,7 @@ it('binds annotations on the container itself', () => {
   expect(container.textContent).toBe('initial');
   restored.value.set('updated');
   expect(container.textContent).toBe('updated');
+  disposeResumedContainer(container);
 });
 
 it('replaces previous resumption without retaining old model listeners or subscriptions', () => {
@@ -49,6 +51,7 @@ it('replaces previous resumption without retaining old model listeners or subscr
   first.value.set('stale');
   expect(input.value).toBe('typed');
   expect(getGraphTelemetry().nodes).toBe(2);
+  disposeResumedContainer(container);
 });
 
 it('owner disposal removes resumed event listeners and reactive graph nodes', () => {

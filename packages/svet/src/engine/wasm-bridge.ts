@@ -155,13 +155,25 @@ export function withoutAsyncCoreContext<T>(callback: () => T): T {
   return escapeAsyncContext ? escapeAsyncContext(callback) : callback();
 }
 
-/** Internal adapter hook; the browser entry has no Node dependency. */
+/**
+ * Internal adapter hook; the browser entry has no Node dependency.
+ *
+ * Returns a function that puts back the resolver this call replaced, unless a later call has
+ * replaced it again.
+ */
 export function installAsyncCoreResolver(
   resolver: () => SvetWasmExports | undefined,
   escape?: <T>(callback: () => T) => T,
-): void {
+): () => void {
+  const previousResolver = asyncCoreResolver,
+    previousEscape = escapeAsyncContext;
   asyncCoreResolver = resolver;
   escapeAsyncContext = escape;
+  return () => {
+    if (asyncCoreResolver !== resolver) return;
+    asyncCoreResolver = previousResolver;
+    escapeAsyncContext = previousEscape;
+  };
 }
 
 /** Install this package's precompiled asset before any core is created. */

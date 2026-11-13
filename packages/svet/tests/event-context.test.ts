@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { restoreAsyncCoreResolver, stubAsyncCoreResolver } from './helpers/async-core-stub.ts';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   bindProp,
@@ -15,12 +16,7 @@ import {
   useContext,
   type Signal,
 } from '../src/engine';
-import {
-  createWasmCoreInstance,
-  getWasmCore,
-  installAsyncCoreResolver,
-  withWasmCore,
-} from '../src/engine/wasm-bridge';
+import { createWasmCoreInstance, getWasmCore, withWasmCore } from '../src/engine/wasm-bridge';
 let stops: Array<() => void> = [],
   sources: Array<Signal<any>> = [];
 beforeEach(() => {
@@ -28,7 +24,7 @@ beforeEach(() => {
   document.body.replaceChildren();
 });
 afterEach(() => {
-  installAsyncCoreResolver(() => undefined);
+  restoreAsyncCoreResolver();
   for (const stop of stops.reverse()) stop();
   for (const source of sources) source.dispose();
   stops = [];
@@ -267,14 +263,14 @@ it('captured event dispatch remains possible when an ambient request resolver re
     });
   });
   const handler = add.mock.calls.find(([name]) => name === 'focus')![1] as EventListener;
-  installAsyncCoreResolver(() => {
+  stubAsyncCoreResolver(() => {
     throw Error('request closed');
   });
   try {
     expect(() => handler.call(button, new Event('focus'))).not.toThrow();
     expect(calls).toBe(1);
   } finally {
-    installAsyncCoreResolver(() => undefined);
+    restoreAsyncCoreResolver();
   }
 });
 function bindFocus(node: HTMLElement, callback: () => void) {
