@@ -9,6 +9,7 @@ import {
   naturalContainer,
 } from '../component-layout.js';
 import { cell, gap, insets, natural, sizes } from './content-layout.js';
+import { clone } from './data.js';
 
 /**
  * @param {{ root: object, instantiate: Function, metrics: object,
@@ -121,4 +122,46 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
     });
   }
   return { intrinsicScene, layoutScene, previewContainers };
+}
+
+/**
+ * Places the controls of a root Frame with `columns` or `rows` and no nested containers: writes
+ * `x`, `y` and the missing sizes into each control and clears the grid properties of the root.
+ *
+ * @returns {{ bounds: number[], columns: number[], rows: number[], gap: number[] }} the root grid
+ */
+export function placeOnRootGrid({ root, instances, instantiate, metrics, rootWidth, rootHeight }) {
+  const rootProps = root.props;
+  const pad = insets(rootProps.padding),
+    g = gap(rootProps);
+  const resolvedChildren = instances.map(n => {
+    const control = clone(n);
+    for (const key of ['cell', 'row', 'column']) delete control.props[key];
+    const { resolved } = instantiate(control, true);
+    return { ...n, props: { ...n.props, width: resolved.width, height: resolved.height } };
+  });
+  const layout = { ...root, children: resolvedChildren };
+  const cols = sizes(layout, 0, Math.max(0, rootWidth - pad[1] - pad[3]), metrics),
+    rows = sizes(layout, 1, Math.max(0, rootHeight - pad[0] - pad[2]), metrics);
+  const grid = {
+    bounds: [pad[3], pad[0], rootWidth - pad[1] - pad[3], rootHeight - pad[0] - pad[2]],
+    columns: cols,
+    rows,
+    gap: g,
+  };
+  instances.forEach(n => {
+    const ci = cell(n, 'columns', cols.length),
+      ri = cell(n, 'rows', rows.length);
+    n.props.x =
+      pad[3] + (ci === null ? 0 : cols.slice(0, ci).reduce((a, b) => a + b, 0) + ci * g[1]);
+    n.props.y =
+      pad[0] + (ri === null ? 0 : rows.slice(0, ri).reduce((a, b) => a + b, 0) + ri * g[0]);
+    if (n.props.width === undefined) n.props.width = ci === null ? grid.bounds[2] : cols[ci];
+    if (n.props.height === undefined) n.props.height = ri === null ? grid.bounds[3] : rows[ri];
+    for (const key of ['cell', 'row', 'column']) delete n.props[key];
+  });
+  delete rootProps.columns;
+  delete rootProps.rows;
+  rootProps.gap = 0;
+  return grid;
 }

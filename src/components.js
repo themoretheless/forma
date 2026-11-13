@@ -24,12 +24,12 @@ import { cachingMetrics } from './compiler/metrics-cache.js';
 import { applyDesigns } from './compiler/design-patch.js';
 import { createLinker } from './compiler/link.js';
 import { createInstanceCompiler } from './compiler/instance.js';
-import { createSceneLayout } from './compiler/scene-layout.js';
+import { createSceneLayout, placeOnRootGrid } from './compiler/scene-layout.js';
 import { createInstantiator } from './compiler/instantiate.js';
 import { sharedDeclarations } from './compiler/declarations.js';
 import { sceneModals } from './compiler/modals.js';
+import { sourceSceneOf } from './compiler/source-scene.js';
 import { builtinSources, fallback, primitiveTypes } from './compiler/builtins.js';
-import { cell, gap, insets, sizes } from './compiler/content-layout.js';
 export { evaluate } from './component-semantics.js';
 export { contentProps, layoutProps, standard } from './compiler/vocabulary.js';
 
@@ -319,41 +319,15 @@ function compile(files, entry, state, metrics, read, links) {
     rootProps.gap = 0;
     for (const key of ['columns', 'rows', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight'])
       delete rootProps[key];
-  } else if (rootProps.columns !== undefined || rootProps.rows !== undefined) {
-    const pad = insets(rootProps.padding),
-      g = gap(rootProps);
-    const resolvedChildren = instances.map(n => {
-      const control = clone(n);
-      for (const key of ['cell', 'row', 'column']) delete control.props[key];
-      const { resolved } = instantiate(control, true);
-      return { ...n, props: { ...n.props, width: resolved.width, height: resolved.height } };
+  } else if (rootProps.columns !== undefined || rootProps.rows !== undefined)
+    rootVisual.grid = placeOnRootGrid({
+      root,
+      instances,
+      instantiate,
+      metrics,
+      rootWidth,
+      rootHeight,
     });
-    const layout = { ...root, children: resolvedChildren };
-    const cols = sizes(layout, 0, Math.max(0, rootWidth - pad[1] - pad[3]), metrics),
-      rows = sizes(layout, 1, Math.max(0, rootHeight - pad[0] - pad[2]), metrics);
-    rootVisual.grid = {
-      bounds: [pad[3], pad[0], rootWidth - pad[1] - pad[3], rootHeight - pad[0] - pad[2]],
-      columns: cols,
-      rows,
-      gap: g,
-    };
-    instances.forEach(n => {
-      const ci = cell(n, 'columns', cols.length),
-        ri = cell(n, 'rows', rows.length);
-      n.props.x =
-        pad[3] + (ci === null ? 0 : cols.slice(0, ci).reduce((a, b) => a + b, 0) + ci * g[1]);
-      n.props.y =
-        pad[0] + (ri === null ? 0 : rows.slice(0, ri).reduce((a, b) => a + b, 0) + ri * g[0]);
-      if (n.props.width === undefined)
-        n.props.width = ci === null ? rootVisual.grid.bounds[2] : cols[ci];
-      if (n.props.height === undefined)
-        n.props.height = ri === null ? rootVisual.grid.bounds[3] : rows[ri];
-      for (const key of ['cell', 'row', 'column']) delete n.props[key];
-    });
-    delete rootProps.columns;
-    delete rootProps.rows;
-    rootProps.gap = 0;
-  }
   const layered = modals.flatMap(m => m.controls);
   if (
     instances.length + layered.length > 1024 ||
@@ -371,35 +345,7 @@ function compile(files, entry, state, metrics, read, links) {
   });
   const controls = [...instances, ...layered].map(compileInstance);
   const templateTree = createElementTree(controls.flatMap(c => c.treeRoots));
-  const sourceControls = controls.slice(0, instances.length).map(c => c.sourceNode);
-  let offset = instances.length;
-  const sourceModals = modals.map(modal => {
-    const count = modal.controls.length,
-      children = controls.slice(offset, offset + count).map(c => c.sourceNode);
-    offset += count;
-    const p = modal.node.props,
-      props = {
-        ...(p.key !== undefined ? { key: p.key } : {}),
-        x: modal.box[0],
-        y: modal.box[1],
-        width: modal.box[2],
-        height: modal.box[3],
-        backdrop: { expr: modal.backdrop },
-        dismiss: p.dismiss ?? true,
-        open: p.open ?? true,
-      };
-    return { type: 'Modal', props, events: { ...modal.node.events }, children, bindings: {} };
-  });
-  const sourceScene = [
-    {
-      ...root,
-      type: 'Frame',
-      children: [
-        ...(scroll ? [{ ...scroll, children: sourceControls }] : sourceControls),
-        ...sourceModals,
-      ],
-    },
-  ];
+  const sourceScene = sourceSceneOf(root, scroll, modals, controls, instances.length);
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
   const template = frameTemplates(controls);
   const shortcuts = (document.shortcuts ?? []).map(s => ({
