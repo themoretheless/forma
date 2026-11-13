@@ -33,9 +33,11 @@ fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
             command: false,
             control: false,
             alt: false,
-            composing: false,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession {
+                composing: false,
+                cancelled: false,
+                owner: None,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
@@ -120,9 +122,11 @@ fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: false,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -207,9 +211,11 @@ fn activation_focus_does_not_overwrite_new_pointer_selection() {
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: false,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -285,9 +291,11 @@ fn window_refocus_restores_stable_editor_key_after_reorder() {
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: false,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -349,9 +357,11 @@ fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
                     command: false,
                     control: false,
                     alt: false,
-                    composing: false,
-                    ime_cancelled: false,
-                    composition_owner: None,
+                    ime: ImeSession {
+                        composing: false,
+                        cancelled: false,
+                        owner: None,
+                    },
                     blurred_editor: None,
                     clicks: Default::default(),
                     last_frame: Instant::now(),
@@ -456,9 +466,11 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
             command: false,
             control: false,
             alt: false,
-            composing: false,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession {
+                composing: false,
+                cancelled: false,
+                owner: None,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
@@ -466,7 +478,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
         host.preedit_ime("未確定").unwrap();
         if empty {
             host.preedit_ime("").unwrap();
-            assert!(!host.composing);
+            assert!(!host.ime.composing);
         }
         match cause {
             "escape" => host
@@ -486,7 +498,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
                 .unwrap();
             }
         }
-        assert!(host.ime_cancelled, "{cause}");
+        assert!(host.ime.cancelled, "{cause}");
         host.preedit_ime("").unwrap();
         host.ime_presentation().unwrap();
         host.commit_ime("late").unwrap();
@@ -496,7 +508,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
         host.app.focus_control(2);
         host.app.text_key("End", false, false);
         host.preedit_ime("新").unwrap();
-        assert!(!host.ime_cancelled);
+        assert!(!host.ime.cancelled);
         host.preedit_ime("").unwrap();
         host.commit_ime("確定").unwrap();
         assert_eq!(
@@ -552,22 +564,24 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
             command: false,
             control: false,
             alt: false,
-            composing: false,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession {
+                composing: false,
+                cancelled: false,
+                owner: None,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
         };
         let clean = host.app.pixels(640, 360, 1.);
         host.preedit_ime("未確定").unwrap();
-        let owner = host.composition_owner;
+        let owner = host.ime.owner;
         assert!(owner.is_some());
         host.preedit_ime("").unwrap();
-        assert!(!host.composing);
+        assert!(!host.ime.composing);
         assert_eq!(host.app.pixels(640, 360, 1.), clean);
         host.ime_presentation().unwrap();
-        assert_eq!(host.composition_owner, owner);
+        assert_eq!(host.ime.owner, owner);
         if replace {
             host.app =
                 crate::Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
@@ -579,7 +593,7 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
             host.app.text_value(1),
             if replace { "seed-A" } else { "seed-A確定" }
         );
-        assert!(host.composition_owner.is_none());
+        assert!(host.ime.owner.is_none());
     }
 }
 
@@ -622,9 +636,11 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
             command: false,
             control: false,
             alt: false,
-            composing: true,
-            ime_cancelled: false,
-            composition_owner: owner,
+            ime: ImeSession {
+                composing: true,
+                cancelled: false,
+                owner,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
@@ -638,8 +654,8 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
         }
         host.commit_ime("stale").unwrap();
         host.commit_ime("stale-again").unwrap();
-        assert!(!host.composing);
-        assert!(host.composition_owner.is_none());
+        assert!(!host.ime.composing);
+        assert!(host.ime.owner.is_none());
         assert_eq!(host.app.text_value(1), "seed-A");
         assert_eq!(host.app.text_value(2), "seed-B");
         host.app.focus_control(1);
@@ -812,9 +828,11 @@ fn composition_reconciles_replacement_after_input_callback() {
         command: false,
         control: false,
         alt: false,
-        composing: true,
-        ime_cancelled: false,
-        composition_owner: owner,
+        ime: ImeSession {
+            composing: true,
+            cancelled: false,
+            owner,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -835,28 +853,28 @@ fn composition_reconciles_replacement_after_input_callback() {
         pixels,
         "inspection preserves replacement preedit pixels"
     );
-    assert!(!host.composing);
-    assert_eq!(host.composition_owner, owner);
+    assert!(!host.ime.composing);
+    assert_eq!(host.ime.owner, owner);
     assert!(!host.app.runtime.ui_state_json().contains("未確定"));
-    host.composing = true;
-    host.composition_owner = owner;
+    host.ime.composing = true;
+    host.ime.owner = owner;
     host.app.fail = true;
     assert_eq!(host.ime_presentation().unwrap_err(), "inspect failed");
     assert!(
-        !host.composing,
+        !host.ime.composing,
         "retirement survives a later application error"
     );
-    assert_eq!(host.composition_owner, owner);
+    assert_eq!(host.ime.owner, owner);
     host.app.fail = false;
     let current = host.app.runtime.native_editor_session();
-    host.composing = true;
-    host.composition_owner = current;
+    host.ime.composing = true;
+    host.ime.owner = current;
     host.ime_presentation().unwrap();
-    assert!(host.composing, "unchanged editor preserves composition");
-    host.composing = false;
+    assert!(host.ime.composing, "unchanged editor preserves composition");
+    host.ime.composing = false;
     host.ime_presentation().unwrap();
     assert_eq!(
-        host.composition_owner, current,
+        host.ime.owner, current,
         "pending commit keeps its address after empty preedit"
     );
 }
@@ -899,9 +917,11 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
         command: false,
         control: false,
         alt: false,
-        composing: true,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: true,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -914,7 +934,7 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
     })
     .unwrap();
     assert!(
-        !host.composing,
+        !host.ime.composing,
         "same index/key in a replacement scene is a new editor session"
     );
     assert_eq!(host.app.focused_index(), 0);
@@ -990,9 +1010,11 @@ fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
             command: false,
             control: false,
             alt: false,
-            composing: false,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession {
+                composing: false,
+                cancelled: false,
+                owner: None,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
@@ -1057,22 +1079,24 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
         command: false,
         control: false,
         alt: false,
-        composing: true,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: true,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))
         .unwrap();
-    assert!(host.composing);
+    assert!(host.ime.composing);
     assert_eq!(host.app.focused_index(), 0);
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 1))
         .unwrap();
     assert_eq!(host.app.focused_index(), 1);
     assert!(
-        !host.composing,
+        !host.ime.composing,
         "pointer focus switch must retire the old IME owner"
     );
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 2))
@@ -1086,14 +1110,14 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
     assert!(state["b"].as_str().unwrap().contains("-next"));
     assert!(!state["b"].as_str().unwrap().contains("未確定"));
     host.app.text_preedit("pending-again");
-    host.composing = true;
+    host.ime.composing = true;
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(210., 140., 0))
         .unwrap();
-    assert!(host.composing);
+    assert!(host.ime.composing);
     assert_eq!(host.app.focused_index(), 1);
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(210., 140., 1))
         .unwrap();
-    assert!(!host.composing);
+    assert!(!host.ime.composing);
     assert!(!host.app.text_editing());
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&host.app.ui_state_json()).unwrap(),
@@ -1137,9 +1161,11 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
             command: false,
             control: false,
             alt: false,
-            composing: true,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession {
+                composing: true,
+                cancelled: false,
+                owner: None,
+            },
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
@@ -1148,14 +1174,14 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
             host.navigation_key(&Key::Named(key), pressed, repeat)
                 .unwrap();
             assert!(
-                host.composing,
+                host.ime.composing,
                 "release/repeat must preserve the current composition"
             );
             assert_eq!(host.app.focused_index(), 0);
         }
         host.navigation_key(&Key::Named(key), true, false).unwrap();
         assert!(
-            !host.composing,
+            !host.ime.composing,
             "{key:?} must retire the old composition session"
         );
         if key == NamedKey::Escape {
@@ -1227,16 +1253,18 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
         command: true,
         control: true,
         alt: true,
-        composing: true,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: true,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_changed(false).unwrap();
     assert!(
-        !host.composing,
+        !host.ime.composing,
         "focus loss must retire the old IME session"
     );
     assert!(
@@ -1250,7 +1278,7 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
         "seed"
     );
     host.focus_changed(true).unwrap();
-    assert!(!host.composing);
+    assert!(!host.ime.composing);
     assert!(host.app.focus_control(editor));
     assert!(host.app.text_insert("-after"));
     assert!(host.app.sync_ui_bindings_native().unwrap());
@@ -1287,9 +1315,11 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: false,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -1535,9 +1565,11 @@ fn windowless_host<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        ime_cancelled: false,
-        composition_owner: None,
+        ime: ImeSession {
+            composing: false,
+            cancelled: false,
+            owner: None,
+        },
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
@@ -1661,7 +1693,7 @@ fn application_sees_keys_first_and_decides_whether_the_runtime_gets_them() {
 
     host.command = true;
     host.shift = true;
-    host.composing = true;
+    host.ime.composing = true;
     assert_eq!(host.offer_key(&k, &physical, None, true, false), Ok(true));
     assert_eq!(host.offer_key(&k, &physical, None, false, false), Ok(false));
     assert_eq!(host.app.shortcut_hits, 1);

@@ -23,12 +23,14 @@ mod config;
 mod demo;
 mod frame;
 mod ime;
+mod ime_session;
 mod input;
 mod waker;
 
 pub use app::*;
 pub use config::*;
 pub use demo::*;
+pub use ime_session::ImeSession;
 pub use waker::*;
 
 /// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is
@@ -149,9 +151,7 @@ struct NativeHost<A: NativeApp + 'static> {
     command: bool,
     control: bool,
     alt: bool,
-    composing: bool,
-    ime_cancelled: bool,
-    composition_owner: Option<(u64, i32)>,
+    ime: ImeSession,
     blurred_editor: Option<String>,
     clicks: ClickTracker,
     last_frame: Instant,
@@ -546,9 +546,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             command: false,
             control: false,
             alt: false,
-            composing: false,
-            ime_cancelled: false,
-            composition_owner: None,
+            ime: ImeSession::default(),
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),

@@ -28,7 +28,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             pressed,
             repeat,
             modifiers: self.modifiers(),
-            composing: self.composing,
+            composing: self.ime.composing,
         };
         self.app.on_key_event(&event)
     }
@@ -60,11 +60,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         &mut self,
         input: &mut dyn FnMut(&mut crate::Runtime),
     ) -> Result<(), String> {
-        if !self.composing && self.composition_owner.is_none() {
+        if !self.ime.composing && self.ime.owner.is_none() {
             return self.app.update(input);
         }
         let mut retired = false;
-        let mut owner = self.composition_owner;
+        let mut owner = self.ime.owner;
         let result = self.app.update(&mut |runtime| {
             let previous = runtime.native_editor_session();
             owner = owner.or(previous);
@@ -75,11 +75,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 retired = true;
             }
         });
-        self.composition_owner = owner;
+        self.ime.owner = owner;
         if retired {
-            self.composing = false;
-            self.ime_cancelled = true;
-            self.composition_owner = None;
+            self.ime.composing = false;
+            self.ime.cancelled = true;
+            self.ime.owner = None;
         }
         result
     }
@@ -166,8 +166,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     pub(super) fn focus_changed(&mut self, focused: bool) -> Result<(), String> {
         if !focused {
             // OS focus loss may omit the matching IME/modifier/touch end events.
-            self.ime_cancelled |= self.composing || self.composition_owner.is_some();
-            self.composing = false;
+            self.ime.cancelled |= self.ime.composing || self.ime.owner.is_some();
+            self.ime.composing = false;
             self.shift = false;
             self.command = false;
             self.control = false;
@@ -328,7 +328,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)
             )
         {
-            if pressed && !self.composing {
+            if pressed && !self.ime.composing {
                 // Ctrl+Option belongs to macOS accessibility, not text editing.
                 if cfg!(target_os = "macos") && self.control && self.alt {
                     return Ok(());
@@ -384,13 +384,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         pressed: bool,
         repeat: bool,
     ) -> Result<(), String> {
-        let cancel_composition = (self.composing || self.composition_owner.is_some())
+        let cancel_composition = (self.ime.composing || self.ime.owner.is_some())
             && pressed
             && !repeat
             && matches!(logical_key, Key::Named(NamedKey::Tab | NamedKey::Escape));
         if cancel_composition {
-            self.composing = false;
-            self.ime_cancelled = true;
+            self.ime.composing = false;
+            self.ime.cancelled = true;
         }
         let key = match logical_key {
             Key::Named(NamedKey::Space) => 1,

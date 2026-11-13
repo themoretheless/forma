@@ -7,7 +7,9 @@ use forma::native_window::{
 };
 use forma::{
     frame_stats::{FrameRate, FrameStats},
-    native_window::{TargetPlatform, UiBackend, apply_egui_frame_bar, build_chooser_runtime},
+    native_window::{
+        ImeSession, TargetPlatform, UiBackend, apply_egui_frame_bar, build_chooser_runtime,
+    },
 };
 use std::{
     collections::HashMap,
@@ -56,9 +58,7 @@ struct App {
     command: bool,
     control: bool,
     alt: bool,
-    composing: bool,
-    composition_owner: Option<(u64, i32)>,
-    ime_cancelled: bool,
+    ime: ImeSession,
     ime_allowed: bool,
     accessibility: Option<accesskit_winit::Adapter>,
     accessibility_proxy: Option<winit::event_loop::EventLoopProxy<accesskit_winit::Event>>,
@@ -96,21 +96,10 @@ struct App {
 
 impl App {
     fn observe_ime_owner(&mut self) {
-        standalone_observe_ime(
-            &self.button,
-            &mut self.composing,
-            self.composition_owner,
-            &mut self.ime_cancelled,
-        );
+        self.ime.observe(&self.button);
     }
     fn ime_event(&mut self, event: winit::event::Ime) {
-        standalone_ime_event(
-            &mut self.button,
-            &mut self.composing,
-            &mut self.composition_owner,
-            &mut self.ime_cancelled,
-            event,
-        );
+        self.ime.event(&mut self.button, event);
     }
     fn update_accessibility(&mut self) {
         if !self.accessibility_active {
@@ -131,7 +120,7 @@ impl App {
         if request.target_tree != accesskit::TreeId::ROOT {
             return;
         }
-        let pending_ime = self.composing || self.composition_owner.is_some();
+        let pending_ime = self.ime.pending();
         let previous = self.button.native_editor_session();
         let accepted = if let Some(chooser) = &mut self.chooser {
             self.accessibility_ids.apply(chooser, request)
@@ -148,12 +137,7 @@ impl App {
                         accesskit::Action::SetValue | accesskit::Action::SetTextSelection
                     ))
             {
-                standalone_cancel_ime(
-                    &mut self.button,
-                    &mut self.composing,
-                    &mut self.composition_owner,
-                    &mut self.ime_cancelled,
-                );
+                self.ime.cancel(&mut self.button);
             }
             let binding_error = self.button.sync_ui_bindings_native().err();
             self.observe_ime_owner();
@@ -1024,7 +1008,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             }
             WindowEvent::Ime(event) => self.ime_event(event),
             WindowEvent::KeyboardInput { event, .. } => {
-                if (self.composing || self.composition_owner.is_some())
+                if (self.ime.pending())
                     && event.state == ElementState::Pressed
                     && !event.repeat
                     && matches!(
@@ -1032,12 +1016,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         Key::Named(NamedKey::Tab | NamedKey::Escape)
                     )
                 {
-                    standalone_cancel_ime(
-                        &mut self.button,
-                        &mut self.composing,
-                        &mut self.composition_owner,
-                        &mut self.ime_cancelled,
-                    );
+                    self.ime.cancel(&mut self.button);
                 }
                 if event.logical_key == Key::Named(NamedKey::F6)
                     && event.state == ElementState::Pressed
@@ -1095,7 +1074,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     )
                 {
                     if event.state == ElementState::Pressed
-                        && !self.composing
+                        && !self.ime.composing
                         && !(cfg!(target_os = "macos") && self.control && self.alt)
                     {
                         let key = match &event.logical_key {
@@ -1161,12 +1140,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     self.command = false;
                     self.control = false;
                     self.alt = false;
-                    standalone_cancel_ime(
-                        &mut self.button,
-                        &mut self.composing,
-                        &mut self.composition_owner,
-                        &mut self.ime_cancelled,
-                    );
+                    self.ime.cancel(&mut self.button);
                     self.button.pointer(-1., -1., 3);
                 }
             }
@@ -1661,9 +1635,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         command: false,
         control: false,
         alt: false,
-        composing: false,
-        composition_owner: None,
-        ime_cancelled: false,
+        ime: ImeSession::default(),
         ime_allowed: false,
         accessibility: None,
         accessibility_proxy: Some(accessibility_proxy),
@@ -1705,79 +1677,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn standalone_observe_ime(
-    button: &forma::Runtime,
-    composing: &mut bool,
-    owner: Option<(u64, i32)>,
-    cancelled: &mut bool,
-) {
-    if owner.is_some() && owner != button.native_editor_session() {
-        *composing = false;
-        *cancelled = true;
-    }
-}
-
-fn standalone_cancel_ime(
-    button: &mut forma::Runtime,
-    composing: &mut bool,
-    owner: &mut Option<(u64, i32)>,
-    cancelled: &mut bool,
-) {
-    *composing = false;
-    *owner = None;
-    *cancelled = true;
-    button.text_preedit("");
-}
-
-fn standalone_ime_event(
-    button: &mut forma::Runtime,
-    composing: &mut bool,
-    composition_owner: &mut Option<(u64, i32)>,
-    ime_cancelled: &mut bool,
-    event: winit::event::Ime,
-) {
-    use winit::event::Ime;
-    standalone_observe_ime(button, composing, *composition_owner, ime_cancelled);
-    match event {
-        Ime::Enabled => {
-            *composing = false;
-            *ime_cancelled = false;
-            *composition_owner = None;
-        }
-        Ime::Disabled => {
-            *composing = false;
-            *ime_cancelled = true;
-            *composition_owner = None;
-            button.text_preedit("");
-        }
-        Ime::Preedit(text, _) => {
-            if !text.is_empty() {
-                *composition_owner = button.native_editor_session();
-                *ime_cancelled = false;
-            }
-            *composing = !text.is_empty();
-            if composition_owner.is_none() || *composition_owner == button.native_editor_session() {
-                button.text_preedit(&text);
-            }
-        }
-        Ime::Commit(text) => {
-            *composing = false;
-            let owner = composition_owner.take();
-            if !*ime_cancelled && (owner.is_none() || owner == button.native_editor_session()) {
-                if text.is_empty() {
-                    button.text_preedit("");
-                } else {
-                    button.text_insert(&text);
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod standalone_ime_tests {
-    use super::standalone_ime_event;
+    use forma::native_window::ImeSession;
     use winit::event::Ime;
+
+    // The cases below predate `ImeSession` and keep passing its three fields separately.
+    fn with_session(
+        composing: &mut bool,
+        owner: &mut Option<(u64, i32)>,
+        cancelled: &mut bool,
+        apply: impl FnOnce(&mut ImeSession),
+    ) {
+        let mut session = ImeSession {
+            composing: *composing,
+            cancelled: *cancelled,
+            owner: *owner,
+        };
+        apply(&mut session);
+        (*composing, *owner, *cancelled) = (session.composing, session.owner, session.cancelled);
+    }
+
+    fn standalone_ime_event(
+        runtime: &mut forma::Runtime,
+        composing: &mut bool,
+        owner: &mut Option<(u64, i32)>,
+        cancelled: &mut bool,
+        event: Ime,
+    ) {
+        with_session(composing, owner, cancelled, |session| {
+            session.event(runtime, event)
+        });
+    }
+
+    fn standalone_observe_ime(
+        runtime: &forma::Runtime,
+        composing: &mut bool,
+        mut owner: Option<(u64, i32)>,
+        cancelled: &mut bool,
+    ) {
+        with_session(composing, &mut owner, cancelled, |session| {
+            session.observe(runtime)
+        });
+    }
+
+    fn standalone_cancel_ime(
+        runtime: &mut forma::Runtime,
+        composing: &mut bool,
+        owner: &mut Option<(u64, i32)>,
+        cancelled: &mut bool,
+    ) {
+        with_session(composing, owner, cancelled, |session| {
+            session.cancel(runtime)
+        });
+    }
     fn runtime() -> forma::Runtime {
         forma::Runtime::from_sources("component App { Frame { width:240; height:100; Button { key:'first'; } Button { key:'second'; } } }","component Button { Rectangle { ContentInput { value:'seed'; width:200; height:32; } PointerArea { clicked -> events.clicked(); } } }").unwrap()
     }
@@ -1848,7 +1801,7 @@ mod standalone_ime_tests {
             let original = owner;
             assert!(!rt.sync_ui_bindings_native().unwrap());
             assert_eq!(rt.native_editor_session(), original);
-            super::standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
+            standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
             assert!(composing);
             assert!(!cancelled);
             // A sibling binding causes scene reconstruction while preserving focus/key.
@@ -1856,7 +1809,7 @@ mod standalone_ime_tests {
             assert!(rt.sync_ui_bindings_native().unwrap());
             assert_ne!(rt.native_editor_session(), original);
             assert_eq!(rt.focused_index(), 0);
-            super::standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
+            standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
             assert!(!composing);
             assert!(cancelled);
             for text in ["late", "again"] {
@@ -1912,7 +1865,7 @@ mod standalone_ime_tests {
         );
         assert!(!composing);
         assert!(owner.is_some());
-        super::standalone_cancel_ime(&mut rt, &mut composing, &mut owner, &mut cancelled);
+        standalone_cancel_ime(&mut rt, &mut composing, &mut owner, &mut cancelled);
         for text in ["late", "again"] {
             standalone_ime_event(
                 &mut rt,

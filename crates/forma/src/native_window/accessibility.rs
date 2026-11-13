@@ -10,7 +10,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         if request.target_tree != accesskit::TreeId::ROOT {
             return Ok(false);
         }
-        let pending_ime = self.composing || self.composition_owner.is_some();
+        let pending_ime = self.ime.composing || self.ime.owner.is_some();
         let mut accepted = false;
         let published = std::mem::take(&mut self.accessibility_ids);
         let result = if let Some(chooser) = &mut self.chooser {
@@ -30,9 +30,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 accesskit::Action::SetValue | accesskit::Action::SetTextSelection
             )
         {
-            self.composing = false;
-            self.composition_owner = None;
-            self.ime_cancelled = true;
+            self.ime.composing = false;
+            self.ime.owner = None;
+            self.ime.cancelled = true;
         }
         Ok(accepted)
     }
