@@ -26,23 +26,24 @@ const LAYERS: &[(&str, u8)] = &[
     ("raster_cache", 5),
     ("lib", 6),
     ("native_document_graph", 6),
-    ("runtime", 7),
-    ("binding", 8),
-    ("control_models_wasm", 8),
-    ("gpu", 8),
-    ("mcp", 8),
-    ("metal_resize", 8),
-    ("native_accessibility", 8),
-    ("native_clipboard", 8),
-    ("native_gpu", 9),
-    ("native_window", 10),
+    ("control", 7),
+    ("runtime", 8),
+    ("binding", 9),
+    ("control_models_wasm", 9),
+    ("gpu", 9),
+    ("mcp", 9),
+    ("metal_resize", 9),
+    ("native_accessibility", 9),
+    ("native_clipboard", 9),
+    ("native_gpu", 10),
+    ("native_window", 11),
 ];
 
 /// Upward edges that exist today, as `from -> to`. Remove an entry when its edge is gone.
 const KNOWN_VIOLATIONS: &[&str] = &[];
 
 /// Names in the crate root that are re-exports of a module rather than root items.
-const ROOT_REEXPORTS: &[(&str, &str)] = &[("Runtime", "runtime")];
+const ROOT_REEXPORTS: &[(&str, &str)] = &[("Runtime", "runtime"), ("Button", "control")];
 
 fn layer(module: &str) -> Option<u8> {
     LAYERS
