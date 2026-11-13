@@ -382,7 +382,7 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
   if (typeof initialOrLength !== 'number') {
     initialValues = new Float32Array(length);
     if (ArrayBuffer.isView(initialOrLength)) initialValues.set(initialOrLength);
-    else for (let i = 0; i < length; i++) initialValues[i] = initialOrLength[i];
+    else for (let i = 0; i < length; i++) initialValues[i] = initialOrLength[i] as number;
     assertConstructionCurrent();
   }
   const offset = core.svet_gpu_alloc_f32(length) >>> 0;
@@ -462,7 +462,7 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
       // ArrayLike access and numeric conversion may throw, grow WASM memory or
       // dispose this tensor. Complete them privately before touching live storage.
       const snapshot = new Float32Array(writeLen);
-      for (let i = 0; i < writeLen; i++) snapshot[i] = values[i];
+      for (let i = 0; i < writeLen; i++) snapshot[i] = values[i] as number;
       source = snapshot;
     }
     // Reacquire and revalidate only after all user-defined source conversion.
@@ -575,7 +575,7 @@ export function syncGpuArena(): {
         if (count > 1) {
           const data = new Uint32Array(core.memory.buffer, core.svet_get_lis_ptr(), count * 2);
           for (let i = 0; i < count; i++) {
-            uploadSpan(arena, data[i * 2] * 4, data[i * 2 + 1] * 4);
+            uploadSpan(arena, (data[i * 2] as number) * 4, (data[i * 2 + 1] as number) * 4);
           }
         } else {
           uploadSpan(arena, minFloat * 4, (maxFloat - minFloat) * 4);
@@ -1080,7 +1080,9 @@ export async function dispatchGpuComputeKernelAsync(
       throw new RangeError('Final GPU compute stage must match output tensor length');
     const outputByteLengths = outputLengths.map(length => length * Float32Array.BYTES_PER_ELEMENT);
     const maxOutputBytes = Math.max(...outputByteLengths);
-    const initialOutputBytes = Math.min(workingOutput.byteLength, outputByteLengths[0]);
+    // The length check above fails for an empty chain, so there is a first stage here.
+    const firstOutputBytes = outputByteLengths[0] ?? 0;
+    const initialOutputBytes = Math.min(workingOutput.byteLength, firstOutputBytes);
     const dimensions: number[][] = [];
     if (
       candidate?.createComputePipeline &&
@@ -1090,9 +1092,8 @@ export async function dispatchGpuComputeKernelAsync(
       candidate.createCommandEncoder &&
       candidate.queue.submit
     ) {
-      for (let stage = 0; stage < kernels.length; stage++) {
-        const kernel = kernels[stage];
-        const groups = kernel.workgroups ?? [Math.ceil(outputLengths[stage] / 64), 1, 1];
+      for (const [stage, kernel] of kernels.entries()) {
+        const groups = kernel.workgroups ?? [Math.ceil((outputLengths[stage] ?? 0) / 64), 1, 1];
         if (!Array.isArray(groups)) throw new RangeError('Invalid GPU workgroup dimensions');
         const length = groups.length;
         assertContext();
@@ -1244,7 +1245,7 @@ export async function dispatchGpuComputeKernelAsync(
           const views = [...inputViews, workingOutput];
           const storage = views.map((view, binding) => {
             const isOutput = binding === inputViews.length;
-            const size = isOutput ? outputByteLengths[0] : view.byteLength;
+            const size = isOutput ? firstOutputBytes : view.byteLength;
             const buffer = device.createBuffer!({
               size: isOutput ? maxOutputBytes : size,
               usage: 0x80 | 0x08 | (isOutput ? 0x04 : 0),
@@ -1260,25 +1261,28 @@ export async function dispatchGpuComputeKernelAsync(
           if (!staging) throw new Error('GPU readback allocation failed');
           buffers.push(staging);
           const encoder = device.createCommandEncoder!();
-          let previous = storage[inputViews.length].resource.buffer;
+          const outputSlot = storage[inputViews.length];
+          if (!outputSlot) throw new Error('GPU compute buffer allocation failed');
+          let previous = outputSlot.resource.buffer;
           let alternate: any;
           if (chain.length) {
             alternate = device.createBuffer!({ size: maxOutputBytes, usage: 0x80 | 0x08 | 0x04 });
             if (!alternate) throw new Error('GPU compute chain buffer allocation failed');
             buffers.push(alternate);
           }
-          for (let i = 0; i < pipelines.length; i++) {
+          for (const [i, { pipeline }] of pipelines.entries()) {
             assertCurrent();
-            const pipeline = pipelines[i].pipeline;
             let entries = storage;
             if (i > 0) {
-              const copiedBytes = Math.min(outputByteLengths[i - 1], outputByteLengths[i]);
-              if (outputByteLengths[i] > copiedBytes)
-                encoder.clearBuffer(alternate, copiedBytes, outputByteLengths[i] - copiedBytes);
+              const previousBytes = outputByteLengths[i - 1] ?? 0;
+              const stageBytes = outputByteLengths[i] ?? 0;
+              const copiedBytes = Math.min(previousBytes, stageBytes);
+              if (stageBytes > copiedBytes)
+                encoder.clearBuffer(alternate, copiedBytes, stageBytes - copiedBytes);
               encoder.copyBufferToBuffer(previous, 0, alternate, 0, copiedBytes);
               entries = [previous, alternate].map((buffer, binding) => ({
                 binding,
-                resource: { buffer, size: outputByteLengths[i - 1 + binding] },
+                resource: { buffer, size: binding === 0 ? previousBytes : stageBytes },
               }));
             }
             const group = device.createBindGroup!({
@@ -1288,7 +1292,9 @@ export async function dispatchGpuComputeKernelAsync(
             const pass = encoder.beginComputePass();
             pass.setPipeline(pipeline);
             pass.setBindGroup(0, group);
-            pass.dispatchWorkgroups(...dimensions[i]);
+            const groups = dimensions[i];
+            if (!groups) throw new RangeError('Invalid GPU workgroup dimensions');
+            pass.dispatchWorkgroups(...groups);
             pass.end();
             if (i > 0) [previous, alternate] = [alternate, previous];
           }

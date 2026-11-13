@@ -1,6 +1,5 @@
 {
   "src/engine/dom.ts": 30,
-  "src/engine/gpu.ts": 15,
   "src/engine/reactivity.ts": 44,
   "tests/async-ssr.test.ts": 2,
   "tests/benchmark.test.ts": 45,
