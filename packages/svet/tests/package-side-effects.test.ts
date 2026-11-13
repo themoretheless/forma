@@ -22,7 +22,7 @@ function calleeRoot(expression: ts.Expression): string | undefined {
  */
 function modulesThatMustRun(): string[] {
   const found = new Set<string>();
-  for (const file of readdirSync(distDir).filter((name) => name.endsWith('.js'))) {
+  for (const file of readdirSync(distDir).filter(name => name.endsWith('.js'))) {
     const source = ts.createSourceFile(
       file,
       readFileSync(`${distDir}/${file}`, 'utf8'),
@@ -68,6 +68,6 @@ describe('package sideEffects', () => {
 
     expect(required).toContain('wasm-embedded.js');
     expect(required).toContain('forma-3d.js');
-    expect(required.filter((file) => !listed.has(`./dist/package/${file}`))).toEqual([]);
+    expect(required.filter(file => !listed.has(`./dist/package/${file}`))).toEqual([]);
   });
 });
