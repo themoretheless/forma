@@ -47,7 +47,8 @@ pub fn compile_wgsl_for_target(
                 &info,
                 &crate::back::msl::Options::default(),
                 &crate::back::msl::PipelineOptions::default(),
-            )?;
+            )
+            .map_err(|e| e.to_string())?;
             Ok(msl)
         }
         ComputeShaderTarget::BrowserWgsl => Ok(module.raw_source),

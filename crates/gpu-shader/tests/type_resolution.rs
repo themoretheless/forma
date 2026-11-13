@@ -161,6 +161,7 @@ fn msl(source: &str) -> Result<String, String> {
         &Default::default(),
     )
     .map(|(source, _)| source)
+    .map_err(|error| error.to_string())
 }
 
 #[test]
@@ -202,5 +203,12 @@ fn an_array_constant_with_an_unclosed_type_is_an_error_not_a_panic() {
         &Default::default(),
     )
     .unwrap_err();
-    assert!(error.contains("`array<` is never closed"), "{error}");
+    assert!(
+        matches!(&error, msl::Error::UnclosedArrayType { constant, .. } if !constant.is_empty()),
+        "{error:?}"
+    );
+    assert!(
+        error.to_string().contains("`array<` is never closed"),
+        "{error}"
+    );
 }

@@ -17,6 +17,7 @@ fn translate(source: &str) -> Result<String, String> {
         &Default::default(),
     )
     .map(|(source, _)| source)
+    .map_err(|error| error.to_string())
 }
 
 const COPY: &str = "

@@ -170,3 +170,15 @@
   `svet_prepare_lis_input` и `svet_compute_lis_buffered`, поэтому выделять память со стороны JS
   не нужно. Экспортов стало 54.
 - Миграция: внешний код, вызывавший ядро напрямую, переходит на буферизованную пару.
+
+## 17. Ошибка трансляции MSL типизирована, storage-текстуры поддержаны
+
+- Затронуто: `gpu_shader::back::msl::write_string` возвращает `Result<_, msl::Error>` вместо
+  `Result<_, String>`. Варианты: `UnclosedArrayType` и `UnresolvedArrayLength`; текст `Display`
+  прежний.
+- Миграция: там, где ошибка нужна строкой, вызвать `to_string()`; `compile_wgsl_for_target`
+  по-прежнему возвращает строку.
+- Новое поведение: `texture_storage_{1d,2d,2d_array,3d}<format, access>` разбирается (форматы
+  `rgba8unorm`, `rgba32float`, `r32float`, `r32uint`), `textureStore` транслируется, а
+  `textureDimensions` возвращает столько компонент, сколько измерений у текстуры (раньше всегда
+  две).

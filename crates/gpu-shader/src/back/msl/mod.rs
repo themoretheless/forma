@@ -144,12 +144,44 @@ struct _wgpu_arr {
 };
 "#;
 
+/// Why a module could not be written as MSL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    /// A constant is initialised with `array<...` whose type arguments never close.
+    UnclosedArrayType {
+        constant: String,
+        expression: String,
+    },
+    /// `arrayLength` is asked of something that is not a runtime-sized array in a bound buffer.
+    UnresolvedArrayLength { argument: String },
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnclosedArrayType {
+                constant,
+                expression,
+            } => write!(
+                f,
+                "constant `{constant}`: `array<` is never closed in `{expression}`"
+            ),
+            Self::UnresolvedArrayLength { argument } => write!(
+                f,
+                "arrayLength(&{argument}): `{argument}` is not a runtime-sized array in a bound buffer"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
 pub fn write_string(
     module: &Module,
     _info: &ModuleInfo,
     _options: &Options,
     pipeline_options: &PipelineOptions,
-) -> Result<(String, BindingMap), String> {
+) -> Result<(String, BindingMap), Error> {
     let mut out = String::with_capacity(module.raw_source.len() + 2048);
     out.push_str("#include <metal_stdlib>\n#include <simd/simd.h>\nusing namespace metal;\n\n");
     out.push_str(MSL_PRELUDE);
@@ -286,7 +318,7 @@ fn emit_layout_struct(
 }
 
 /// Emits module-scope constants.
-fn emit_constants(out: &mut String, module: &Module) -> Result<(), String> {
+fn emit_constants(out: &mut String, module: &Module) -> Result<(), Error> {
     for (_, c) in module.constants.iter() {
         let Some(name) = &c.name else { continue };
         let ty_str = if let Some(th) = c.ty {
@@ -297,10 +329,10 @@ fn emit_constants(out: &mut String, module: &Module) -> Result<(), String> {
             .filter(|_| c.expr_src.trim_start().starts_with("array<"))
         {
             let close = find_matching_delim(&c.expr_src[open..], '<', '>').ok_or_else(|| {
-                format!(
-                    "constant `{name}`: `array<` is never closed in `{}`",
-                    c.expr_src
-                )
+                Error::UnclosedArrayType {
+                    constant: name.clone(),
+                    expression: c.expr_src.clone(),
+                }
             })? + open;
             wgsl_type_str_to_msl(module, &c.expr_src[..=close])
         } else if c.expr_src.contains('.') {
@@ -425,16 +457,16 @@ fn emit_functions(
     }
 }
 
-fn reject_unresolved_array_length(out: &str) -> Result<(), String> {
+fn reject_unresolved_array_length(out: &str) -> Result<(), Error> {
     if let Some(found) = out.find(UNRESOLVED_ARRAY_LENGTH) {
         let argument = out[found + UNRESOLVED_ARRAY_LENGTH.len()..]
             .trim_start_matches('(')
             .split(')')
             .next()
             .unwrap_or_default();
-        return Err(format!(
-            "arrayLength(&{argument}): `{argument}` is not a runtime-sized array in a bound buffer"
-        ));
+        return Err(Error::UnresolvedArrayLength {
+            argument: argument.to_string(),
+        });
     }
     Ok(())
 }

@@ -76,7 +76,6 @@
 
 `gpu-shader`:
 
-- [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`.
 - [ ] Storage-текстуры: поддержаны форматы `rgba8unorm`, `rgba32float`, `r32float`, `r32uint`;
   остальные форматы WGSL не реализованы.
 
