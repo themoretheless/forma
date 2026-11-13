@@ -1,3 +1,4 @@
+import { createFile, duplicateFile, moveDestination, renameFile } from './project-files.js';
 import { createProjectStore } from './project-store.js';
 import { createPreviewDebugger } from './preview-debugger.js';
 import {
@@ -261,10 +262,13 @@ async function activateTreeFile(path) {
 const treeHistory = createOperationHistory({
   announce: text => ($('status').textContent = text),
 });
+/** Shows why a file tree operation was refused; returns whether it went through. */
+function treeOutcome(result) {
+  if (!result.ok) $('status').textContent = result.reason;
+  return result.ok;
+}
 async function applyTreeRename(fromPath, toPath) {
-  if (fromPath in files) {
-    files[toPath] = files[fromPath];
-    delete files[fromPath];
+  if (treeOutcome(renameFile(files, fromPath, toPath))) {
     if (active === fromPath) open(toPath);
     else {
       selectedTreeItem = toPath;
@@ -278,8 +282,8 @@ async function applyTreeRename(fromPath, toPath) {
 async function moveTreeItem(fromPath, targetDir) {
   if (!fromPath) return;
   const name = fromPath.split('/').at(-1);
-  const toPath = targetDir ? `${targetDir}/${name}` : name;
-  if (toPath === fromPath || toPath.startsWith(fromPath + '/')) return;
+  const toPath = moveDestination(fromPath, targetDir);
+  if (!toPath || !Object.hasOwn(files, fromPath)) return;
   if (await applyTreeRename(fromPath, toPath)) {
     treeHistory.push({
       label: `перемещение «${name}»`,
@@ -1054,7 +1058,7 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
       const tpl = rel.endsWith('.ui')
         ? `component ${val.replace(/\.ui$/, '').replace(/[^a-zA-Z0-9_]/g, '') || 'NewWindow'} {\n    Frame {\n        Text {\n            text: 'Новое окно';\n        }\n    }\n}\n`
         : '';
-      files[rel] = tpl;
+      if (!treeOutcome(createFile(files, rel, tpl))) return;
       open(rel);
       persist();
     }
@@ -1077,20 +1081,16 @@ async function createInTree(kind = 'file', baseDir = selectedTargetDir()) {
 }
 async function duplicateTreeItem(targetPath = selectedTreeItem) {
   if (!targetPath) return;
-  else if (targetPath in files) {
-    const ext = targetPath.includes('.') ? targetPath.slice(targetPath.lastIndexOf('.')) : '';
-    const stem = ext ? targetPath.slice(0, -ext.length) : targetPath;
-    const copyPath = `${stem}-copy${ext}`;
-    files[copyPath] = files[targetPath];
-    open(copyPath);
-    persist();
-  }
+  const copy = duplicateFile(files, targetPath);
+  if (!copy.ok) return;
+  open(copy.path);
+  persist();
 }
 async function deleteTreeItem(targetPath = selectedTreeItem) {
   if (!targetPath) return;
   const name = targetPath.split('/').at(-1);
   if (!confirm(`Удалить «${name}»?`)) return;
-  else if (targetPath in files) {
+  else if (Object.hasOwn(files, targetPath)) {
     delete files[targetPath];
     const nextFile = Object.keys(files)[0];
     if (nextFile) open(nextFile);
