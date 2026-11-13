@@ -31,6 +31,7 @@ pub use app::*;
 pub use config::*;
 pub use demo::*;
 use extension::*;
+use frame::*;
 pub use waker::*;
 
 /// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is
@@ -458,7 +459,10 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             .chooser
             .as_ref()
             .map_or(plat_h, |c| c.render_height().max(plat_h));
-        type CpuWindowSurface = (Arc<Window>, softbuffer::Surface<Arc<Window>, Arc<Window>>);
+        type CpuWindowSurface = (
+            Arc<Window>,
+            Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
+        );
         let setup = || -> Result<CpuWindowSurface, String> {
             let window = Arc::new(
                 event_loop
@@ -471,9 +475,13 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                     )
                     .map_err(|e| e.to_string())?,
             );
-            let context = softbuffer::Context::new(window.clone()).map_err(|e| e.to_string())?;
-            let surface =
-                softbuffer::Surface::new(&context, window.clone()).map_err(|e| e.to_string())?;
+            // On iOS the GPU draws every frame; the software surface is created by the first
+            // frame that needs it, after a GPU failure.
+            let surface = if cfg!(target_os = "ios") {
+                None
+            } else {
+                Some(software_surface(&window)?)
+            };
             let redraw = RedrawHandle::new(&window);
             self.app
                 .on_dirty(Box::new(move || redraw.request_redraw()))?;
@@ -497,7 +505,7 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                     extension.window_created(&window);
                 }
                 self.window = Some(window);
-                self.surface = Some(surface);
+                self.surface = surface;
                 self.sync_window_title();
                 if let Err(error) = self.report_size() {
                     eprintln!("{error}");

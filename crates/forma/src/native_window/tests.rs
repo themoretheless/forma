@@ -2316,3 +2316,59 @@ fn a_resize_is_presented_at_once_only_with_a_metal_surface() {
     assert!(!resize_presents_now(false));
     assert_eq!(resize_presents_now(true), cfg!(target_os = "macos"));
 }
+
+#[test]
+fn the_gpu_draws_desktop_svet_frames_and_everything_on_ios() {
+    let desktop = |backend, platform, choosing| uses_gpu(false, backend, platform, choosing);
+    assert!(desktop(
+        Some(UiBackend::Svet),
+        TargetPlatform::Desktop,
+        false
+    ));
+    assert!(!desktop(
+        Some(UiBackend::Egui),
+        TargetPlatform::Desktop,
+        false
+    ));
+    assert!(!desktop(Some(UiBackend::Svet), TargetPlatform::Ios, false));
+    assert!(!desktop(
+        Some(UiBackend::Svet),
+        TargetPlatform::Android,
+        false
+    ));
+    assert!(!desktop(None, TargetPlatform::Desktop, true));
+    for backend in [None, Some(UiBackend::Egui), Some(UiBackend::Svet)] {
+        assert!(uses_gpu(
+            true,
+            backend,
+            TargetPlatform::Ios,
+            backend.is_none()
+        ));
+    }
+    assert_eq!(
+        emulates_device_chrome(),
+        cfg!(not(any(target_os = "ios", target_os = "android")))
+    );
+}
+
+#[test]
+fn the_chooser_is_rebuilt_for_a_screen_it_does_not_fill_and_keeps_its_focus() {
+    let mut host = windowless_host(two_buttons(), NativeWindowConfig::application("fit"));
+    host.fit_chooser(393., 852.);
+    assert!(host.chooser.is_none(), "nothing to fit without a chooser");
+
+    let mut chooser = build_chooser_runtime().unwrap();
+    assert!(chooser.focus_control(1));
+    host.chooser = Some(chooser);
+    host.fit_chooser(393., 852.);
+    let fitted = host.chooser.as_ref().unwrap();
+    assert_eq!((fitted.width(), fitted.height()), (393., 852.));
+    assert_eq!(fitted.control_key(1), "choose_svet");
+    assert_eq!(fitted.focused_index(), 1);
+    let revision = fitted.visual_revision();
+    // A size within a pixel is the same screen.
+    host.fit_chooser(393.6, 851.5);
+    let kept = host.chooser.as_ref().unwrap();
+    assert_eq!((kept.width(), kept.height()), (393., 852.));
+    assert_eq!(kept.visual_revision(), revision);
+}
