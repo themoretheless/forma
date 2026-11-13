@@ -178,7 +178,7 @@
   прежний.
 - Миграция: там, где ошибка нужна строкой, вызвать `to_string()`; `compile_wgsl_for_target`
   по-прежнему возвращает строку.
-- Новое поведение: `texture_storage_{1d,2d,2d_array,3d}<format, access>` разбирается (форматы
-  `rgba8unorm`, `rgba32float`, `r32float`, `r32uint`), `textureStore` транслируется, а
+- Новое поведение: `texture_storage_{1d,2d,2d_array,3d}<format, access>` разбирается (все 17
+  форматов WGSL), `textureStore` транслируется, а
   `textureDimensions` возвращает столько компонент, сколько измерений у текстуры (раньше всегда
   две).

@@ -96,10 +96,10 @@ fn run(@builtin(global_invocation_id) id: vec3<u32>) {
 #[test]
 fn an_unknown_format_or_access_is_a_parse_error() {
     let unknown_format = translate(
-        "@group(0) @binding(0) var t: texture_storage_2d<rgba16sint, write>;\n@compute @workgroup_size(1) fn run() {}",
+        "@group(0) @binding(0) var t: texture_storage_2d<rgba64float, write>;\n@compute @workgroup_size(1) fn run() {}",
     )
     .unwrap_err();
-    assert!(unknown_format.contains("rgba16sint"), "{unknown_format}");
+    assert!(unknown_format.contains("rgba64float"), "{unknown_format}");
     let unknown_access = translate(
         "@group(0) @binding(0) var t: texture_storage_2d<rgba8unorm, append>;\n@compute @workgroup_size(1) fn run() {}",
     )
@@ -137,4 +137,37 @@ fn run() {
         msl.contains("= uint2(plane.get_width(), plane.get_height());"),
         "{msl}"
     );
+}
+
+#[test]
+fn every_wgsl_storage_format_is_read_with_its_component_type() {
+    let formats = [
+        ("rgba8unorm", "float"),
+        ("rgba8snorm", "float"),
+        ("rgba8uint", "uint"),
+        ("rgba8sint", "int"),
+        ("rgba16uint", "uint"),
+        ("rgba16sint", "int"),
+        ("rgba16float", "float"),
+        ("r32uint", "uint"),
+        ("r32sint", "int"),
+        ("r32float", "float"),
+        ("rg32uint", "uint"),
+        ("rg32sint", "int"),
+        ("rg32float", "float"),
+        ("rgba32uint", "uint"),
+        ("rgba32sint", "int"),
+        ("rgba32float", "float"),
+        ("bgra8unorm", "float"),
+    ];
+    for (format, component) in formats {
+        let source = format!(
+            "@group(0) @binding(0) var t: texture_storage_2d<{format}, read>;\n@compute @workgroup_size(1) fn run() {{ let v = textureLoad(t, vec2<u32>(0u, 0u)); }}"
+        );
+        let msl = translate(&source).unwrap_or_else(|error| panic!("{format}: {error}"));
+        assert!(
+            msl.contains(&format!("texture2d<{component}, access::read> t")),
+            "{format}: {msl}"
+        );
+    }
 }

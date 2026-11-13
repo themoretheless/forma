@@ -306,9 +306,76 @@ pub enum ImageClass {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StorageFormat {
     Rgba8Unorm,
-    Rgba32Float,
-    R32Float,
+    Rgba8Snorm,
+    Rgba8Uint,
+    Rgba8Sint,
+    Rgba16Uint,
+    Rgba16Sint,
+    Rgba16Float,
     R32Uint,
+    R32Sint,
+    R32Float,
+    Rg32Uint,
+    Rg32Sint,
+    Rg32Float,
+    Rgba32Uint,
+    Rgba32Sint,
+    Rgba32Float,
+    Bgra8Unorm,
+}
+
+impl StorageFormat {
+    /// Every storage texel format of WGSL with its spelling.
+    const NAMES: &'static [(&'static str, Self)] = &[
+        ("rgba8unorm", Self::Rgba8Unorm),
+        ("rgba8snorm", Self::Rgba8Snorm),
+        ("rgba8uint", Self::Rgba8Uint),
+        ("rgba8sint", Self::Rgba8Sint),
+        ("rgba16uint", Self::Rgba16Uint),
+        ("rgba16sint", Self::Rgba16Sint),
+        ("rgba16float", Self::Rgba16Float),
+        ("r32uint", Self::R32Uint),
+        ("r32sint", Self::R32Sint),
+        ("r32float", Self::R32Float),
+        ("rg32uint", Self::Rg32Uint),
+        ("rg32sint", Self::Rg32Sint),
+        ("rg32float", Self::Rg32Float),
+        ("rgba32uint", Self::Rgba32Uint),
+        ("rgba32sint", Self::Rgba32Sint),
+        ("rgba32float", Self::Rgba32Float),
+        ("bgra8unorm", Self::Bgra8Unorm),
+    ];
+
+    /// The format a WGSL texel format name denotes.
+    pub fn from_wgsl(name: &str) -> Option<Self> {
+        Self::NAMES
+            .iter()
+            .find(|(wgsl, _)| *wgsl == name)
+            .map(|(_, format)| *format)
+    }
+
+    /// The kind of value a shader reads from or writes to a texel of this format.
+    pub fn scalar_kind(self) -> ScalarKind {
+        match self {
+            Self::Rgba8Uint
+            | Self::Rgba16Uint
+            | Self::R32Uint
+            | Self::Rg32Uint
+            | Self::Rgba32Uint => ScalarKind::Uint,
+            Self::Rgba8Sint
+            | Self::Rgba16Sint
+            | Self::R32Sint
+            | Self::Rg32Sint
+            | Self::Rgba32Sint => ScalarKind::Sint,
+            Self::Rgba8Unorm
+            | Self::Rgba8Snorm
+            | Self::Rgba16Float
+            | Self::R32Float
+            | Self::Rg32Float
+            | Self::Rgba32Float
+            | Self::Bgra8Unorm => ScalarKind::Float,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

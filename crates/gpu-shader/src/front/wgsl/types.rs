@@ -211,13 +211,9 @@ fn storage_texture_type(ty_str: &str) -> Result<TypeInner, String> {
         _ => return Err(unknown()),
     };
     let (format_src, access_src) = arguments.split_once(',').ok_or_else(unknown)?;
-    let format = match format_src.trim() {
-        "rgba8unorm" => crate::StorageFormat::Rgba8Unorm,
-        "rgba32float" => crate::StorageFormat::Rgba32Float,
-        "r32float" => crate::StorageFormat::R32Float,
-        "r32uint" => crate::StorageFormat::R32Uint,
-        other => return Err(format!("unsupported storage texture format `{other}`")),
-    };
+    let format_name = format_src.trim();
+    let format = crate::StorageFormat::from_wgsl(format_name)
+        .ok_or_else(|| format!("unknown storage texture format `{format_name}`"))?;
     let access = match access_src.trim() {
         "read" => StorageAccess::Read,
         "write" => StorageAccess::Write,
