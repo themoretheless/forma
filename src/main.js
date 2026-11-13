@@ -1,3 +1,4 @@
+import { createPreviewDebugger } from './preview-debugger.js';
 import {
   readStorage,
   writeStorage,
@@ -128,8 +129,6 @@ let active = Object.keys(files)[0],
     readStorage('sessionStorage', storageKey('forma-canvas-mode')) === 'interact'
       ? 'interact'
       : 'design',
-  pending = null,
-  breakOn = false,
   logs = [],
   lintWarnings = [],
   tab = 'problems',
@@ -860,28 +859,26 @@ function showNativeInspection(data) {
   const source = controls[data.selected];
   if (current && source) selectTreeControl({ path: nativeSource.entry, node: source });
 }
-function dispatch(action, n, event = 'clicked') {
-  if (pending) {
-    log('Событие пропущено: debugger приостановлен');
-    return;
-  }
-  const args = (n.eventArgExpressions?.[event] ?? n.eventArgs?.[event] ?? []).map(value =>
-    evaluate(value, compiled.defaults, state, [], false, n.environment),
-  );
-  log(
-    `Событие ${n.type}.${event} → ${action}(${args.map(value => JSON.stringify(value)).join(', ')})`,
-  );
-  if (breakOn) {
-    pending = { action, n, args };
+const previewDebugger = createPreviewDebugger({
+  argumentsOf: (n, event) =>
+    (n.eventArgExpressions?.[event] ?? n.eventArgs?.[event] ?? []).map(value =>
+      evaluate(value, compiled.defaults, state, [], false, n.environment),
+    ),
+  execute: (action, args) => execute(action, args),
+  log: text => log(text),
+  paused(action) {
     $('continue').disabled = false;
     $('debug-status').textContent = 'Пауза перед ' + action;
     tab = 'state';
     syncTabs();
     output();
-    return;
-  }
-  execute(action, args);
-}
+  },
+  resumed() {
+    $('continue').disabled = true;
+    $('debug-status').textContent = 'Готов';
+  },
+});
+const dispatch = previewDebugger.dispatch;
 function execute(action, args = []) {
   if (action === 'actions.search') {
     state.status = `Дизайн-обработчик: запрос «${state.query || 'пусто'}»`;
@@ -983,20 +980,12 @@ $('mobile').onclick = () => {
   $('desktop').classList.remove('chosen');
 };
 $('theme').onclick = () => $('preview').classList.toggle('light');
-$('break').onchange = e => (breakOn = e.target.checked);
+$('break').onchange = e => previewDebugger.setBreak(e.target.checked);
 $('continue').onclick = () => {
-  if (pending) {
-    const p = pending;
-    pending = null;
-    $('continue').disabled = true;
-    $('debug-status').textContent = 'Готов';
-    execute(p.action, p.args ?? []);
-  }
+  previewDebugger.resume();
 };
 $('reset').onclick = () => {
-  pending = null;
-  $('continue').disabled = true;
-  $('debug-status').textContent = 'Готов';
+  previewDebugger.reset();
   compile(true);
   log('Состояние предпросмотра восстановлено');
 };
@@ -2019,10 +2008,10 @@ const ideCommand = createIdeCommands({
     }
   },
   get breakOn() {
-    return breakOn;
+    return previewDebugger.breakOn;
   },
   get pending() {
-    return pending;
+    return previewDebugger.pending;
   },
   get vectorPreview() {
     return vectorPreview;
