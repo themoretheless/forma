@@ -1,6 +1,13 @@
 import { appendLog, diagnosticTargets, outputHtml, problemCount } from './output-panel.js';
 import { fileTreeHtml, visibleTreePaths } from './file-tree-model.js';
-import { createFile, duplicateFile, moveDestination, renameFile } from './project-files.js';
+import {
+  componentPath,
+  createFile,
+  duplicateFile,
+  moveDestination,
+  renameFile,
+  suggestComponentName,
+} from './project-files.js';
 import { createProjectStore } from './project-store.js';
 import { createPreviewDebugger } from './preview-debugger.js';
 import {
@@ -1427,20 +1434,19 @@ async function extractTreeControl({ path, start, node }) {
     $('caption').textContent = 'Файл не найден';
     return;
   }
-  const rawKey =
-    typeof node?.props?.key === 'string' ? node.props.key.replace(/[^A-Za-z0-9_]/g, '') : '';
-  const suggestedBase = rawKey
-    ? rawKey[0].toUpperCase() + rawKey.slice(1)
-    : `Custom${node?.type || 'Component'}`;
-  let suggested = suggestedBase,
-    idx = 2;
-  while (files[`components/${suggested}.ui`]) suggested = `${suggestedBase}${idx++}`;
-  const input = prompt('Имя нового компонента (.ui в папке components/):', suggested);
+  const input = prompt(
+    'Имя нового компонента (.ui в папке components/):',
+    suggestComponentName(files, node),
+  );
   if (!input) return;
   const name = input.trim().replace(/\.ui$/i, '');
   try {
-    const compPath = `components/${name}.ui`;
-    if (files[compPath] && !confirm(`Файл ${compPath} уже существует. Перезаписать?`)) return;
+    const compPath = componentPath(name);
+    if (
+      Object.hasOwn(files, compPath) &&
+      !confirm(`Файл ${compPath} уже существует. Перезаписать?`)
+    )
+      return;
     const change = extractElement(source, start, name);
     files[change.componentPath] = change.componentSource;
     commitSource({

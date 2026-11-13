@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createFile, duplicateFile, moveDestination, renameFile } from '../src/project-files.js';
+import {
+  componentPath,
+  createFile,
+  duplicateFile,
+  moveDestination,
+  renameFile,
+  suggestComponentName,
+} from '../src/project-files.js';
 
 const project = () => ({ 'ui/Demo.ui': 'demo', 'ui/Other.ui': 'other', README: 'read me' });
 
@@ -83,4 +90,18 @@ test('a drop names the destination, or nothing when the item would not move', ()
   assert.equal(moveDestination('ui', 'ui'), null, 'a folder is not moved into itself');
   assert.equal(moveDestination('ui', 'ui/inner'), null, 'nor into a folder inside it');
   assert.equal(moveDestination('ui', 'components'), 'components/ui');
+});
+
+test('an extracted control is offered a component name no file has', () => {
+  assert.equal(componentPath('Card'), 'components/Card.ui');
+  const keyed = { type: 'Frame', props: { key: 'search-box' } };
+  assert.equal(suggestComponentName({}, keyed), 'Searchbox');
+  assert.equal(suggestComponentName({}, { type: 'Row', props: {} }), 'CustomRow');
+  assert.equal(suggestComponentName({}, { props: { key: 5 } }), 'CustomComponent');
+  assert.equal(suggestComponentName({}, undefined), 'CustomComponent');
+  assert.equal(suggestComponentName({}, { type: 'Frame', props: { key: '--' } }), 'CustomFrame');
+
+  const files = { 'components/Searchbox.ui': 'x', 'components/Searchbox2.ui': '' };
+  // An empty file still has the name.
+  assert.equal(suggestComponentName(files, keyed), 'Searchbox3');
 });

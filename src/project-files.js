@@ -56,3 +56,19 @@ export function moveDestination(fromPath, targetDir) {
     toPath = targetDir ? `${targetDir}/${name}` : name;
   return toPath === fromPath || toPath.startsWith(fromPath + '/') ? null : toPath;
 }
+
+/** Where the component called `name` lives in a project. */
+export const componentPath = name => `components/${name}.ui`;
+
+/**
+ * A free component name to offer when `node` is extracted: its key with a capital first letter,
+ * or `Custom<Type>`, numbered until no file has the name.
+ */
+export function suggestComponentName(files, node) {
+  const key =
+    typeof node?.props?.key === 'string' ? node.props.key.replace(/[^A-Za-z0-9_]/g, '') : '';
+  const base = key ? key[0].toUpperCase() + key.slice(1) : `Custom${node?.type || 'Component'}`;
+  let name = base;
+  for (let n = 2; Object.hasOwn(files, componentPath(name)); n++) name = `${base}${n}`;
+  return name;
+}
