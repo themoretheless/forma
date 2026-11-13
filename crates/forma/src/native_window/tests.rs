@@ -1980,3 +1980,116 @@ fn a_wheel_event_scrolls_in_logical_pixels_against_its_direction() {
     assert_eq!(wheel_scroll(pixels, 2.), (-15., 25.));
     assert_eq!(wheel_scroll(pixels, 1.), (-30., 50.));
 }
+
+// The four scenarios below were the tests of the dev window's own IME state machine
+// (`standalone_ime_tests` in `main.rs`). They hold for the host, which replaces it.
+
+fn two_editors() -> crate::Runtime {
+    crate::Runtime::from_sources("component App { Frame { width:240; height:100; Button { key:'first'; } Button { key:'second'; } } }","component Button { Rectangle { ContentInput { value:'seed'; width:200; height:32; } PointerArea { clicked -> events.clicked(); } } }").unwrap()
+}
+
+fn editor_host(runtime: crate::Runtime) -> NativeHost<crate::Runtime> {
+    windowless_host(runtime, NativeWindowConfig::application("ime"))
+}
+
+#[test]
+fn a_commit_for_an_editor_that_lost_focus_is_dropped_and_a_fresh_preedit_is_accepted() {
+    let mut host = editor_host(two_editors());
+    host.app.focus_control(0);
+    host.ime_event(Ime::Preedit("old".into(), None)).unwrap();
+    host.app.focus_control(1);
+    host.ime_event(Ime::Commit("wrong".into())).unwrap();
+    assert_eq!(host.app.text_value(0), "seed");
+    assert_eq!(host.app.text_value(1), "seed");
+    host.ime_event(Ime::Preedit("fresh".into(), None)).unwrap();
+    host.ime_event(Ime::Preedit("".into(), None)).unwrap();
+    host.ime_event(Ime::Commit("fresh".into())).unwrap();
+    assert!(host.app.text_value(1).contains("fresh"));
+    assert_eq!(host.app.text_value(0), "seed");
+}
+
+#[test]
+fn a_binding_sync_that_rebuilds_the_scene_retires_the_composition_and_an_idle_one_does_not() {
+    let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state a: String = 'first'; state b: String = 'second'; Column { width:240; height:140; TextInput { key:'a'; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".into())]);
+    for svet in [false, true] {
+        let mut runtime =
+            crate::Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        runtime.set_svet_document_scheduling(svet);
+        runtime.sync_ui_bindings_native().unwrap();
+        runtime.focus_control(0);
+        runtime.text_key("End", false, false);
+        let mut host = editor_host(runtime);
+        host.ime_event(Ime::Preedit("pending".into(), None))
+            .unwrap();
+        let original = host.composition_owner;
+        assert!(original.is_some());
+        assert!(!host.app.sync_ui_bindings_native().unwrap());
+        assert_eq!(host.app.native_editor_session(), original);
+        host.ime_presentation().unwrap();
+        assert!(host.composing);
+        assert!(!host.ime_cancelled);
+        // A sibling binding causes scene reconstruction while preserving focus/key.
+        host.app.set_binding_value(1, "updated", false).unwrap();
+        assert!(host.app.sync_ui_bindings_native().unwrap());
+        assert_ne!(host.app.native_editor_session(), original);
+        assert_eq!(host.app.focused_index(), 0);
+        host.ime_presentation().unwrap();
+        assert!(!host.composing);
+        assert!(host.ime_cancelled);
+        for text in ["late", "again"] {
+            host.ime_event(Ime::Commit(text.into())).unwrap();
+        }
+        assert_eq!(host.app.text_value(0), "first");
+        assert_eq!(host.app.text_value(1), "updated");
+        host.ime_event(Ime::Preedit("new".into(), None)).unwrap();
+        host.ime_event(Ime::Commit("新".into())).unwrap();
+        host.app.sync_ui_bindings_native().unwrap();
+        assert_eq!(host.app.text_value(0), "first新");
+        assert_eq!(host.app.text_value(1), "updated");
+        assert!(host.app.ui_state_json().contains("first新"));
+        assert!(!host.app.ui_state_json().contains("late"));
+    }
+}
+
+#[test]
+fn escape_cancels_a_composition_whose_preedit_is_already_empty_and_late_commits_are_dropped() {
+    let mut host = editor_host(two_editors());
+    host.app.focus_control(0);
+    host.ime_event(Ime::Preedit("pending".into(), None))
+        .unwrap();
+    host.ime_event(Ime::Preedit("".into(), None)).unwrap();
+    assert!(!host.composing);
+    assert!(host.composition_owner.is_some());
+    host.navigation_key(&Key::Named(NamedKey::Escape), true, false)
+        .unwrap();
+    for text in ["late", "again"] {
+        host.ime_event(Ime::Commit(text.into())).unwrap();
+    }
+    assert_eq!(host.app.text_value(0), "seed");
+    assert_eq!(host.app.text_value(1), "seed");
+    host.app.focus_control(0);
+    host.ime_event(Ime::Preedit("new".into(), None)).unwrap();
+    host.ime_event(Ime::Commit("new".into())).unwrap();
+    assert!(host.app.text_value(0).contains("new"));
+}
+
+#[test]
+fn a_commit_is_dropped_after_the_runtime_is_replaced_or_the_input_method_is_disabled() {
+    let mut host = editor_host(two_editors());
+    host.app.focus_control(0);
+    host.ime_event(Ime::Preedit("old".into(), None)).unwrap();
+    host.app = two_editors();
+    host.app.focus_control(0);
+    host.ime_event(Ime::Commit("wrong".into())).unwrap();
+    assert_eq!(host.app.text_value(0), "seed");
+    host.ime_event(Ime::Disabled).unwrap();
+    host.ime_event(Ime::Commit("late".into())).unwrap();
+    assert_eq!(host.app.text_value(0), "seed");
+    host.ime_event(Ime::Enabled).unwrap();
+    host.app.text_key("a", false, true);
+    host.ime_event(Ime::Commit("".into())).unwrap();
+    assert_eq!(host.app.text_value(0), "seed");
+    assert_eq!(host.app.text_selected(), "seed");
+    host.ime_event(Ime::Commit("direct".into())).unwrap();
+    assert_eq!(host.app.text_value(0), "direct");
+}
