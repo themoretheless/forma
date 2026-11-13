@@ -82,16 +82,7 @@ struct App {
     next_title_update: Instant,
     last_title: String,
     retry_at: Option<Instant>,
-    source_path: Option<String>,
-    template_path: Option<String>,
-    source_meta: Option<(std::time::SystemTime, u64)>,
-    template_meta: Option<(std::time::SystemTime, u64)>,
-    project_root: Option<std::path::PathBuf>,
-    project_entry: Option<String>,
-    last_project_files: std::collections::BTreeMap<String, String>,
-    last_source: String,
-    last_template: String,
-    next_hot_check: Instant,
+    hot: HotReload,
 }
 
 impl App {
@@ -296,8 +287,7 @@ impl App {
                         *chooser = next;
                     }
                 }
-            } else if self.source_path.is_none()
-                && self.project_root.is_none()
+            } else if self.hot.is_demo()
                 && ((self.button.width() - logical_w).abs() > 1.0
                     || (self.button.height() - logical_h).abs() > 1.0)
             {
@@ -407,62 +397,24 @@ impl App {
         let Some(window) = &self.window else {
             return;
         };
-        let plat_suffix = if self.platform != TargetPlatform::Desktop {
-            format!(" · {}", self.platform.short_label())
-        } else {
-            String::new()
-        };
-        if self.chooser.is_some() {
-            let title = format!(
-                "Forma{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet · F6: платформа"
-            );
-            if title != self.last_title {
-                window.set_title(&title);
-                self.last_title = title;
-            }
-            self.next_title_update = now + TITLE_INTERVAL;
-            return;
-        }
-        let ui_tag = self.ui_backend.map_or("svet", UiBackend::as_str);
-        let backend = match self.platform {
-            TargetPlatform::Ios => "Metal (iOS)",
-            TargetPlatform::Android => "Vulkan (Android)",
-            TargetPlatform::Desktop => {
-                if self.gpu.is_some() && self.ui_backend != Some(UiBackend::Egui) {
-                    "GPU"
-                } else {
-                    "CPU"
-                }
-            }
-        };
-        let rate = if let Some(error) = self.binding_error.as_ref().or(self.render_error.as_ref()) {
-            format!("ошибка: {error}")
-        } else if self.surface_state == Presentation::Occluded {
-            "occluded".into()
-        } else if self.surface_state == Presentation::ZeroSize {
-            "нет поверхности".into()
-        } else if self.surface_state == Presentation::Retry {
-            "ожидание поверхности".into()
-        } else {
-            match self.frame_stats.snapshot(now) {
-                FrameRate::Waiting => "ожидание кадра".into(),
-                FrameRate::Sampling => "замер…".into(),
-                FrameRate::Idle => "idle".into(),
-                FrameRate::Active { fps, frame_ms } => format!("{fps:.1} FPS · {frame_ms:.2} ms"),
-            }
-        };
-        let mode = if self.continuous_redraw {
-            "FPS-тест"
-        } else {
-            "F6: iOS/Android · F7: бэкенд"
-        };
-        let mut title = format!("Forma [{ui_tag}{plat_suffix}] · {backend} · {rate} · {mode}");
-        if self.button.clicks() > 0 {
-            title.push_str(&format!(" · кликов: {}", self.button.clicks()));
-        }
+        let choosing = self.chooser.is_some();
+        let title = dev_title(&DevTitle {
+            platform: self.platform,
+            choosing,
+            backend: self.ui_backend,
+            gpu: self.gpu.is_some(),
+            error: self
+                .binding_error
+                .as_deref()
+                .or(self.render_error.as_deref()),
+            surface: self.surface_state,
+            rate: self.frame_stats.snapshot(now),
+            continuous: self.continuous_redraw,
+            clicks: self.button.clicks(),
+        });
         if title != self.last_title {
             window.set_title(&title);
-            if self.log_fps {
+            if self.log_fps && !choosing {
                 println!("Frame stats: {title}");
             }
             self.last_title = title;
@@ -696,8 +648,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         *chooser = next;
                     }
                 }
-            } else if self.source_path.is_none()
-                && self.project_root.is_none()
+            } else if self.hot.is_demo()
                 && ((self.button.width() - logical_w).abs() > 1.0
                     || (self.button.height() - logical_h).abs() > 1.0)
             {
@@ -1051,36 +1002,35 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 {
                     let next = self.ui_backend.map_or(UiBackend::Egui, UiBackend::toggle);
                     self.select_backend(next);
-                } else if event.logical_key == Key::Named(NamedKey::F10)
-                    && event.state == ElementState::Pressed
-                    && !event.repeat
-                {
-                    self.toggle_detached_popup(event_loop);
-                } else if event.logical_key == Key::Named(NamedKey::F9)
-                    && event.state == ElementState::Pressed
-                    && !event.repeat
-                {
-                    self.inspect_mode = !self.inspect_mode;
-                    self.button.focus(false);
-                    self.inspect_report.clear();
-                    self.a11y_report.clear();
-                    println!(
-                        "F9: выбор элемента {}",
-                        if self.inspect_mode {
-                            "включён"
-                        } else {
-                            "выключен"
+                } else if let Some(shortcut) = dev_shortcut(
+                    &event.logical_key,
+                    event.state == ElementState::Pressed,
+                    event.repeat,
+                ) {
+                    match shortcut {
+                        DevShortcut::Popup => self.toggle_detached_popup(event_loop),
+                        DevShortcut::Inspect => {
+                            self.inspect_mode = !self.inspect_mode;
+                            self.button.focus(false);
+                            self.inspect_report.clear();
+                            self.a11y_report.clear();
+                            println!(
+                                "F9: выбор элемента {}",
+                                if self.inspect_mode {
+                                    "включён"
+                                } else {
+                                    "выключен"
+                                }
+                            );
                         }
-                    );
-                } else if event.logical_key == Key::Named(NamedKey::F8)
-                    && event.state == ElementState::Pressed
-                    && !event.repeat
-                {
-                    self.continuous_redraw = !self.continuous_redraw;
-                    self.frame_stats = FrameStats::default();
-                    self.next_title_update = Instant::now();
-                    self.retry_at = None;
-                    window.request_redraw();
+                        DevShortcut::FpsTest => {
+                            self.continuous_redraw = !self.continuous_redraw;
+                            self.frame_stats = FrameStats::default();
+                            self.next_title_update = Instant::now();
+                            self.retry_at = None;
+                            window.request_redraw();
+                        }
+                    }
                 } else if event.state == ElementState::Pressed
                     && self.button.range_key(&match &event.logical_key {
                         Key::Named(key) => format!("{key:?}"),
@@ -1194,38 +1144,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             _ => {}
         }
         if self.inspect_mode {
-            let nodes = self
-                .button
-                .nodes()
-                .iter()
-                .map(|n| {
-                    format!(
-                        "{{\"id\":{},\"parent\":{},\"control\":{},\"kind\":\"{:?}\"}}",
-                        n.id,
-                        n.parent.map_or("null".into(), |v| v.to_string()),
-                        n.control.map_or("null".into(), |v| v.to_string()),
-                        n.kind
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            let controls = (0..self.button.control_count())
-                .map(|i| {
-                    format!(
-                        "{{\"index\":{},\"bounds\":{:?},\"disabled\":{}}}",
-                        i,
-                        self.button.control_bounds(i),
-                        self.button.control_disabled(i)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            let report = format!(
-                "{{\"selected\":{},\"nodes\":[{}],\"controls\":[{}]}}",
-                self.button.focused_index(),
-                nodes,
-                controls
-            );
+            let report = inspect_report(&self.button);
             if report != self.inspect_report {
                 println!("FORMA_INSPECT {}", report);
                 self.inspect_report = report;
@@ -1272,7 +1191,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 self.button.action()
             );
             #[cfg(target_os = "ios")]
-            if self.source_path.is_none() && self.project_root.is_none() {
+            if self.hot.is_demo() {
                 let c1 = self.button.control_clicks(0);
                 let c2 = self.button.control_clicks(1);
                 let src = two_buttons_ui_for_viewport_with_state(
@@ -1303,99 +1222,18 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let now = Instant::now();
-        if let (Some(root), Some(entry)) = (&self.project_root, &self.project_entry) {
-            if now >= self.next_hot_check {
-                self.next_hot_check = now + Duration::from_millis(150);
-                if let Ok(next_files) = collect_ui_project_files(root) {
-                    if next_files != self.last_project_files {
-                        let prev_state = self.button.ui_state_properties();
-                        if let Ok(mut next_rt) =
-                            forma::Runtime::from_ui_files(&next_files, entry, &prev_state)
-                        {
-                            next_rt.preserve_interaction(&self.button);
-                            next_rt.set_svet_document_scheduling(
-                                self.ui_backend == Some(UiBackend::Svet),
-                            );
-                            self.button = next_rt;
-                            self.binding_error = None;
-                            self.next_title_update = Instant::now();
-                            self.last_project_files = next_files;
-                            self.inspect_report.clear();
-                            self.a11y_report.clear();
-                            if let Some(window) = &self.window {
-                                window.request_redraw();
-                            }
-                            println!(
-                                "Hot reload: многофайловый .ui проект перекомпилирован в Rust"
-                            );
-                        }
-                    }
-                }
+        if let Some((mut next, message)) = self.hot.poll(now, &self.button) {
+            next.preserve_interaction(&self.button);
+            next.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
+            self.button = next;
+            self.binding_error = None;
+            self.next_title_update = Instant::now();
+            self.inspect_report.clear();
+            self.a11y_report.clear();
+            if let Some(window) = &self.window {
+                window.request_redraw();
             }
-        } else if self.source_path.is_some() && now >= self.next_hot_check {
-            self.next_hot_check = now + Duration::from_millis(120);
-            let cur_src_meta = self
-                .source_path
-                .as_deref()
-                .and_then(|p| std::fs::metadata(p).ok())
-                .and_then(|m| Some((m.modified().ok()?, m.len())));
-            let cur_tpl_meta = self
-                .template_path
-                .as_deref()
-                .and_then(|p| std::fs::metadata(p).ok())
-                .and_then(|m| Some((m.modified().ok()?, m.len())));
-            let src_meta_changed = cur_src_meta.is_none() || cur_src_meta != self.source_meta;
-            let tpl_meta_changed = self.template_path.is_some()
-                && (cur_tpl_meta.is_none() || cur_tpl_meta != self.template_meta);
-
-            if src_meta_changed || tpl_meta_changed {
-                let next_src = if src_meta_changed {
-                    self.source_path
-                        .as_deref()
-                        .and_then(|p| std::fs::read_to_string(p).ok())
-                } else {
-                    None
-                };
-                let next_tpl = if tpl_meta_changed {
-                    self.template_path
-                        .as_deref()
-                        .and_then(|p| std::fs::read_to_string(p).ok())
-                } else {
-                    None
-                };
-                if next_src.is_some() {
-                    self.source_meta = cur_src_meta;
-                }
-                if next_tpl.is_some() {
-                    self.template_meta = cur_tpl_meta;
-                }
-                let src_changed = next_src
-                    .as_ref()
-                    .is_some_and(|s| !s.trim().is_empty() && s != &self.last_source);
-                let tpl_changed = next_tpl
-                    .as_ref()
-                    .is_some_and(|t| !t.trim().is_empty() && t != &self.last_template);
-                if src_changed || tpl_changed {
-                    let s = next_src.unwrap_or_else(|| self.last_source.clone());
-                    let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
-                    if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
-                        next_rt.preserve_interaction(&self.button);
-                        next_rt
-                            .set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
-                        self.button = next_rt;
-                        self.binding_error = None;
-                        self.next_title_update = Instant::now();
-                        self.last_source = s;
-                        self.last_template = t;
-                        self.inspect_report.clear();
-                        self.a11y_report.clear();
-                        if let Some(window) = &self.window {
-                            window.request_redraw();
-                        }
-                        println!("Hot reload: векторная сцена обновлена на лету");
-                    }
-                }
-            }
+            println!("{message}");
         }
         if self.retry_at.is_some_and(|time| time <= now) {
             self.retry_at = None;
@@ -1421,8 +1259,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             }
         }
         let anim_deadline = anim_active.then_some(now + Duration::from_millis(16));
-        let hot_deadline = (self.source_path.is_some() || self.project_root.is_some())
-            .then_some(self.next_hot_check);
+        let hot_deadline = self.hot.deadline();
         let deadline = self
             .retry_at
             .into_iter()
@@ -1431,6 +1268,226 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             .chain(hot_deadline)
             .min();
         event_loop.set_control_flow(deadline.map_or(ControlFlow::Wait, ControlFlow::WaitUntil));
+    }
+}
+
+/// What the dev window's title reports.
+struct DevTitle<'a> {
+    platform: TargetPlatform,
+    /// The backend chooser is shown instead of the scene.
+    choosing: bool,
+    backend: Option<UiBackend>,
+    gpu: bool,
+    error: Option<&'a str>,
+    surface: Presentation,
+    rate: FrameRate,
+    continuous: bool,
+    clicks: u32,
+}
+
+fn dev_title(state: &DevTitle<'_>) -> String {
+    let plat_suffix = if state.platform != TargetPlatform::Desktop {
+        format!(" · {}", state.platform.short_label())
+    } else {
+        String::new()
+    };
+    if state.choosing {
+        return format!(
+            "Forma{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet · F6: платформа"
+        );
+    }
+    let ui_tag = state.backend.map_or("svet", UiBackend::as_str);
+    let backend = match state.platform {
+        TargetPlatform::Ios => "Metal (iOS)",
+        TargetPlatform::Android => "Vulkan (Android)",
+        TargetPlatform::Desktop => {
+            if state.gpu && state.backend != Some(UiBackend::Egui) {
+                "GPU"
+            } else {
+                "CPU"
+            }
+        }
+    };
+    let rate = if let Some(error) = state.error {
+        format!("ошибка: {error}")
+    } else if state.surface == Presentation::Occluded {
+        "occluded".into()
+    } else if state.surface == Presentation::ZeroSize {
+        "нет поверхности".into()
+    } else if state.surface == Presentation::Retry {
+        "ожидание поверхности".into()
+    } else {
+        match state.rate {
+            FrameRate::Waiting => "ожидание кадра".into(),
+            FrameRate::Sampling => "замер…".into(),
+            FrameRate::Idle => "idle".into(),
+            FrameRate::Active { fps, frame_ms } => format!("{fps:.1} FPS · {frame_ms:.2} ms"),
+        }
+    };
+    let mode = if state.continuous {
+        "FPS-тест"
+    } else {
+        "F6: iOS/Android · F7: бэкенд"
+    };
+    let mut title = format!("Forma [{ui_tag}{plat_suffix}] · {backend} · {rate} · {mode}");
+    if state.clicks > 0 {
+        title.push_str(&format!(" · кликов: {}", state.clicks));
+    }
+    title
+}
+
+/// The node tree and control geometry the element picker prints as `FORMA_INSPECT`.
+fn inspect_report(runtime: &forma::Runtime) -> String {
+    let nodes = runtime
+        .nodes()
+        .iter()
+        .map(|n| {
+            format!(
+                "{{\"id\":{},\"parent\":{},\"control\":{},\"kind\":\"{:?}\"}}",
+                n.id,
+                n.parent.map_or("null".into(), |v| v.to_string()),
+                n.control.map_or("null".into(), |v| v.to_string()),
+                n.kind
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let controls = (0..runtime.control_count())
+        .map(|i| {
+            format!(
+                "{{\"index\":{},\"bounds\":{:?},\"disabled\":{}}}",
+                i,
+                runtime.control_bounds(i),
+                runtime.control_disabled(i)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"selected\":{},\"nodes\":[{}],\"controls\":[{}]}}",
+        runtime.focused_index(),
+        nodes,
+        controls
+    )
+}
+
+/// Function keys of the dev window that the shared host does not know.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DevShortcut {
+    /// F8: redraw continuously to measure the frame rate.
+    FpsTest,
+    /// F9: pick elements with the pointer and print their description.
+    Inspect,
+    /// F10: open or close the detached popup window.
+    Popup,
+}
+
+fn dev_shortcut(key: &Key, pressed: bool, repeat: bool) -> Option<DevShortcut> {
+    if !pressed || repeat {
+        return None;
+    }
+    match key {
+        Key::Named(NamedKey::F8) => Some(DevShortcut::FpsTest),
+        Key::Named(NamedKey::F9) => Some(DevShortcut::Inspect),
+        Key::Named(NamedKey::F10) => Some(DevShortcut::Popup),
+        _ => None,
+    }
+}
+
+type FileStamp = (std::time::SystemTime, u64);
+
+fn file_stamp(path: Option<&str>) -> Option<FileStamp> {
+    let meta = std::fs::metadata(path?).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+/// The files the dev window was started from, watched for changes.
+struct HotReload {
+    source_path: Option<String>,
+    template_path: Option<String>,
+    source_meta: Option<FileStamp>,
+    template_meta: Option<FileStamp>,
+    project_root: Option<std::path::PathBuf>,
+    project_entry: Option<String>,
+    last_project_files: std::collections::BTreeMap<String, String>,
+    last_source: String,
+    last_template: String,
+    next_hot_check: Instant,
+}
+
+impl HotReload {
+    /// The built-in two-button demo: nothing on disk to watch.
+    fn is_demo(&self) -> bool {
+        self.source_path.is_none() && self.project_root.is_none()
+    }
+
+    /// When the files are looked at next, if anything is watched.
+    fn deadline(&self) -> Option<Instant> {
+        (!self.is_demo()).then_some(self.next_hot_check)
+    }
+
+    /// Looks at the watched files when the check is due. Returns the runtime rebuilt from changed
+    /// files and the line to print; a change that does not compile keeps the current runtime.
+    fn poll(
+        &mut self,
+        now: Instant,
+        current: &forma::Runtime,
+    ) -> Option<(forma::Runtime, &'static str)> {
+        if now < self.next_hot_check {
+            return None;
+        }
+        if let (Some(root), Some(entry)) = (&self.project_root, &self.project_entry) {
+            self.next_hot_check = now + Duration::from_millis(150);
+            let next_files = collect_ui_project_files(root).ok()?;
+            if next_files == self.last_project_files {
+                return None;
+            }
+            let prev_state = current.ui_state_properties();
+            let next = forma::Runtime::from_ui_files(&next_files, entry, &prev_state).ok()?;
+            self.last_project_files = next_files;
+            return Some((
+                next,
+                "Hot reload: многофайловый .ui проект перекомпилирован в Rust",
+            ));
+        }
+        self.source_path.as_ref()?;
+        self.next_hot_check = now + Duration::from_millis(120);
+        let cur_src_meta = file_stamp(self.source_path.as_deref());
+        let cur_tpl_meta = file_stamp(self.template_path.as_deref());
+        let src_meta_changed = cur_src_meta.is_none() || cur_src_meta != self.source_meta;
+        let tpl_meta_changed = self.template_path.is_some()
+            && (cur_tpl_meta.is_none() || cur_tpl_meta != self.template_meta);
+        if !src_meta_changed && !tpl_meta_changed {
+            return None;
+        }
+        let read = |changed: bool, path: &Option<String>| {
+            changed
+                .then(|| std::fs::read_to_string(path.as_deref()?).ok())
+                .flatten()
+        };
+        let next_src = read(src_meta_changed, &self.source_path);
+        let next_tpl = read(tpl_meta_changed, &self.template_path);
+        if next_src.is_some() {
+            self.source_meta = cur_src_meta;
+        }
+        if next_tpl.is_some() {
+            self.template_meta = cur_tpl_meta;
+        }
+        let src_changed = next_src
+            .as_ref()
+            .is_some_and(|s| !s.trim().is_empty() && s != &self.last_source);
+        let tpl_changed = next_tpl
+            .as_ref()
+            .is_some_and(|t| !t.trim().is_empty() && t != &self.last_template);
+        if !src_changed && !tpl_changed {
+            return None;
+        }
+        let source = next_src.unwrap_or_else(|| self.last_source.clone());
+        let template = next_tpl.unwrap_or_else(|| self.last_template.clone());
+        let next = forma::Runtime::from_sources(&source, &template).ok()?;
+        self.last_source = source;
+        self.last_template = template;
+        Some((next, "Hot reload: векторная сцена обновлена на лету"))
     }
 }
 
@@ -1520,21 +1577,28 @@ fn resolve_ui_project_root_and_entry(
     Some((root, entry))
 }
 
-fn parse_cli_args() -> (
-    Option<String>,
-    Option<String>,
-    Option<UiBackend>,
-    TargetPlatform,
-    bool,
-) {
+/// What the command line asks for.
+struct CliArgs {
+    source_path: Option<String>,
+    template_path: Option<String>,
+    backend: Option<UiBackend>,
+    platform: TargetPlatform,
+    mcp: bool,
+}
+
+/// Reads the arguments after the program name. `backend`, `platform` and `mcp` are the values
+/// already resolved from the environment; a flag replaces them.
+fn parse_cli_args(
+    args: impl IntoIterator<Item = String>,
+    mut backend: Option<UiBackend>,
+    mut platform: TargetPlatform,
+    mut mcp: bool,
+) -> CliArgs {
     let mut positional = Vec::new();
-    let mut backend = UiBackend::resolve_from_env_and_args();
-    let mut platform = TargetPlatform::resolve_from_env_and_args();
-    let mut mcp_mode = std::env::var("FORMA_MCP").as_deref() == Ok("1");
-    let mut iter = std::env::args().skip(1);
+    let mut iter = args.into_iter();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
-            "--mcp" | "mcp" => mcp_mode = true,
+            "--mcp" | "mcp" => mcp = true,
             "--egui" | "--backend=egui" => backend = Some(UiBackend::Egui),
             "--svet" | "--backend=svet" => backend = Some(UiBackend::Svet),
             "--ask" | "--choose-backend" | "--backend=ask" => backend = None,
@@ -1560,74 +1624,133 @@ fn parse_cli_args() -> (
             _ => positional.push(arg),
         }
     }
-    (
-        positional.first().cloned(),
-        positional.get(1).cloned(),
+    let mut positional = positional.into_iter();
+    CliArgs {
+        source_path: positional.next(),
+        template_path: positional.next(),
         backend,
         platform,
-        mcp_mode,
-    )
+        mcp,
+    }
+}
+
+/// The scene the dev window starts with and the files to watch for it.
+struct DevProject {
+    runtime: forma::Runtime,
+    source: String,
+    template: String,
+    hot: HotReload,
+}
+
+impl DevProject {
+    /// One argument is a `.ui` file or a project folder, two are a scene and its component
+    /// template, none is the built-in two-button demo.
+    fn load(
+        source_path: Option<String>,
+        template_path: Option<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut project_root = None;
+        let mut project_entry = None;
+        let mut last_project_files = std::collections::BTreeMap::new();
+        let mut source = String::new();
+        let mut template = String::new();
+
+        let runtime = if let (Some(first_arg), None) = (&source_path, &template_path) {
+            let p = std::path::Path::new(first_arg);
+            if p.is_dir() {
+                let (root, entry) = resolve_ui_project_root_and_entry(p)
+                    .ok_or("Не найден входной .ui файл в указанной папке")?;
+                let files = collect_ui_project_files(&root)?;
+                let rt = forma::Runtime::from_ui_files(
+                    &files,
+                    &entry,
+                    &forma::form_document::Properties::new(),
+                )
+                .map_err(std::io::Error::other)?;
+                project_root = Some(root);
+                project_entry = Some(entry);
+                last_project_files = files;
+                rt
+            } else {
+                source = std::fs::read_to_string(p)?;
+                template = forma::BUTTON_COMPONENT.into();
+                match forma::Runtime::from_sources(&source, &template) {
+                    Ok(rt) => rt,
+                    Err(_) => {
+                        let (root, entry) = resolve_ui_project_root_and_entry(p)
+                            .ok_or("Не удалось определить корень .ui проекта")?;
+                        let files = collect_ui_project_files(&root)?;
+                        let rt = forma::Runtime::from_ui_files(
+                            &files,
+                            &entry,
+                            &forma::form_document::Properties::new(),
+                        )
+                        .map_err(std::io::Error::other)?;
+                        project_root = Some(root);
+                        project_entry = Some(entry);
+                        last_project_files = files;
+                        rt
+                    }
+                }
+            }
+        } else {
+            source = source_path
+                .as_deref()
+                .map(std::fs::read_to_string)
+                .transpose()?
+                .unwrap_or(forma::TWO_BUTTONS_EXAMPLE.into());
+            template = template_path
+                .as_deref()
+                .map(std::fs::read_to_string)
+                .transpose()?
+                .unwrap_or(forma::BUTTON_COMPONENT.into());
+            forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?
+        };
+        let source_meta = file_stamp(source_path.as_deref());
+        let template_meta = file_stamp(template_path.as_deref());
+        Ok(Self {
+            runtime,
+            hot: HotReload {
+                source_path: if project_root.is_some() {
+                    None
+                } else {
+                    source_path
+                },
+                template_path,
+                source_meta,
+                template_meta,
+                project_root,
+                project_entry,
+                last_project_files,
+                last_source: source.clone(),
+                last_template: template.clone(),
+                next_hot_check: Instant::now() + Duration::from_millis(120),
+            },
+            source,
+            template,
+        })
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (source_path, template_path, ui_backend, platform, mcp_mode) = parse_cli_args();
-    let mut project_root = None;
-    let mut project_entry = None;
-    let mut last_project_files = std::collections::BTreeMap::new();
-    let mut source = String::new();
-    let mut template = String::new();
-
-    let mut button = if let (Some(first_arg), None) = (&source_path, &template_path) {
-        let p = std::path::Path::new(first_arg);
-        if p.is_dir() {
-            let (root, entry) = resolve_ui_project_root_and_entry(p)
-                .ok_or("Не найден входной .ui файл в указанной папке")?;
-            let files = collect_ui_project_files(&root)?;
-            let rt = forma::Runtime::from_ui_files(
-                &files,
-                &entry,
-                &forma::form_document::Properties::new(),
-            )
-            .map_err(std::io::Error::other)?;
-            project_root = Some(root);
-            project_entry = Some(entry);
-            last_project_files = files;
-            rt
-        } else {
-            source = std::fs::read_to_string(p)?;
-            template = forma::BUTTON_COMPONENT.into();
-            match forma::Runtime::from_sources(&source, &template) {
-                Ok(rt) => rt,
-                Err(_) => {
-                    let (root, entry) = resolve_ui_project_root_and_entry(p)
-                        .ok_or("Не удалось определить корень .ui проекта")?;
-                    let files = collect_ui_project_files(&root)?;
-                    let rt = forma::Runtime::from_ui_files(
-                        &files,
-                        &entry,
-                        &forma::form_document::Properties::new(),
-                    )
-                    .map_err(std::io::Error::other)?;
-                    project_root = Some(root);
-                    project_entry = Some(entry);
-                    last_project_files = files;
-                    rt
-                }
-            }
-        }
-    } else {
-        source = source_path
-            .as_deref()
-            .map(std::fs::read_to_string)
-            .transpose()?
-            .unwrap_or(forma::TWO_BUTTONS_EXAMPLE.into());
-        template = template_path
-            .as_deref()
-            .map(std::fs::read_to_string)
-            .transpose()?
-            .unwrap_or(forma::BUTTON_COMPONENT.into());
-        forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?
-    };
+    let CliArgs {
+        source_path,
+        template_path,
+        backend: ui_backend,
+        platform,
+        mcp: mcp_mode,
+    } = parse_cli_args(
+        std::env::args().skip(1),
+        UiBackend::resolve_from_env_and_args(),
+        TargetPlatform::resolve_from_env_and_args(),
+        std::env::var("FORMA_MCP").as_deref() == Ok("1"),
+    );
+    let DevProject {
+        runtime: mut button,
+        source,
+        template,
+        hot,
+    } = DevProject::load(source_path, template_path)?;
     button.set_svet_document_scheduling(ui_backend == Some(UiBackend::Svet));
     let chooser = if ui_backend.is_none() {
         Some(build_chooser_runtime().map_err(std::io::Error::other)?)
@@ -1640,14 +1763,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         mcp_app.platform = platform.as_str().into();
         return forma::mcp::serve_stdio(mcp_app).map_err(|e| std::io::Error::other(e).into());
     }
-    let init_src_meta = source_path
-        .as_deref()
-        .and_then(|p| std::fs::metadata(p).ok())
-        .and_then(|m| Some((m.modified().ok()?, m.len())));
-    let init_tpl_meta = template_path
-        .as_deref()
-        .and_then(|p| std::fs::metadata(p).ok())
-        .and_then(|m| Some((m.modified().ok()?, m.len())));
     let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event().build()?;
     let accessibility_proxy = event_loop.create_proxy();
     event_loop.run_app(&mut App {
@@ -1687,20 +1802,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         next_title_update: Instant::now(),
         last_title: String::new(),
         retry_at: None,
-        source_path: if project_root.is_some() {
-            None
-        } else {
-            source_path
-        },
-        template_path,
-        source_meta: init_src_meta,
-        template_meta: init_tpl_meta,
-        project_root,
-        project_entry,
-        last_project_files,
-        last_source: source,
-        last_template: template,
-        next_hot_check: Instant::now() + Duration::from_millis(120),
+        hot,
     })?;
     Ok(())
 }
