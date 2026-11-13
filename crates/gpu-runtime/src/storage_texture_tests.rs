@@ -107,3 +107,41 @@ fn a_compute_shader_fills_a_storage_texture() {
         assert_eq!(texel, [x as u8, y as u8, 128, 255], "texel {x},{y}");
     }
 }
+
+const DIMENSIONS: &str = "
+@group(0) @binding(0) var line: texture_storage_1d<r32float, write>;
+@group(0) @binding(1) var volume: texture_3d<f32>;
+@group(0) @binding(2) var counts: texture_storage_2d<r32uint, read>;
+@compute @workgroup_size(1)
+fn run(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(volume);
+    let count = textureLoad(counts, id.xy).x;
+    let width = textureDimensions(line);
+    textureStore(line, id.x % width, vec4<f32>(f32(size.z + count), 0.0, 0.0, 1.0));
+}
+";
+
+#[test]
+fn metal_compiles_dimension_queries_and_typed_storage_reads() {
+    let Some(metal) = MetalDevice::create_system_default() else {
+        return;
+    };
+    let adapter = Adapter::from_metal(metal);
+    let (device, _queue) = block_on_ready(adapter.request_device(&DeviceDescriptor::default()))
+        .expect("device creation must succeed");
+    let scope = device.push_error_scope(ErrorFilter::Validation);
+    let module = device.create_shader_module(ShaderModuleDescriptor {
+        label: None,
+        source: ShaderSource::Wgsl(DIMENSIONS.into()),
+    });
+    let _pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
+        label: None,
+        layout: None,
+        module: &module,
+        entry_point: Some("run"),
+        compilation_options: PipelineCompilationOptions::default(),
+        cache: None,
+    });
+    let error = block_on_ready(scope.pop());
+    assert!(error.is_none(), "{error:?}");
+}

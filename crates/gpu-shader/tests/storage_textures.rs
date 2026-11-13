@@ -105,3 +105,35 @@ fn an_unknown_format_or_access_is_a_parse_error() {
     .unwrap_err();
     assert!(unknown_access.contains("append"), "{unknown_access}");
 }
+
+#[test]
+fn dimensions_have_as_many_components_as_the_texture() {
+    let msl = translate(
+        "
+@group(0) @binding(0) var line: texture_storage_1d<r32float, write>;
+@group(0) @binding(1) var volume: texture_3d<f32>;
+@group(0) @binding(2) var plane: texture_2d<f32>;
+@compute @workgroup_size(1)
+fn run() {
+    let a = textureDimensions(line);
+    let b = textureDimensions(volume);
+    let c = textureDimensions(volume, 1);
+    let d = textureDimensions(plane);
+}
+",
+    )
+    .expect("translates");
+    assert!(msl.contains("= uint(line.get_width());"), "{msl}");
+    assert!(
+        msl.contains("= uint3(volume.get_width(), volume.get_height(), volume.get_depth());"),
+        "{msl}"
+    );
+    assert!(
+        msl.contains("= uint3(volume.get_width(1), volume.get_height(1), volume.get_depth(1));"),
+        "{msl}"
+    );
+    assert!(
+        msl.contains("= uint2(plane.get_width(), plane.get_height());"),
+        "{msl}"
+    );
+}

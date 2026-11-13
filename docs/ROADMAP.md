@@ -78,7 +78,7 @@
 
 - [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`.
 - [ ] Storage-текстуры: поддержаны форматы `rgba8unorm`, `rgba32float`, `r32float`, `r32uint`;
-  остальные форматы WGSL и `textureDimensions` для 1D и 3D не реализованы.
+  остальные форматы WGSL не реализованы.
 
 `gpu-runtime`:
 

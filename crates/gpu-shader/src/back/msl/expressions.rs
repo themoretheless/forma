@@ -370,14 +370,7 @@ fn translate_numeric_builtin(
 
 fn translate_texture_builtin(module: &Module, name: &str, args: &[String]) -> Option<String> {
     Some(match name {
-        "textureDimensions" => {
-            let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
-            if let Some(lod) = args.get(1) {
-                format!("uint2({tex}.get_width({lod}), {tex}.get_height({lod}))")
-            } else {
-                format!("uint2({tex}.get_width(), {tex}.get_height())")
-            }
-        }
+        "textureDimensions" => translate_texture_dimensions(module, args),
         "textureNumLevels" => {
             let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
             format!("uint({tex}.get_num_mip_levels())")
@@ -406,6 +399,23 @@ fn translate_texture_builtin(module: &Module, name: &str, args: &[String]) -> Op
         "textureStore" => translate_texture_store(module, args),
         _ => return None,
     })
+}
+
+/// `textureDimensions(texture[, level])`: one component per dimension of the texture.
+fn translate_texture_dimensions(module: &Module, args: &[String]) -> String {
+    let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
+    let lod = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    // A texture passed through a helper parameter has no global to inspect and is taken as 2D.
+    let dim = global_image(module, tex).map_or(ImageDimension::D2, |(dim, _, _)| dim);
+    match dim {
+        ImageDimension::D1 => format!("uint({tex}.get_width({lod}))"),
+        ImageDimension::D3 => format!(
+            "uint3({tex}.get_width({lod}), {tex}.get_height({lod}), {tex}.get_depth({lod}))"
+        ),
+        ImageDimension::D2 | ImageDimension::Cube => {
+            format!("uint2({tex}.get_width({lod}), {tex}.get_height({lod}))")
+        }
+    }
 }
 
 /// The dimension, arrayedness and class of the texture global called `name`.
