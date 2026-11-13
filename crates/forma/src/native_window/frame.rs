@@ -3,15 +3,20 @@
 use super::*;
 
 impl<A: NativeApp + 'static> NativeHost<A> {
-    pub(super) fn sync_window_title(&self) {
-        if let Some(window) = &self.window {
-            window.set_title(&window_title(
+    pub(super) fn sync_window_title(&mut self) {
+        let status = self.status();
+        let title = match self.extension() {
+            Some(extension) => extension.title(&status, Instant::now()),
+            None => window_title(
                 self.config.mode,
                 &self.config.title,
                 self.backend,
                 self.platform,
                 self.gpu.is_some(),
-            ));
+            ),
+        };
+        if let Some(window) = &self.window {
+            window.set_title(&title);
         }
     }
 
@@ -47,6 +52,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             platform.as_str(),
             platform.label()
         );
+        if let Some(extension) = self.extension() {
+            extension.platform_selected(platform);
+        }
         self.sync_window_title();
         if let Some(window) = &self.window {
             let (w, h) = platform.viewport_size(self.config.width, self.config.height);
@@ -62,6 +70,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         self.animation_at = None;
         self.chooser = None;
         println!("Активен бэкенд: {} ({})", backend.as_str(), backend.label());
+        if let Some(extension) = self.extension() {
+            extension.backend_selected(backend);
+        }
         self.sync_window_title();
         if let Some(window) = &self.window {
             let (w, h) = self
@@ -109,10 +120,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         else {
             return Ok(());
         };
+        let (gpu_allowed, continuous) = self.extension().map_or((true, false), |extension| {
+            (extension.allows_gpu(), extension.redraws_continuously())
+        });
         let use_gpu = self.backend == Some(UiBackend::Svet)
             && self.platform == TargetPlatform::Desktop
             && self.chooser.is_none();
-        if use_gpu && self.gpu.is_none() && !self.gpu_attempted {
+        if use_gpu && gpu_allowed && self.gpu.is_none() && !self.gpu_attempted {
             self.gpu_attempted = true;
             match pollster::block_on(crate::native_gpu::GpuWindow::new(window.clone())) {
                 Ok(gpu) => {
@@ -145,7 +159,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                         self.retry_at = None;
                         self.gpu_health_at =
                             Some(Instant::now() + std::time::Duration::from_millis(16));
-                        if animating {
+                        if animating || continuous {
                             window.request_redraw();
                         }
                         return Ok(());
@@ -196,7 +210,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.app.on_frame_presented(NativeRenderer::Cpu)?;
         }
 
-        if animating {
+        if continuous {
+            // A frame rate measurement presents as fast as the surface accepts frames.
+            window.request_redraw();
+        } else if animating {
             // Start-to-start cadence: a costly CPU frame is not delayed again.
             // Input-triggered redraws may still paint before this deadline.
             self.animation_at = Some(now + std::time::Duration::from_nanos(16_666_667));

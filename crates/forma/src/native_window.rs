@@ -21,6 +21,7 @@ mod accessibility;
 mod app;
 mod config;
 mod demo;
+mod extension;
 mod frame;
 mod ime;
 mod input;
@@ -29,6 +30,7 @@ mod waker;
 pub use app::*;
 pub use config::*;
 pub use demo::*;
+use extension::*;
 pub use waker::*;
 
 /// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is
@@ -155,6 +157,7 @@ struct NativeHost<A: NativeApp + 'static> {
     blurred_editor: Option<String>,
     clicks: ClickTracker,
     last_frame: Instant,
+    extension: Extension<A>,
 }
 
 impl<A: NativeApp + 'static> NativeHost<A> {
@@ -264,6 +267,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 };
             }
             WindowEvent::Ime(event) => self.ime_event(event)?,
+            WindowEvent::KeyboardInput { event, .. } if self.extension_key(&event, event_loop) => {}
             #[cfg(feature = "native-test-hooks")]
             WindowEvent::KeyboardInput { event, .. }
                 if self.config.mode == HostMode::Demo
@@ -403,7 +407,9 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             }
         }
         let (redraw, deadline) = self.scheduled_redraw(now);
-        if redraw {
+        let (extension_redraw, extension_deadline) = self.extension_idle(now);
+        let deadline = [deadline, extension_deadline].into_iter().flatten().min();
+        if redraw || extension_redraw {
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
@@ -461,6 +467,9 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                 }
                 window.set_visible(true);
                 window.request_redraw();
+                if let Some(extension) = self.extension() {
+                    extension.window_created(&window);
+                }
                 self.window = Some(window);
                 self.surface = Some(surface);
                 self.sync_window_title();
@@ -489,6 +498,9 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             .as_ref()
             .is_some_and(|window| window.id() != window_id)
         {
+            if let Some(extension) = self.extension() {
+                extension.window_event(window_id, event);
+            }
             return;
         }
         if let (Some(adapter), Some(window)) = (&mut self.accessibility, &self.window) {
@@ -506,6 +518,14 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
 
 /// Runs a Forma application with desktop Svet GPU presentation and CPU fallback.
 pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result<(), String> {
+    run_host(app, config, no_extension)
+}
+
+fn run_host<A: NativeApp + 'static>(
+    app: A,
+    config: NativeWindowConfig,
+    extension: Extension<A>,
+) -> Result<(), String> {
     let backend = config.resolved_backend();
     let platform = config.platform;
     let chooser = if backend.is_none() {
@@ -552,6 +572,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension,
         })
         .map_err(|e| e.to_string())
 }

@@ -39,6 +39,7 @@ fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         let device = winit::event::DeviceId::dummy();
         host.touch_input(device, 1, TouchPhase::Started, x, y)
@@ -126,6 +127,7 @@ fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     let device = winit::event::DeviceId::dummy();
     host.touch_input(device, 1, TouchPhase::Started, ax, ay)
@@ -213,6 +215,7 @@ fn activation_focus_does_not_overwrite_new_pointer_selection() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_changed(false).unwrap();
     let bounds = host.app.control_bounds(2);
@@ -291,6 +294,7 @@ fn window_refocus_restores_stable_editor_key_after_reorder() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_changed(false).unwrap();
     host.focus_changed(false).unwrap();
@@ -355,6 +359,7 @@ fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
                     blurred_editor: None,
                     clicks: Default::default(),
                     last_frame: Instant::now(),
+                    extension: no_extension,
                 };
                 host.preedit_ime("未確定").unwrap();
                 if empty {
@@ -462,6 +467,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         host.preedit_ime("未確定").unwrap();
         if empty {
@@ -558,6 +564,7 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         let clean = host.app.pixels(640, 360, 1.);
         host.preedit_ime("未確定").unwrap();
@@ -628,6 +635,7 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         if replacement {
             host.app =
@@ -818,6 +826,7 @@ fn composition_reconciles_replacement_after_input_callback() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_sensitive_input(&mut |_| {}).unwrap();
     assert_eq!(host.app.updates, 1);
@@ -905,6 +914,7 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_sensitive_input(&mut |runtime| {
         runtime
@@ -996,6 +1006,7 @@ fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         host.focus_changed(false).unwrap();
         host.app = crate::Runtime::from_ui_files(
@@ -1063,6 +1074,7 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))
         .unwrap();
@@ -1143,6 +1155,7 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension: no_extension,
         };
         for (pressed, repeat) in [(false, false), (true, true)] {
             host.navigation_key(&Key::Named(key), pressed, repeat)
@@ -1233,6 +1246,7 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     host.focus_changed(false).unwrap();
     assert!(
@@ -1293,6 +1307,7 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     };
     let deadline = Instant::now() + std::time::Duration::from_secs(30);
     host.retry_at = Some(deadline);
@@ -1541,6 +1556,7 @@ fn windowless_host<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -
         blurred_editor: None,
         clicks: Default::default(),
         last_frame: Instant::now(),
+        extension: no_extension,
     }
 }
 
@@ -2092,4 +2108,192 @@ fn a_commit_is_dropped_after_the_runtime_is_replaced_or_the_input_method_is_disa
     assert_eq!(host.app.text_selected(), "seed");
     host.ime_event(Ime::Commit("direct".into())).unwrap();
     assert_eq!(host.app.text_value(0), "direct");
+}
+
+/// Application with a host extension that records what the host tells it.
+struct Extended {
+    runtime: crate::Runtime,
+    picking: bool,
+    continuous: bool,
+    backends: Vec<UiBackend>,
+    platforms: Vec<TargetPlatform>,
+    titled: Vec<HostStatus>,
+    idle: IdleRequest,
+}
+
+impl Extended {
+    fn new(runtime: crate::Runtime) -> Self {
+        Self {
+            runtime,
+            picking: false,
+            continuous: false,
+            backends: Vec::new(),
+            platforms: Vec::new(),
+            titled: Vec::new(),
+            idle: IdleRequest::default(),
+        }
+    }
+
+    fn extension(app: &mut Self) -> Option<&mut dyn HostExtension> {
+        Some(app)
+    }
+
+    fn host(runtime: crate::Runtime) -> NativeHost<Self> {
+        NativeHost {
+            extension: Self::extension,
+            ..windowless_host(Self::new(runtime), NativeWindowConfig::application("ext"))
+        }
+    }
+}
+
+impl NativeApp for Extended {
+    fn update(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+        input(&mut self.runtime);
+        Ok(())
+    }
+
+    fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+        observer(&self.runtime);
+        Ok(())
+    }
+}
+
+impl HostExtension for Extended {
+    fn window_created(&mut self, _window: &Window) {}
+
+    fn allows_gpu(&self) -> bool {
+        true
+    }
+
+    fn key(&mut self, _: &Key, _: bool, _: bool, _: &ActiveEventLoop) -> bool {
+        false
+    }
+
+    fn picks_elements(&self) -> bool {
+        self.picking
+    }
+
+    fn redraws_continuously(&self) -> bool {
+        self.continuous
+    }
+
+    fn backend_selected(&mut self, backend: UiBackend) {
+        self.backends.push(backend);
+    }
+
+    fn platform_selected(&mut self, platform: TargetPlatform) {
+        self.platforms.push(platform);
+    }
+
+    fn title(&mut self, status: &HostStatus, _now: Instant) -> String {
+        self.titled.push(*status);
+        "extended".into()
+    }
+
+    fn idle(&mut self, _status: &HostStatus, _now: Instant) -> IdleRequest {
+        std::mem::take(&mut self.idle)
+    }
+
+    fn window_event(&mut self, _window: WindowId, _event: WindowEvent) {}
+}
+
+fn two_buttons() -> crate::Runtime {
+    crate::Runtime::from_sources(crate::TWO_BUTTONS_EXAMPLE, crate::BUTTON_COMPONENT).unwrap()
+}
+
+fn center(runtime: &crate::Runtime, index: usize) -> (f32, f32) {
+    let b = runtime.control_bounds(index);
+    (b[0] + b[2] * 0.5, b[1] + b[3] * 0.5)
+}
+
+#[test]
+fn an_extension_that_picks_elements_gets_focus_instead_of_a_press() {
+    let mut host = Extended::host(two_buttons());
+    let (x, y) = center(&host.app.runtime, 1);
+    let device = winit::event::DeviceId::dummy();
+
+    host.app.picking = true;
+    host.pointer = (x, y);
+    host.primary_button(true, Instant::now()).unwrap();
+    host.primary_button(false, Instant::now()).unwrap();
+    assert_eq!(host.app.runtime.focused_index(), 1);
+    assert_eq!(host.app.runtime.clicks(), 0);
+
+    let (x0, y0) = center(&host.app.runtime, 0);
+    host.touch_input(device, 1, TouchPhase::Started, x0, y0)
+        .unwrap();
+    host.touch_input(device, 1, TouchPhase::Ended, x0, y0)
+        .unwrap();
+    assert_eq!(host.app.runtime.focused_index(), 0);
+    assert_eq!(host.app.runtime.clicks(), 0);
+    // A point outside every control keeps the selection.
+    host.pointer = (-5., -5.);
+    host.primary_button(true, Instant::now()).unwrap();
+    assert_eq!(host.app.runtime.focused_index(), 0);
+
+    host.app.picking = false;
+    host.pointer = (x, y);
+    host.primary_button(true, Instant::now()).unwrap();
+    host.primary_button(false, Instant::now()).unwrap();
+    assert_eq!(host.app.runtime.control_clicks(1), 1);
+    host.touch_input(device, 2, TouchPhase::Started, x0, y0)
+        .unwrap();
+    host.touch_input(device, 2, TouchPhase::Ended, x0, y0)
+        .unwrap();
+    assert_eq!(host.app.runtime.control_clicks(0), 1);
+}
+
+#[test]
+fn an_extension_hears_backend_and_platform_changes_and_names_the_window() {
+    let mut host = Extended::host(two_buttons());
+    host.select_backend(UiBackend::Egui);
+    host.select_platform(TargetPlatform::Android);
+    assert_eq!(host.app.backends, [UiBackend::Egui]);
+    assert_eq!(host.app.platforms, [TargetPlatform::Android]);
+    // Each change asks for the title once, with the state after the change.
+    let status = |backend, platform, surface| HostStatus {
+        backend: Some(backend),
+        platform,
+        choosing: false,
+        gpu: false,
+        surface,
+    };
+    let presented = crate::native_gpu::Presentation::Presented;
+    assert_eq!(
+        host.app.titled,
+        [
+            status(UiBackend::Egui, TargetPlatform::Desktop, presented),
+            status(UiBackend::Egui, TargetPlatform::Android, presented),
+        ]
+    );
+    host.retry_at = Some(Instant::now());
+    assert_eq!(
+        host.status().surface,
+        crate::native_gpu::Presentation::Retry
+    );
+    host.occluded = true;
+    assert_eq!(
+        host.status().surface,
+        crate::native_gpu::Presentation::Occluded
+    );
+    host.chooser = Some(build_chooser_runtime().unwrap());
+    assert!(host.status().choosing);
+}
+
+#[test]
+fn an_idle_extension_can_ask_for_a_frame_and_a_wakeup() {
+    let mut host = Extended::host(two_buttons());
+    let now = Instant::now();
+    assert_eq!(host.extension_idle(now), (false, None));
+    let deadline = now + std::time::Duration::from_millis(120);
+    host.app.idle = IdleRequest {
+        redraw: true,
+        deadline: Some(deadline),
+        title: Some("ignored without a window".into()),
+    };
+    assert_eq!(host.extension_idle(now), (true, Some(deadline)));
+
+    let mut plain = windowless_host(two_buttons(), NativeWindowConfig::application("plain"));
+    assert_eq!(plain.extension_idle(now), (false, None));
+    assert!(!plain.picks_elements());
 }
