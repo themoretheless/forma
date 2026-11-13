@@ -11,6 +11,9 @@
 
 #![allow(dead_code)] // Different benchmark binaries use different metrics.
 
+#[cfg(feature = "gpu")]
+pub mod protocol;
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::io;
 use std::sync::atomic::{AtomicU64, Ordering};
