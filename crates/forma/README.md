@@ -360,7 +360,7 @@ time. Other fingers cannot move or release that pointer. The owner is retired
 on end, cancellation, or window blur; orphan move/end events are ignored.
 This is touch-to-pointer routing, not a multi-finger pinch/zoom recognizer.
 
-Both native hosts share `native_clipboard` for command-key C/X/V. Copy preserves
+The native window host uses the crate-private `native_clipboard` module for command-key C/X/V. Copy preserves
 selection; cut deletes only after a successful clipboard write; a failed paste
 read leaves text intact. Empty selection does not overwrite the clipboard.
 Paste goes through the normal Runtime editor, including newline normalization
