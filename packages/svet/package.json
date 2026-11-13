@@ -60,7 +60,7 @@
     }
   },
   "scripts": {
-    "build:wasm": "cd crates/svet-wasm && RUSTFLAGS=\"-C target-feature=+simd128\" cargo build --target wasm32-unknown-unknown --release && node ../../scripts/embed-wasm.mjs",
+    "build:wasm": "node scripts/build-wasm.mjs",
     "test": "vitest run",
     "dev": "vite",
     "build": "npm run build:wasm && tsc --noEmit && npm run build:package && vite build",

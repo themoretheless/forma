@@ -223,9 +223,8 @@ jobs:
       - name: Verify checked-in WASM against locked Rust sources
         env:
           CARGO_TARGET_DIR: ${{ runner.temp }}/svet-wasm-provenance
-          RUSTFLAGS: -C target-feature=+simd128
         run: |
-          cargo build --locked --manifest-path crates/svet-wasm/Cargo.toml --target wasm32-unknown-unknown --release
+          node scripts/build-wasm.mjs --no-embed
           node scripts/check-wasm-provenance.mjs "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/svet_wasm.wasm" "${{ runner.temp }}/svet-wasm-provenance.json"
       - name: ESLint (suppressed findings may only shrink)
         run: npm run lint

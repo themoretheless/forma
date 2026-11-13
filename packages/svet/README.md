@@ -2101,15 +2101,17 @@ it does not establish cross-copy reactive tracking or async-context propagation.
 ## Rust / embedded WASM provenance
 
 CI checks the committed embedded binary **before** `npm run build` regenerates it.
-The pinned Rust toolchain builds with `--locked`, `wasm32-unknown-unknown`, release
-profile and `-C target-feature=+simd128`. `scripts/check-wasm-provenance.mjs` compares
+`scripts/build-wasm.mjs` is the only supported build: the pinned Rust toolchain with
+`--locked`, `wasm32-unknown-unknown`, release profile, `-C target-feature=+simd128` and
+source paths remapped relative to the repository, so the bytes do not depend on where
+the checkout lives. `scripts/check-wasm-provenance.mjs` compares
 rebuilt bytes and exports against `src/engine/wasm-binary.ts`. With an installed
 package argument it also checks the public WASM asset and decoded runtime embed.
 
 From the repository root:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/svet-wasm-check RUSTFLAGS='-C target-feature=+simd128' cargo build --locked --manifest-path packages/svet/crates/svet-wasm/Cargo.toml --target wasm32-unknown-unknown --release
+CARGO_TARGET_DIR=/tmp/svet-wasm-check node packages/svet/scripts/build-wasm.mjs --no-embed
 node packages/svet/scripts/check-wasm-provenance.mjs /tmp/svet-wasm-check/wasm32-unknown-unknown/release/svet_wasm.wasm /tmp/svet-wasm-provenance.json
 SVET_REBUILT_WASM=/tmp/svet-wasm-check/wasm32-unknown-unknown/release/svet_wasm.wasm npm --prefix packages/svet run test:package
 ```
