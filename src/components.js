@@ -18,11 +18,11 @@ import { cachingMetrics } from './compiler/metrics-cache.js';
 import { applyDesigns } from './compiler/design-patch.js';
 import { createLinker } from './compiler/link.js';
 import { createInstanceCompiler } from './compiler/instance.js';
-import { createSceneLayout, placeOnRootGrid } from './compiler/scene-layout.js';
+import { createSceneLayout, needsFlowLayout, placeOnRootGrid } from './compiler/scene-layout.js';
 import { createInstantiator } from './compiler/instantiate.js';
 import { addComponentDeclarations, sharedDeclarations } from './compiler/declarations.js';
 import { documentProperties, evaluationEnvironment } from './compiler/environment.js';
-import { sceneModals } from './compiler/modals.js';
+import { sceneModals, sceneParts } from './compiler/modals.js';
 import { sourceSceneOf } from './compiler/source-scene.js';
 import { builtinSources, fallback } from './compiler/builtins.js';
 export { evaluate } from './component-semantics.js';
@@ -85,12 +85,6 @@ export function sceneControlNodes(rootOrChildren) {
     modals = children.filter(n => n.type === 'Modal');
   const controls = base[0]?.type === 'Scroll' ? base[0].children : base;
   return [...controls, ...modals.flatMap(m => m.children ?? [])];
-}
-function sceneModalNodes(rootOrChildren) {
-  const children = Array.isArray(rootOrChildren)
-    ? rootOrChildren
-    : (rootOrChildren?.children ?? []);
-  return children.filter(n => n.type === 'Modal');
 }
 // Definition linking is also consumed by Rust code generation. It deliberately
 // runs before evaluating props/state so generated forms retain dependencies.
@@ -167,12 +161,8 @@ function compile(files, entry, state, metrics, read, links) {
   const visualNodes = [];
   const root = scene[0],
     rootProps = root.props;
-  const modalNodes = sceneModalNodes(root),
-    children = root.children.filter(n => n.type !== 'Modal');
-  if (modalNodes.length && root.children.slice(-modalNodes.length).some(n => n.type !== 'Modal'))
-    throw Error('Modal размещается после контролов сцены');
-  const scroll = children.length === 1 && children[0].type === 'Scroll' ? children[0] : null;
-  instances = scroll ? scroll.children : children;
+  const { modalNodes, children, scroll, controls: sceneControls } = sceneParts(root);
+  instances = sceneControls;
   let rootWidth = constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360),
     rootHeight = constrained(
       length(rootProps.height ?? 220, 220, 220, 'height'),
@@ -216,14 +206,7 @@ function compile(files, entry, state, metrics, read, links) {
     props: clone(rootProps),
     bounds: [0, 0, rootWidth, rootHeight],
   };
-  let modern = root.type !== 'Frame';
-  for (const n of [...instances, ...modals.flatMap(m => m.controls)])
-    if (
-      containerTypes.has(n.type) ||
-      ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'].some(key => own(n.props, key)) ||
-      ['width', 'height'].some(key => own(n.props, key) && intrinsicLength(n.props[key]))
-    )
-      modern = true;
+  const modern = needsFlowLayout(root, [...instances, ...modals.flatMap(m => m.controls)]);
   const previewNodes = scene;
   if (modern) {
     const output = [];

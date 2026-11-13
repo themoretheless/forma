@@ -9,6 +9,7 @@ import {
   naturalContainer,
 } from '../component-layout.js';
 import { cell, gap, insets, natural, sizes } from './content-layout.js';
+import { own } from '../shared/object.js';
 import { clone } from './data.js';
 
 /**
@@ -164,4 +165,23 @@ export function placeOnRootGrid({ root, instances, instantiate, metrics, rootWid
   delete rootProps.rows;
   rootProps.gap = 0;
   return grid;
+}
+
+/**
+ * Whether the scene is laid out by its containers. A plain root Frame of fixed-size controls keeps
+ * the positions it was given; anything that needs measuring switches the whole scene to layout.
+ *
+ * @param {object} root
+ * @param {object[]} controls the scene's controls together with those of its modal layers
+ */
+export function needsFlowLayout(root, controls) {
+  return (
+    root.type !== 'Frame' ||
+    controls.some(
+      n =>
+        containerTypes.has(n.type) ||
+        ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'].some(key => own(n.props, key)) ||
+        ['width', 'height'].some(key => own(n.props, key) && intrinsicLength(n.props[key])),
+    )
+  );
 }

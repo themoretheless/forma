@@ -44,3 +44,25 @@ export function sceneModals(modalNodes, rootWidth, rootHeight) {
     return { node, box: [x, y, width, height], backdrop, controls: node.children };
   });
 }
+
+function sceneModalNodes(rootOrChildren) {
+  const children = Array.isArray(rootOrChildren)
+    ? rootOrChildren
+    : (rootOrChildren?.children ?? []);
+  return children.filter(n => n.type === 'Modal');
+}
+
+/**
+ * Splits the children of the root into the scene's own controls and its modal layers. A root
+ * holding a single Scroll scrolls its controls; the Scroll is then not a control itself.
+ *
+ * @param {object} root
+ */
+export function sceneParts(root) {
+  const modalNodes = sceneModalNodes(root),
+    children = root.children.filter(n => n.type !== 'Modal');
+  if (modalNodes.length && root.children.slice(-modalNodes.length).some(n => n.type !== 'Modal'))
+    throw Error('Modal размещается после контролов сцены');
+  const scroll = children.length === 1 && children[0].type === 'Scroll' ? children[0] : null;
+  return { modalNodes, children, scroll, controls: scroll ? scroll.children : children };
+}
