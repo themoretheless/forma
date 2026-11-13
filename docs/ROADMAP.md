@@ -77,8 +77,8 @@
 `gpu-shader`:
 
 - [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`.
-- [ ] Фронтенд не разбирает `texture_storage_*` (проверено: «unknown type»), хотя бэкенд MSL
-  содержит ветки для storage-текстур: поддержать во фронтенде или убрать недостижимые ветки.
+- [ ] Storage-текстуры: поддержаны форматы `rgba8unorm`, `rgba32float`, `r32float`, `r32uint`;
+  остальные форматы WGSL и `textureDimensions` для 1D и 3D не реализованы.
 
 `gpu-runtime`:
 

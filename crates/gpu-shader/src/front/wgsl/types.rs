@@ -84,6 +84,8 @@ pub fn resolve_or_insert_type(
 
     let inner = if let Some(inner) = numeric_type(ty_str).or_else(|| handle_type(ty_str)) {
         inner
+    } else if ty_str.starts_with("texture_storage_") {
+        storage_texture_type(ty_str)?
     } else if ty_str.starts_with("array<") {
         array_type(module, type_map, const_values, ty_str)?
     } else if ty_str.starts_with("ptr<") {
@@ -190,6 +192,42 @@ fn handle_type(ty_str: &str) -> Option<TypeInner> {
         _ if ty_str.starts_with("texture_2d<") => sampled(ImageDimension::D2, false),
         _ if ty_str.starts_with("texture_3d<") => sampled(ImageDimension::D3, false),
         _ => return None,
+    })
+}
+
+/// `texture_storage_2d<rgba8unorm, write>` and its 1D, 3D and array forms.
+fn storage_texture_type(ty_str: &str) -> Result<TypeInner, String> {
+    let unknown = || format!("unknown type `{ty_str}`");
+    let (shape, arguments) = ty_str
+        .strip_prefix("texture_storage_")
+        .and_then(|rest| rest.strip_suffix('>'))
+        .and_then(|rest| rest.split_once('<'))
+        .ok_or_else(unknown)?;
+    let (dim, arrayed) = match shape {
+        "1d" => (ImageDimension::D1, false),
+        "2d" => (ImageDimension::D2, false),
+        "2d_array" => (ImageDimension::D2, true),
+        "3d" => (ImageDimension::D3, false),
+        _ => return Err(unknown()),
+    };
+    let (format_src, access_src) = arguments.split_once(',').ok_or_else(unknown)?;
+    let format = match format_src.trim() {
+        "rgba8unorm" => crate::StorageFormat::Rgba8Unorm,
+        "rgba32float" => crate::StorageFormat::Rgba32Float,
+        "r32float" => crate::StorageFormat::R32Float,
+        "r32uint" => crate::StorageFormat::R32Uint,
+        other => return Err(format!("unsupported storage texture format `{other}`")),
+    };
+    let access = match access_src.trim() {
+        "read" => StorageAccess::Read,
+        "write" => StorageAccess::Write,
+        "read_write" => StorageAccess::ReadWrite,
+        other => return Err(format!("unknown storage texture access `{other}`")),
+    };
+    Ok(TypeInner::Image {
+        dim,
+        arrayed,
+        class: ImageClass::Storage { format, access },
     })
 }
 

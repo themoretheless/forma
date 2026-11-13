@@ -84,13 +84,19 @@ pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: b
                     };
                     format!("texture{dim_str}<{s}>")
                 }
-                ImageClass::Storage { access, .. } => {
+                ImageClass::Storage { format, access } => {
                     let acc = match access {
                         StorageAccess::Read => "access::read",
                         StorageAccess::Write => "access::write",
                         StorageAccess::ReadWrite => "access::read_write",
                     };
-                    format!("texture{dim_str}<float, {acc}>")
+                    let component = match format {
+                        crate::StorageFormat::R32Uint => "uint",
+                        crate::StorageFormat::Rgba8Unorm
+                        | crate::StorageFormat::Rgba32Float
+                        | crate::StorageFormat::R32Float => "float",
+                    };
+                    format!("texture{dim_str}<{component}, {acc}>")
                 }
             }
         }

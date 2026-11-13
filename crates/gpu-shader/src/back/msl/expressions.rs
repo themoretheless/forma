@@ -403,17 +403,17 @@ fn translate_texture_builtin(module: &Module, name: &str, args: &[String]) -> Op
             format!("{tex}.sample_compare({samp}, {uv}, {dref})")
         }
         "textureLoad" => translate_texture_load(module, args),
+        "textureStore" => translate_texture_store(module, args),
         _ => return None,
     })
 }
 
-fn translate_texture_load(module: &Module, args: &[String]) -> String {
-    let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
-    let coords = args.get(1).map(|s| s.as_str()).unwrap_or("uint2(0)");
-    let image = module
+/// The dimension, arrayedness and class of the texture global called `name`.
+fn global_image(module: &Module, name: &str) -> Option<(ImageDimension, bool, ImageClass)> {
+    module
         .global_variables
         .iter()
-        .find(|(_, g)| g.name.as_deref() == Some(tex.trim()))
+        .find(|(_, g)| g.name.as_deref() == Some(name.trim()))
         .and_then(|(_, g)| match &module.types[g.ty].inner {
             TypeInner::Image {
                 dim,
@@ -421,7 +421,35 @@ fn translate_texture_load(module: &Module, args: &[String]) -> String {
                 class,
             } => Some((*dim, *arrayed, *class)),
             _ => None,
-        });
+        })
+}
+
+/// `textureStore(texture, coords, value)`, with the array layer before the value when arrayed.
+fn translate_texture_store(module: &Module, args: &[String]) -> String {
+    let arg = |i: usize| args.get(i).map(|s| s.as_str()).unwrap_or("0");
+    let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
+    let coords = arg(1);
+    // A texture passed through a helper parameter has no global to inspect; the four-argument
+    // form is the arrayed one.
+    let (dim, arrayed) = global_image(module, tex).map_or(
+        (ImageDimension::D2, args.len() == 4),
+        |(dim, arrayed, _)| (dim, arrayed),
+    );
+    if arrayed {
+        return format!("{tex}.write({}, uint2({coords}), uint({}))", arg(3), arg(2));
+    }
+    let coordinate = match dim {
+        ImageDimension::D1 => "uint",
+        ImageDimension::D3 => "uint3",
+        ImageDimension::D2 | ImageDimension::Cube => "uint2",
+    };
+    format!("{tex}.write({}, {coordinate}({coords}))", arg(2))
+}
+
+fn translate_texture_load(module: &Module, args: &[String]) -> String {
+    let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
+    let coords = args.get(1).map(|s| s.as_str()).unwrap_or("uint2(0)");
+    let image = global_image(module, tex);
     // A texture passed through a helper parameter has no global to inspect; WGSL's
     // only four-argument form is the arrayed one.
     let (dim, arrayed, class) = image.unwrap_or((
