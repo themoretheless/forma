@@ -48,6 +48,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     /// press or release first, then a completed double click is reported.
     pub(super) fn primary_button(&mut self, pressed: bool, at: Instant) -> Result<(), String> {
         let (x, y) = self.pointer;
+        if self.picks_elements() {
+            return self.focus_sensitive_input(&mut |runtime| pick_control(runtime, x, y));
+        }
         let kind = if pressed { 1 } else { 2 };
         self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
         if pressed && self.clicks.press(at, x, y) {
@@ -105,6 +108,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.touch_owner = None;
         }
         self.pointer = (x, y);
+        let pick = self.picks_elements();
         match phase {
             TouchPhase::Started => {
                 self.touch_last = Some((x, y));
@@ -114,7 +118,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 } else {
                     self.focus_sensitive_input(&mut |runtime| {
                         runtime.pointer(x, y, 0);
-                        runtime.pointer(x, y, 1);
+                        if pick {
+                            pick_control(runtime, x, y);
+                        } else {
+                            runtime.pointer(x, y, 1);
+                        }
                     })?;
                 }
             }
@@ -143,7 +151,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     if let Some(chosen) = pick {
                         self.select_backend(chosen);
                     }
-                } else {
+                } else if !pick {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 2))?;
                 }
             }

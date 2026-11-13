@@ -100,5 +100,5 @@ premultiplied-пиксели с CPU. На текущей ImageButton при DPI 
   стандартные лигатуры (`fi`, `fl`, `ff`, `ffi`, `ffl`), кернинг из таблицы `kern` шрифта, привязка диакритических знаков (`U+0300..=U+036F` и др.) с нулевым advance и центрированием над базовым глифом, визуальная перестановка BiDi/RTL-прогонов с сохранением логических кластеров и геометрический fallback для отсутствующих символов.
 - **Семантическое дерево доступности (`AccessKit`-совместимое)** (`Runtime::accessibility_tree`, `Runtime::accessibility_tree_json` в `src/runtime.rs`):
   экспорт ролей (`Window`, `ScrollView`, `Dialog`, `Button`, `TextInput`, `Slider`, `StaticText`), границ, фокуса, модальной блокировки и доступных действий как в нативном хосте (`FORMA_A11Y`), так и в WASM.
-- **Мульти-оконный нативный менеджер** (`AuxiliaryWindow` и `secondary_windows` в `src/main.rs`):
+- **Мульти-оконный нативный менеджер** (`AuxiliaryWindows` в `src/native_window/aux_window.rs`):
   управление независимыми вторичными окнами/попапами (`F10`) с собственными GPU/CPU поверхностями и маршрутизацией событий по `WindowId`.

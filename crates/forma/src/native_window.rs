@@ -19,8 +19,12 @@ use winit::{
 
 mod accessibility;
 mod app;
+mod aux_window;
 mod config;
 mod demo;
+mod dev_app;
+mod dev_project;
+mod extension;
 mod frame;
 mod ime;
 mod ime_session;
@@ -29,8 +33,13 @@ mod keys;
 mod waker;
 
 pub use app::*;
+use aux_window::*;
 pub use config::*;
 pub use demo::*;
+pub use dev_app::*;
+pub use dev_project::*;
+use extension::*;
+use frame::*;
 pub use ime_session::{ImeSession, ime_target, place_ime_caret};
 pub use keys::*;
 pub use waker::*;
@@ -57,6 +66,22 @@ pub fn touch_scroll_step(last: &mut Option<(f32, f32)>, x: f32, y: f32) -> Optio
         *last = Some((x, y));
         (dx, dy)
     })
+}
+
+/// The cursor shown at a point of the scene: a text beam over an editable control.
+fn pointer_cursor(runtime: &crate::Runtime, x: f32, y: f32) -> winit::window::CursorIcon {
+    let index = runtime.hit_index(x, y);
+    if index >= 0 && runtime.control_editable(index as usize) {
+        winit::window::CursorIcon::Text
+    } else {
+        winit::window::CursorIcon::Default
+    }
+}
+
+/// Whether a resize is answered with a frame inside the event itself. The Metal layer presents
+/// with the window's transaction, so a frame drawn later would show the old size stretched.
+fn resize_presents_now(gpu: bool) -> bool {
+    cfg!(target_os = "macos") && gpu
 }
 
 /// Physical window size to the logical size reported to the application.
@@ -157,6 +182,7 @@ struct NativeHost<A: NativeApp + 'static> {
     blurred_editor: Option<String>,
     clicks: ClickTracker,
     last_frame: Instant,
+    extension: Extension<A>,
 }
 
 impl<A: NativeApp + 'static> NativeHost<A> {
@@ -169,6 +195,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
             }
             WindowEvent::RedrawRequested => return self.draw(),
+            WindowEvent::Resized(_) if resize_presents_now(self.gpu.is_some()) => {
+                self.report_size()?;
+                return self.draw();
+            }
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
                 self.report_size()?;
                 if let Some(window) = &self.window {
@@ -187,6 +217,12 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     chooser.pointer(x, y, 0);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))?;
+                    let mut cursor = winit::window::CursorIcon::Default;
+                    self.app
+                        .inspect(&mut |runtime| cursor = pointer_cursor(runtime, x, y))?;
+                    if let Some(window) = &self.window {
+                        window.set_cursor(cursor);
+                    }
                 }
             }
             WindowEvent::CursorLeft { .. } => {
@@ -257,6 +293,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 (self.control, self.command) = (held.control, held.command);
             }
             WindowEvent::Ime(event) => self.ime_event(event)?,
+            WindowEvent::KeyboardInput { event, .. } if self.extension_key(&event, event_loop) => {}
             #[cfg(feature = "native-test-hooks")]
             WindowEvent::KeyboardInput { event, .. }
                 if self.config.mode == HostMode::Demo
@@ -396,7 +433,9 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             }
         }
         let (redraw, deadline) = self.scheduled_redraw(now);
-        if redraw {
+        let (extension_redraw, extension_deadline) = self.extension_idle(now);
+        let deadline = [deadline, extension_deadline].into_iter().flatten().min();
+        if redraw || extension_redraw {
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
@@ -419,7 +458,10 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             .chooser
             .as_ref()
             .map_or(plat_h, |c| c.render_height().max(plat_h));
-        type CpuWindowSurface = (Arc<Window>, softbuffer::Surface<Arc<Window>, Arc<Window>>);
+        type CpuWindowSurface = (
+            Arc<Window>,
+            Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
+        );
         let setup = || -> Result<CpuWindowSurface, String> {
             let window = Arc::new(
                 event_loop
@@ -432,9 +474,13 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                     )
                     .map_err(|e| e.to_string())?,
             );
-            let context = softbuffer::Context::new(window.clone()).map_err(|e| e.to_string())?;
-            let surface =
-                softbuffer::Surface::new(&context, window.clone()).map_err(|e| e.to_string())?;
+            // On iOS the GPU draws every frame; the software surface is created by the first
+            // frame that needs it, after a GPU failure.
+            let surface = if cfg!(target_os = "ios") {
+                None
+            } else {
+                Some(software_surface(&window)?)
+            };
             let redraw = RedrawHandle::new(&window);
             self.app
                 .on_dirty(Box::new(move || redraw.request_redraw()))?;
@@ -454,8 +500,11 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                 }
                 window.set_visible(true);
                 window.request_redraw();
+                if let Some(extension) = self.extension() {
+                    extension.window_created(&window);
+                }
                 self.window = Some(window);
-                self.surface = Some(surface);
+                self.surface = surface;
                 self.sync_window_title();
                 if let Err(error) = self.report_size() {
                     eprintln!("{error}");
@@ -482,6 +531,9 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
             .as_ref()
             .is_some_and(|window| window.id() != window_id)
         {
+            if let Some(extension) = self.extension() {
+                extension.window_event(window_id, event);
+            }
             return;
         }
         if let (Some(adapter), Some(window)) = (&mut self.accessibility, &self.window) {
@@ -499,6 +551,14 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
 
 /// Runs a Forma application with desktop Svet GPU presentation and CPU fallback.
 pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result<(), String> {
+    run_host(app, config, no_extension)
+}
+
+fn run_host<A: NativeApp + 'static>(
+    app: A,
+    config: NativeWindowConfig,
+    extension: Extension<A>,
+) -> Result<(), String> {
     let backend = config.resolved_backend();
     let platform = config.platform;
     let chooser = if backend.is_none() {
@@ -543,9 +603,12 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             blurred_editor: None,
             clicks: Default::default(),
             last_frame: Instant::now(),
+            extension,
         })
         .map_err(|e| e.to_string())
 }
 
+#[cfg(test)]
+mod dev_tests;
 #[cfg(test)]
 mod tests;

@@ -2,16 +2,45 @@
 
 use super::*;
 
+/// Whether a frame goes to the GPU surface. A desktop window uses it for the Svet backend and
+/// falls back to the software surface for the egui profile, an emulated phone and the backend
+/// chooser. On iOS the window is the device screen and everything is drawn by the GPU.
+pub(super) fn uses_gpu(
+    ios: bool,
+    backend: Option<UiBackend>,
+    platform: TargetPlatform,
+    choosing: bool,
+) -> bool {
+    ios || (backend == Some(UiBackend::Svet) && platform == TargetPlatform::Desktop && !choosing)
+}
+
+/// The Dynamic Island and navigation pill are painted where a phone is emulated, not on one.
+pub(super) fn emulates_device_chrome() -> bool {
+    cfg!(not(any(target_os = "ios", target_os = "android")))
+}
+
+pub(super) fn software_surface(
+    window: &Arc<Window>,
+) -> Result<softbuffer::Surface<Arc<Window>, Arc<Window>>, String> {
+    let context = softbuffer::Context::new(window.clone()).map_err(|e| e.to_string())?;
+    softbuffer::Surface::new(&context, window.clone()).map_err(|e| e.to_string())
+}
+
 impl<A: NativeApp + 'static> NativeHost<A> {
-    pub(super) fn sync_window_title(&self) {
-        if let Some(window) = &self.window {
-            window.set_title(&window_title(
+    pub(super) fn sync_window_title(&mut self) {
+        let status = self.status();
+        let title = match self.extension() {
+            Some(extension) => extension.title(&status, Instant::now()),
+            None => window_title(
                 self.config.mode,
                 &self.config.title,
                 self.backend,
                 self.platform,
                 self.gpu.is_some(),
-            ));
+            ),
+        };
+        if let Some(window) = &self.window {
+            window.set_title(&title);
         }
     }
 
@@ -47,6 +76,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             platform.as_str(),
             platform.label()
         );
+        if let Some(extension) = self.extension() {
+            extension.platform_selected(platform);
+        }
         self.sync_window_title();
         if let Some(window) = &self.window {
             let (w, h) = platform.viewport_size(self.config.width, self.config.height);
@@ -62,6 +94,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         self.animation_at = None;
         self.chooser = None;
         println!("Активен бэкенд: {} ({})", backend.as_str(), backend.label());
+        if let Some(extension) = self.extension() {
+            extension.backend_selected(backend);
+        }
         self.sync_window_title();
         if let Some(window) = &self.window {
             let (w, h) = self
@@ -109,10 +144,16 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         else {
             return Ok(());
         };
-        let use_gpu = self.backend == Some(UiBackend::Svet)
-            && self.platform == TargetPlatform::Desktop
-            && self.chooser.is_none();
-        if use_gpu && self.gpu.is_none() && !self.gpu_attempted {
+        let (gpu_allowed, continuous) = self.extension().map_or((true, false), |extension| {
+            (extension.allows_gpu(), extension.redraws_continuously())
+        });
+        let use_gpu = uses_gpu(
+            cfg!(target_os = "ios"),
+            self.backend,
+            self.platform,
+            self.chooser.is_some(),
+        );
+        if use_gpu && gpu_allowed && self.gpu.is_none() && !self.gpu_attempted {
             self.gpu_attempted = true;
             match pollster::block_on(crate::native_gpu::GpuWindow::new(window.clone())) {
                 Ok(gpu) => {
@@ -135,17 +176,23 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             if let Some(gpu) = &mut self.gpu {
                 let mut presentation =
                     Err("NativeApp.inspect did not observe a runtime".to_owned());
-                self.app.inspect(&mut |runtime| {
-                    animating = runtime.is_animating();
-                    presentation = gpu.draw(runtime, &window);
-                })?;
+                if let Some(chooser) = &self.chooser {
+                    presentation = gpu.draw(chooser, &window);
+                } else {
+                    self.app.inspect(&mut |runtime| {
+                        animating = runtime.is_animating();
+                        presentation = gpu.draw(runtime, &window);
+                    })?;
+                }
                 match presentation {
                     Ok(crate::native_gpu::Presentation::Presented) => {
-                        self.app.on_frame_presented(NativeRenderer::Gpu)?;
+                        if self.chooser.is_none() {
+                            self.app.on_frame_presented(NativeRenderer::Gpu)?;
+                        }
                         self.retry_at = None;
                         self.gpu_health_at =
                             Some(Instant::now() + std::time::Duration::from_millis(16));
-                        if animating {
+                        if animating || continuous {
                             window.request_redraw();
                         }
                         return Ok(());
@@ -173,6 +220,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
             }
         }
+        if self.surface.is_none() {
+            self.surface = Some(software_surface(&window)?);
+        }
         let surface = self
             .surface
             .as_mut()
@@ -189,14 +239,19 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             if shows_frame_bar(self.config.mode, self.backend) {
                 apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
-            apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
+            if emulates_device_chrome() {
+                apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
+            }
         }
         buffer.present().map_err(|e| e.to_string())?;
         if self.chooser.is_none() {
             self.app.on_frame_presented(NativeRenderer::Cpu)?;
         }
 
-        if animating {
+        if continuous {
+            // A frame rate measurement presents as fast as the surface accepts frames.
+            window.request_redraw();
+        } else if animating {
             // Start-to-start cadence: a costly CPU frame is not delayed again.
             // Input-triggered redraws may still paint before this deadline.
             self.animation_at = Some(now + std::time::Duration::from_nanos(16_666_667));
@@ -230,7 +285,26 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let size = window.inner_size();
         let scale = window.scale_factor() as f32;
         let (width, height) = logical_size(size.width, size.height, scale);
+        if cfg!(target_os = "ios") {
+            self.fit_chooser(width.round(), height.round());
+        }
         self.app.on_resized(width, height, scale)
+    }
+
+    /// Rebuilds the backend chooser for a screen it does not fill. A phone gives the window
+    /// its size, so the chooser follows it instead of asking for its own.
+    pub(super) fn fit_chooser(&mut self, width: f32, height: f32) {
+        let Some(chooser) = &mut self.chooser else {
+            return;
+        };
+        if (chooser.width() - width).abs() <= 1. && (chooser.height() - height).abs() <= 1. {
+            return;
+        }
+        let source = chooser_ui_for_viewport(width, height);
+        if let Ok(mut next) = crate::Runtime::from_sources(&source, crate::BUTTON_COMPONENT) {
+            next.preserve_interaction(chooser);
+            *chooser = next;
+        }
     }
 
     pub(super) fn scheduled_redraw(&mut self, now: Instant) -> (bool, Option<Instant>) {
