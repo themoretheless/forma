@@ -19,8 +19,11 @@ use winit::{
 
 mod accessibility;
 mod app;
+mod aux_window;
 mod config;
 mod demo;
+mod dev_app;
+mod dev_project;
 mod extension;
 mod frame;
 mod ime;
@@ -28,8 +31,14 @@ mod input;
 mod waker;
 
 pub use app::*;
+#[doc(hidden)]
+pub use aux_window::*;
 pub use config::*;
 pub use demo::*;
+#[doc(hidden)]
+pub use dev_app::*;
+#[doc(hidden)]
+pub use dev_project::*;
 use extension::*;
 use frame::*;
 pub use waker::*;
@@ -611,5 +620,7 @@ fn run_host<A: NativeApp + 'static>(
         .map_err(|e| e.to_string())
 }
 
+#[cfg(test)]
+mod dev_tests;
 #[cfg(test)]
 mod tests;
