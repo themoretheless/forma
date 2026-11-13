@@ -11,6 +11,7 @@ mod kind;
 pub use kind::NodeKind;
 mod layout;
 mod properties;
+mod range;
 mod render;
 mod scene;
 mod svg;
@@ -37,6 +38,7 @@ use layout::{
     write_property_literal,
 };
 pub use properties::{Properties, PropertyIter};
+use range::RangeBounds;
 use svg::parse_svg_shapes;
 pub use widget_state::WidgetState;
 

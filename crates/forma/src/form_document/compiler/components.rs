@@ -408,7 +408,7 @@ pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 3] 
                 ),
                 (
                     "Slider",
-                    "component Slider { width: 240; height: 32; value: 0%; disabled: false; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; PointerArea { clicked -> events.clicked(); } } }",
+                    "component Slider { width: 240; height: 32; value: 0%; min: 0; max: 1; step: 0; disabled: false; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; PointerArea { clicked -> events.clicked(); } } }",
                 ),
             ]
             .map(|(name, src)| {

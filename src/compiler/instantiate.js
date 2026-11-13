@@ -11,6 +11,7 @@ import {
 } from '../component-semantics.js';
 import { propertyOrigins } from '../property-origins.js';
 import { own } from '../shared/object.js';
+import { rangeBounds, rangeFraction } from '../shared/range.js';
 import { fallback, primitiveTypes } from './builtins.js';
 import { clone, visit } from './data.js';
 import { layoutProps, standard, visualTypes } from './vocabulary.js';
@@ -42,16 +43,22 @@ export function createInstantiator({
       throw Error(`Вложенный визуальный компонент не содержит интерактивных элементов: ${n.type}`);
   }
   function instantiate(instance, top, parents = []) {
-    if (instance.normalizedRange && typeof instance.props.value === 'number')
-      instance = {
-        ...instance,
-        props: { ...instance.props, value: { expr: `${instance.props.value * 100}%` } },
-      };
     if (parents.includes(instance.type))
       throw Error(`Цикл композиции: ${[...parents, instance.type].join(' → ')}`);
     if (parents.length >= 32) throw Error('Глубина композиции компонентов превышает 32');
     if (!top) rejectInteraction(instance);
     const linked = link(instance.type);
+    if (instance.normalizedRange && typeof instance.props.value === 'number') {
+      // A bound number lies on the control's scale; the template takes a fraction of it.
+      const bounds = rangeBounds(name => instance.props[name] ?? linked.defaults[name]);
+      const fraction = rangeFraction(bounds, instance.props.value);
+      // The previews write the widget's fraction back onto the same scale.
+      instance.rangeBounds = bounds;
+      instance = {
+        ...instance,
+        props: { ...instance.props, value: { expr: `${fraction * 100}%` } },
+      };
+    }
     let contract = contracts.get(linked);
     if (!contract) {
       let hasContent = false;

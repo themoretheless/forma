@@ -4,6 +4,7 @@ import { takesCoordinates, coordinateShift } from './positioning.js';
 import { sizeProperties, sizeValue } from './sizing.js';
 import { expandStructure } from './component-semantics.js';
 import { writePreviewBinding, matchPreviewShortcut } from './preview-state.js';
+import { rangeBounds } from './shared/range.js';
 
 const CSS_MAP = {
   padding: 'padding',
@@ -136,7 +137,14 @@ export function renderHtmlPreview({
     el.dataset.start = n.start;
     el.className = 'ui-node ' + n.type.toLowerCase();
     if (n.type === 'Checkbox') el.type = 'checkbox';
-    if (n.type === 'Slider') el.type = 'range';
+    if (n.type === 'Slider') {
+      // The native range input works on the control's own scale, so what it reports is the value.
+      const bounds = rangeBounds(name => resolve(n.props[name], state));
+      el.type = 'range';
+      el.min = String(bounds.min);
+      el.max = String(bounds.max);
+      el.step = bounds.step > 0 ? String(bounds.step) : 'any';
+    }
     if (n.type === 'Stack') {
       el.style.display = 'grid';
     }
@@ -221,6 +229,7 @@ export function renderHtmlPreview({
       if (n.type === 'Modal' && (k === 'open' || k === 'dismiss' || k === 'backdrop')) continue;
       if ((n.type === 'Badge' || n.type === 'Tag' || n.type === 'Chip') && k === 'tone') continue;
       if (n.type === 'ProgressBar' && (k === 'value' || k === 'fill')) continue;
+      if (n.type === 'Slider' && (k === 'min' || k === 'max' || k === 'step')) continue;
       if (k === 'fontFamily' || k === 'font.family') {
         if (n.type !== 'Text' || (x !== 'sans' && x !== 'mono'))
           throw Error("Text.fontFamily ожидает 'sans' или 'mono'");

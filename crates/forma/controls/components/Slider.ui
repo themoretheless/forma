@@ -1,9 +1,11 @@
-// Pointer/value behaviour is supplied by RangeValue; this is its reusable skin.
+// The runtime supplies pointer and key behaviour; this is the reusable skin.
 component Slider : Control {
     width: 304; height: 32; radius: 8; borderWidth: 0;
     revealWidth: 1;
     background: #00000000; hoverBackground: #00000000; pressedBackground: #00000000;
     disabledBackground: #00000000; value: 50%;
+    // A bound number lies between min and max and is moved to the step grid when step is set.
+    min: 0; max: 1; step: 0;
     override content: Frame {
         SliderTrack { value: props.value; color: props.textColor; }
         Frame { columns: [props.value, 0, *]; padding: 0 8;

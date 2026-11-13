@@ -318,3 +318,17 @@ test('text takes a monospace family and a wrapping mode, and rejects other value
     /Text\.wrap ожидает true или false/,
   );
 });
+
+test('a slider is a range input on the scale its properties give', t => {
+  const slider = body =>
+    render(t, `component Demo { state level: Number = 40; Frame { Slider { ${body} } } }`, {
+      state: { level: 40 },
+    }).children[0];
+  const scaled = slider('min: 0; max: 100; step: 5; value <-> state.level;');
+  assert.equal(scaled.type, 'range');
+  assert.deepEqual([scaled.min, scaled.max, scaled.step], ['0', '100', '5']);
+  assert.equal(scaled.value, 40);
+  // Without a scale the input runs from zero to one and accepts any value in between.
+  const plain = slider('value <-> state.level;');
+  assert.deepEqual([plain.min, plain.max, plain.step], ['0', '1', 'any']);
+});

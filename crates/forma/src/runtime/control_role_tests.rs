@@ -188,39 +188,120 @@ fn dragging_a_slider_maps_the_pointer_between_its_eight_pixel_insets() {
     );
 }
 
-#[test]
-fn a_slider_bound_to_a_value_outside_zero_to_one_clamps_and_then_overwrites_it() {
-    // There is no minimum, maximum or step: the bound number is read as a fraction, so 40 shows
-    // a full slider, and the first drag replaces the 40 with a fraction.
-    let mut runtime = builtin(&BOUND_SLIDER.replace("LEVEL", "40"));
-    assert_eq!(runtime.range_value(0), 1.);
-    assert_eq!(state(&runtime)["level"], 40.0);
+fn drag_to(runtime: &mut Runtime, fraction: f32) {
     let bounds = runtime.control_bounds(0);
-    let (x, y) = (bounds[0] + 8. + 100., bounds[1] + 5.);
+    let (x, y) = (
+        bounds[0] + 8. + fraction * (bounds[2] - 16.),
+        bounds[1] + 5.,
+    );
     runtime.pointer(x, y, 0);
     runtime.pointer(x, y, 1);
     runtime.pointer(x, y, 2);
+}
+
+const SCALED_SLIDER: &str = "state level: Number = LEVEL; Column { width: 240; height: 60; \
+     Slider { key: 'level'; width: 216; height: 24; min: 0; max: 100; STEP \
+     value <-> state.level; } }";
+
+/// F-9: without `min` and `max` the bound number is the fraction itself, so a value of 40 used
+/// to show a full slider and be replaced by a fraction on the first drag.
+#[test]
+fn a_slider_with_a_scale_shows_and_writes_values_on_that_scale() {
+    let source = SCALED_SLIDER.replace("LEVEL", "40").replace("STEP", "");
+    let mut runtime = builtin(&source);
+    assert!((runtime.range_value(0) - 0.4).abs() < 1e-6, "40 of 100");
+    drag_to(&mut runtime, 0.75);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(
+        state(&runtime)["level"],
+        75.0,
+        "the state stays on the scale of the slider"
+    );
+    assert!((runtime.range_value(0) - 0.75).abs() < 1e-6);
+}
+
+#[test]
+fn a_slider_with_a_step_writes_values_on_the_step_grid() {
+    let source = SCALED_SLIDER
+        .replace("LEVEL", "40")
+        .replace("STEP", "step: 5;");
+    let mut runtime = builtin(&source);
+    drag_to(&mut runtime, 0.73);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(
+        state(&runtime)["level"],
+        75.0,
+        "73 moves to the nearest multiple of five"
+    );
+    // The scene is rebuilt from the state, so the thumb settles on the grid as well.
+    assert!((runtime.range_value(0) - 0.75).abs() < 1e-6);
+    drag_to(&mut runtime, 1.);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(
+        state(&runtime)["level"],
+        100.0,
+        "the end of the scale is always reachable"
+    );
+}
+
+#[test]
+fn a_slider_without_a_scale_still_treats_the_bound_number_as_a_fraction() {
+    let mut runtime = builtin(&BOUND_SLIDER.replace("LEVEL", "0.25"));
+    assert_eq!(runtime.range_value(0), 0.25);
+    drag_to(&mut runtime, 0.5);
     assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
     assert_eq!(state(&runtime)["level"], 0.5);
 }
 
 #[test]
-fn the_library_slider_is_a_range_control_but_refuses_a_bound_value_outside_zero_to_one() {
+fn a_bound_value_outside_the_scale_is_shown_at_the_nearest_end() {
+    for (level, expected) in [("40", 1.), ("-3", 0.)] {
+        let runtime = builtin(&BOUND_SLIDER.replace("LEVEL", level));
+        assert_eq!(
+            runtime.range_value(0),
+            expected,
+            "{level} on the default scale"
+        );
+    }
+    let source = SCALED_SLIDER.replace("LEVEL", "250").replace("STEP", "");
+    assert_eq!(builtin(&source).range_value(0), 1.);
+    // The state is not rewritten until the user moves the slider.
+    assert_eq!(state(&builtin(&source))["level"], 250.0);
+}
+
+#[test]
+fn a_scale_that_is_empty_or_reversed_falls_back_to_zero_to_one() {
+    for scale in ["min: 5; max: 5;", "min: 10; max: 0;"] {
+        let source = format!(
+            "state level: Number = 0.5; Column {{ width: 240; height: 60; \
+             Slider {{ key: 'level'; width: 216; height: 24; {scale} value <-> state.level; }} }}"
+        );
+        assert_eq!(builtin(&source).range_value(0), 0.5, "{scale}");
+    }
+}
+
+#[test]
+fn the_library_slider_takes_the_same_scale() {
     let runtime =
         library("Column { width: 320; height: 200; Slider { key: 'level'; value: 25%; } }")
             .unwrap();
     assert_eq!(runtime.range_value(0), 0.25);
-    // Its skin lays the thumb out with the value as a column width, and the message that results
-    // names a width, not the slider's value.
-    let error = library(
+    let mut runtime = library(
         "state level: Number = 40; Column { width: 320; height: 200; \
-         Slider { key: 'level'; value <-> state.level; } }",
+         Slider { key: 'level'; min: 0; max: 100; step: 10; value <-> state.level; } }",
     )
-    .err()
     .unwrap();
+    assert!((runtime.range_value(0) - 0.4).abs() < 1e-6);
+    drag_to(&mut runtime, 0.62);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["level"], 60.0);
+    // A value off the default scale used to fail with a message about a width.
     assert!(
-        error.starts_with("'width' must be finite, non-negative and at most 4096"),
-        "{error}"
+        library(
+            "state level: Number = 40; Column { width: 320; height: 200; \
+             Slider { key: 'level'; value <-> state.level; } }"
+        )
+        .is_ok()
     );
 }
 

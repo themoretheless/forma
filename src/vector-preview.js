@@ -1,5 +1,6 @@
 import { createEventScope } from './event-scope.js';
 import { createGpuPainter } from './vector-gpu.js';
+import { rangeBounds, rangeValue } from './shared/range.js';
 let runtimePromise;
 // Same order as components.js sceneControlNodes: base controls (optionally in
 // one Scroll), then every Modal layer's children. Kept local so this module
@@ -356,7 +357,11 @@ export function createVectorPreview({
                 value = button.text_value(index);
               else if (property === 'value' && node.type === 'Slider' && button.range_value) {
                 const range = button.range_value(index);
-                if (Number.isFinite(range)) value = range;
+                if (Number.isFinite(range))
+                  value = rangeValue(
+                    node.rangeBounds ?? rangeBounds(name => node.props[name]),
+                    range,
+                  );
               } else if (
                 (property === 'checked' || property === 'selected') &&
                 eventNode === node &&

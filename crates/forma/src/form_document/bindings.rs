@@ -1,7 +1,7 @@
 use super::WidgetState;
 use super::{
-    Document, Properties, SceneControl, Value, collect_preorder_nodes, doc_props_to_json,
-    enum_value, eval, json_to_doc_props, key_part, lookup, number, scope_mut,
+    Document, Properties, RangeBounds, SceneControl, Value, collect_preorder_nodes,
+    doc_props_to_json, enum_value, eval, json_to_doc_props, key_part, lookup, number, scope_mut,
 };
 use std::collections::BTreeMap;
 
@@ -16,6 +16,28 @@ pub(crate) use state_push::*;
 pub(super) use write::*;
 
 impl Document {
+    /// The scale of a range control in the scene: its own `min`, `max` and `step`, or the
+    /// defaults of its component.
+    fn range_bounds(&self, node: &super::Node, state: &Properties) -> RangeBounds {
+        let mut props = Properties::new();
+        let defaults = self
+            .definitions
+            .get(node.kind.as_str())
+            .map(|definition| &definition.defaults);
+        for name in ["min", "max", "step"] {
+            let declared = node
+                .props
+                .get(name)
+                .or_else(|| defaults.and_then(|d| d.get(name)));
+            if let Some(value) = declared {
+                if let Ok(value) = eval(value, &Properties::new(), state, &mut Vec::new()) {
+                    props.insert(name.into(), value);
+                }
+            }
+        }
+        RangeBounds::of(|name| props.get(name))
+    }
+
     /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live widgets
     /// back into `self.states` (including nested `state.a.b` paths).
     /// Returns the number of bound properties that changed. An error leaves
@@ -153,7 +175,8 @@ impl Document {
                             } else {
                                 let r = runtime.range_value(idx);
                                 if r.is_finite() {
-                                    Some(number(r as f64))
+                                    let bounds = self.range_bounds(src_node, &state);
+                                    Some(number(bounds.value(r as f64)))
                                 } else {
                                     None
                                 }

@@ -83,8 +83,8 @@ logical content end: Some([340.0, 562.0])
 === slider
 source: component App { Frame { gap:0; height:60; padding:0; width:240;  Button { background:#00000000; borderWidth:0; disabled:false; height:24; key:'level'; radius:0; width:200; x:20; y:0;   } } }
 templates: FORMA-TEMPLATES-1
-156
-component Button { Rectangle { background: #00000000;   PointerArea {  clicked -> events.clicked();  } RangeInput { value:40; Minimum { } Maximum { } }  } }
+155
+component Button { Rectangle { background: #00000000;   PointerArea {  clicked -> events.clicked();  } RangeInput { value:1; Minimum { } Maximum { } }  } }
 control: node 1 key "level" state Properties({"level": Number(40.0)}) events {}
 logical content end: None
 

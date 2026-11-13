@@ -107,7 +107,8 @@ impl Document {
         }
         if result.get("__range_normalized") == Some(&Value::Bool(true)) {
             if let Some(Value::Number(value)) = result.get("value") {
-                let normalized = Value::Expr(format!("{}%", value * 100.));
+                let bounds = RangeBounds::of(|name| result.get(name));
+                let normalized = Value::Expr(format!("{}%", bounds.fraction(*value) * 100.));
                 result.insert("value".into(), normalized);
             }
         }

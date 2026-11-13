@@ -11,11 +11,17 @@ const withFactory = replaceOnce(
   /import\s*\{\s*createGpuPainter\s*\}\s*from\s*'\.\/vector-gpu\.js';/,
   'let gpuFactory; export const setGpuFactory = factory => {gpuFactory=factory;}; const createGpuPainter = (...args) => gpuFactory?.(...args) ?? new Promise(() => {});',
 );
-// A data: URL cannot resolve relative imports, so the shared listener scope is imported by its file URL.
-const source = replaceOnce(
+// A data: URL cannot resolve relative imports, so the modules the preview shares with the rest of
+// the Studio are imported by their file URLs.
+const withScope = replaceOnce(
   withFactory,
   /from\s*'\.\/event-scope\.js';/,
   `from '${new URL('../src/event-scope.js', import.meta.url).href}';`,
+);
+const source = replaceOnce(
+  withScope,
+  /from\s*'\.\/shared\/range\.js';/,
+  `from '${new URL('../src/shared/range.js', import.meta.url).href}';`,
 );
 const { createVectorPreview, setGpuFactory } = await import(
   `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`
