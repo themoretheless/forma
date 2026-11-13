@@ -28,6 +28,12 @@ const chain = length =>
     ]),
   );
 
+/** A form that declares `events` and raises `handler` from a button. */
+const withHandler = (events, handler) => ({
+  'components/Button.ui': button,
+  'ui/Demo.ui': `component Demo { ${events} Frame { Button { clicked -> ${handler}; } } }`,
+});
+
 /** A control whose content, the part drawn inside it, is `body`. */
 const card = body => ({
   'components/Card.ui': `component Card { width: 200; height: 50; Rectangle { ${body} PointerArea { clicked -> events.clicked(); } } }`,
@@ -192,6 +198,11 @@ const cases = {
   'key that is not a string': demo(
     `Frame { Text { text: 'a'; } Modal { key: 5; Frame { Text { text: 'b'; } } } }`,
   ),
+  'event called with too few arguments': withHandler('event open(id: String);', 'events.open()'),
+  'event that is not declared': withHandler('event open(id: String);', 'events.other()'),
+  'event arguments without a declaration': withHandler('', `events.pressed('x')`),
+  'event argument of another type': withHandler('event open(id: Int);', `events.open('x')`),
+  'event argument of an unknown type': withHandler('event open(id: Blob);', `events.open('x')`),
 };
 
 function messageFor(project) {

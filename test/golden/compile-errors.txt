@@ -110,3 +110,13 @@ handler on a plain element of a component
     Базовая кнопка требует один Rectangle
 key that is not a string
     key должен быть непустой строкой
+event called with too few arguments
+    events.open: ожидалось 1 аргументов, получено 0
+event that is not declared
+    Событие other не объявлено
+event arguments without a declaration
+    Для аргументов events.pressed требуется объявление event
+event argument of another type
+    events.open.id: ожидался Int
+event argument of an unknown type
+    Неизвестный тип Blob
