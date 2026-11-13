@@ -76,3 +76,37 @@ content wrap is not a boolean
     Text.wrap ожидает boolean
 content cell outside the grid
     Ячейка за пределами columns
+modal handler other than dismissed
+    Modal: обработчик clicked не поддерживается; используйте dismissed
+modal dismissed with arguments
+    Modal.dismissed требует actions.<имя>() без аргументов
+clip on a nested container
+    Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame
+presenter with another property
+    ContentPresenter принимает key и content
+content property and children together
+    Задайте content или дочерние элементы
+override from an absolute path
+    override from: требуется относительный путь проекта
+override from outside the project
+    override from: выход за пределы проекта
+override from without a base component
+    override требует базового компонента
+override of a key the base does not have
+    override nokey: ожидался один элемент, найдено 0
+forward in a component declaration
+    forward применяется к дочернему элементу, не к объявлению component
+fontSize together with font.size
+    fontSize и font.size — одно свойство
+design file missing
+    Дизайн-файл не найден: ui/Demo.design.ui
+design attribute on a component
+    Дизайн-атрибут компонента пока не поддерживается векторным runtime
+one design key in two design files
+    Повторный дизайн-key t
+override of a slot the component does not have
+    Нет точки расширения content в Lab
+handler on a plain element of a component
+    Базовая кнопка требует один Rectangle
+key that is not a string
+    key должен быть непустой строкой

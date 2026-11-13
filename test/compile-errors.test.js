@@ -13,6 +13,8 @@ const metrics = { measureText: () => [80, 20] };
 const demo = body => ({ 'ui/Demo.ui': `component Demo { ${body} }` });
 const button = `component Button { width: 200; height: 50; text: 'Base';
  Rectangle { Frame { ContentPresenter { key: 'content'; Text { text: props.text; } } } PointerArea { clicked -> events.clicked(); } } }`;
+/** The same button with a keyed outline, for overrides that address it. */
+const keyedButton = button.replace('Rectangle {', "Rectangle { key: 'outline';");
 const withButton = (body, extra = {}) => ({
   'components/Button.ui': button,
   ...demo(body),
@@ -123,6 +125,72 @@ const cases = {
   'content wrap is not a boolean': card(`Frame { Text { text: 'a'; wrap: 3; } }`),
   'content cell outside the grid': card(
     `Frame { rows: [10]; columns: [10]; Text { cell: 1 4; text: 'a'; } }`,
+  ),
+  'modal handler other than dismissed': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; clicked -> actions.x(); Frame { Text { text: 'b'; } } } }`,
+  ),
+  'modal dismissed with arguments': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; dismissed -> actions.x(1); Frame { Text { text: 'b'; } } } }`,
+  ),
+  'clip on a nested container': demo(`Frame { Frame { clip: true; Text { text: 'a'; } } }`),
+  'presenter with another property': {
+    'components/Box.ui': `component Box { Frame { ContentPresenter { key: 'content'; width: 5; } } }`,
+    ...demo(`Frame { Box { } }`),
+  },
+  'content property and children together': {
+    'components/Box.ui': `component Box { Frame { ContentPresenter { key: 'content'; } } }`,
+    ...demo(`Frame { Box { content: Text { text: 'a'; }; Text { text: 'b'; } } }`),
+  },
+  'override from an absolute path': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'outline' from '/abs/Accent.ui' { width: 2; } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override from outside the project': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'outline' from '../../Accent.ui' { width: 2; } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override from without a base component': {
+    'components/B2.ui': `component B2 { override 'outline' from '../styles/Accent.ui' { width: 2; } Frame { Text { text: 'a'; } } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override of a key the base does not have': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'nokey' from '../styles/Accent.ui' { width: 2; } }`,
+    'styles/Accent.ui': `component Accent { Rectangle { } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'forward in a component declaration': {
+    'components/Lab.ui': `component Lab { forward props { text }; Frame { Text { text: 'a'; } } }`,
+    ...demo(`Frame { Lab { } }`),
+  },
+  'fontSize together with font.size': {
+    'components/Button.ui': button.replace("text: 'Base';", "text: 'Base'; fontSize: 12;"),
+    ...demo(`Frame { Button { fontSize: 1; font.size: 2; } }`),
+  },
+  'design file missing': {
+    'ui/Demo.ui': `#[design('./Demo.design.ui')]\ncomponent Demo { Frame { Text { key: 't'; text: 'a'; } } }`,
+  },
+  'design attribute on a component': {
+    'components/Lab.ui': `#[design('./Lab.design.ui')]\ncomponent Lab { Frame { Text { text: 'a'; } } }`,
+    ...demo(`Frame { Lab { } }`),
+  },
+  'one design key in two design files': {
+    'ui/Demo.ui': `#[design('./A.design.ui')]\n#[design('./B.design.ui')]\ncomponent Demo { Frame { Text { key: 't'; text: 'a'; } } }`,
+    'ui/A.design.ui': `design Demo { Text { key: 't'; text: 'x'; } }`,
+    'ui/B.design.ui': `design Demo { Text { key: 't'; text: 'y'; } }`,
+  },
+  'override of a slot the component does not have': {
+    'components/Lab.ui': `component Lab { override content: Text { text: 'a'; }; Frame { Text { text: 'a'; } } }`,
+    ...demo(`Frame { Lab { } }`),
+  },
+  'handler on a plain element of a component': {
+    'components/Lab.ui': `component Lab { Frame { Text { text: 'a'; clicked -> actions.x(); } } }`,
+    ...demo(`Frame { Lab { } }`),
+  },
+  'key that is not a string': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 5; Frame { Text { text: 'b'; } } } }`,
   ),
 };
 
