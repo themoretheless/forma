@@ -25,12 +25,14 @@ mod frame;
 mod ime;
 mod ime_session;
 mod input;
+mod keys;
 mod waker;
 
 pub use app::*;
 pub use config::*;
 pub use demo::*;
 pub use ime_session::ImeSession;
+pub use keys::*;
 pub use waker::*;
 
 /// A wheel event as a scroll in logical pixels: a line is 32 pixels, and a pixel delta is

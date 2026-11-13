@@ -333,11 +333,6 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 if cfg!(target_os = "macos") && self.control && self.alt {
                     return Ok(());
                 }
-                let key = match &event.logical_key {
-                    Key::Character(text) => text.to_string(),
-                    Key::Named(_) => named,
-                    _ => String::new(),
-                };
                 let shift = self.shift;
                 // Ctrl+Alt is AltGr for text-producing keys on Windows and Linux.
                 let alt_gr = cfg!(not(target_os = "macos"))
@@ -350,28 +345,16 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 } else {
                     self.command && !self.alt
                 };
-                let key = if command {
-                    crate::native_clipboard::command_key(&event.physical_key, &key)
-                } else {
-                    &key
+                let press = TextKey {
+                    logical_key: &event.logical_key,
+                    physical_key: &event.physical_key,
+                    text: event.text.as_deref(),
+                    shift,
+                    command,
+                    word_modifier,
                 };
-                self.app.update(&mut |runtime| {
-                    let word_handled = word_modifier && runtime.text_word_key(key, shift);
-                    let clipboard_handled = !word_handled
-                        && command
-                        && crate::native_clipboard::handle_key(runtime, key);
-                    if !word_handled
-                        && !clipboard_handled
-                        && !runtime.text_key(key, shift, command)
-                        && !command
-                    {
-                        if let Some(text) = &event.text {
-                            if !text.chars().any(char::is_control) {
-                                runtime.text_insert(text);
-                            }
-                        }
-                    }
-                })?;
+                self.app
+                    .update(&mut |runtime| text_edit_key(runtime, &press))?;
             }
             return Ok(());
         }
@@ -393,25 +376,17 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.ime.cancelled = true;
         }
         let key = match logical_key {
-            Key::Named(NamedKey::Space) => 1,
-            Key::Named(NamedKey::Enter) => 2,
-            Key::Named(NamedKey::Escape) => 3,
             Key::Named(NamedKey::ArrowUp) => 4,
             Key::Named(NamedKey::ArrowDown) => 5,
-            _ => 0,
+            other => activation_key(other),
         };
         let shift = self.shift;
         self.app.update(&mut |runtime| {
             if cancel_composition {
                 runtime.text_preedit("");
             }
-            if *logical_key == Key::Named(NamedKey::Tab)
-                && pressed
-                && !repeat
-                && !runtime.focus_next(shift)
-            {
-                runtime.focus(false);
-                runtime.focus_next(shift);
+            if *logical_key == Key::Named(NamedKey::Tab) && pressed && !repeat {
+                focus_traversal(runtime, shift);
             }
             runtime.key_event(key, pressed, repeat);
         })?;

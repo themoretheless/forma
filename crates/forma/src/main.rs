@@ -8,7 +8,8 @@ use forma::native_window::{
 use forma::{
     frame_stats::{FrameRate, FrameStats},
     native_window::{
-        ImeSession, TargetPlatform, UiBackend, apply_egui_frame_bar, build_chooser_runtime,
+        ImeSession, TargetPlatform, TextKey, UiBackend, activation_key, apply_egui_frame_bar,
+        build_chooser_runtime, focus_traversal, text_edit_key,
     },
 };
 use std::{
@@ -863,17 +864,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         if event.logical_key == Key::Named(NamedKey::Tab)
                             && pressed
                             && !event.repeat
-                            && !chooser.focus_next(self.shift)
                         {
-                            chooser.focus(false);
-                            chooser.focus_next(self.shift);
+                            focus_traversal(chooser, self.shift);
                         }
-                        let key = match event.logical_key {
-                            Key::Named(NamedKey::Space) => 1,
-                            Key::Named(NamedKey::Enter) => 2,
-                            Key::Named(NamedKey::Escape) => 3,
-                            _ => 0,
-                        };
+                        let key = activation_key(&event.logical_key);
                         let before = chooser.clicks();
                         chooser.key_event(key, pressed, event.repeat);
                         if chooser.clicks() != before {
@@ -1077,11 +1071,6 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         && !self.ime.composing
                         && !(cfg!(target_os = "macos") && self.control && self.alt)
                     {
-                        let key = match &event.logical_key {
-                            Key::Character(text) => text.to_string(),
-                            Key::Named(name) => format!("{name:?}"),
-                            _ => String::new(),
-                        };
                         let alt_gr = cfg!(not(target_os = "macos"))
                             && self.control
                             && self.alt
@@ -1092,42 +1081,25 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         } else {
                             self.control && !self.alt
                         };
-                        let key = if command {
-                            forma::native_clipboard::command_key(&event.physical_key, &key)
-                        } else {
-                            &key
-                        };
-                        let word_handled =
-                            word_modifier && self.button.text_word_key(key, self.shift);
-                        let clipboard_handled = !word_handled
-                            && command
-                            && forma::native_clipboard::handle_key(&mut self.button, key);
-                        if !word_handled
-                            && !clipboard_handled
-                            && !self.button.text_key(key, self.shift, command)
-                            && !command
-                        {
-                            if let Some(text) = event.text {
-                                if !text.chars().any(char::is_control) {
-                                    self.button.text_insert(&text);
-                                }
-                            }
-                        }
+                        text_edit_key(
+                            &mut self.button,
+                            &TextKey {
+                                logical_key: &event.logical_key,
+                                physical_key: &event.physical_key,
+                                text: event.text.as_deref(),
+                                shift: self.shift,
+                                command,
+                                word_modifier,
+                            },
+                        );
                     }
                 } else {
-                    let key = match event.logical_key {
-                        Key::Named(NamedKey::Space) => 1,
-                        Key::Named(NamedKey::Enter) => 2,
-                        Key::Named(NamedKey::Escape) => 3,
-                        _ => 0,
-                    };
+                    let key = activation_key(&event.logical_key);
                     if event.logical_key == Key::Named(NamedKey::Tab)
                         && event.state == ElementState::Pressed
                         && !event.repeat
-                        && !self.button.focus_next(self.shift)
                     {
-                        self.button.focus(false);
-                        self.button.focus_next(self.shift);
+                        focus_traversal(&mut self.button, self.shift);
                     }
                     self.button
                         .key_event(key, event.state == ElementState::Pressed, event.repeat);
