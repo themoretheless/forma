@@ -124,9 +124,11 @@ export function renderHtmlPreview({
         ? activeDesign[source.props.key]
         : null;
     const n = { ...source, props: override ? { ...source.props, ...override } : source.props };
-    const tag = ELEMENT_TYPES[n.type];
-    if (!tag) throw Error(`Компонент ${n.type} пока не поддерживается`);
-    const el = document.createElement(tag);
+    const known = ELEMENT_TYPES[n.type];
+    if (!known) throw Error(`Компонент ${n.type} пока не поддерживается`);
+    // A multiline text input is a different element, not a styled single-line one.
+    const multiline = n.type === 'TextInput' && resolve(n.props.multiline, state) === true;
+    const el = document.createElement(multiline ? 'textarea' : known);
     el.dataset.start = n.start;
     el.className = 'ui-node ' + n.type.toLowerCase();
     if (n.type === 'Checkbox') el.type = 'checkbox';
@@ -243,6 +245,15 @@ export function renderHtmlPreview({
       }
       // Painted by `stateBackgrounds` once the resting background is known.
       if (STATE_BACKGROUNDS.includes(k)) continue;
+      if (k === 'multiline') continue;
+      // Neither a placeholder nor a focused border can be styled inline, so the value goes to
+      // a custom property that a rule in style.css reads for elements carrying the marker.
+      if (k === 'placeholderColor' || k === 'focusBorderColor') {
+        const placeholder = k === 'placeholderColor';
+        el.style.setProperty(placeholder ? '--forma-placeholder' : '--forma-focus-border', x);
+        el.dataset[placeholder ? 'placeholderColor' : 'focusBorder'] = '';
+        continue;
+      }
       if (gridProperties.has(k) || k === 'x' || k === 'y') continue;
       else if (sizeProperties.has(k)) {
         if (

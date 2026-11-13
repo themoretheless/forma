@@ -4,13 +4,18 @@ import assert from 'node:assert/strict';
 import { parse } from '../src/language.js';
 import { renderHtmlPreview } from '../src/html-preview.js';
 import { sampleProject } from '../src/sample-project.js';
+import { addableProperties, propertyStart } from '../src/property-catalog.js';
 
 class FakeElement {
   constructor(tag) {
     this.tagName = tag.toUpperCase();
     this.className = '';
     this.dataset = {};
-    this.style = {};
+    this.style = {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    };
     this.children = [];
     this.textContent = '';
     this.listeners = {};
@@ -114,4 +119,48 @@ test('a property the preview has no meaning for is still an error', t => {
     () => render(t, "component Demo { Frame { Button { text: 'Go'; sparkle: 3; } } }"),
     /Свойство sparkle пока не поддерживается/,
   );
+});
+
+test('a text input can be multiline and colour its placeholder and focus border', t => {
+  const [single, multi] = render(
+    t,
+    `component Demo { Frame {
+       TextInput { placeholder: 'one'; placeholderColor: #98a4ba; focusBorderColor: #9ab3ff; }
+       TextInput { multiline: true; }
+     } }`,
+  ).children;
+  assert.equal(single.tagName, 'INPUT');
+  assert.equal(single.style['--forma-placeholder'], '#98a4ba');
+  assert.equal(single.dataset.placeholderColor, '');
+  assert.equal(single.style['--forma-focus-border'], '#9ab3ff');
+  assert.equal(single.dataset.focusBorder, '');
+  assert.equal(multi.tagName, 'TEXTAREA');
+});
+
+test('every property the inspector offers for a control renders in the preview', t => {
+  // Free placement reads the layout of the real DOM and is covered in the browser.
+  const needsLayout = new Set(['x', 'y']);
+  const rejected = [];
+  for (const type of [
+    'Button',
+    'Text',
+    'TextInput',
+    'Frame',
+    'Row',
+    'Column',
+    'Grid',
+    'Stack',
+    'Checkbox',
+    'Slider',
+  ])
+    for (const name of addableProperties(type)) {
+      if (needsLayout.has(name)) continue;
+      const source = `component Demo { Frame { ${type} { ${name}: ${propertyStart[name]}; } } }`;
+      try {
+        render(t, source);
+      } catch (error) {
+        rejected.push(`${type}.${name}: ${error.message}`);
+      }
+    }
+  assert.deepEqual(rejected, []);
 });

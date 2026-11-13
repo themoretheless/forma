@@ -5,3 +5,4 @@
 .file.root-file{padding-left:17px;margin-top:4px}
 .explorer{width:var(--explorer-width,260px);min-width:var(--explorer-width,260px);max-width:var(--explorer-width,260px)}
 #preview{transition:none}
+.ui-node[data-placeholder-color]::placeholder{color:var(--forma-placeholder)}.ui-node[data-focus-border]:focus{border-color:var(--forma-focus-border)!important}
