@@ -3,13 +3,7 @@
 import { parse } from './language.js';
 import { attachSources, createElementTree } from './element-tree.js';
 import { createCacheBudget } from './cache-budget.js';
-import {
-  evaluate,
-  selectedProperties,
-  selectedPropertySources,
-  validateContract,
-  expandStructure,
-} from './component-semantics.js';
+import { evaluate, expandStructure } from './component-semantics.js';
 import {
   containerTypes,
   naturalContainer,
@@ -26,10 +20,11 @@ import { createLinker } from './compiler/link.js';
 import { createInstanceCompiler } from './compiler/instance.js';
 import { createSceneLayout, placeOnRootGrid } from './compiler/scene-layout.js';
 import { createInstantiator } from './compiler/instantiate.js';
-import { sharedDeclarations } from './compiler/declarations.js';
+import { addComponentDeclarations, sharedDeclarations } from './compiler/declarations.js';
+import { documentProperties, evaluationEnvironment } from './compiler/environment.js';
 import { sceneModals } from './compiler/modals.js';
 import { sourceSceneOf } from './compiler/source-scene.js';
-import { builtinSources, fallback, primitiveTypes } from './compiler/builtins.js';
+import { builtinSources, fallback } from './compiler/builtins.js';
 export { evaluate } from './component-semantics.js';
 export { contentProps, layoutProps, standard } from './compiler/vocabulary.js';
 
@@ -131,87 +126,20 @@ function compile(files, entry, state, metrics, read, links) {
     return { definitions: definitions(), fallback };
   }
   const { enums, tokens, i18n, styles } = sharedDeclarations(document, entry, files, read);
-  visit(scene, node => {
-    if (
-      !primitiveTypes.has(node.type) &&
-      !['Scroll', 'Modal', 'If', 'For', 'Let', 'Match'].includes(node.type)
-    ) {
-      const definition = link(node.type);
-      for (const [name, variants] of Object.entries(definition.enums ?? {})) {
-        if (name === '_structConstraints') {
-          enums._structConstraints = { ...(enums._structConstraints ?? {}), ...variants };
-          continue;
-        }
-        if (own(enums, name) && JSON.stringify(enums[name]) !== JSON.stringify(variants))
-          throw Error(`Конфликт enum ${name}`);
-        enums[name] = variants;
-      }
-      for (const [name, val] of Object.entries(definition.tokens ?? {})) {
-        if (!own(tokens, name)) tokens[name] = val;
-      }
-      for (const [name, val] of Object.entries(definition.i18n ?? {})) {
-        if (!own(i18n, name)) i18n[name] = val;
-      }
-      for (const [name, val] of Object.entries(definition.styles ?? {})) {
-        if (!own(styles, name)) styles[name] = val;
-      }
-    }
-  });
-  const rawRootProps = scene[0]?.props ?? {};
-  const vpW =
-    typeof rawRootProps.width === 'number'
-      ? rawRootProps.width
-      : Number(metricsContext.viewport?.width ?? 360);
-  const vpH =
-    typeof rawRootProps.height === 'number'
-      ? rawRootProps.height
-      : Number(metricsContext.viewport?.height ?? 220);
-  const viewport = { width: vpW, height: vpH, compact: vpW < 640 };
-  const stateDefaults = Object.fromEntries(
-    Object.entries(document.stateDefinitions ?? {})
-      .filter(([, d]) => d.default !== undefined)
-      .map(([k, d]) => [k, d.default]),
+  addComponentDeclarations({ enums, tokens, i18n, styles }, scene, link);
+  const { viewport, stateDefaults, environment } = evaluationEnvironment(
+    document,
+    scene[0]?.props ?? {},
+    { enums, tokens, i18n, styles },
+    metricsContext,
   );
-  const environment = {
-    enums,
-    tokens,
-    i18n,
-    styles,
-    stateDefaults,
-    locale: metricsContext.locale ?? null,
-    viewport,
-  };
-  const documentProps = { ...document.defaults, ...metricsContext.properties };
-  for (const [key, definition] of Object.entries(document.propDefinitions ?? {}))
-    if (definition.required && !own(documentProps, key))
-      throw Error(`${document.name}: обязательное свойство ${key} не задано`);
-  Object.assign(
-    documentProps,
-    selectedProperties(document.matches, documentProps, state, environment),
+  const { documentProps, documentSources } = documentProperties(
+    document,
+    entry,
+    state,
+    environment,
     metricsContext.properties,
   );
-  validateContract(
-    document.propDefinitions,
-    Object.fromEntries(
-      Object.entries(documentProps).map(([key, value]) => [
-        key,
-        evaluate(value, documentProps, state, [key], false, environment),
-      ]),
-    ),
-    enums,
-    document.name,
-  );
-  if (document.forward?.length)
-    throw Error('forward применяется к дочернему элементу, не к объявлению component');
-  const documentSources = {
-    ...Object.fromEntries(
-      Object.entries(document.defaultRanges ?? {}).map(([key, range]) => [
-        key,
-        { file: entry, ...range, label: document.name },
-      ]),
-    ),
-    ...selectedPropertySources(document.matches, documentProps, state, environment),
-  };
   scene = expandStructure(scene, documentProps, state, environment, {
     trackOrigins: true,
     propertySources: documentSources,

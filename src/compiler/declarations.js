@@ -1,7 +1,8 @@
 // What a document and the files it `use`s declare for the whole compile: enums and structs,
 // design tokens, translations and styles.
 import { own } from '../shared/object.js';
-import { clone } from './data.js';
+import { primitiveTypes } from './builtins.js';
+import { clone, visit } from './data.js';
 
 /**
  * @param {object} document the parsed entry document
@@ -51,4 +52,41 @@ export function sharedDeclarations(document, entry, files, read) {
   Object.assign(i18n, document.i18n);
   Object.assign(styles, document.styles);
   return { enums, tokens, i18n, styles };
+}
+
+/**
+ * Adds what the components used in `scene` declare. An enum declared twice must agree; a token,
+ * translation or style already present is kept.
+ *
+ * @param {{ enums: object, tokens: object, i18n: object, styles: object }} declarations updated in place
+ * @param {object[]} scene
+ * @param {(name: string) => object} link
+ */
+export function addComponentDeclarations({ enums, tokens, i18n, styles }, scene, link) {
+  visit(scene, node => {
+    if (
+      !primitiveTypes.has(node.type) &&
+      !['Scroll', 'Modal', 'If', 'For', 'Let', 'Match'].includes(node.type)
+    ) {
+      const definition = link(node.type);
+      for (const [name, variants] of Object.entries(definition.enums ?? {})) {
+        if (name === '_structConstraints') {
+          enums._structConstraints = { ...(enums._structConstraints ?? {}), ...variants };
+          continue;
+        }
+        if (own(enums, name) && JSON.stringify(enums[name]) !== JSON.stringify(variants))
+          throw Error(`Конфликт enum ${name}`);
+        enums[name] = variants;
+      }
+      for (const [name, val] of Object.entries(definition.tokens ?? {})) {
+        if (!own(tokens, name)) tokens[name] = val;
+      }
+      for (const [name, val] of Object.entries(definition.i18n ?? {})) {
+        if (!own(i18n, name)) i18n[name] = val;
+      }
+      for (const [name, val] of Object.entries(definition.styles ?? {})) {
+        if (!own(styles, name)) styles[name] = val;
+      }
+    }
+  });
 }
