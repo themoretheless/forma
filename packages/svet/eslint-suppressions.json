@@ -92,7 +92,7 @@
   },
   "src/engine/forma-actions.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 2
+      "count": 4
     }
   },
   "src/engine/forma-instance.ts": {
@@ -110,7 +110,7 @@
   },
   "src/engine/forma.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 30
+      "count": 28
     },
     "no-unsafe-finally": {
       "count": 2

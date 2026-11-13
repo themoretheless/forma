@@ -146,7 +146,7 @@ import {
   type FormaModuleOptions,
   type FormaValidationReport,
 } from './forma-aot.ts';
-import { createFormaActionRunner } from './forma-actions.ts';
+import { createFormaActionRunner, createFormaStateMutator } from './forma-actions.ts';
 import { createFormaRenderer } from './forma-render.ts';
 import { formaComponentRegistry } from './forma-registry.ts';
 
@@ -164,7 +164,6 @@ import {
   type FormaProperty,
   type FormaRuntimeInstance,
   type FormaSlotMap,
-  type FormaStateMutator,
 } from './forma-instance.ts';
 
 export type {
@@ -508,48 +507,11 @@ function instantiateForma(
     rebuildComputedLets();
 
     // Built-in Forma `state.*` / `actions.*` mutators
-    const actions: FormaStateMutator = {
-      toggle(field: string) {
-        if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
-        ensureStateSignal(field, false).update(v => !v);
-      },
-      set(field: string, value: any) {
-        if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
-        ensureStateSignal(field, value).set(value);
-      },
-      increment(field: string, delta = 1) {
-        if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
-        ensureStateSignal(field, 0).update(v => Number(v || 0) + delta);
-      },
-      decrement(field: string, delta = 1) {
-        if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
-        ensureStateSignal(field, 0).update(v => Number(v || 0) - delta);
-      },
-      push(field: string, item: any) {
-        if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
-        ensureStateSignal(field, []).update(arr => (Array.isArray(arr) ? [...arr, item] : [item]));
-      },
-      remove(field: string, index: number) {
-        const sig = stateSignals[field];
-        if (sig) {
-          sig.update(arr => (Array.isArray(arr) ? arr.filter((_, idx) => idx !== index) : []));
-        }
-      },
-      reset(field?: string) {
-        if (field) {
-          const targetSig = stateSignals[field];
-          if (targetSig && field in initialStateValues) {
-            targetSig.set(structuredCloneIfObject(initialStateValues[field]));
-          }
-        } else {
-          batch(() => {
-            for (const [k, initV] of Object.entries(initialStateValues)) {
-              stateSignals[k]?.set(structuredCloneIfObject(initV));
-            }
-          });
-        }
-      },
-    };
+    const actions = createFormaStateMutator({
+      ensureStateSignal,
+      stateSignals,
+      initialStateValues,
+    });
 
     const eventListeners = new Map<string, Set<(...args: any[]) => void>>();
     let keyedElements = new Map<string, HTMLElement>();

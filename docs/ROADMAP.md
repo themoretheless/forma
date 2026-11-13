@@ -119,9 +119,10 @@
   `reactivity` → `dom` → `gpu` → `forma`. Начато: из `forma.ts` вынесены типы экземпляра и
   правила его времени жизни (`forma-instance.ts`), реестры внешних элементов и компонентов
   (`forma-registry.ts`), рендерер дерева (`forma-render.ts`, `createFormaRenderer`) и исполнитель
-  действий (`forma-actions.ts`, `createFormaActionRunner`); `forma.ts` 1693 → 1049 строк. В
-  `instantiateForma` остаются около 680 строк: разбор документа в сигналы, вычисляемые `let`,
-  мутаторы состояния, сборка экземпляра с горячей перезагрузкой.
+  действий с мутаторами состояния (`forma-actions.ts`: `createFormaActionRunner`,
+  `createFormaStateMutator`); `forma.ts` 1693 → 1011 строк. В `instantiateForma` остаются около
+  640 строк: разбор документа в сигналы, вычисляемые `let`, сборка экземпляра с горячей
+  перезагрузкой.
 - [ ] JSX-компилятор не должен оборачивать в thunk чистые вызовы (`hasEagerCall`).
 - [ ] Убрать дублирование состояния графа между JS и WASM.
 - [ ] S-9: байты wasm-ядра зависят от каталога checkout, поэтому побайтовая сверка в CI не
