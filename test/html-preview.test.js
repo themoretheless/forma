@@ -36,8 +36,9 @@ class FakeElement {
   }
   removeEventListener() {}
   /** Runs the listeners a real element would run for `type`. */
-  fire(type) {
-    for (const listener of this.listeners[type] ?? []) listener({ type, target: this });
+  fire(type, detail = {}) {
+    const event = { type, target: this, stopPropagation() {}, preventDefault() {}, ...detail };
+    for (const listener of this.listeners[type] ?? []) listener(event);
   }
   contains() {
     return false;
@@ -48,7 +49,7 @@ class FakeElement {
 }
 
 /** Renders `source` and returns the element of the preview root. */
-function render(t, source, { interactive = true, state = {}, files } = {}) {
+function render(t, source, { interactive = true, state = {}, files, handlers = {} } = {}) {
   const previous = globalThis.document;
   globalThis.document = {
     activeElement: null,
@@ -74,6 +75,7 @@ function render(t, source, { interactive = true, state = {}, files } = {}) {
     onEvent() {},
     onLog() {},
     onChange() {},
+    ...handlers,
   });
   return preview.children[0];
 }
@@ -204,5 +206,115 @@ test('an image shows the project file it names', t => {
   assert.throws(
     () => render(t, source.replace('assets/dot.svg', 'toString'), { files: {} }),
     /SVG-файл не найден в проекте: toString/,
+  );
+});
+
+/** Records what the preview reports to Studio. */
+function recorder() {
+  const calls = [];
+  return {
+    calls,
+    handlers: {
+      onSelect: node => calls.push(['select', node.type]),
+      onEvent: (action, node, event = 'clicked') => calls.push(['event', node.type, event]),
+      onLog: text => calls.push(['log', text]),
+      onChange: () => calls.push(['change']),
+    },
+  };
+}
+
+const CLICKABLE = `component Demo { Frame { Button { text: 'Go'; clicked -> actions.go(); } } }`;
+
+test('a click runs the handler while interacting and selects the node while designing', t => {
+  const live = recorder();
+  render(t, CLICKABLE, { handlers: live.handlers }).children[0].fire('click');
+  assert.deepEqual(live.calls, [['event', 'Button', 'clicked']]);
+
+  const design = recorder();
+  render(t, CLICKABLE, { interactive: false, handlers: design.handlers }).children[0].fire('click');
+  assert.deepEqual(design.calls, [['select', 'Button']]);
+});
+
+test('a click on a control without a handler reports nothing', t => {
+  const live = recorder();
+  const source = "component Demo { Frame { Button { text: 'Go'; } } }";
+  render(t, source, { handlers: live.handlers }).children[0].fire('click');
+  assert.deepEqual(live.calls, []);
+});
+
+test('typing into a bound input writes the state, logs it and asks for a redraw', t => {
+  const live = recorder();
+  const state = { query: 'old' };
+  const input = render(t, `component Demo { Frame { TextInput { value <-> state.query; } } }`, {
+    state,
+    handlers: live.handlers,
+  }).children[0];
+  assert.equal(input.value, 'old');
+  input.value = 'new';
+  input.fire('input');
+  assert.equal(state.query, 'new');
+  assert.deepEqual(live.calls, [['log', 'state.query = "new"'], ['change']]);
+});
+
+test('Enter submits a text input only while interacting', t => {
+  const source = `component Demo { Frame { TextInput { submitted -> actions.find(); } } }`;
+  const live = recorder();
+  const input = render(t, source, { handlers: live.handlers }).children[0];
+  input.fire('keydown', { key: 'a' });
+  assert.deepEqual(live.calls, []);
+  input.fire('keydown', { key: 'Enter' });
+  assert.deepEqual(live.calls, [['event', 'TextInput', 'submitted']]);
+
+  const design = recorder();
+  render(t, source, { interactive: false, handlers: design.handlers }).children[0].fire('keydown', {
+    key: 'Enter',
+  });
+  assert.deepEqual(design.calls, []);
+});
+
+test('a closed modal is hidden and an open one dims what is behind it', t => {
+  const modal = open =>
+    render(
+      t,
+      `component Demo { Frame { Modal { open: ${open}; backdrop: #00000099;
+         dismissed -> actions.close(); Frame { Text { text: 'a'; } } } } }`,
+    ).children[0];
+  assert.equal(modal(false).hidden, true);
+  const shown = modal(true);
+  assert.notEqual(shown.hidden, true);
+  assert.equal(shown.style.boxShadow, '0 0 0 9999px #00000099');
+  assert.equal(shown.style.zIndex, '10');
+});
+
+test('a double click dismisses a modal that allows it', t => {
+  const source = dismiss => `component Demo { Frame { Modal { ${dismiss}
+    dismissed -> actions.close(); Frame { Text { text: 'a'; } } } } }`;
+  const live = recorder();
+  render(t, source(''), { handlers: live.handlers }).children[0].fire('dblclick');
+  assert.deepEqual(live.calls, [['event', 'Modal', 'dismissed']]);
+
+  const locked = recorder();
+  render(t, source('dismiss: false;'), { handlers: locked.handlers }).children[0].fire('dblclick');
+  assert.deepEqual(locked.calls, []);
+
+  const design = recorder();
+  render(t, source(''), { interactive: false, handlers: design.handlers }).children[0].fire(
+    'dblclick',
+  );
+  assert.deepEqual(design.calls, []);
+});
+
+test('text takes a monospace family and a wrapping mode, and rejects other values', t => {
+  const text = body =>
+    render(t, `component Demo { Frame { Text { text: 'a'; ${body} } } }`).children[0];
+  assert.equal(text("fontFamily: 'mono';").style.fontFamily, 'ui-monospace, monospace');
+  assert.equal(text("fontFamily: 'sans';").style.fontFamily, undefined);
+  assert.equal(text('wrap: true;').style.whiteSpace, 'pre-wrap');
+  assert.equal(text('wrap: false;').style.whiteSpace, 'pre');
+  assert.throws(() => text("fontFamily: 'serif';"), /Text\.fontFamily ожидает 'sans' или 'mono'/);
+  assert.throws(() => text('wrap: 3;'), /Text\.wrap ожидает true или false/);
+  assert.throws(
+    () => render(t, "component Demo { Frame { Button { text: 'a'; wrap: true; } } }"),
+    /Text\.wrap ожидает true или false/,
   );
 });

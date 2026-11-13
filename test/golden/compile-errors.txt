@@ -120,3 +120,9 @@ event argument of another type
     events.open.id: ожидался Int
 event argument of an unknown type
     Неизвестный тип Blob
+override of properties on content that is not an element
+    override content: для изменения свойств содержимое должно быть элементом
+content that cannot be drawn
+    Неподдерживаемый контент PointerArea
+content that cannot be measured
+    Контент PointerArea пока не поддерживается

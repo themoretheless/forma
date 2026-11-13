@@ -56,6 +56,8 @@ import { createPropertyInspector } from './property-inspector.js';
 import { createBulkEditor } from './bulk-edit.js';
 import { designReferencesInFiles, setDesignData, designReferences } from './design-data.js';
 import { insertableControls } from './control-catalog.js';
+import { createComponentCatalog, domLayoutSnapshot } from './dom-layout-snapshot.js';
+import { nativeInspectionModel } from './native-inspection.js';
 import { createSpacingOverlay } from './spacing-overlay.js';
 import { nativeSnapshot } from './native-snapshot.js';
 import { buildNativeRustExport } from './native-export.js';
@@ -377,49 +379,15 @@ function open(path) {
   refreshStatesPanel();
 }
 function lines() {
-  if (codeEditor) {
-    const { line, column } = codeEditor.position();
-    $('position').textContent = `Ln ${line}, Col ${column}`;
-  } else {
-    const text = $('code').value,
-      total = countLines(text);
-    $('lines').textContent = Array.from({ length: total }, (_, i) => i + 1).join('\n');
-    const sel = $('code').selectionStart,
-      line = countLines(text, sel),
-      lastNl = text.lastIndexOf('\n', sel - 1);
-    $('position').textContent = `Ln ${line}, Col ${sel - lastNl}`;
-  }
+  const { line, column } = codeEditor.position();
+  $('position').textContent = `Ln ${line}, Col ${column}`;
   highlightSource();
 }
 function highlightSource() {
   spacingOverlay?.update();
   canvasTools?.update();
   elementTools?.update();
-  if (codeEditor) {
-    codeEditor.highlight(selected && active === selectedPath ? selected : null);
-    return;
-  }
-  const code = $('code');
-  let layer = $('source-highlight');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'source-highlight';
-    layer.setAttribute('aria-hidden', 'true');
-    code.parentElement.append(layer);
-  }
-  layer.hidden = !selected || active !== selectedPath;
-  if (layer.hidden) return;
-  const first = countLines(code.value, selected.start) - 1;
-  const last = countLines(code.value, selected.end) - 1;
-  const lineHeight = parseFloat(getComputedStyle(code).lineHeight);
-  const start = first * lineHeight - code.scrollTop;
-  const end = (last + 1) * lineHeight - code.scrollTop;
-  const top = Math.max(0, start),
-    bottom = Math.min(code.clientHeight, end);
-  layer.hidden = bottom <= top;
-  layer.style.top = code.offsetTop + top + 'px';
-  layer.style.height = Math.max(0, bottom - top) + 'px';
-  layer.dataset.lines = `${first + 1}-${last + 1}`;
+  codeEditor.highlight(selected && active === selectedPath ? selected : null);
 }
 function log(text) {
   appendLog(logs, text, new Date().toLocaleTimeString());
@@ -794,33 +762,26 @@ function showNativeInspection(data) {
   const title = document.createElement('summary');
   title.textContent = 'Нативное окно · живое дерево · F9: выбор';
   panel.append(title);
-  const current = nativeSource && files[nativeSource.entry] === nativeSource.source;
-  const roots = nativeSource?.nodes?.[0]?.children ?? [],
-    controls = sceneControlNodes(roots);
+  const current = Boolean(nativeSource && files[nativeSource.entry] === nativeSource.source);
+  const model = nativeInspectionModel(
+    data,
+    sceneControlNodes(nativeSource?.nodes?.[0]?.children ?? []),
+    current,
+  );
   const status = document.createElement('p');
-  status.textContent = current
-    ? 'Данные из работающего Rust runtime. F9 и щелчок в окне выбирают элемент.'
-    : 'Исходник изменился или окно запущено раньше этой сессии: переход к коду отключён.';
+  status.textContent = model.status;
   panel.append(status);
-  for (const node of data.nodes ?? []) {
-    const row = document.createElement('button'),
-      control = data.controls?.find(c => c.index === node.control),
-      source = controls[node.control];
+  for (const item of model.rows) {
+    const row = document.createElement('button');
     row.style.display = 'block';
-    row.style.marginLeft = (node.parent === null ? 0 : node.control === null ? 12 : 24) + 'px';
-    row.textContent = source ? source.type + ' ' + (source.props.key ?? '') : node.kind;
-    if (control)
-      row.textContent +=
-        ' · ' +
-        control.bounds.map(v => Math.round(v)).join(', ') +
-        (control.disabled ? ' · disabled' : '');
-    row.setAttribute('aria-pressed', String(node.control === data.selected));
-    row.disabled = !current || !source;
-    row.onclick = () => selectTreeControl({ path: nativeSource.entry, node: source });
+    row.style.marginLeft = item.indent + 'px';
+    row.textContent = item.label;
+    row.setAttribute('aria-pressed', String(item.pressed));
+    row.disabled = item.disabled;
+    row.onclick = () => selectTreeControl({ path: nativeSource.entry, node: item.source });
     panel.append(row);
   }
-  const source = controls[data.selected];
-  if (current && source) selectTreeControl({ path: nativeSource.entry, node: source });
+  if (model.selected) selectTreeControl({ path: nativeSource.entry, node: model.selected });
 }
 const previewDebugger = createPreviewDebugger({
   argumentsOf: (n, event) =>
@@ -1563,62 +1524,7 @@ const layoutInspector = createLayoutInspector({
 });
 // The palette lists the components this project resolves, and only a change under
 // `components/` can alter that, so typing in the page never rebuilds it.
-let insertSignature = '',
-  insertCatalog = [];
-function projectInserts() {
-  const parts = [];
-  for (const [path, source] of Object.entries(files))
-    if (path.startsWith('components/') && path.endsWith('.ui'))
-      parts.push(path + ':' + source.length);
-  const signature = parts.sort().join('|');
-  if (signature !== insertSignature) {
-    insertSignature = signature;
-    insertCatalog = insertableControls(files);
-  }
-  return insertCatalog;
-}
-function domLayoutSnapshot() {
-  const preview = $('preview');
-  if (!preview) return null;
-  const rootEl = preview.firstElementChild;
-  const r = preview.getBoundingClientRect();
-  const scale = r.width / (preview.offsetWidth || r.width || 1);
-  const width = preview.offsetWidth || r.width / scale || 360,
-    height = preview.offsetHeight || r.height / scale || 220;
-  const controls = [],
-    containers = [];
-  const containerSet = new Set(['frame', 'row', 'column', 'grid', 'stack', 'scroll', 'modal']);
-  for (const el of preview.querySelectorAll('[data-start]')) {
-    if (el === rootEl) continue;
-    const start = Number(el.dataset.start);
-    const er = el.getBoundingClientRect(),
-      pr = (el.parentElement ?? preview).getBoundingClientRect();
-    const bounds = [
-      (er.left - r.left) / scale,
-      (er.top - r.top) / scale,
-      er.width / scale,
-      er.height / scale,
-    ];
-    const coordinateBox = [
-      (pr.left - r.left) / scale,
-      (pr.top - r.top) / scale,
-      pr.width / scale,
-      pr.height / scale,
-    ];
-    const isContainer = [...el.classList].some(c => containerSet.has(c));
-    if (isContainer) containers.push({ start, bounds, coordinateBox });
-    else controls.push({ index: controls.length, start, bounds, coordinateBox });
-  }
-  return {
-    width,
-    height,
-    clip: false,
-    scrollable: false,
-    scrollOffset: [0, 0],
-    controls,
-    containers,
-  };
-}
+const projectInserts = createComponentCatalog(insertableControls);
 const elementTools = createElementTools({
   viewport: $('canvas'),
   artboard: $('preview'),
@@ -1633,7 +1539,8 @@ const elementTools = createElementTools({
       return null;
     const root = compiled?.nodes[0],
       children = root?.children ?? [],
-      scene = renderer === 'vector' ? vectorPreview.layoutSnapshot() : domLayoutSnapshot();
+      scene =
+        renderer === 'vector' ? vectorPreview.layoutSnapshot() : domLayoutSnapshot($('preview'));
     if (!scene) return null;
     return {
       source: files[entry],
@@ -1644,7 +1551,7 @@ const elementTools = createElementTools({
       pick: start => findNodeByStart(root ? [root] : [], start),
       scene,
       grid: lastVisuals.find(v => v.control === -1)?.grid,
-      inserts: projectInserts(),
+      inserts: projectInserts(files),
       visuals: lastVisuals,
       state,
     };

@@ -277,7 +277,9 @@ const FALLBACK_PALETTE = [
   '#c7d87e',
 ];
 
-function kindColor(kind) {
+/** Colour of a token kind; `null` for kinds that are not painted. Unknown kinds fall back to a
+ * family guessed from the name, then to a stable colour from a small palette. */
+export function kindColor(kind) {
   if (INVISIBLE_KINDS.has(kind)) return null;
   const exact = KIND_COLORS[kind];
   if (exact) return exact;
