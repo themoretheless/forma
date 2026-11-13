@@ -10,8 +10,6 @@ import {
   selectedProperties,
   selectedPropertySources,
   validateContract,
-  validateTypeName,
-  matchesType,
   expandStructure,
 } from './component-semantics.js';
 import {
@@ -22,24 +20,16 @@ import {
   length,
   constrained,
 } from './component-layout.js';
-import { frameTemplates, literal, serialize, serializeNode } from './component-template.js';
+import { frameTemplates, serialize } from './component-template.js';
 import { own } from './shared/object.js';
 import { clone, visit } from './compiler/data.js';
 import { cachingMetrics } from './compiler/metrics-cache.js';
 import { applyDesigns } from './compiler/design-patch.js';
 import { createLinker } from './compiler/link.js';
+import { createInstanceCompiler } from './compiler/instance.js';
 import { builtinSources, fallback, primitiveTypes } from './compiler/builtins.js';
 import { layoutProps, standard, visualTypes } from './compiler/vocabulary.js';
-import {
-  cell,
-  color,
-  flatten,
-  gap,
-  insets,
-  natural,
-  num,
-  sizes,
-} from './compiler/content-layout.js';
+import { cell, color, gap, insets, natural, num, sizes } from './compiler/content-layout.js';
 export { evaluate } from './component-semantics.js';
 export { contentProps, layoutProps, standard } from './compiler/vocabulary.js';
 
@@ -792,101 +782,14 @@ function compile(files, entry, state, metrics, read, links) {
   )
     throw Error('Frame принимает 0…1024 контролов либо один Scroll с контролами');
   visualNodes.push(rootVisual);
-  function compileInstance(instance, index) {
-    for (const [event, action] of Object.entries(instance.events ?? {})) {
-      if (!action.startsWith('events.')) continue;
-      const name = action.slice(7),
-        signature = document.eventDefinitions?.[name],
-        args = instance.eventArgs?.[event] ?? [];
-      if (!signature) {
-        if (
-          Object.keys(document.eventDefinitions ?? {}).length ||
-          Array.isArray(document.defaults.events)
-        ) {
-          if (!document.defaults.events?.includes(name))
-            throw Error(`Событие ${name} не объявлено`);
-        }
-        if (args.length) throw Error(`Для аргументов events.${name} требуется объявление event`);
-      } else {
-        if (signature.length !== args.length)
-          throw Error(
-            `events.${name}: ожидалось ${signature.length} аргументов, получено ${args.length}`,
-          );
-        signature.forEach((arg, i) => {
-          validateTypeName(arg.type, enums);
-          if (!matchesType(args[i], arg.type, enums))
-            throw Error(`events.${name}.${arg.name}: ожидался ${arg.type}`);
-        });
-      }
-    }
-    const { roots, resolved, origins } = instantiate(instance, true);
-    let rangeMetadata = '';
-    if (instance.type === 'Slider') {
-      const endpoint = value => {
-        const result = instantiate(
-          { ...instance, props: { ...instance.props, value: { expr: value + '%' } } },
-          true,
-        );
-        const content = [];
-        for (const child of result.roots[0].children)
-          if (visualTypes.has(child.type))
-            flatten(
-              child,
-              [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
-              files,
-              content,
-              { ...metrics, preserveEmptyGeometry: true },
-            );
-        return content.join(' ');
-      };
-      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
-    }
-    const root = roots[0],
-      out = [],
-      visuals = [];
-    let body = '';
-    for (const n of root.children) {
-      if (visualTypes.has(n.type)) {
-        flatten(
-          n,
-          [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
-          files,
-          out,
-          { ...metrics, visuals },
-        );
-      } else body += serializeNode(n, true);
-    }
-    const sourceNode = {
-      ...instance,
-      type: 'Button',
-      bindings: {},
-      events: instance.events.clicked ? { clicked: instance.events.clicked } : {},
-      props: Object.fromEntries(
-        Object.entries(resolved).filter(
-          ([k]) => standard.has(k) && k !== 'font.size' && k !== 'transition',
-        ),
-      ),
-      children: [],
-    };
-    const template = `component Button { Rectangle { ${Object.entries(root.props)
-      .filter(([k]) => k !== 'key' && k !== 'transition')
-      .map(([k, v]) => `${k}: ${literal(v)};`)
-      .join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
-    visualNodes.push(
-      {
-        id: -2,
-        parent: null,
-        control: index,
-        type: instance.type,
-        source: instance.source,
-        props: resolved,
-        propertyOrigins: origins,
-        bounds: [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
-      },
-      ...visuals.map(v => ({ ...v, parent: v.parent ?? -2, control: index })),
-    );
-    return { template, treeRoots: roots, sourceNode };
-  }
+  const compileInstance = createInstanceCompiler({
+    document,
+    enums,
+    files,
+    instantiate,
+    metrics,
+    visualNodes,
+  });
   const controls = [...instances, ...layered].map(compileInstance);
   const templateTree = createElementTree(controls.flatMap(c => c.treeRoots));
   const sourceControls = controls.slice(0, instances.length).map(c => c.sourceNode);
