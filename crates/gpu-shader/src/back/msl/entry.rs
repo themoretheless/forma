@@ -265,18 +265,92 @@ pub(super) fn emit_entry_point(
 
     let stage_in_struct_name = format!("_wgpu_{}_StageIn", ep.name);
     if has_vertex_input_attrs {
-        out.push_str(&format!("struct {stage_in_struct_name} {{\n"));
-        for (idx, arg) in func.arguments.iter().enumerate() {
-            if let Some(Binding::Location { location, .. }) = arg.binding {
-                let aname = msl_arg_name(arg.name.as_deref(), idx);
-                let aty = msl_type_for_handle(module, arg.ty, false);
-                out.push_str(&format!("    {aty} {aname} [[attribute({location})]];\n"));
-            }
-        }
-        out.push_str("};\n\n");
+        emit_stage_in_struct(out, module, func, &stage_in_struct_name);
     }
+    let (ret_ty_str, direct_out_struct_name) = emit_stage_out(out, module, ep);
 
-    // Check if return value is a direct builtin or location scalar/vector (not a struct)
+    let stage_kw = match ep.stage {
+        ShaderStage::Compute => "kernel",
+        ShaderStage::Vertex => "vertex",
+        ShaderStage::Fragment => "fragment",
+    };
+
+    let mut signature = Signature::default();
+    if has_vertex_input_attrs {
+        signature
+            .params
+            .push(format!("{stage_in_struct_name} _stage_in [[stage_in]]"));
+    }
+    bind_arguments(&mut signature, module, func, has_vertex_input_attrs);
+    // Bind used globals in entry point signature (or declare workgroup/private globals in preamble)
+    for &gh in &all_used_globals {
+        bind_global(
+            &mut signature,
+            module,
+            &module.global_variables[gh],
+            binding_map,
+        );
+    }
+    if uses_array_length(module, func) {
+        signature.params.push(format!(
+            "constant uint* _wgpu_buffer_sizes [[buffer({MSL_ARRAY_LENGTHS_BUFFER_SLOT})]]"
+        ));
+    }
+    let Signature { params, preamble } = signature;
+
+    let ep_fn_name = if ep.name == "main" {
+        "_wgpu_entry_main"
+    } else {
+        ep.name.as_str()
+    };
+    out.push_str(&format!(
+        "{stage_kw} {ret_ty_str} {ep_fn_name}({}) {{\n",
+        params.join(", ")
+    ));
+    out.push_str(&preamble);
+
+    let body = translate_function_body(
+        module,
+        &func.body_src,
+        &BTreeSet::new(),
+        func_globals,
+        binding_map,
+        direct_out_struct_name.as_deref(),
+    );
+    out.push_str(&body);
+    out.push_str("}\n\n");
+}
+
+/// What an entry point is declared with: its parameter list, and the statements that open its
+/// body to declare the globals Metal has no binding for.
+#[derive(Default)]
+struct Signature {
+    params: Vec<String>,
+    preamble: String,
+}
+
+/// The struct that carries `@location` vertex attributes into a vertex entry point.
+fn emit_stage_in_struct(
+    out: &mut String,
+    module: &Module,
+    func: &Function,
+    stage_in_struct_name: &str,
+) {
+    out.push_str(&format!("struct {stage_in_struct_name} {{\n"));
+    for (idx, arg) in func.arguments.iter().enumerate() {
+        if let Some(Binding::Location { location, .. }) = arg.binding {
+            let aname = msl_arg_name(arg.name.as_deref(), idx);
+            let aty = msl_type_for_handle(module, arg.ty, false);
+            out.push_str(&format!("    {aty} {aname} [[attribute({location})]];\n"));
+        }
+    }
+    out.push_str("};\n\n");
+}
+
+/// The return type of an entry point. A bare value with a binding is wrapped in a struct, whose
+/// name is returned as the second element.
+fn emit_stage_out(out: &mut String, module: &Module, ep: &EntryPoint) -> (String, Option<String>) {
+    let func = &ep.function;
     let mut direct_out_struct_name: Option<String> = None;
     let ret_ty_str = if let Some(res) = &func.result {
         if let Some(binding) = res.binding {
@@ -305,20 +379,16 @@ pub(super) fn emit_entry_point(
     } else {
         "void".to_string()
     };
+    (ret_ty_str, direct_out_struct_name)
+}
 
-    let stage_kw = match ep.stage {
-        ShaderStage::Compute => "kernel",
-        ShaderStage::Vertex => "vertex",
-        ShaderStage::Fragment => "fragment",
-    };
-
-    let mut params = Vec::new();
-    let mut preamble = String::new();
-
-    if has_vertex_input_attrs {
-        params.push(format!("{stage_in_struct_name} _stage_in [[stage_in]]"));
-    }
-
+fn bind_arguments(
+    signature: &mut Signature,
+    module: &Module,
+    func: &Function,
+    has_vertex_input_attrs: bool,
+) {
+    let Signature { params, preamble } = signature;
     for (idx, arg) in func.arguments.iter().enumerate() {
         let aname = msl_arg_name(arg.name.as_deref(), idx);
         let aty = msl_type_for_handle(module, arg.ty, false);
@@ -350,125 +420,105 @@ pub(super) fn emit_entry_point(
             }
         }
     }
+}
 
-    // Bind used globals in entry point signature (or declare workgroup/private globals in preamble)
-    for &gh in &all_used_globals {
-        let gv = &module.global_variables[gh];
-        let gname = gv.name.as_deref().unwrap_or("g");
-        match gv.space {
-            AddressSpace::Uniform => {
-                if let Some(rb) = gv.binding {
-                    let slot = msl_buffer_slot(rb.group, rb.binding);
-                    let ty = msl_type_for_handle(module, gv.ty, false);
-                    params.push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
-                }
-            }
-            AddressSpace::Immediate | AddressSpace::PushConstant => {
-                let slot = MSL_IMMEDIATE_BUFFER_SLOT;
+fn bind_global(
+    signature: &mut Signature,
+    module: &Module,
+    gv: &GlobalVariable,
+    binding_map: &BindingMap,
+) {
+    let Signature { params, preamble } = signature;
+    let gname = gv.name.as_deref().unwrap_or("g");
+    match gv.space {
+        AddressSpace::Uniform => {
+            if let Some(rb) = gv.binding {
+                let slot = msl_buffer_slot(rb.group, rb.binding);
                 let ty = msl_type_for_handle(module, gv.ty, false);
                 params.push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
             }
-            AddressSpace::Storage { access } => {
-                if let Some(rb) = gv.binding {
-                    let slot = msl_buffer_slot(rb.group, rb.binding);
-                    let qual = if access == StorageAccess::Read {
-                        "const device"
-                    } else {
-                        "device"
-                    };
-                    match &module.types[gv.ty].inner {
-                        TypeInner::Array {
-                            base,
-                            size: ArraySize::Dynamic,
-                            ..
-                        } => {
-                            let elem_ty = msl_type_for_handle(module, *base, false);
-                            params.push(format!("{qual} {elem_ty}* {gname} [[buffer({slot})]]"));
-                        }
-                        _ => {
-                            let ty = msl_type_for_handle(module, gv.ty, false);
-                            params.push(format!("{qual} {ty}& {gname} [[buffer({slot})]]"));
-                        }
-                    }
-                }
-            }
-            AddressSpace::Handle => {
-                if let Some(rb) = gv.binding {
-                    match module.types[gv.ty].inner {
-                        TypeInner::Image { .. } => {
-                            let slot = binding_map.textures[&(rb.group, rb.binding)];
-                            let ty = msl_type_for_handle(module, gv.ty, false);
-                            params.push(format!("{ty} {gname} [[texture({slot})]]"));
-                        }
-                        TypeInner::Sampler { .. } => {
-                            let slot = binding_map.samplers[&(rb.group, rb.binding)];
-                            let ty = msl_type_for_handle(module, gv.ty, false);
-                            params.push(format!("{ty} {gname} [[sampler({slot})]]"));
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
-                TypeInner::Array {
-                    base,
-                    size: ArraySize::Constant(n),
-                    ..
-                } => {
-                    let elem_ty = msl_type_for_handle(module, *base, false);
-                    let count = n.get();
-                    preamble.push_str(&format!("    threadgroup {elem_ty} {gname}[{count}];\n"));
-                }
-                _ => {
-                    let ty = msl_type_for_handle(module, gv.ty, false);
-                    preamble.push_str(&format!("    threadgroup {ty} {gname};\n"));
-                }
-            },
-            AddressSpace::Private | AddressSpace::Function => {
-                let ty = msl_type_for_handle(module, gv.ty, false);
-                if let Some(init) = &gv.init {
-                    let init_msl = translate_expr(module, init, &BTreeSet::new(), &BTreeMap::new());
-                    preamble.push_str(&format!("    {ty} {gname} = {init_msl};\n"));
+        }
+        AddressSpace::Immediate | AddressSpace::PushConstant => {
+            let slot = MSL_IMMEDIATE_BUFFER_SLOT;
+            let ty = msl_type_for_handle(module, gv.ty, false);
+            params.push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
+        }
+        AddressSpace::Storage { access } => {
+            if let Some(rb) = gv.binding {
+                let slot = msl_buffer_slot(rb.group, rb.binding);
+                let qual = if access == StorageAccess::Read {
+                    "const device"
                 } else {
-                    preamble.push_str(&format!("    {ty} {gname} = {{}};\n"));
+                    "device"
+                };
+                match &module.types[gv.ty].inner {
+                    TypeInner::Array {
+                        base,
+                        size: ArraySize::Dynamic,
+                        ..
+                    } => {
+                        let elem_ty = msl_type_for_handle(module, *base, false);
+                        params.push(format!("{qual} {elem_ty}* {gname} [[buffer({slot})]]"));
+                    }
+                    _ => {
+                        let ty = msl_type_for_handle(module, gv.ty, false);
+                        params.push(format!("{qual} {ty}& {gname} [[buffer({slot})]]"));
+                    }
                 }
             }
         }
+        AddressSpace::Handle => {
+            if let Some(rb) = gv.binding {
+                match module.types[gv.ty].inner {
+                    TypeInner::Image { .. } => {
+                        let slot = binding_map.textures[&(rb.group, rb.binding)];
+                        let ty = msl_type_for_handle(module, gv.ty, false);
+                        params.push(format!("{ty} {gname} [[texture({slot})]]"));
+                    }
+                    TypeInner::Sampler { .. } => {
+                        let slot = binding_map.samplers[&(rb.group, rb.binding)];
+                        let ty = msl_type_for_handle(module, gv.ty, false);
+                        params.push(format!("{ty} {gname} [[sampler({slot})]]"));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
+            TypeInner::Array {
+                base,
+                size: ArraySize::Constant(n),
+                ..
+            } => {
+                let elem_ty = msl_type_for_handle(module, *base, false);
+                let count = n.get();
+                preamble.push_str(&format!("    threadgroup {elem_ty} {gname}[{count}];\n"));
+            }
+            _ => {
+                let ty = msl_type_for_handle(module, gv.ty, false);
+                preamble.push_str(&format!("    threadgroup {ty} {gname};\n"));
+            }
+        },
+        AddressSpace::Private | AddressSpace::Function => {
+            let ty = msl_type_for_handle(module, gv.ty, false);
+            if let Some(init) = &gv.init {
+                let init_msl = translate_expr(module, init, &BTreeSet::new(), &BTreeMap::new());
+                preamble.push_str(&format!("    {ty} {gname} = {init_msl};\n"));
+            } else {
+                preamble.push_str(&format!("    {ty} {gname} = {{}};\n"));
+            }
+        }
     }
+}
 
-    let uses_array_length = func.body_src.contains("arrayLength")
+/// Whether the entry point or a function it calls asks for the length of a runtime-sized array.
+fn uses_array_length(module: &Module, func: &Function) -> bool {
+    func.body_src.contains("arrayLength")
         || func.called_functions.iter().any(|cf| {
             module.functions.iter().any(|(_, f)| {
                 f.name.as_deref() == Some(cf.as_str()) && f.body_src.contains("arrayLength")
             })
-        });
-    if uses_array_length {
-        params.push(format!(
-            "constant uint* _wgpu_buffer_sizes [[buffer({MSL_ARRAY_LENGTHS_BUFFER_SLOT})]]"
-        ));
-    }
-
-    let ep_fn_name = if ep.name == "main" {
-        "_wgpu_entry_main"
-    } else {
-        ep.name.as_str()
-    };
-    out.push_str(&format!(
-        "{stage_kw} {ret_ty_str} {ep_fn_name}({}) {{\n",
-        params.join(", ")
-    ));
-    out.push_str(&preamble);
-
-    let body = translate_function_body(
-        module,
-        &func.body_src,
-        &BTreeSet::new(),
-        func_globals,
-        binding_map,
-        direct_out_struct_name.as_deref(),
-    );
-    out.push_str(&body);
-    out.push_str("}\n\n");
+        })
 }
 
 /// The MSL name of an entry-point argument: its escaped WGSL name, or `arg_N` when unnamed.

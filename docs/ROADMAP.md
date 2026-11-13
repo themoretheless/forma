@@ -76,8 +76,8 @@
 
 `gpu-shader`:
 
-- [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`; длинные функции: `emit_entry_point`
-  (225 строк), `parse_str` (218), `rewrite_statements` (216), `resolve_or_insert_type` (192).
+- [ ] Типизированная ошибка трансляции MSL, `validate_wgsl`; длинные функции: `parse_str`
+  (218 строк), `rewrite_statements` (216), `resolve_or_insert_type` (192).
 - [ ] Фронтенд не разбирает `texture_storage_*` (проверено: «unknown type»), хотя бэкенд MSL
   содержит ветки для storage-текстур: поддержать во фронтенде или убрать недостижимые ветки.
 
