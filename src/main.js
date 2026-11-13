@@ -56,6 +56,7 @@ import { createPropertyInspector } from './property-inspector.js';
 import { createBulkEditor } from './bulk-edit.js';
 import { designReferencesInFiles, setDesignData, designReferences } from './design-data.js';
 import { insertableControls } from './control-catalog.js';
+import { createComponentCatalog, domLayoutSnapshot } from './dom-layout-snapshot.js';
 import { createSpacingOverlay } from './spacing-overlay.js';
 import { nativeSnapshot } from './native-snapshot.js';
 import { buildNativeRustExport } from './native-export.js';
@@ -1563,62 +1564,7 @@ const layoutInspector = createLayoutInspector({
 });
 // The palette lists the components this project resolves, and only a change under
 // `components/` can alter that, so typing in the page never rebuilds it.
-let insertSignature = '',
-  insertCatalog = [];
-function projectInserts() {
-  const parts = [];
-  for (const [path, source] of Object.entries(files))
-    if (path.startsWith('components/') && path.endsWith('.ui'))
-      parts.push(path + ':' + source.length);
-  const signature = parts.sort().join('|');
-  if (signature !== insertSignature) {
-    insertSignature = signature;
-    insertCatalog = insertableControls(files);
-  }
-  return insertCatalog;
-}
-function domLayoutSnapshot() {
-  const preview = $('preview');
-  if (!preview) return null;
-  const rootEl = preview.firstElementChild;
-  const r = preview.getBoundingClientRect();
-  const scale = r.width / (preview.offsetWidth || r.width || 1);
-  const width = preview.offsetWidth || r.width / scale || 360,
-    height = preview.offsetHeight || r.height / scale || 220;
-  const controls = [],
-    containers = [];
-  const containerSet = new Set(['frame', 'row', 'column', 'grid', 'stack', 'scroll', 'modal']);
-  for (const el of preview.querySelectorAll('[data-start]')) {
-    if (el === rootEl) continue;
-    const start = Number(el.dataset.start);
-    const er = el.getBoundingClientRect(),
-      pr = (el.parentElement ?? preview).getBoundingClientRect();
-    const bounds = [
-      (er.left - r.left) / scale,
-      (er.top - r.top) / scale,
-      er.width / scale,
-      er.height / scale,
-    ];
-    const coordinateBox = [
-      (pr.left - r.left) / scale,
-      (pr.top - r.top) / scale,
-      pr.width / scale,
-      pr.height / scale,
-    ];
-    const isContainer = [...el.classList].some(c => containerSet.has(c));
-    if (isContainer) containers.push({ start, bounds, coordinateBox });
-    else controls.push({ index: controls.length, start, bounds, coordinateBox });
-  }
-  return {
-    width,
-    height,
-    clip: false,
-    scrollable: false,
-    scrollOffset: [0, 0],
-    controls,
-    containers,
-  };
-}
+const projectInserts = createComponentCatalog(insertableControls);
 const elementTools = createElementTools({
   viewport: $('canvas'),
   artboard: $('preview'),
@@ -1633,7 +1579,8 @@ const elementTools = createElementTools({
       return null;
     const root = compiled?.nodes[0],
       children = root?.children ?? [],
-      scene = renderer === 'vector' ? vectorPreview.layoutSnapshot() : domLayoutSnapshot();
+      scene =
+        renderer === 'vector' ? vectorPreview.layoutSnapshot() : domLayoutSnapshot($('preview'));
     if (!scene) return null;
     return {
       source: files[entry],
@@ -1644,7 +1591,7 @@ const elementTools = createElementTools({
       pick: start => findNodeByStart(root ? [root] : [], start),
       scene,
       grid: lastVisuals.find(v => v.control === -1)?.grid,
-      inserts: projectInserts(),
+      inserts: projectInserts(files),
       visuals: lastVisuals,
       state,
     };
