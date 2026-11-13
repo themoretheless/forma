@@ -104,7 +104,7 @@ it('permits a shared acyclic child and renders both occurrences', () => {
 
 it('admits a deep acyclic tree without recursive validation', () => {
   const ast = parseFormaSource(source),
-    template = ast.rootAstNodes[0];
+    template = ast.rootAstNodes[0]!;
   let cursor = template;
   for (let i = 0; i < 20000; i++) {
     const child = { ...template, children: [] };

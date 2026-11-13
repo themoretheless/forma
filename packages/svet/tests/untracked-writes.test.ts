@@ -22,11 +22,11 @@ it.each(['scalar', 'primed', 'computed', 'tensor'] as const)(
     const values: number[] = [];
     const observer = effect(() => {
       const value = mode === 'tensor' ? tensor()[0] : mode === 'computed' ? derived() : source();
-      values.push(value);
-      if (value >= 0 && value < 3)
+      values.push(value!);
+      if (value! >= 0 && value! < 3)
         untrack(() => {
-          if (mode === 'tensor') tensor.setAt(0, value + 1);
-          else source.set(value + 1);
+          if (mode === 'tensor') tensor.setAt(0, value! + 1);
+          else source.set(value! + 1);
         });
     });
     if (mode === 'primed') source.set(0);

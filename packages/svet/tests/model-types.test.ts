@@ -88,12 +88,12 @@ it('static text checkbox and number models retain their existing conversions', (
     document.body,
   );
   const [a, b, c] = Array.from(document.querySelectorAll('input'));
-  a.value = 'b';
-  a.dispatchEvent(new Event('input'));
-  b.checked = true;
-  b.dispatchEvent(new Event('change'));
-  c.value = '';
-  c.dispatchEvent(new Event('input'));
+  a!.value = 'b';
+  a!.dispatchEvent(new Event('input'));
+  b!.checked = true;
+  b!.dispatchEvent(new Event('change'));
+  c!.value = '';
+  c!.dispatchEvent(new Event('input'));
   expect([text(), checked(), number()]).toEqual(['b', true, 0]);
   app.unmount();
   text.dispose();

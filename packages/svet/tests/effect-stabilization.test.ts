@@ -29,10 +29,10 @@ it.each(['initial', 'primed', 'computed', 'tensor'] as const)(
       try {
         const value =
           mode === 'tensor' ? tensor()[0] : mode === 'computed' ? derived() / 2 : source();
-        values.push(value);
-        if (value >= 0 && value < 4) {
-          if (mode === 'tensor') tensor.setAt(0, value + 1);
-          else source.set(value + 1);
+        values.push(value!);
+        if (value! >= 0 && value! < 4) {
+          if (mode === 'tensor') tensor.setAt(0, value! + 1);
+          else source.set(value! + 1);
         }
       } finally {
         depth--;

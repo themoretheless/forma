@@ -53,10 +53,10 @@ it('resumed radio groups keep option values and synchronize selection', () => {
     ),
     state = resumeContainer(host, snapshot({ value: 'b' })),
     [a, b] = Array.from(host.querySelectorAll('input'));
-  expect([a.value, b.value, a.checked, b.checked]).toEqual(['a', 'b', false, true]);
-  a.click();
+  expect([a!.value, b!.value, a!.checked, b!.checked]).toEqual(['a', 'b', false, true]);
+  a!.click();
   expect(state.value!()).toBe('a');
-  expect(b.checked).toBe(false);
+  expect(b!.checked).toBe(false);
   finish(host);
 });
 

@@ -94,7 +94,7 @@ it.each(['untrack', 'throw', 'action'] as const)(
     const cores = [getWasmCore(), createWasmCoreInstance(), createWasmCoreInstance()];
     const incidental = cores.map(core => withWasmCore(core, () => signal(0)));
     const required = cores.map(core => withWasmCore(core, () => signal(0)));
-    const nestedSource = withWasmCore(mode === 'action' ? cores[0] : cores[2], () => signal(0));
+    const nestedSource = withWasmCore(mode === 'action' ? cores[0]! : cores[2]!, () => signal(0));
     let nestedRuns = 0;
     const handles: ReturnType<typeof effect>[] = [],
       runs = [0, 0, 0];

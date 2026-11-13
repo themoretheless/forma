@@ -812,7 +812,7 @@ it('uses explicit async fallback with input snapshots and no reported GPU traffi
     output,
     async fallbackKernel([values], result) {
       await Promise.resolve();
-      result[0] = values[0]! * 2 + 1;
+      result[0] = values![0]! * 2 + 1;
     },
   });
   input.setAt(0, 99);
@@ -998,7 +998,7 @@ it('an old lost device cannot invalidate its replacement or be reattached as liv
         inputs: [input],
         output,
         fallbackKernel([values], result) {
-          result[0] = values[0]!;
+          result[0] = values![0]!;
         },
       })
     ).backend,
@@ -1017,7 +1017,7 @@ it('reset also cancels a pending asynchronous host fallback', async () => {
     async fallbackKernel([values], result) {
       ready.resolve();
       await release.promise;
-      result[0] = values[0]!;
+      result[0] = values![0]!;
     },
   });
   await ready.promise;
@@ -1136,7 +1136,7 @@ it('removes completed operation cleanup registrations from their owner', async (
       inputs: [input],
       output,
       fallbackKernel([values], result) {
-        result[0] = values[0]!;
+        result[0] = values![0]!;
       },
     });
   });
@@ -2183,7 +2183,7 @@ for (const inherited of [false, true])
         wgsl: '',
         output,
         fallbackKernel([values]: Float32Array[], result: Float32Array) {
-          result[0] = values[0]! * 2;
+          result[0] = values![0]! * 2;
         },
       });
       if (mode === 'sync') dispatchGpuComputeKernel(options);
@@ -2209,7 +2209,7 @@ it('synchronous fallback reads stay untracked while input tensors remain reactiv
       fallbackKernel([values], result) {
         calls++;
         incidental();
-        result[0] = values[0]! * 2;
+        result[0] = values![0]! * 2;
       },
     }),
   );
@@ -2253,7 +2253,7 @@ it('deferred fallback restores its owned core and owner for synchronous resource
           onCleanup(() => {
             cleanups++;
           });
-          result[0] = values[0]! * 2;
+          result[0] = values![0]! * 2;
         },
       });
     }),

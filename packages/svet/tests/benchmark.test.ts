@@ -547,9 +547,9 @@ describe('Svet and local algorithm simulations', () => {
     resetDomMutationCount();
     const reordered = [...initialItems];
     const [lastItem] = reordered.splice(999, 1);
-    reordered.splice(1, 0, lastItem);
+    reordered.splice(1, 0, lastItem!);
     const [midItem] = reordered.splice(500, 1);
-    reordered.splice(10, 0, midItem);
+    reordered.splice(10, 0, midItem!);
 
     // 3A. Svet WASM LIS
     const t0Lis = performance.now();
@@ -694,11 +694,11 @@ describe('Svet and local algorithm simulations', () => {
     }
     for (let i = 0; i < reordered.length; i++) {
       const curr = svelteMatched[i]!;
-      curr.prev = i > 0 ? svelteMatched[i - 1] : null;
-      curr.next = i + 1 < reordered.length ? svelteMatched[i + 1] : null;
+      curr.prev = i > 0 ? svelteMatched[i - 1]! : null;
+      curr.next = i + 1 < reordered.length ? svelteMatched[i + 1]! : null;
     }
-    svelteUl.insertBefore(svelteNextMap.get(lastItem.id)!.el, svelteUl.childNodes[1]!);
-    svelteUl.insertBefore(svelteNextMap.get(midItem.id)!.el, svelteUl.childNodes[10]!);
+    svelteUl.insertBefore(svelteNextMap.get(lastItem!.id)!.el, svelteUl.childNodes[1]!);
+    svelteUl.insertBefore(svelteNextMap.get(midItem!.id)!.el, svelteUl.childNodes[10]!);
     svelteMoves = 2;
     void stashed;
     const svelteListMs = performance.now() - t0SvelteList;

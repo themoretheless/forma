@@ -797,8 +797,8 @@ it('synchronous kernels retain private input/output arrays across WASM memory gr
     output,
     fallbackKernel([values], result) {
       core.memory.grow(1);
-      result.set(values.map(value => value * 2));
-      values[0] = 999;
+      result.set(values!.map(value => value * 2));
+      values![0] = 999;
     },
   });
   expect(Array.from(output.peek())).toEqual([4, 6]);

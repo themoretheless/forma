@@ -1,15 +1,4 @@
 {
   "src/engine/dom.ts": 30,
-  "src/engine/reactivity.ts": 44,
-  "tests/benchmark.test.ts": 6,
-  "tests/effect-stabilization.test.ts": 5,
-  "tests/forma-ast-tree.test.ts": 3,
-  "tests/gpu-compute.test.ts": 7,
-  "tests/gpu-lifecycle.test.ts": 2,
-  "tests/gpu-render-lifecycle.test.ts": 6,
-  "tests/model-types.test.ts": 6,
-  "tests/multi-core-untrack.test.ts": 1,
-  "tests/resumption-parity.test.ts": 6,
-  "tests/svet.test.ts": 2,
-  "tests/untracked-writes.test.ts": 5
+  "src/engine/reactivity.ts": 44
 }

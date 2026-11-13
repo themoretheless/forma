@@ -643,7 +643,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         output: out,
         fallbackKernel: ([inA, inB], dst) => {
           for (let i = 0; i < dst.length; i++) {
-            dst[i] = inA[i]! + inB[i]!;
+            dst[i] = inA![i]! + inB![i]!;
           }
         },
       });
