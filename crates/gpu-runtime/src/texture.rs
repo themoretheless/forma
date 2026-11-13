@@ -165,6 +165,73 @@ pub struct Texture {
 }
 
 impl Texture {
+    /// Why a copy region is not inside mip `mip_level` of this texture, if it is not.
+    pub(crate) fn region_error(
+        &self,
+        mip_level: u32,
+        origin: Origin3d,
+        size: Extent3d,
+    ) -> Option<String> {
+        let mip_extent = |extent: u32| (extent >> mip_level.min(31)).max(1);
+        let layers = if self.dimension == TextureDimension::D3 {
+            mip_extent(self.size.depth_or_array_layers)
+        } else {
+            self.size.depth_or_array_layers.max(1)
+        };
+        let inside = |start: u32, length: u32, limit: u32| {
+            start.checked_add(length).is_some_and(|end| end <= limit)
+        };
+        let fits = mip_level < self.mip_level_count.max(1)
+            && inside(origin.x, size.width, mip_extent(self.size.width))
+            && inside(origin.y, size.height, mip_extent(self.size.height))
+            && inside(origin.z, size.depth_or_array_layers.max(1), layers);
+        (!fits).then(|| {
+            format!(
+                "region {size:?} at {origin:?} of mip {mip_level} is outside a texture of {:?}",
+                self.size
+            )
+        })
+    }
+
+    /// Why `data_len` bytes laid out by `layout` do not hold a region of `size` texels, if they
+    /// do not. The last row of the last image may stop at its last texel.
+    pub(crate) fn data_error(
+        &self,
+        data_len: usize,
+        layout: &TexelCopyBufferLayout,
+        size: Extent3d,
+    ) -> Option<String> {
+        let texel = u64::from(self.format.bytes_per_pixel());
+        let stride = u64::from(layout.row_stride(size.width, self.format));
+        // A block-compressed format has no byte count per texel: its rows are rows of 4x4 blocks
+        // and each takes the whole stride.
+        let (rows, last_row) = if texel == 0 {
+            (u64::from(size.height.div_ceil(4)), stride)
+        } else {
+            (u64::from(size.height), u64::from(size.width) * texel)
+        };
+        let images = u64::from(size.depth_or_array_layers.max(1));
+        // `None` when the byte count does not fit in 64 bits, which no data can hold.
+        let needed = (|| {
+            let image = rows
+                .saturating_sub(1)
+                .checked_mul(stride)?
+                .checked_add(last_row)?;
+            let image_stride =
+                u64::from(layout.rows_per_image.unwrap_or(size.height)).checked_mul(stride)?;
+            (images - 1)
+                .checked_mul(image_stride)?
+                .checked_add(image)?
+                .checked_add(layout.offset)
+        })();
+        match needed {
+            Some(needed) if needed <= data_len as u64 => None,
+            _ => Some(format!(
+                "{data_len} bytes with layout {layout:?} do not hold a region of {size:?}"
+            )),
+        }
+    }
+
     pub fn create_view(&self, desc: &TextureViewDescriptor<'_>) -> TextureView {
         TextureView {
             texture: self.reinterpreted_as(desc.dimension),

@@ -41,26 +41,13 @@ impl CommandEncoder {
         origin: Origin3d,
         size: Extent3d,
     ) -> bool {
-        let mip_extent = |extent: u32| (extent >> mip_level.min(31)).max(1);
-        let layers = if texture.dimension == crate::TextureDimension::D3 {
-            mip_extent(texture.size.depth_or_array_layers)
-        } else {
-            texture.size.depth_or_array_layers.max(1)
-        };
-        let inside = |start: u32, length: u32, limit: u32| {
-            start.checked_add(length).is_some_and(|end| end <= limit)
-        };
-        let fits = mip_level < texture.mip_level_count.max(1)
-            && inside(origin.x, size.width, mip_extent(texture.size.width))
-            && inside(origin.y, size.height, mip_extent(texture.size.height))
-            && inside(origin.z, size.depth_or_array_layers.max(1), layers);
-        if !fits {
-            self.refuse(format!(
-                "{what}: region {size:?} at {origin:?} of mip {mip_level} is outside a texture of {:?}",
-                texture.size
-            ));
+        match texture.region_error(mip_level, origin, size) {
+            Some(problem) => {
+                self.refuse(format!("{what}: {problem}"));
+                false
+            }
+            None => true,
         }
-        fits
     }
 
     /// Whether the bytes a texture copy reads from or writes to `buffer` lie inside it; reports a

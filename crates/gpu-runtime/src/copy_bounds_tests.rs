@@ -280,3 +280,53 @@ fn a_texture_copy_stays_inside_the_texture() {
         "{between:?}"
     );
 }
+
+/// Writes `data` to a 4x4 RGBA texture and returns the validation error, if any.
+fn write(data: &[u8], offset: u64, origin: Origin3d, size: Extent3d) -> Option<Option<Error>> {
+    let (device, queue) = device()?;
+    let texture = texture(&device);
+    let scope = device.push_error_scope(ErrorFilter::Validation);
+    queue.write_texture(
+        whole(&texture, origin),
+        data,
+        TexelCopyBufferLayout {
+            offset,
+            bytes_per_row: Some(SIDE * 4),
+            rows_per_image: Some(SIDE),
+        },
+        size,
+    );
+    Some(block_on_ready(scope.pop()))
+}
+
+#[test]
+fn write_texture_reads_only_inside_the_data() {
+    let full = (SIDE * SIDE * 4) as usize;
+    let accepted = write(&vec![7; full], 0, Origin3d::ZERO, extent(SIDE, SIDE));
+    let Some(error) = accepted else { return };
+    assert!(error.is_none(), "{error:?}");
+    // The last row may stop at its last texel.
+    let tight = write(&vec![7; full + 4], 4, Origin3d::ZERO, extent(SIDE, SIDE));
+    assert!(matches!(tight, Some(None)), "{tight:?}");
+
+    for (len, offset) in [(full - 1, 0), (full, 4), (16, 0), (full, u64::MAX - 3)] {
+        let refused = write(&vec![7; len], offset, Origin3d::ZERO, extent(SIDE, SIDE));
+        assert!(
+            matches!(refused, Some(Some(Error::Validation { .. }))),
+            "{len} bytes at {offset}: {refused:?}"
+        );
+    }
+}
+
+#[test]
+fn write_texture_stays_inside_the_texture() {
+    let full = (SIDE * SIDE * 4) as usize;
+    let outside = write(
+        &vec![7; full],
+        0,
+        Origin3d { x: 1, y: 0, z: 0 },
+        extent(SIDE, SIDE),
+    );
+    let Some(error) = outside else { return };
+    assert!(matches!(error, Some(Error::Validation { .. })), "{error:?}");
+}

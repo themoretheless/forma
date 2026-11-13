@@ -906,6 +906,19 @@ impl Queue {
         data_layout: TexelCopyBufferLayout,
         size: Extent3d,
     ) {
+        if data.is_empty() || size.width == 0 || size.height == 0 {
+            return;
+        }
+        let problem = texture
+            .texture
+            .region_error(texture.mip_level, texture.origin, size)
+            .or_else(|| texture.texture.data_error(data.len(), &data_layout, size));
+        if let Some(problem) = problem {
+            self.error_sink
+                .capture()
+                .command_failure(validation_error(format!("write_texture: {problem}")));
+            return;
+        }
         self.metal.write_texture(texture, data, data_layout, size);
     }
 
