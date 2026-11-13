@@ -26,8 +26,10 @@ import { createLinker } from './compiler/link.js';
 import { createInstanceCompiler } from './compiler/instance.js';
 import { createSceneLayout } from './compiler/scene-layout.js';
 import { createInstantiator } from './compiler/instantiate.js';
+import { sharedDeclarations } from './compiler/declarations.js';
+import { sceneModals } from './compiler/modals.js';
 import { builtinSources, fallback, primitiveTypes } from './compiler/builtins.js';
-import { cell, color, gap, insets, num, sizes } from './compiler/content-layout.js';
+import { cell, gap, insets, sizes } from './compiler/content-layout.js';
 export { evaluate } from './component-semantics.js';
 export { contentProps, layoutProps, standard } from './compiler/vocabulary.js';
 
@@ -95,7 +97,6 @@ function sceneModalNodes(rootOrChildren) {
     : (rootOrChildren?.children ?? []);
   return children.filter(n => n.type === 'Modal');
 }
-const modalProps = new Set(['key', 'x', 'y', 'width', 'height', 'backdrop', 'dismiss', 'open']);
 // Definition linking is also consumed by Rust code generation. It deliberately
 // runs before evaluating props/state so generated forms retain dependencies.
 export function linkComponentDefinitions(files) {
@@ -129,44 +130,7 @@ function compile(files, entry, state, metrics, read, links) {
     }
     return { definitions: definitions(), fallback };
   }
-  const enums = {};
-  const tokens = {};
-  const i18n = {};
-  const styles = {};
-  if (document.uses?.length) {
-    const resolveRel = (basePath, rel) => {
-      const parts = basePath.includes('/') ? basePath.split('/').slice(0, -1) : [];
-      for (const p of String(rel).split('/')) {
-        if (!p || p === '.') continue;
-        if (p === '..') parts.pop();
-        else parts.push(p);
-      }
-      return parts.join('/');
-    };
-    for (const u of document.uses) {
-      const uPath = resolveRel(entry, u);
-      if (!own(files, uPath)) throw Error(`Импортируемый файл не найден: ${uPath}`);
-      const uDoc = read(files[uPath], uPath);
-      Object.assign(enums, uDoc.enums ?? {}, uDoc.structs ?? {});
-      if (uDoc.structConstraints)
-        enums._structConstraints = {
-          ...(enums._structConstraints ?? {}),
-          ...clone(uDoc.structConstraints),
-        };
-      Object.assign(tokens, uDoc.tokens ?? {});
-      Object.assign(i18n, uDoc.i18n ?? {});
-      Object.assign(styles, uDoc.styles ?? {});
-    }
-  }
-  Object.assign(enums, document.enums, document.structs);
-  if (document.structConstraints && Object.keys(document.structConstraints).length)
-    enums._structConstraints = {
-      ...(enums._structConstraints ?? {}),
-      ...clone(document.structConstraints),
-    };
-  Object.assign(tokens, document.tokens);
-  Object.assign(i18n, document.i18n);
-  Object.assign(styles, document.styles);
+  const { enums, tokens, i18n, styles } = sharedDeclarations(document, entry, files, read);
   visit(scene, node => {
     if (
       !primitiveTypes.has(node.type) &&
@@ -313,39 +277,7 @@ function compile(files, entry, state, metrics, read, links) {
     if (own(rootProps, 'height') && intrinsicLength(rootProps.height))
       rootHeight = naturalContainer(fit, 1, intrinsicScene);
   }
-  // A modal layer is a positioned surface over the whole frame. Children are
-  // laid out inside it and emitted with coordinates relative to the surface.
-  const modals = modalNodes.map(node => {
-    const p = node.props;
-    for (const k of Object.keys(p))
-      if (!modalProps.has(k)) throw Error(`Modal.${k} не поддерживается`);
-    for (const [event, action] of Object.entries(node.events ?? {})) {
-      if (event !== 'dismissed')
-        throw Error(`Modal: обработчик ${event} не поддерживается; используйте dismissed`);
-      if (!/^actions\.[A-Za-z_]\w*$/.test(action) || node.eventArgs?.[event]?.length)
-        throw Error('Modal.dismissed требует actions.<имя>() без аргументов');
-    }
-    if (Object.keys(node.bindings ?? {}).length) throw Error('Modal не поддерживает привязки');
-    if (p.key !== undefined && (typeof p.key !== 'string' || !p.key))
-      throw Error('Modal.key ожидает непустую строку');
-    for (const k of ['dismiss', 'open'])
-      if (p[k] !== undefined && typeof p[k] !== 'boolean')
-        throw Error(`Modal.${k} ожидает boolean`);
-    const backdrop = color(p.backdrop ?? '#00000080');
-    if (typeof backdrop !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(backdrop))
-      throw Error('Modal.backdrop принимает hex-цвет');
-    const width = num(p.width ?? 320, 'Modal.width'),
-      height = num(p.height ?? 200, 'Modal.height');
-    const x =
-        p.x === undefined ? Math.max(0, Math.round((rootWidth - width) / 2)) : num(p.x, 'Modal.x'),
-      y =
-        p.y === undefined
-          ? Math.max(0, Math.round((rootHeight - height) / 2))
-          : num(p.y, 'Modal.y');
-    for (const child of node.children)
-      if (['Scroll', 'Modal'].includes(child.type)) throw Error(`Modal не содержит ${child.type}`);
-    return { node, box: [x, y, width, height], backdrop, controls: node.children };
-  });
+  const modals = sceneModals(modalNodes, rootWidth, rootHeight);
   const rootVisual = {
     id: -1,
     parent: null,
