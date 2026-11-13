@@ -14,6 +14,7 @@ import { mountMinimalShell } from './minimal-shell.js';
 import { createStudioEvents, studioEventTypes } from './studio-events.js';
 import { createEventScope } from './event-scope.js';
 import { createLatestOnly } from './latest-only.js';
+import { createOperationHistory } from './operation-history.js';
 import { createIdeCommands } from './mcp-commands.js';
 import { renderHtmlPreview } from './html-preview.js';
 import { mountDevBridge } from './dev-bridge.js';
@@ -269,33 +270,9 @@ async function activateTreeFile(path) {
     document.body.classList.add('show-code');
   }
 }
-const treeUndoStack = [],
-  treeRedoStack = [];
-function pushTreeHistory(op) {
-  treeUndoStack.push(op);
-  if (treeUndoStack.length > 50) treeUndoStack.shift();
-  treeRedoStack.length = 0;
-}
-async function undoTreeOperation() {
-  const op = treeUndoStack.pop();
-  if (!op) return false;
-  const ok = await op.undo();
-  if (ok !== false) {
-    treeRedoStack.push(op);
-    $('status').textContent = `Отменено: ${op.label}`;
-  }
-  return true;
-}
-async function redoTreeOperation() {
-  const op = treeRedoStack.pop();
-  if (!op) return false;
-  const ok = await op.redo();
-  if (ok !== false) {
-    treeUndoStack.push(op);
-    $('status').textContent = `Повторено: ${op.label}`;
-  }
-  return true;
-}
+const treeHistory = createOperationHistory({
+  announce: text => ($('status').textContent = text),
+});
 async function applyTreeRename(fromPath, toPath) {
   if (fromPath in files) {
     files[toPath] = files[fromPath];
@@ -316,7 +293,7 @@ async function moveTreeItem(fromPath, targetDir) {
   const toPath = targetDir ? `${targetDir}/${name}` : name;
   if (toPath === fromPath || toPath.startsWith(fromPath + '/')) return;
   if (await applyTreeRename(fromPath, toPath)) {
-    pushTreeHistory({
+    treeHistory.push({
       label: `перемещение «${name}»`,
       undo: () => applyTreeRename(toPath, fromPath),
       redo: () => applyTreeRename(fromPath, toPath),
@@ -1088,7 +1065,7 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
       const parent = parentDirOf(targetPath);
       const toPath = parent ? `${parent}/${val}` : val;
       if (await applyTreeRename(targetPath, toPath)) {
-        pushTreeHistory({
+        treeHistory.push({
           label: `переименование «${initialName}» → «${val}»`,
           undo: () => applyTreeRename(toPath, targetPath),
           redo: () => applyTreeRename(targetPath, toPath),
@@ -1405,12 +1382,12 @@ codeEvents.listen(document, 'keydown', e => {
   ) {
     const isZ = e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'я';
     const isY = e.code === 'KeyY' || e.key.toLowerCase() === 'y' || e.key.toLowerCase() === 'н';
-    if (isZ && !e.shiftKey && treeUndoStack.length) {
+    if (isZ && !e.shiftKey && treeHistory.canUndo) {
       e.preventDefault();
-      undoTreeOperation();
-    } else if (((isZ && e.shiftKey) || isY) && treeRedoStack.length) {
+      treeHistory.undo();
+    } else if (((isZ && e.shiftKey) || isY) && treeHistory.canRedo) {
       e.preventDefault();
-      redoTreeOperation();
+      treeHistory.redo();
     }
   }
 });
