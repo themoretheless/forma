@@ -1,0 +1,420 @@
+//! Keyboard, pointer, touch and focus input.
+
+use super::*;
+
+impl<A: NativeApp + 'static> NativeHost<A> {
+    pub(super) fn modifiers(&self) -> NativeModifiers {
+        NativeModifiers {
+            shift: self.shift,
+            control: self.control,
+            alt: self.alt,
+            command: self.command,
+        }
+    }
+
+    /// Offers a key to the application ahead of the runtime; `true` means handled.
+    pub(super) fn offer_key(
+        &mut self,
+        logical_key: &Key,
+        physical_key: &PhysicalKey,
+        text: Option<&str>,
+        pressed: bool,
+        repeat: bool,
+    ) -> Result<bool, String> {
+        let event = NativeKeyEvent {
+            logical_key,
+            physical_key,
+            text,
+            pressed,
+            repeat,
+            modifiers: self.modifiers(),
+            composing: self.composing,
+        };
+        self.app.on_key_event(&event)
+    }
+
+    pub(super) fn pointer_event(&mut self, kind: NativePointerKind) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let event = NativePointerEvent {
+            kind,
+            x,
+            y,
+            modifiers: self.modifiers(),
+        };
+        self.app.on_pointer_event(&event)
+    }
+
+    /// Primary button on the application (not the chooser): the runtime gets the
+    /// press or release first, then a completed double click is reported.
+    pub(super) fn primary_button(&mut self, pressed: bool, at: Instant) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let kind = if pressed { 1 } else { 2 };
+        self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
+        if pressed && self.clicks.press(at, x, y) {
+            self.pointer_event(NativePointerKind::DoubleClick)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn focus_sensitive_input(
+        &mut self,
+        input: &mut dyn FnMut(&mut crate::Runtime),
+    ) -> Result<(), String> {
+        if !self.composing && self.composition_owner.is_none() {
+            return self.app.update(input);
+        }
+        let mut retired = false;
+        let mut owner = self.composition_owner;
+        let result = self.app.update(&mut |runtime| {
+            let previous = runtime.native_editor_session();
+            owner = owner.or(previous);
+            input(runtime);
+            let next = runtime.native_editor_session();
+            if previous.is_none() || previous != next {
+                runtime.text_preedit("");
+                retired = true;
+            }
+        });
+        self.composition_owner = owner;
+        if retired {
+            self.composing = false;
+            self.ime_cancelled = true;
+            self.composition_owner = None;
+        }
+        result
+    }
+
+    pub(super) fn touch_input(
+        &mut self,
+        device: winit::event::DeviceId,
+        id: u64,
+        phase: TouchPhase,
+        x: f32,
+        y: f32,
+    ) -> Result<(), String> {
+        let owner = (device, id);
+        if phase == TouchPhase::Started {
+            if self.touch_owner.is_some() {
+                return Ok(());
+            }
+            self.touch_owner = Some(owner);
+        } else if self.touch_owner != Some(owner) {
+            return Ok(());
+        }
+        if matches!(phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+            self.touch_owner = None;
+        }
+        self.pointer = (x, y);
+        match phase {
+            TouchPhase::Started => {
+                self.touch_last = Some((x, y));
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(x, y, 0);
+                    chooser.pointer(x, y, 1);
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| {
+                        runtime.pointer(x, y, 0);
+                        runtime.pointer(x, y, 1);
+                    })?;
+                }
+            }
+            TouchPhase::Moved => {
+                let scroll = touch_scroll_step(&mut self.touch_last, x, y);
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(x, y, 0);
+                    if let Some((dx, dy)) = scroll {
+                        chooser.scroll(dx, dy);
+                    }
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| {
+                        runtime.pointer(x, y, 0);
+                        if let Some((dx, dy)) = scroll {
+                            runtime.scroll(dx, dy);
+                        }
+                    })?;
+                }
+            }
+            TouchPhase::Ended => {
+                self.touch_last = None;
+                if let Some(chooser) = &mut self.chooser {
+                    let before_clicks = chooser.clicks();
+                    chooser.pointer(x, y, 2);
+                    if chooser.clicks() != before_clicks {
+                        let chosen = if chooser.key() == "choose_egui" {
+                            UiBackend::Egui
+                        } else {
+                            UiBackend::Svet
+                        };
+                        self.select_backend(chosen);
+                    }
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 2))?;
+                }
+            }
+            TouchPhase::Cancelled => {
+                self.touch_last = None;
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(-1., -1., 3);
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(-1., -1., 3))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn focus_changed(&mut self, focused: bool) -> Result<(), String> {
+        if !focused {
+            // OS focus loss may omit the matching IME/modifier/touch end events.
+            self.ime_cancelled |= self.composing || self.composition_owner.is_some();
+            self.composing = false;
+            self.shift = false;
+            self.command = false;
+            self.control = false;
+            self.alt = false;
+            self.touch_last = None;
+            self.touch_owner = None;
+        }
+        let mut remembered = self.blurred_editor.take();
+        if let Some(chooser) = &mut self.chooser {
+            chooser.focus(focused);
+            if !focused {
+                chooser.pointer(-1., -1., 3);
+            }
+        } else {
+            let result = self.app.update(&mut |runtime| {
+                if !focused {
+                    if runtime.text_editing() {
+                        remembered = Some(runtime.control_key(runtime.focused_index() as usize));
+                    }
+                    runtime.focus(false);
+                    runtime.pointer(-1., -1., 3);
+                } else {
+                    // An activation click may select an editor before the OS
+                    // Focused(true) event arrives. Its newer choice supersedes
+                    // the editor remembered at blur.
+                    if runtime.focused_index() >= 0 {
+                        return;
+                    }
+                    // Resolve the stable key again: controls may reorder while the
+                    // window is inactive. Ambiguous/noneditable/disabled targets
+                    // fall back to the runtime's ordinary focus admission.
+                    let restored = remembered.as_ref().is_some_and(|key| {
+                        let target = {
+                            let mut matches = (0..runtime.control_count())
+                                .filter(|index| runtime.control_key(*index) == *key);
+                            let first = matches.next();
+                            if matches.next().is_some() {
+                                None
+                            } else {
+                                first
+                            }
+                        };
+                        target.is_some_and(|index| {
+                            runtime.control_editable(index) && runtime.focus_control(index)
+                        })
+                    });
+                    if !restored {
+                        runtime.focus(true);
+                    }
+                }
+            });
+            if !focused || result.is_err() {
+                self.blurred_editor = remembered;
+            }
+            result?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn keyboard_input(&mut self, event: winit::event::KeyEvent) -> Result<(), String> {
+        let pressed = event.state == ElementState::Pressed;
+        match host_shortcut(
+            self.config.mode,
+            &event.logical_key,
+            pressed,
+            event.repeat,
+            cfg!(feature = "native-test-hooks"),
+        ) {
+            Some(HostShortcut::NextPlatform) => {
+                let next = self.platform.next();
+                self.select_platform(next);
+                return Ok(());
+            }
+            Some(HostShortcut::ToggleBackend) => {
+                let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
+                self.select_backend(next);
+                return Ok(());
+            }
+            Some(HostShortcut::InjectDeviceLoss) => {
+                #[cfg(feature = "native-test-hooks")]
+                if let Some(gpu) = &self.gpu {
+                    gpu.inject_device_loss_for_testing();
+                }
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return Ok(());
+            }
+            None => {}
+        }
+        if let Some(chooser) = &mut self.chooser {
+            if pressed && !event.repeat {
+                match &event.logical_key {
+                    Key::Character(c) if c.as_str() == "1" || c.eq_ignore_ascii_case("e") => {
+                        self.select_backend(UiBackend::Egui);
+                        return Ok(());
+                    }
+                    Key::Character(c) if c.as_str() == "2" || c.eq_ignore_ascii_case("s") => {
+                        self.select_backend(UiBackend::Svet);
+                        return Ok(());
+                    }
+                    Key::Named(NamedKey::Tab) => {
+                        if !chooser.focus_next(self.shift) {
+                            chooser.focus(false);
+                            chooser.focus_next(self.shift);
+                        }
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            let key = match &event.logical_key {
+                Key::Named(NamedKey::Space) => 1,
+                Key::Named(NamedKey::Enter) => 2,
+                Key::Named(NamedKey::Escape) => 3,
+                _ => 0,
+            };
+            let before_clicks = chooser.clicks();
+            chooser.key_event(key, pressed, event.repeat);
+            if chooser.clicks() != before_clicks {
+                let chosen = if chooser.key() == "choose_egui" {
+                    UiBackend::Egui
+                } else {
+                    UiBackend::Svet
+                };
+                self.select_backend(chosen);
+            }
+            return Ok(());
+        }
+        if self.offer_key(
+            &event.logical_key,
+            &event.physical_key,
+            event.text.as_deref(),
+            pressed,
+            event.repeat,
+        )? {
+            return Ok(());
+        }
+        let named = match &event.logical_key {
+            Key::Named(key) => format!("{key:?}"),
+            _ => String::new(),
+        };
+        if pressed {
+            let mut handled = false;
+            self.app
+                .update(&mut |runtime| handled = runtime.range_key(&named))?;
+            if handled {
+                return Ok(());
+            }
+        }
+
+        let mut editing = false;
+        self.app
+            .update(&mut |runtime| editing = runtime.text_editing())?;
+        if editing
+            && !matches!(
+                &event.logical_key,
+                Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)
+            )
+        {
+            if pressed && !self.composing {
+                // Ctrl+Option belongs to macOS accessibility, not text editing.
+                if cfg!(target_os = "macos") && self.control && self.alt {
+                    return Ok(());
+                }
+                let key = match &event.logical_key {
+                    Key::Character(text) => text.to_string(),
+                    Key::Named(_) => named,
+                    _ => String::new(),
+                };
+                let shift = self.shift;
+                // Ctrl+Alt is AltGr for text-producing keys on Windows and Linux.
+                let alt_gr = cfg!(not(target_os = "macos"))
+                    && self.command
+                    && self.alt
+                    && event.text.is_some();
+                let command = self.command && !alt_gr;
+                let word_modifier = if cfg!(target_os = "macos") {
+                    self.alt && !self.command
+                } else {
+                    self.command && !self.alt
+                };
+                let key = if command {
+                    crate::native_clipboard::command_key(&event.physical_key, &key)
+                } else {
+                    &key
+                };
+                self.app.update(&mut |runtime| {
+                    let word_handled = word_modifier && runtime.text_word_key(key, shift);
+                    let clipboard_handled = !word_handled
+                        && command
+                        && crate::native_clipboard::handle_key(runtime, key);
+                    if !word_handled
+                        && !clipboard_handled
+                        && !runtime.text_key(key, shift, command)
+                        && !command
+                    {
+                        if let Some(text) = &event.text {
+                            if !text.chars().any(char::is_control) {
+                                runtime.text_insert(text);
+                            }
+                        }
+                    }
+                })?;
+            }
+            return Ok(());
+        }
+        self.navigation_key(&event.logical_key, pressed, event.repeat)
+    }
+
+    pub(super) fn navigation_key(
+        &mut self,
+        logical_key: &Key,
+        pressed: bool,
+        repeat: bool,
+    ) -> Result<(), String> {
+        let cancel_composition = (self.composing || self.composition_owner.is_some())
+            && pressed
+            && !repeat
+            && matches!(logical_key, Key::Named(NamedKey::Tab | NamedKey::Escape));
+        if cancel_composition {
+            self.composing = false;
+            self.ime_cancelled = true;
+        }
+        let key = match logical_key {
+            Key::Named(NamedKey::Space) => 1,
+            Key::Named(NamedKey::Enter) => 2,
+            Key::Named(NamedKey::Escape) => 3,
+            Key::Named(NamedKey::ArrowUp) => 4,
+            Key::Named(NamedKey::ArrowDown) => 5,
+            _ => 0,
+        };
+        let shift = self.shift;
+        self.app.update(&mut |runtime| {
+            if cancel_composition {
+                runtime.text_preedit("");
+            }
+            if *logical_key == Key::Named(NamedKey::Tab)
+                && pressed
+                && !repeat
+                && !runtime.focus_next(shift)
+            {
+                runtime.focus(false);
+                runtime.focus_next(shift);
+            }
+            runtime.key_event(key, pressed, repeat);
+        })?;
+        Ok(())
+    }
+}
