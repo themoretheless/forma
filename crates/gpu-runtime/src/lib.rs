@@ -143,29 +143,26 @@ impl Instance {
     where
         W: raw_window_handle::HasWindowHandle,
     {
-        let mut metal_layer = None;
-        let mut metal_view = None;
-        if let Ok(handle) = target.window_handle() {
-            match handle.as_raw() {
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                raw_window_handle::RawWindowHandle::AppKit(appkit) => {
-                    let view_ptr = appkit.ns_view.as_ptr();
-                    metal_layer =
-                        unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) };
-                    metal_view = unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
-                        .map(Arc::new);
-                }
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                raw_window_handle::RawWindowHandle::UiKit(uikit) => {
-                    let view_ptr = uikit.ui_view.as_ptr();
-                    metal_layer =
-                        unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) };
-                    metal_view = unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
-                        .map(Arc::new);
-                }
-                _ => {}
+        // Only AppKit and UIKit views carry a Metal layer; any other window has none.
+        let (metal_layer, metal_view) = match target.window_handle().map(|handle| handle.as_raw()) {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            Ok(raw_window_handle::RawWindowHandle::AppKit(appkit)) => {
+                let view_ptr = appkit.ns_view.as_ptr();
+                (
+                    unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) },
+                    unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }.map(Arc::new),
+                )
             }
-        }
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            Ok(raw_window_handle::RawWindowHandle::UiKit(uikit)) => {
+                let view_ptr = uikit.ui_view.as_ptr();
+                (
+                    unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) },
+                    unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }.map(Arc::new),
+                )
+            }
+            _ => (None, None),
+        };
         Ok(Surface {
             config: Arc::new(Mutex::new(None)),
             metal_layer,
