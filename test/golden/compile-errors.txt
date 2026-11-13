@@ -1,0 +1,78 @@
+cell together with row
+    cell: ожидаются row column без отдельных row/column
+cell outside the grid
+    Ячейка за пределами rows
+unknown text property
+    Неизвестное свойство Text.fontFamily
+wrap is not a boolean
+    Text.wrap ожидает boolean
+unknown component
+    Компонент не найден: components/Video.ui
+negative star weight
+    Арифметика ожидает конечное число
+unsupported track size
+    Неподдерживаемый размер wide
+children without a presenter
+    Для дочернего контента нужен ContentPresenter с key: content
+old import syntax
+    Строка 1: Ожидается component или design. Старый preview/state больше не поддерживается; используйте design с переопределениями по key.
+unknown property of a component
+    Неизвестное свойство Button.nope
+two root elements
+    Ожидается один корневой Frame, Row, Column, Grid или Stack
+presenter without a key
+    ContentPresenter требует key
+two presenters with one key
+    Повторный key a
+composition cycle
+    Цикл композиции: A → B → A
+missing state value
+    Нет значения state.open
+empty key
+    key должен быть непустой строкой
+content given to a component without a presenter
+    Для дочернего контента нужен ContentPresenter с key: content
+design statement without a block
+    Строка 1: Ожидалось {, получено ;
+enum declared twice with different members
+    Конфликт enum Kind
+forward at component level
+    Строка 1: Ожидалось props, получено clicked
+override that is not an element
+    override должен вернуть элемент или base.content
+inheritance deeper than the limit
+    Глубина наследования компонентов превышает 32
+file declares another component
+    components/Button.ui: ожидался component Button
+scroll next to other controls
+    Frame принимает 0…1024 контролов либо один Scroll с контролами
+content padding of five sizes
+    padding: от 1 до 4 размеров
+content size above the limit
+    fontSize: ожидается размер 0…4096
+content gap of three sizes
+    gap: один или два размера
+content font family
+    Text.fontFamily ожидает 'sans' или 'mono'
+wrapped text without metrics
+    Перенос текста требует метрик Rust runtime
+multiline text without metrics
+    Многострочный текст требует метрик Rust runtime
+content property not supported
+    Text.opacity пока не поддерживается в контенте
+interactive element in content
+    Контент кнопки пока не содержит отдельных интерактивных элементов
+content brush background
+    Rectangle.background в контенте принимает только hex; Brush и его состояния пока не поддерживаются
+content clip is not a boolean
+    Row.clip ожидает boolean
+content text with children
+    Text не принимает дочерние элементы
+content image missing from the project
+    SVG-файл не найден в проекте: assets/none.svg
+zero star weight
+    Вес * должен быть положительным
+content wrap is not a boolean
+    Text.wrap ожидает boolean
+content cell outside the grid
+    Ячейка за пределами columns
