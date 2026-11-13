@@ -9,7 +9,7 @@ use forma::{
     frame_stats::{FrameRate, FrameStats},
     native_window::{
         ImeSession, NativeModifiers, TargetPlatform, TextKey, UiBackend, activation_key,
-        apply_egui_frame_bar, build_chooser_runtime, focus_traversal, text_edit_key,
+        apply_egui_frame_bar, build_chooser_runtime, chooser_pick, focus_traversal, text_edit_key,
     },
 };
 use std::{
@@ -757,19 +757,13 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 } => {
                     let mut picked = None;
                     if let Some(chooser) = &mut self.chooser {
-                        let before = chooser.clicks();
-                        chooser.pointer(
-                            self.pointer.0,
-                            self.pointer.1,
-                            if state == ElementState::Pressed { 1 } else { 2 },
-                        );
-                        if chooser.clicks() != before {
-                            picked = Some(if chooser.key() == "choose_egui" {
-                                UiBackend::Egui
-                            } else {
-                                UiBackend::Svet
-                            });
-                        }
+                        picked = chooser_pick(chooser, |chooser| {
+                            chooser.pointer(
+                                self.pointer.0,
+                                self.pointer.1,
+                                if state == ElementState::Pressed { 1 } else { 2 },
+                            );
+                        });
                     }
                     if let Some(backend) = picked {
                         self.select_backend(backend);
@@ -796,15 +790,9 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                             }
                             TouchPhase::Ended => {
                                 self.touch_last = None;
-                                let before = chooser.clicks();
-                                chooser.pointer(p.x, p.y, 2);
-                                if chooser.clicks() != before {
-                                    picked = Some(if chooser.key() == "choose_egui" {
-                                        UiBackend::Egui
-                                    } else {
-                                        UiBackend::Svet
-                                    });
-                                }
+                                picked = chooser_pick(chooser, |chooser| {
+                                    chooser.pointer(p.x, p.y, 2);
+                                });
                             }
                             TouchPhase::Cancelled => {
                                 self.touch_last = None;
@@ -858,15 +846,9 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                             focus_traversal(chooser, self.modifiers.shift);
                         }
                         let key = activation_key(&event.logical_key);
-                        let before = chooser.clicks();
-                        chooser.key_event(key, pressed, event.repeat);
-                        if chooser.clicks() != before {
-                            picked = Some(if chooser.key() == "choose_egui" {
-                                UiBackend::Egui
-                            } else {
-                                UiBackend::Svet
-                            });
-                        }
+                        picked = chooser_pick(chooser, |chooser| {
+                            chooser.key_event(key, pressed, event.repeat);
+                        });
                     }
                     if let Some(backend) = picked {
                         self.select_backend(backend);

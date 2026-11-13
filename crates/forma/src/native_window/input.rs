@@ -137,14 +137,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             TouchPhase::Ended => {
                 self.touch_last = None;
                 if let Some(chooser) = &mut self.chooser {
-                    let before_clicks = chooser.clicks();
-                    chooser.pointer(x, y, 2);
-                    if chooser.clicks() != before_clicks {
-                        let chosen = if chooser.key() == "choose_egui" {
-                            UiBackend::Egui
-                        } else {
-                            UiBackend::Svet
-                        };
+                    let pick = chooser_pick(chooser, |chooser| {
+                        chooser.pointer(x, y, 2);
+                    });
+                    if let Some(chosen) = pick {
                         self.select_backend(chosen);
                     }
                 } else {
@@ -285,14 +281,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 Key::Named(NamedKey::Escape) => 3,
                 _ => 0,
             };
-            let before_clicks = chooser.clicks();
-            chooser.key_event(key, pressed, event.repeat);
-            if chooser.clicks() != before_clicks {
-                let chosen = if chooser.key() == "choose_egui" {
-                    UiBackend::Egui
-                } else {
-                    UiBackend::Svet
-                };
+            let pick = chooser_pick(chooser, |chooser| {
+                chooser.key_event(key, pressed, event.repeat);
+            });
+            if let Some(chosen) = pick {
                 self.select_backend(chosen);
             }
             return Ok(());

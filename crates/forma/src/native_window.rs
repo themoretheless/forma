@@ -205,14 +205,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 let pressed = state == ElementState::Pressed;
                 let kind = if pressed { 1 } else { 2 };
                 if let Some(chooser) = &mut self.chooser {
-                    let before_clicks = chooser.clicks();
-                    chooser.pointer(x, y, kind);
-                    if chooser.clicks() != before_clicks {
-                        let chosen = if chooser.key() == "choose_egui" {
-                            UiBackend::Egui
-                        } else {
-                            UiBackend::Svet
-                        };
+                    let pick = chooser_pick(chooser, |chooser| {
+                        chooser.pointer(x, y, kind);
+                    });
+                    if let Some(chosen) = pick {
                         self.select_backend(chosen);
                     }
                 } else {

@@ -440,3 +440,19 @@ pub fn apply_mobile_chrome(
         TargetPlatform::Desktop => {}
     }
 }
+
+/// Feed input to the backend chooser; the backend it picked when that input produced a click.
+pub fn chooser_pick(
+    chooser: &mut crate::Runtime,
+    input: impl FnOnce(&mut crate::Runtime),
+) -> Option<UiBackend> {
+    let before = chooser.clicks();
+    input(chooser);
+    (chooser.clicks() != before).then(|| {
+        if chooser.key() == "choose_egui" {
+            UiBackend::Egui
+        } else {
+            UiBackend::Svet
+        }
+    })
+}
