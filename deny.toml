@@ -58,4 +58,8 @@ allow-wildcard-paths = true
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/themoretheless/tokenizer"]
+allow-git = [
+    "https://github.com/themoretheless/tokenizer",
+    # Dev-only: the benchmark worker protocol (crates/forma/examples/bench_support/protocol.rs).
+    "https://github.com/themoretheless/airbug",
+]
