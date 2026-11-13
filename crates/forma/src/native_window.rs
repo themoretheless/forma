@@ -10,7 +10,7 @@ use std::{
 };
 use winit::{
     application::ApplicationHandler,
-    dpi::{LogicalPosition, LogicalSize},
+    dpi::LogicalSize,
     event::{ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     keyboard::{Key, NamedKey, PhysicalKey},
@@ -31,7 +31,7 @@ mod waker;
 pub use app::*;
 pub use config::*;
 pub use demo::*;
-pub use ime_session::ImeSession;
+pub use ime_session::{ImeSession, ime_target, place_ime_caret};
 pub use keys::*;
 pub use waker::*;
 

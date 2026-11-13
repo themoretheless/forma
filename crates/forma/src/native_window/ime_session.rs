@@ -96,3 +96,23 @@ impl ImeSession {
         }
     }
 }
+
+/// Whether the focused control accepts composed text, and its caret rectangle (x, y, width,
+/// height in logical pixels; empty when there is no caret).
+pub fn ime_target(runtime: &crate::Runtime) -> (bool, Vec<f32>) {
+    (
+        runtime.text_editing()
+            && !runtime.control_readonly(runtime.focused_index().max(0) as usize),
+        runtime.text_caret_bounds(),
+    )
+}
+
+/// Tell the platform where the caret is, so the candidate window opens next to it.
+pub fn place_ime_caret(window: &winit::window::Window, caret: &[f32]) {
+    if let [x, y, width, height] = *caret {
+        window.set_ime_cursor_area(
+            winit::dpi::LogicalPosition::new(x as f64, y as f64),
+            winit::dpi::LogicalSize::new(width as f64, height as f64),
+        );
+    }
+}

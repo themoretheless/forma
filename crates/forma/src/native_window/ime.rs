@@ -9,11 +9,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let mut presentation = (false, Vec::new());
         let result = self.app.inspect(&mut |runtime| {
             ime.observe(runtime);
-            presentation = (
-                runtime.text_editing()
-                    && !runtime.control_readonly(runtime.focused_index().max(0) as usize),
-                runtime.text_caret_bounds(),
-            );
+            presentation = ime_target(runtime);
         });
         // The old preedit belongs to the retired runtime; never clear text in
         // its replacement while observing presentation.
@@ -35,12 +31,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             .as_ref()
             .ok_or_else(|| "Native window is not initialized".to_owned())?;
         window.set_ime_allowed(editing);
-        if caret.len() == 4 {
-            window.set_ime_cursor_area(
-                LogicalPosition::new(caret[0] as f64, caret[1] as f64),
-                LogicalSize::new(caret[2] as f64, caret[3] as f64),
-            );
-        }
+        place_ime_caret(window, &caret);
         Ok(())
     }
 

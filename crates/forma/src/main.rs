@@ -9,7 +9,8 @@ use forma::{
     frame_stats::{FrameRate, FrameStats},
     native_window::{
         ImeSession, NativeModifiers, TargetPlatform, TextKey, UiBackend, activation_key,
-        apply_egui_frame_bar, build_chooser_runtime, chooser_pick, focus_traversal, text_edit_key,
+        apply_egui_frame_bar, build_chooser_runtime, chooser_pick, focus_traversal, ime_target,
+        place_ime_caret, text_edit_key,
     },
 };
 use std::{
@@ -586,21 +587,12 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 self.accessibility_action(&request);
                 self.update_accessibility();
                 if let Some(window) = &self.window {
-                    let editing = self.button.text_editing()
-                        && !self
-                            .button
-                            .control_readonly(self.button.focused_index().max(0) as usize);
+                    let (editing, caret) = ime_target(&self.button);
                     if editing != self.ime_allowed {
                         window.set_ime_allowed(editing);
                         self.ime_allowed = editing;
                     }
-                    let caret = self.button.text_caret_bounds();
-                    if caret.len() == 4 {
-                        window.set_ime_cursor_area(
-                            winit::dpi::LogicalPosition::new(caret[0] as f64, caret[1] as f64),
-                            LogicalSize::new(caret[2] as f64, caret[3] as f64),
-                        );
-                    }
+                    place_ime_caret(window, &caret);
                     window.request_redraw();
                 }
             }
@@ -1133,21 +1125,12 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             }
         }
         self.observe_ime_owner();
-        let editing = self.button.text_editing()
-            && !self
-                .button
-                .control_readonly(self.button.focused_index().max(0) as usize);
+        let (editing, caret) = ime_target(&self.button);
         if editing != self.ime_allowed {
             window.set_ime_allowed(editing);
             self.ime_allowed = editing;
         }
-        let caret = self.button.text_caret_bounds();
-        if caret.len() == 4 {
-            window.set_ime_cursor_area(
-                winit::dpi::LogicalPosition::new(caret[0] as f64, caret[1] as f64),
-                LogicalSize::new(caret[2] as f64, caret[3] as f64),
-            );
-        }
+        place_ime_caret(&window, &caret);
         if !redraw {
             let binding_error = self.button.sync_ui_bindings_native().err();
             self.observe_ime_owner();
