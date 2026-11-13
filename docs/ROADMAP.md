@@ -118,9 +118,10 @@
   1423 строки, часть уже вынесена в `gpu-scene3d`, `gpu-sparkline`, `gpu-resident`); слои
   `reactivity` → `dom` → `gpu` → `forma`. Начато: из `forma.ts` вынесены типы экземпляра и
   правила его времени жизни (`forma-instance.ts`), реестры внешних элементов и компонентов
-  (`forma-registry.ts`) и рендерер дерева (`forma-render.ts`, `createFormaRenderer`); `forma.ts`
-  1693 → 1111 строк. В `instantiateForma` остаются около 730 строк: разбор документа в сигналы,
-  вычисляемые `let`, действия, сборка экземпляра с горячей перезагрузкой.
+  (`forma-registry.ts`), рендерер дерева (`forma-render.ts`, `createFormaRenderer`) и исполнитель
+  действий (`forma-actions.ts`, `createFormaActionRunner`); `forma.ts` 1693 → 1049 строк. В
+  `instantiateForma` остаются около 680 строк: разбор документа в сигналы, вычисляемые `let`,
+  мутаторы состояния, сборка экземпляра с горячей перезагрузкой.
 - [ ] JSX-компилятор не должен оборачивать в thunk чистые вызовы (`hasEagerCall`).
 - [ ] Убрать дублирование состояния графа между JS и WASM.
 - [ ] S-9: байты wasm-ядра зависят от каталога checkout, поэтому побайтовая сверка в CI не

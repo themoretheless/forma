@@ -90,6 +90,11 @@
       "count": 27
     }
   },
+  "src/engine/forma-actions.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
   "src/engine/forma-instance.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 31
@@ -105,7 +110,7 @@
   },
   "src/engine/forma.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 32
+      "count": 30
     },
     "no-unsafe-finally": {
       "count": 2
