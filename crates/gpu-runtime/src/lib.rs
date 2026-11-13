@@ -955,6 +955,9 @@ mod error_delivery_tests;
 #[cfg(test)]
 mod device_loss_delivery_tests;
 
+#[cfg(test)]
+mod asd_tests;
+
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod invalid_pipeline_tests;
 
