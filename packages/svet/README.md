@@ -17,7 +17,7 @@
    - `free_list` slot recycling + hierarchical `OwnerScope` (`createRoot`, `onCleanup`) ensure zero memory growth across long-running SPA sessions.
 
 3. **WASM $O(n \log n)$ Longest Increasing Subsequence Reconciler (`<For>`)**
-   - Computes the mathematically minimal number of DOM `insertBefore` operations in native WASM linear memory (`svet_compute_lis`).
+   - Computes the mathematically minimal number of DOM `insertBefore` operations in native WASM linear memory (`svet_compute_lis_buffered`).
 
 4. **Destructurable Stores (`createStore` & `createDeepStore`) ([`src/engine/reactivity.ts`](src/engine/reactivity.ts))**
    - Every property at any nesting depth is an independent WASM-backed Signal. Destructuring (`const { theme } = store.user.profile`) retains 100% reactivity without `.value` boilerplate.

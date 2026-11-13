@@ -42,9 +42,6 @@ export interface SvetWasmExports {
   svet_get_node_count(): number;
   svet_get_capacity(): number;
   svet_get_edge_count(): number;
-  svet_alloc_u32(len: number): number;
-  svet_free_u32(ptr: number, len: number): void;
-  svet_compute_lis(ptr: number, len: number): number;
   svet_get_lis_ptr(): number;
   svet_prepare_lis_input(len: number): number;
   svet_compute_lis_buffered(len: number): number;

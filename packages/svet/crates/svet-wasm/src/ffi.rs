@@ -164,42 +164,6 @@ pub extern "C" fn svet_get_edge_count() -> u32 {
     with_core(|c| c.graph.edge_count() as u32)
 }
 
-/// Allocates a zero-initialized `Box<[u32]>` of exact length `len` so `svet_free_u32`
-/// reconstructs the exact allocator layout without `Vec` excess-capacity mismatch.
-#[unsafe(no_mangle)]
-pub extern "C" fn svet_alloc_u32(len: usize) -> *mut u32 {
-    if len == 0 {
-        return std::ptr::null_mut();
-    }
-    let boxed: Box<[u32]> = vec![0u32; len].into_boxed_slice();
-    Box::into_raw(boxed).cast::<u32>()
-}
-
-/// # Safety
-/// `ptr` must be null or have been allocated by `svet_alloc_u32(len)` with the exact same `len`
-/// and not yet freed.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn svet_free_u32(ptr: *mut u32, len: usize) {
-    if !ptr.is_null() && len > 0 {
-        // SAFETY: Upheld by caller; `svet_alloc_u32` produces a `Box<[u32]>` of exact length `len`.
-        unsafe {
-            drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)));
-        }
-    }
-}
-
-/// # Safety
-/// When `len > 0` and `!ptr.is_null()`, `ptr` must point to `len` initialized `u32` values.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn svet_compute_lis(ptr: *const u32, len: usize) -> usize {
-    if ptr.is_null() || len == 0 {
-        return 0;
-    }
-    // SAFETY: Caller guarantees `ptr..ptr + len` is valid for reads during this call.
-    let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
-    with_core(|c| c.lis.compute_into(slice, &mut c.scratch_out))
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn svet_get_lis_ptr() -> *const u32 {
     with_core(|c| c.scratch_out.as_ptr())

@@ -32,28 +32,6 @@ fn c_abi_lis_and_dirty_spans_share_output_view_safely() {
 }
 
 #[test]
-fn c_abi_alloc_and_free_u32_handle_zero_and_exact_sizes() {
-    assert!(svet_alloc_u32(0).is_null());
-    unsafe {
-        svet_free_u32(std::ptr::null_mut(), 0);
-    }
-
-    for len in [1usize, 3, 17, 1024] {
-        let ptr = svet_alloc_u32(len);
-        assert!(!ptr.is_null());
-        unsafe {
-            let slice = std::slice::from_raw_parts_mut(ptr, len);
-            assert!(slice.iter().all(|&v| v == 0));
-            slice.fill(0xA5A5_5A5A);
-            let lis_len = svet_compute_lis(ptr, len);
-            assert_eq!(lis_len, 1);
-            svet_free_u32(ptr, len);
-        }
-    }
-    svet_reset();
-}
-
-#[test]
 fn c_abi_buffered_source_sync_and_tracking_roundtrip() {
     svet_reset();
     let s0 = svet_create_node(KIND_SIGNAL);
