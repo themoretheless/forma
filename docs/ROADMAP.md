@@ -97,7 +97,13 @@
 
 ## 5. Svet
 
-- [ ] Завершить browser word-input forwarding в `src/vector-preview.js`.
+- [ ] Browser word-input forwarding в `src/vector-preview.js`: настоящий ввод с клавиатуры
+  проверен 2026-11-13 в векторном предпросмотре Studio (Chromium, macOS): Option+Backspace,
+  Option+стрелка, Option+Shift+стрелка, Option+Delete по выделению и Cmd+Z работают. Не
+  проверены IME-композиция, AltGr и не-Apple раскладка Ctrl.
+- [ ] Образец `ui/SearchWindow.ui` не открывается в векторном предпросмотре Studio: рантайм
+  отвергает `clicked -> state.search()` («'clicked' requires actions.<name>()»), хотя
+  HTML-предпросмотр и сгенерированная форма такие действия принимают.
 - [ ] Интеграции: transport и realms, async capture после await, SSR/Edge carriers, router
   bursts, другие browser engines; объяснить исторический отказ HTTP external memory.
 - [ ] Продуктовые замеры на реальных приложениях: startup, p95, frame time, память.
