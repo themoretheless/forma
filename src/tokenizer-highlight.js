@@ -402,7 +402,8 @@ function ensureTokenizerWasm() {
 }
 
 // Build a mapping from UTF-8 byte offset -> UTF-16 code unit index for a string.
-function buildUtf8ToUtf16Map(str) {
+// `null` means the string is ASCII and the two offsets are the same.
+export function buildUtf8ToUtf16Map(str) {
   let asciiOnly = true;
   for (let i = 0; i < str.length; i++) {
     if (str.charCodeAt(i) > 0x7f) {
