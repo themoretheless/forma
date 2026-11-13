@@ -1,0 +1,190 @@
+Alert: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Avatar: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Badge: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+BodyText: ERROR A control requires a Rectangle root
+Button: loads, 1 control(s)
+Card: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+CheckMark: ERROR A control requires a Rectangle root
+Checkbox: loads, 1 control(s)
+  checked: true -> loads, 1 control(s)
+  checked: false -> loads, 1 control(s)
+  indeterminate: true -> loads, 1 control(s)
+  indeterminate: false -> loads, 1 control(s)
+  round: true -> loads, 1 control(s)
+  round: false -> loads, 1 control(s)
+Chip: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+ChoiceContent: ERROR A control requires a Rectangle root
+  checked: true -> ERROR A control requires a Rectangle root
+  checked: false -> ERROR A control requires a Rectangle root
+  indeterminate: true -> ERROR A control requires a Rectangle root
+  indeterminate: false -> ERROR A control requires a Rectangle root
+  round: true -> ERROR A control requires a Rectangle root
+  round: false -> ERROR A control requires a Rectangle root
+ChoiceIndicator: ERROR A control requires a Rectangle root
+  checked: true -> ERROR A control requires a Rectangle root
+  checked: false -> ERROR A control requires a Rectangle root
+  indeterminate: true -> ERROR A control requires a Rectangle root
+  indeterminate: false -> ERROR A control requires a Rectangle root
+  round: true -> ERROR A control requires a Rectangle root
+  round: false -> ERROR A control requires a Rectangle root
+CodeLine: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+ColorSwatch: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Control: loads, 1 control(s)
+DangerButton: loads, 1 control(s)
+DialogSurface: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+DisclosureHeader: loads, 1 control(s)
+  expanded: true -> loads, 1 control(s)
+  expanded: false -> loads, 1 control(s)
+EmptyState: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+FieldContent: ERROR A control requires a Rectangle root
+  showIcon: true -> ERROR A control requires a Rectangle root
+  showIcon: false -> ERROR A control requires a Rectangle root
+FieldValue: ERROR A control requires a Rectangle root
+FormattingButton: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+GhostButton: loads, 1 control(s)
+Icon: ERROR A control requires a Rectangle root
+IconButton: loads, 1 control(s)
+IconLabel: ERROR A control requires a Rectangle root
+Keycap: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Label: ERROR A control requires a Rectangle root
+LeadingIconButton: loads, 1 control(s)
+LoadingButton: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+MenuItem: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+MessageContent: ERROR A control requires a Rectangle root
+MultilineValue: ERROR A control requires a Rectangle root
+NavigationItem: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+NumberValue: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+PageButton: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+Paragraph: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+PrimaryButton: loads, 1 control(s)
+PrimaryIconButton: loads, 1 control(s)
+ProgressBar: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+RadioButton: loads, 1 control(s)
+  round: true -> loads, 1 control(s)
+  round: false -> loads, 1 control(s)
+  indeterminate: true -> loads, 1 control(s)
+  indeterminate: false -> loads, 1 control(s)
+  checked: true -> loads, 1 control(s)
+  checked: false -> loads, 1 control(s)
+SearchField: loads, 1 control(s)
+  showIcon: true -> loads, 1 control(s)
+  showIcon: false -> loads, 1 control(s)
+  error: true -> loads, 1 control(s)
+  error: false -> loads, 1 control(s)
+SecondaryButton: loads, 1 control(s)
+SegmentButton: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+SelectTrigger: loads, 1 control(s)
+  expanded: true -> loads, 1 control(s)
+  expanded: false -> loads, 1 control(s)
+Separator: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Skeleton: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Slider: loads, 1 control(s)
+SliderTrack: ERROR A control requires a Rectangle root
+Spinner: ERROR A control requires a Rectangle root
+Splitter: loads, 1 control(s)
+StartLabel: ERROR A control requires a Rectangle root
+StatusBar: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+StatusDot: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Surface: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Switch: loads, 1 control(s)
+  checked: true -> loads, 1 control(s)
+  checked: false -> loads, 1 control(s)
+SwitchThumb: ERROR A control requires a Rectangle root
+  checked: true -> ERROR A control requires a Rectangle root
+  checked: false -> ERROR A control requires a Rectangle root
+TabButton: loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+TableCells: ERROR A control requires a Rectangle root
+TableHeader: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+TableRow: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+TextArea: loads, 1 control(s)
+  error: true -> loads, 1 control(s)
+  error: false -> loads, 1 control(s)
+  showIcon: true -> loads, 1 control(s)
+  showIcon: false -> loads, 1 control(s)
+TextField: loads, 1 control(s)
+  error: true -> loads, 1 control(s)
+  error: false -> loads, 1 control(s)
+  showIcon: true -> loads, 1 control(s)
+  showIcon: false -> loads, 1 control(s)
+Toast: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+ToolbarSurface: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+Tooltip: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
+TreeContent: ERROR A control requires a Rectangle root
+  branch: true -> ERROR A control requires a Rectangle root
+  branch: false -> ERROR A control requires a Rectangle root
+  expanded: true -> ERROR A control requires a Rectangle root
+  expanded: false -> ERROR A control requires a Rectangle root
+  showChevron: true -> ERROR A control requires a Rectangle root
+  showChevron: false -> ERROR A control requires a Rectangle root
+TreeItem: loads, 1 control(s)
+  branch: true -> loads, 1 control(s)
+  branch: false -> loads, 1 control(s)
+  expanded: true -> loads, 1 control(s)
+  expanded: false -> loads, 1 control(s)
+  showChevron: true -> loads, 1 control(s)
+  showChevron: false -> loads, 1 control(s)
+  selected: true -> loads, 1 control(s)
+  selected: false -> loads, 1 control(s)
+WindowHeader: loads, 1 control(s)
+  disabled: true -> loads, 1 control(s)
+  disabled: false -> loads, 1 control(s)
