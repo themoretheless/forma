@@ -961,4 +961,7 @@ mod mapped_range_tests;
 mod pipeline_cache_and_buffer_safety_tests;
 
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod query_resolve_tests;
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod storage_texture_tests;

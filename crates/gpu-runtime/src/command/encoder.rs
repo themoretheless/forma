@@ -183,10 +183,26 @@ impl CommandEncoder {
         destination: &Buffer,
         destination_offset: BufferAddress,
     ) {
+        let query_count = query_range.end.saturating_sub(query_range.start);
+        // Each query resolves to one 64-bit value.
+        let fits = u64::from(query_count)
+            .checked_mul(8)
+            .and_then(|bytes| destination_offset.checked_add(bytes))
+            .is_some_and(|end| end <= destination.size());
+        if !fits {
+            self.record_error(Error::Validation {
+                source: Arc::new(std::io::Error::other("query resolve out of bounds")),
+                description: format!(
+                    "resolve_query_set: {query_count} queries at offset {destination_offset} do not fit a buffer of {} bytes",
+                    destination.size()
+                ),
+            });
+            return;
+        }
         self.ops.push(RecordedOp::ResolveQuerySet {
             query_set: query_set.clone(),
             first_query: query_range.start,
-            query_count: query_range.end.saturating_sub(query_range.start),
+            query_count,
             destination: destination.clone(),
             destination_offset,
         });

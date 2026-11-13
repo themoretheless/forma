@@ -333,11 +333,22 @@ pub(crate) unsafe fn encode_non_compute_op(
                 let end = (start + query_count as usize).min(ts.len());
                 if start < end && !destination.inner.ptr.is_null() {
                     let slice = &ts[start..end];
-                    ptr::copy_nonoverlapping(
-                        slice.as_ptr() as *const u8,
-                        destination.inner.ptr.add(destination_offset as usize),
-                        slice.len() * 8,
-                    );
+                    let bytes = slice.len() * 8;
+                    // `resolve_query_set` refuses a range that does not fit; a query set shorter
+                    // than the range only makes the write smaller.
+                    let fits = usize::try_from(destination_offset)
+                        .ok()
+                        .and_then(|offset| offset.checked_add(bytes).map(|end| (offset, end)))
+                        .filter(|&(_, end)| end as u64 <= destination.inner.size);
+                    if let Some((offset, _)) = fits {
+                        // SAFETY: `offset + bytes` is inside the destination allocation, and the
+                        // timestamps are a separate allocation.
+                        ptr::copy_nonoverlapping(
+                            slice.as_ptr() as *const u8,
+                            destination.inner.ptr.add(offset),
+                            bytes,
+                        );
+                    }
                 }
             }
         }
