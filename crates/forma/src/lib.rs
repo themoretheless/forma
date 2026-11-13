@@ -1,14 +1,15 @@
 #![warn(unreachable_pub)]
 use wasm_bindgen::prelude::*;
 mod blend;
-pub mod frame_stats;
+#[cfg(feature = "native")]
+mod frame_stats;
 mod geometry;
 pub mod markup;
 pub mod runtime;
 pub use runtime::Runtime;
 pub mod binding;
 pub mod canvas;
-pub mod control_models_wasm;
+mod control_models_wasm;
 pub mod control_state;
 pub mod display_list;
 pub mod form_document;
@@ -16,11 +17,11 @@ pub mod form_document;
 pub mod gpu;
 pub mod mcp;
 mod raster_cache;
-pub mod reveal;
+mod reveal;
 mod shape;
 pub mod template;
 pub mod text;
-pub mod text_input;
+mod text_input;
 #[cfg(feature = "gpu")]
 pub use gpu_compute;
 #[cfg(feature = "gpu")]
@@ -34,7 +35,7 @@ pub use wgpu_linux as gpu_runtime;
 #[cfg(feature = "native")]
 pub mod native_accessibility;
 #[cfg(feature = "native")]
-pub mod native_clipboard;
+mod native_clipboard;
 #[cfg(feature = "native")]
 #[doc(hidden)]
 pub mod native_gpu;

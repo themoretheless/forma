@@ -13,7 +13,7 @@ const SAMPLE_WINDOW: Duration = Duration::from_secs(1);
 const IDLE_AFTER: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum FrameRate {
+pub(crate) enum FrameRate {
     Waiting,
     Sampling,
     Active { fps: f64, frame_ms: f64 },
@@ -21,13 +21,13 @@ pub enum FrameRate {
 }
 
 #[derive(Debug, Default)]
-pub struct FrameStats {
+pub(crate) struct FrameStats {
     presented: VecDeque<Instant>,
 }
 
 impl FrameStats {
     /// Record only completed calls to present, never skipped redraw attempts.
-    pub fn presented(&mut self, now: Instant) {
+    pub(crate) fn presented(&mut self, now: Instant) {
         if let Some(&last) = self.presented.back() {
             if now < last {
                 return;
@@ -46,7 +46,7 @@ impl FrameStats {
     }
 
     /// Keep the latest cadence estimate until one second without a new frame.
-    pub fn snapshot(&self, now: Instant) -> FrameRate {
+    pub(crate) fn snapshot(&self, now: Instant) -> FrameRate {
         let Some(&last) = self.presented.back() else {
             return FrameRate::Waiting;
         };
@@ -65,7 +65,7 @@ impl FrameStats {
     }
 
     /// The next transition to idle; callers need not schedule an expired deadline.
-    pub fn idle_deadline(&self) -> Option<Instant> {
+    pub(crate) fn idle_deadline(&self) -> Option<Instant> {
         self.presented.back().map(|&last| last + IDLE_AFTER)
     }
 }

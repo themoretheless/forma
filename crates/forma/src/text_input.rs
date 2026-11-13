@@ -18,7 +18,7 @@ fn allocate_semantic_revision(counter: &std::sync::atomic::AtomicU32) -> u32 {
         .unwrap_or(0)
 }
 
-pub use crate::template::Input;
+pub(crate) use crate::template::Input;
 #[derive(Clone)]
 pub(crate) struct Editor {
     pub spec: Input,

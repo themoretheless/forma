@@ -3,7 +3,10 @@ use crate::Runtime;
 
 /// Preserve Latin-layout shortcuts; use the physical Latin key only when a
 /// command arrives as a non-ASCII layout character (for example Cyrillic).
-pub fn command_key<'a>(physical: &winit::keyboard::PhysicalKey, logical: &'a str) -> &'a str {
+pub(crate) fn command_key<'a>(
+    physical: &winit::keyboard::PhysicalKey,
+    logical: &'a str,
+) -> &'a str {
     if logical.is_ascii() {
         return logical;
     }
@@ -20,7 +23,7 @@ pub fn command_key<'a>(physical: &winit::keyboard::PhysicalKey, logical: &'a str
 }
 
 /// Handle a clipboard command. Read/write failures leave editor contents intact.
-pub fn handle_key(runtime: &mut Runtime, key: &str) -> bool {
+pub(crate) fn handle_key(runtime: &mut Runtime, key: &str) -> bool {
     handle_with(runtime, key, clipboard_read, clipboard_write)
 }
 
