@@ -654,6 +654,7 @@ impl Device {
                 usage: desc.usage,
                 options: stored_options,
                 mapped_ready: AtomicBool::new(desc.mapped_at_creation),
+                mapped_ranges: Default::default(),
             }),
         }
     }
@@ -686,6 +687,7 @@ impl Device {
                 usage,
                 options: 0xFF, // Do not recycle external no-copy memory into pool
                 mapped_ready: AtomicBool::new(true),
+                mapped_ranges: Default::default(),
             }),
         })
     }
@@ -897,15 +899,10 @@ impl Queue {
         offset: BufferAddress,
         size: BufferSize,
     ) -> Option<WriteOnly<'a, [u8]>> {
-        let end = offset.checked_add(size.get())?;
-        if end > buffer.inner.size || buffer.inner.ptr.is_null() {
+        if buffer.inner.ptr.is_null() {
             return None;
         }
-        let offset_usize = usize::try_from(offset).ok()?;
-        let len = usize::try_from(size.get()).ok()?;
-        let slice =
-            unsafe { std::slice::from_raw_parts_mut(buffer.inner.ptr.add(offset_usize), len) };
-        Some(WriteOnly::new(slice))
+        buffer.inner.write_view(offset, size.get())
     }
 
     #[inline]
@@ -963,6 +960,9 @@ mod invalid_pipeline_tests;
 
 #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
 mod layer_bounds_tests;
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod mapped_range_tests;
 
 #[cfg(test)]
 mod pipeline_cache_and_buffer_safety_tests;

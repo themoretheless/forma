@@ -42,6 +42,7 @@ impl DeviceExt for Device {
                 usage: desc.usage,
                 options: stored_options,
                 mapped_ready: AtomicBool::new(false),
+                mapped_ranges: Default::default(),
             }),
         }
     }

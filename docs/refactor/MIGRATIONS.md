@@ -138,3 +138,15 @@
   содержать прикладные ядра.
 - Миграция: брать их из `gpu_compute` под теми же именами; для кода, который и раньше
   импортировал их из `gpu-compute`, ничего не меняется.
+
+## 14. Виды на память буфера `gpu-runtime` учитываются
+
+- Затронуто: `Buffer::get_mapped_range`, `get_mapped_range_mut`, `BufferSlice::get_mapped_range`,
+  `get_mapped_range_mut`, `Buffer::uma_slice`, `uma_slice_mut`, `Queue::write_buffer_with`.
+- Пересечение с живым видом теперь отказ (G-14): методы `Buffer` возвращают `BufferAccessError`,
+  методы `BufferSlice` и `uma_slice*` паникуют с текстом «already mapped», `write_buffer_with`
+  возвращает `None`. Читающие виды одного диапазона по-прежнему сосуществуют.
+- `uma_slice` возвращает `BufferView<'_>` вместо `&[u8]`, `uma_slice_mut` возвращает
+  `WriteOnly<'_, [u8]>` вместо `&mut [u8]`: вид должен жить, пока диапазон занят.
+- Миграция: уничтожать вид до запроса следующего на те же байты; там, где нужен `&[u8]` с
+  временем жизни буфера, держать `BufferView` и брать срез через `Deref`.

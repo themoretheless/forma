@@ -3,17 +3,113 @@
 use crate::metal::{MetalDevice, ObjCObject};
 use crate::{BindingResource, BufferAddress, BufferBinding, BufferUsages, Label};
 use std::ops::{Bound, Deref, DerefMut, Range, RangeBounds};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+
+/// The byte ranges of one buffer that are currently handed out as views.
+///
+/// A buffer is a shared handle (`Buffer: Clone`), so the borrow checker cannot see two views of
+/// the same bytes. This table refuses a view that overlaps a writable one, and a writable view
+/// that overlaps any other, which is what keeps the `&mut [u8]` inside [`WriteOnly`] unique.
+#[derive(Default)]
+pub(crate) struct MappedRanges(Mutex<Vec<MappedRange>>);
+
+struct MappedRange {
+    start: usize,
+    end: usize,
+    write: bool,
+    views: u32,
+}
+
+impl MappedRanges {
+    /// Registers `start..end`, or returns `None` when it overlaps a range that excludes it.
+    /// An empty range never conflicts and holds nothing.
+    fn acquire(&self, start: usize, end: usize, write: bool) -> Option<Option<Lease<'_>>> {
+        if start >= end {
+            return Some(None);
+        }
+        let mut ranges = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if ranges
+            .iter()
+            .any(|held| (write || held.write) && start < held.end && held.start < end)
+        {
+            return None;
+        }
+        match ranges
+            .iter_mut()
+            .find(|held| !write && held.start == start && held.end == end)
+        {
+            Some(held) => held.views += 1,
+            None => ranges.push(MappedRange {
+                start,
+                end,
+                write,
+                views: 1,
+            }),
+        }
+        Some(Some(Lease {
+            ranges: self,
+            start,
+            end,
+        }))
+    }
+}
+
+/// Keeps one range registered in [`MappedRanges`] for as long as a view of it is alive.
+struct Lease<'a> {
+    ranges: &'a MappedRanges,
+    start: usize,
+    end: usize,
+}
+
+impl Clone for Lease<'_> {
+    fn clone(&self) -> Self {
+        let mut ranges = self.ranges.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(held) = ranges
+            .iter_mut()
+            .find(|held| held.start == self.start && held.end == self.end)
+        {
+            held.views += 1;
+        }
+        Self {
+            ranges: self.ranges,
+            start: self.start,
+            end: self.end,
+        }
+    }
+}
+
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        let mut ranges = self.ranges.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(index) = ranges
+            .iter()
+            .position(|held| held.start == self.start && held.end == self.end)
+        else {
+            return;
+        };
+        let Some(held) = ranges.get_mut(index) else {
+            return;
+        };
+        held.views -= 1;
+        if held.views == 0 {
+            ranges.swap_remove(index);
+        }
+    }
+}
+
+/// The address and length of a registered range, with the lease that keeps it registered.
+type LeasedBytes<'a> = (*mut u8, usize, Option<Lease<'a>>);
 
 pub struct WriteOnly<'a, T: ?Sized> {
     slice: &'a mut T,
+    lease: Option<Lease<'a>>,
 }
 
 impl<'a> WriteOnly<'a, [u8]> {
     #[inline]
     pub fn new(slice: &'a mut [u8]) -> Self {
-        Self { slice }
+        Self { slice, lease: None }
     }
 
     #[inline]
@@ -50,6 +146,7 @@ impl<'a> WriteOnly<'a, [u8]> {
     pub fn subslice(&mut self, range: Range<usize>) -> WriteOnly<'_, [u8]> {
         WriteOnly {
             slice: &mut self.slice[range],
+            lease: None,
         }
     }
 
@@ -67,6 +164,7 @@ impl<'a> WriteOnly<'a, [u8]> {
         };
         WriteOnly {
             slice: &mut self.slice[start..end],
+            lease: None,
         }
     }
 
@@ -84,6 +182,7 @@ impl<'a> WriteOnly<'a, [u8]> {
         };
         WriteOnly {
             slice: &mut self.slice[start..end],
+            lease: self.lease,
         }
     }
 
@@ -97,7 +196,16 @@ impl<'a> WriteOnly<'a, [u8]> {
         let chunks = unsafe {
             std::slice::from_raw_parts_mut(head.as_mut_ptr() as *mut [u8; N], num_chunks)
         };
-        (WriteOnly { slice: chunks }, WriteOnly { slice: tail })
+        (
+            WriteOnly {
+                slice: chunks,
+                lease: self.lease.clone(),
+            },
+            WriteOnly {
+                slice: tail,
+                lease: self.lease,
+            },
+        )
     }
 
     #[inline]
@@ -105,9 +213,10 @@ impl<'a> WriteOnly<'a, [u8]> {
         &mut self,
         chunk_size: usize,
     ) -> impl Iterator<Item = WriteOnly<'_, [u8]>> {
-        self.slice
-            .chunks_exact_mut(chunk_size)
-            .map(|c| WriteOnly { slice: c })
+        self.slice.chunks_exact_mut(chunk_size).map(|c| WriteOnly {
+            slice: c,
+            lease: None,
+        })
     }
 }
 
@@ -154,6 +263,7 @@ pub(crate) struct BufferInner {
     pub(crate) usage: BufferUsages,
     pub(crate) options: u64,
     pub(crate) mapped_ready: AtomicBool,
+    pub(crate) mapped_ranges: MappedRanges,
 }
 
 unsafe impl Send for BufferInner {}
@@ -206,30 +316,20 @@ impl Buffer {
         self.inner.usage
     }
 
-    /// Zero-copy UMA direct slice view into unified memory without map_async overhead
+    /// Zero-copy read view of the whole buffer in unified memory, without `map_async`.
+    ///
+    /// Panics when part of the buffer is handed out as a writable view.
     #[inline]
-    pub fn uma_slice(&self) -> &[u8] {
-        if self.inner.ptr.is_null() {
-            return &[];
-        }
-        if !self.inner.device.is_last_cmd_completed() {
-            self.inner.device.wait_idle();
-        }
-        let len = usize::try_from(self.inner.size).unwrap_or(0);
-        unsafe { std::slice::from_raw_parts(self.inner.ptr, len) }
+    pub fn uma_slice(&self) -> BufferView<'_> {
+        self.slice(..).get_mapped_range()
     }
 
-    /// Zero-copy UMA direct mutable slice into unified memory
+    /// Zero-copy writable view of the whole buffer in unified memory.
+    ///
+    /// Panics when part of the buffer is already handed out as a view.
     #[inline]
-    pub fn uma_slice_mut(&mut self) -> &mut [u8] {
-        if self.inner.ptr.is_null() {
-            return &mut [];
-        }
-        if !self.inner.device.is_last_cmd_completed() {
-            self.inner.device.wait_idle();
-        }
-        let len = usize::try_from(self.inner.size).unwrap_or(0);
-        unsafe { std::slice::from_raw_parts_mut(self.inner.ptr, len) }
+    pub fn uma_slice_mut(&mut self) -> WriteOnly<'_, [u8]> {
+        self.slice(..).get_mapped_range_mut()
     }
 
     #[inline]
@@ -265,7 +365,7 @@ impl Buffer {
         &self,
         bounds: S,
     ) -> Result<BufferView<'_>, BufferAccessError> {
-        Ok(self.slice(bounds).get_mapped_range())
+        self.slice(bounds).try_mapped_range()
     }
 
     #[inline]
@@ -273,7 +373,7 @@ impl Buffer {
         &self,
         bounds: S,
     ) -> Result<WriteOnly<'_, [u8]>, BufferAccessError> {
-        Ok(self.slice(bounds).get_mapped_range_mut())
+        self.slice(bounds).try_mapped_range_mut()
     }
 
     #[inline]
@@ -351,52 +451,108 @@ impl<'a> BufferSlice<'a> {
         callback(Ok(()));
     }
 
+    /// Panics when the range overlaps a writable view that is still alive.
     #[inline]
     pub fn get_mapped_range(&self) -> BufferView<'a> {
-        if self.buffer.inner.ptr.is_null() {
-            return BufferView { slice: &[] };
+        match self.try_mapped_range() {
+            Ok(view) => view,
+            Err(err) => panic!("{err}"),
         }
-        if !self.buffer.inner.device.is_last_cmd_completed() {
-            self.buffer.inner.device.wait_idle();
-        }
-        let end = self.offset.checked_add(self.size);
-        let (Some(end), Ok(offset), Ok(len)) = (
-            end.filter(|&end| end <= self.buffer.inner.size),
-            usize::try_from(self.offset),
-            usize::try_from(self.size),
-        ) else {
-            return BufferView { slice: &[] };
-        };
-        let _ = end;
-        let slice = unsafe { std::slice::from_raw_parts(self.buffer.inner.ptr.add(offset), len) };
-        BufferView { slice }
     }
 
+    /// Panics when the range overlaps a view that is still alive.
     #[inline]
     pub fn get_mapped_range_mut(&self) -> WriteOnly<'a, [u8]> {
-        if self.buffer.inner.ptr.is_null() {
-            return WriteOnly::new(&mut []);
+        match self.try_mapped_range_mut() {
+            Ok(view) => view,
+            Err(err) => panic!("{err}"),
         }
-        if !self.buffer.inner.device.is_last_cmd_completed() {
-            self.buffer.inner.device.wait_idle();
+    }
+
+    fn try_mapped_range(&self) -> Result<BufferView<'a>, BufferAccessError> {
+        let Some((ptr, len, lease)) = self.lease(false)? else {
+            return Ok(BufferView {
+                slice: &[],
+                _lease: None,
+            });
+        };
+        // SAFETY: `lease` bounds `ptr..ptr + len` inside the allocation and no writable view of
+        // those bytes exists while the lease is held.
+        let slice = unsafe { std::slice::from_raw_parts(ptr, len) };
+        Ok(BufferView {
+            slice,
+            _lease: lease,
+        })
+    }
+
+    fn try_mapped_range_mut(&self) -> Result<WriteOnly<'a, [u8]>, BufferAccessError> {
+        let Some((ptr, len, lease)) = self.lease(true)? else {
+            return Ok(WriteOnly::new(&mut []));
+        };
+        // SAFETY: `lease` bounds `ptr..ptr + len` inside the allocation and no other view of
+        // those bytes exists while the lease is held.
+        let slice = unsafe { std::slice::from_raw_parts_mut(ptr, len) };
+        Ok(WriteOnly { slice, lease })
+    }
+
+    /// Waits for the GPU, then registers the range. `Ok(None)` is a range with no bytes behind
+    /// it: an inert buffer or bounds outside the allocation.
+    fn lease(&self, write: bool) -> Result<Option<LeasedBytes<'a>>, BufferAccessError> {
+        let inner = &self.buffer.inner;
+        if inner.ptr.is_null() {
+            return Ok(None);
         }
-        let end = self.offset.checked_add(self.size);
-        let (Some(end), Ok(offset), Ok(len)) = (
-            end.filter(|&end| end <= self.buffer.inner.size),
-            usize::try_from(self.offset),
-            usize::try_from(self.size),
+        if !inner.device.is_last_cmd_completed() {
+            inner.device.wait_idle();
+        }
+        inner.leased_range(self.offset, self.size, write)
+    }
+}
+
+impl BufferInner {
+    /// A writable view of `offset..offset + size`, or `None` when the range is outside the buffer
+    /// or overlaps a view that is still alive.
+    pub(crate) fn write_view(
+        &self,
+        offset: BufferAddress,
+        size: BufferAddress,
+    ) -> Option<WriteOnly<'_, [u8]>> {
+        let (ptr, len, lease) = self.leased_range(offset, size, true).ok()??;
+        // SAFETY: `lease` bounds `ptr..ptr + len` inside the allocation and no other view of
+        // those bytes exists while the lease is held.
+        let slice = unsafe { std::slice::from_raw_parts_mut(ptr, len) };
+        Some(WriteOnly { slice, lease })
+    }
+
+    /// Registers `offset..offset + size` as a view and returns its address.
+    fn leased_range(
+        &self,
+        offset: BufferAddress,
+        size: BufferAddress,
+        write: bool,
+    ) -> Result<Option<LeasedBytes<'_>>, BufferAccessError> {
+        let (Some(end), Ok(start), Ok(len)) = (
+            offset.checked_add(size).filter(|&end| end <= self.size),
+            usize::try_from(offset),
+            usize::try_from(size),
         ) else {
-            return WriteOnly::new(&mut []);
+            return Ok(None);
         };
         let _ = end;
-        let slice =
-            unsafe { std::slice::from_raw_parts_mut(self.buffer.inner.ptr.add(offset), len) };
-        WriteOnly::new(slice)
+        let Some(lease) = self.mapped_ranges.acquire(start, start + len, write) else {
+            return Err(BufferAccessError(format!(
+                "buffer range {start}..{} is already mapped",
+                start + len
+            )));
+        };
+        // SAFETY: `start + len <= self.size`, the length of the allocation behind `ptr`.
+        Ok(Some((unsafe { self.ptr.add(start) }, len, lease)))
     }
 }
 
 pub struct BufferView<'a> {
     slice: &'a [u8],
+    _lease: Option<Lease<'a>>,
 }
 
 impl<'a> BufferView<'a> {
