@@ -14,7 +14,7 @@ const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' 
   .filter(f => f && existsSync(resolve(root, f)));
 const read = f => readFileSync(resolve(root, f), 'utf8');
 const SPECS =
-  /(?:^|[^\w.$])(?:import|export)[\s\S]{0,120}?\bfrom\s*['"]([^'"]+)['"]|(?:^|[^\w.$])import\s*\(\s*['"]([^'"]+)['"]/g;
+  /(?:^|[^\w.$])(?:import|export)\s*(?:[\w$*\s,]|\{[^{}]*\})*?\bfrom\s*['"]([^'"]+)['"]|(?:^|[^\w.$])import\s*\(\s*['"]([^'"]+)['"]/g;
 // Resolved the way this repo imports: relative paths only, exact file name, no extension rewrite.
 function target(from, spec) {
   if (!spec?.startsWith('.')) return null;
