@@ -209,7 +209,7 @@ Reveal; такой же примитив доступен native Runtime.
 2. **Native window routing:** перевод winit-событий в контроллеры выбора,
    диапазона; несколько окон, active/focus/close lifecycle, popups
    внутри окна/отдельными окнами, DPI/resize и координаты anchor. Текущий
-   `main.rs` обрабатывает кнопки/scroll и текстовый ввод/IME; модель
+   `NativeHost` обрабатывает кнопки/scroll и текстовый ввод/IME; модель
    отдельного native-приложения не подключается автоматически.
 3. **Текст и IME:** автоматический wrap, grapheme/word navigation, surrounding-text
    и reconversion, clipboard для Windows/Linux, расширенная проверка IME на разных
