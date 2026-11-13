@@ -344,6 +344,8 @@ impl RenderScene for Runtime {
 }
 
 #[cfg(test)]
+mod control_role_tests;
+#[cfg(test)]
 mod tests;
 
 #[cfg(test)]
