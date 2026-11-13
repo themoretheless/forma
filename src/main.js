@@ -245,10 +245,10 @@ function selectedTargetDir() {
 async function activateTreeFile(path) {
   selectTreeRow(path);
   if (path.endsWith('.ui')) {
-    const uiKey = 'ui/' + path.split('/').at(-1);
-    files[uiKey] = files[path];
+    // The file itself is previewed. It used to be copied to `ui/<name>` first, which added a
+    // file to the project on every click and replaced whatever already had that name.
     if (!path.endsWith('.design.ui')) {
-      entry = uiKey;
+      entry = path;
       scenario = 0;
     }
     controlTree?.setView({ visible: true });
