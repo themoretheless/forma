@@ -64,6 +64,40 @@ const WEIGHT_STAR_RE = /^(?:\d+(?:\.\d+)?)?\*$/;
 //   interactive — clicks fire events instead of selecting; focus survives a re-render.
 //   design      — the active design state's overrides by key, or null when running.
 //   onSelect(sourceNode), onEvent(action,node,event), onLog(text), onChange() after a binding wrote state.
+const STATE_BACKGROUNDS = ['hoverBackground', 'pressedBackground', 'disabledBackground'];
+
+/**
+ * Gives a control the backgrounds it declares for its states. A disabled control shows its
+ * disabled background; otherwise, in interactive mode, the pointer switches between the resting,
+ * hover and pressed ones.
+ */
+function stateBackgrounds(el, props, state, interactive) {
+  const [hover, pressed, disabled] = STATE_BACKGROUNDS.map(name =>
+    Object.hasOwn(props, name) ? resolve(props[name], state) : undefined,
+  );
+  if (el.disabled) {
+    if (disabled !== undefined) el.style.background = disabled;
+    return;
+  }
+  if (!interactive || (hover === undefined && pressed === undefined)) return;
+  const resting = el.style.background ?? '';
+  let over = false,
+    down = false;
+  const paint = () => {
+    el.style.background =
+      down && pressed !== undefined ? pressed : over && hover !== undefined ? hover : resting;
+  };
+  const on = (type, change) =>
+    el.addEventListener(type, () => {
+      change();
+      paint();
+    });
+  on('pointerenter', () => (over = true));
+  on('pointerleave', () => (over = down = false));
+  on('pointerdown', () => (down = true));
+  on('pointerup', () => (down = false));
+}
+
 export function renderHtmlPreview({
   preview,
   compiled,
@@ -207,6 +241,8 @@ export function renderHtmlPreview({
         el.style.overflow = x ? 'clip' : 'visible';
         continue;
       }
+      // Painted by `stateBackgrounds` once the resting background is known.
+      if (STATE_BACKGROUNDS.includes(k)) continue;
       if (gridProperties.has(k) || k === 'x' || k === 'y') continue;
       else if (sizeProperties.has(k)) {
         if (
@@ -234,6 +270,7 @@ export function renderHtmlPreview({
               : x;
       } else throw Error(`Свойство ${k} пока не поддерживается`);
     }
+    stateBackgrounds(el, n.props, state, interactive);
     for (const [key, path] of Object.entries(n.bindings)) {
       if (!['value', 'checked', 'selected'].includes(key))
         throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);
