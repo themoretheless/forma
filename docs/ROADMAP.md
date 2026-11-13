@@ -122,7 +122,9 @@
 - [ ] Продуктовые замеры на реальных приложениях: startup, p95, frame time, память.
 - [ ] Декомпозиция `compileFormaComponent`, `createCanvas3D` и остатка `gpu.ts` (проверено:
   1423 строки, часть уже вынесена в `gpu-scene3d`, `gpu-sparkline`, `gpu-resident`); слои
-  `reactivity` → `dom` → `gpu` → `forma`.
+  `reactivity` → `dom` → `gpu` → `forma`. Начато: типы экземпляра Forma и правила его времени
+  жизни вынесены в `forma-instance.ts` (`forma.ts` 1693 → 1432 строки); `instantiateForma`, около
+  1060 строк одним замыканием, не тронута.
 - [ ] JSX-компилятор не должен оборачивать в thunk чистые вызовы (`hasEagerCall`).
 - [ ] Убрать дублирование состояния графа между JS и WASM.
 - [ ] S-9: байты wasm-ядра зависят от каталога checkout, поэтому побайтовая сверка в CI не

@@ -90,12 +90,17 @@
       "count": 27
     }
   },
-  "src/engine/forma.ts": {
+  "src/engine/forma-instance.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 68
+      "count": 23
     },
     "@typescript-eslint/no-unsafe-function-type": {
       "count": 6
+    }
+  },
+  "src/engine/forma.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 45
     },
     "no-unsafe-finally": {
       "count": 2
