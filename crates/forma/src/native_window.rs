@@ -57,6 +57,16 @@ pub fn touch_scroll_step(last: &mut Option<(f32, f32)>, x: f32, y: f32) -> Optio
     })
 }
 
+/// The cursor shown at a point of the scene: a text beam over an editable control.
+fn pointer_cursor(runtime: &crate::Runtime, x: f32, y: f32) -> winit::window::CursorIcon {
+    let index = runtime.hit_index(x, y);
+    if index >= 0 && runtime.control_editable(index as usize) {
+        winit::window::CursorIcon::Text
+    } else {
+        winit::window::CursorIcon::Default
+    }
+}
+
 /// Physical window size to the logical size reported to the application.
 fn logical_size(width: u32, height: u32, scale: f32) -> (f32, f32) {
     let scale = if scale > 0. { scale } else { 1. };
@@ -188,6 +198,12 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     chooser.pointer(x, y, 0);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))?;
+                    let mut cursor = winit::window::CursorIcon::Default;
+                    self.app
+                        .inspect(&mut |runtime| cursor = pointer_cursor(runtime, x, y))?;
+                    if let Some(window) = &self.window {
+                        window.set_cursor(cursor);
+                    }
                 }
             }
             WindowEvent::CursorLeft { .. } => {

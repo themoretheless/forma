@@ -2297,3 +2297,16 @@ fn an_idle_extension_can_ask_for_a_frame_and_a_wakeup() {
     assert_eq!(plain.extension_idle(now), (false, None));
     assert!(!plain.picks_elements());
 }
+
+#[test]
+fn the_cursor_is_a_text_beam_over_an_editable_control_only() {
+    use winit::window::CursorIcon;
+    let editors = two_editors();
+    let (x, y) = center(&editors, 0);
+    assert!(editors.control_editable(0));
+    assert_eq!(pointer_cursor(&editors, x, y), CursorIcon::Text);
+    assert_eq!(pointer_cursor(&editors, -1., -1.), CursorIcon::Default);
+    let buttons = two_buttons();
+    let (x, y) = center(&buttons, 0);
+    assert_eq!(pointer_cursor(&buttons, x, y), CursorIcon::Default);
+}
