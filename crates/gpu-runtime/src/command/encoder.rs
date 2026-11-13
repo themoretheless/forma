@@ -3,6 +3,34 @@
 use super::*;
 
 impl CommandEncoder {
+    /// Reports a command that is not recorded because it would reach outside its resources.
+    fn refuse(&self, description: String) {
+        self.record_error(Error::Validation {
+            source: Arc::new(std::io::Error::other(description.clone())),
+            description,
+        });
+    }
+
+    /// Whether `offset..offset + size` lies inside `buffer`; reports a validation error if not.
+    fn range_fits(
+        &self,
+        what: &str,
+        buffer: &Buffer,
+        offset: BufferAddress,
+        size: BufferAddress,
+    ) -> bool {
+        let fits = offset
+            .checked_add(size)
+            .is_some_and(|end| end <= buffer.size());
+        if !fits {
+            self.refuse(format!(
+                "{what}: {size} bytes at offset {offset} do not fit a buffer of {} bytes",
+                buffer.size()
+            ));
+        }
+        fits
+    }
+
     pub(crate) fn record_error(&self, err: Error) {
         crate::dispatch_error(&self.error_stack, &self.uncaptured_error_handler, err);
     }
@@ -89,6 +117,23 @@ impl CommandEncoder {
         destination_offset: BufferAddress,
         copy_size: BufferAddress,
     ) {
+        if Arc::ptr_eq(&source.inner, &destination.inner) {
+            self.refuse("copy_buffer_to_buffer: source and destination are the same buffer".into());
+            return;
+        }
+        if !self.range_fits(
+            "copy_buffer_to_buffer source",
+            source,
+            source_offset,
+            copy_size,
+        ) || !self.range_fits(
+            "copy_buffer_to_buffer destination",
+            destination,
+            destination_offset,
+            copy_size,
+        ) {
+            return;
+        }
         self.ops.push(RecordedOp::CopyBufferToBuffer {
             src: source.clone(),
             src_offset: source_offset,
@@ -104,7 +149,15 @@ impl CommandEncoder {
         offset: BufferAddress,
         size: Option<BufferAddress>,
     ) {
-        let sz = size.unwrap_or_else(|| buffer.size().saturating_sub(offset));
+        let sz = match size {
+            Some(size) => size,
+            // Clearing to the end from past the end is out of bounds, not an empty clear.
+            None if offset > buffer.size() => 1,
+            None => buffer.size() - offset,
+        };
+        if !self.range_fits("clear_buffer", buffer, offset, sz) {
+            return;
+        }
         self.ops.push(RecordedOp::ClearBuffer {
             dst: buffer.clone(),
             offset,
@@ -185,18 +238,8 @@ impl CommandEncoder {
     ) {
         let query_count = query_range.end.saturating_sub(query_range.start);
         // Each query resolves to one 64-bit value.
-        let fits = u64::from(query_count)
-            .checked_mul(8)
-            .and_then(|bytes| destination_offset.checked_add(bytes))
-            .is_some_and(|end| end <= destination.size());
-        if !fits {
-            self.record_error(Error::Validation {
-                source: Arc::new(std::io::Error::other("query resolve out of bounds")),
-                description: format!(
-                    "resolve_query_set: {query_count} queries at offset {destination_offset} do not fit a buffer of {} bytes",
-                    destination.size()
-                ),
-            });
+        let bytes = u64::from(query_count) * 8;
+        if !self.range_fits("resolve_query_set", destination, destination_offset, bytes) {
             return;
         }
         self.ops.push(RecordedOp::ResolveQuerySet {

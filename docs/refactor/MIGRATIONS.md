@@ -185,3 +185,11 @@
 - `gpu_runtime::TextureFormat` получил целочисленные и snorm-форматы (`R32Uint`, `R32Sint`,
   `Rg32Uint`, `Rg32Sint`, `Rgba8Snorm`, `Rgba8Uint`, `Rgba8Sint`, `Rgba16Uint`, `Rgba16Sint`,
   `Rgba32Uint`, `Rgba32Sint`): исчерпывающий `match` по формату во внешнем коде нужно дополнить.
+
+## 18. Команды копирования `gpu-runtime` проверяют границы
+
+- Затронуто: `CommandEncoder::copy_buffer_to_buffer`, `clear_buffer`, `resolve_query_set`.
+- Диапазон вне буфера теперь ошибка валидации, команда не записывается (G-15, G-16). Раньше это
+  была запись за пределы памяти или аварийное завершение.
+- `copy_buffer_to_buffer` с одним и тем же буфером в роли источника и назначения отклоняется,
+  как в wgpu. Миграция: копировать через промежуточный буфер.
