@@ -57,6 +57,7 @@ import { createBulkEditor } from './bulk-edit.js';
 import { designReferencesInFiles, setDesignData, designReferences } from './design-data.js';
 import { insertableControls } from './control-catalog.js';
 import { createComponentCatalog, domLayoutSnapshot } from './dom-layout-snapshot.js';
+import { nativeInspectionModel } from './native-inspection.js';
 import { createSpacingOverlay } from './spacing-overlay.js';
 import { nativeSnapshot } from './native-snapshot.js';
 import { buildNativeRustExport } from './native-export.js';
@@ -795,33 +796,26 @@ function showNativeInspection(data) {
   const title = document.createElement('summary');
   title.textContent = 'Нативное окно · живое дерево · F9: выбор';
   panel.append(title);
-  const current = nativeSource && files[nativeSource.entry] === nativeSource.source;
-  const roots = nativeSource?.nodes?.[0]?.children ?? [],
-    controls = sceneControlNodes(roots);
+  const current = Boolean(nativeSource && files[nativeSource.entry] === nativeSource.source);
+  const model = nativeInspectionModel(
+    data,
+    sceneControlNodes(nativeSource?.nodes?.[0]?.children ?? []),
+    current,
+  );
   const status = document.createElement('p');
-  status.textContent = current
-    ? 'Данные из работающего Rust runtime. F9 и щелчок в окне выбирают элемент.'
-    : 'Исходник изменился или окно запущено раньше этой сессии: переход к коду отключён.';
+  status.textContent = model.status;
   panel.append(status);
-  for (const node of data.nodes ?? []) {
-    const row = document.createElement('button'),
-      control = data.controls?.find(c => c.index === node.control),
-      source = controls[node.control];
+  for (const item of model.rows) {
+    const row = document.createElement('button');
     row.style.display = 'block';
-    row.style.marginLeft = (node.parent === null ? 0 : node.control === null ? 12 : 24) + 'px';
-    row.textContent = source ? source.type + ' ' + (source.props.key ?? '') : node.kind;
-    if (control)
-      row.textContent +=
-        ' · ' +
-        control.bounds.map(v => Math.round(v)).join(', ') +
-        (control.disabled ? ' · disabled' : '');
-    row.setAttribute('aria-pressed', String(node.control === data.selected));
-    row.disabled = !current || !source;
-    row.onclick = () => selectTreeControl({ path: nativeSource.entry, node: source });
+    row.style.marginLeft = item.indent + 'px';
+    row.textContent = item.label;
+    row.setAttribute('aria-pressed', String(item.pressed));
+    row.disabled = item.disabled;
+    row.onclick = () => selectTreeControl({ path: nativeSource.entry, node: item.source });
     panel.append(row);
   }
-  const source = controls[data.selected];
-  if (current && source) selectTreeControl({ path: nativeSource.entry, node: source });
+  if (model.selected) selectTreeControl({ path: nativeSource.entry, node: model.selected });
 }
 const previewDebugger = createPreviewDebugger({
   argumentsOf: (n, event) =>
