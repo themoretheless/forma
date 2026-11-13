@@ -212,3 +212,104 @@ fn the_library_slider_is_a_range_control_but_refuses_a_bound_value_outside_zero_
         "{error}"
     );
 }
+
+#[test]
+fn a_two_way_checked_binding_toggles_the_bound_state_on_activation() {
+    let mut runtime = library(
+        "state on: Bool = false; Column { width: 320; height: 200; \
+         Switch { key: 'switch'; checked <-> state.on; } }",
+    )
+    .unwrap();
+    click(&mut runtime, 0);
+    assert_eq!(
+        state(&runtime)["on"],
+        false,
+        "the write waits for the binding sync"
+    );
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["on"], true);
+    click(&mut runtime, 0);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["on"], false);
+    // Without an activation the sync has nothing to write.
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(false));
+}
+
+#[test]
+fn a_two_way_selected_binding_sets_the_bound_state_and_never_clears_it() {
+    let mut runtime = library(
+        "state pick: Bool = false; Column { width: 320; height: 200; \
+         TabButton { key: 'tab'; selected <-> state.pick; } }",
+    )
+    .unwrap();
+    click(&mut runtime, 0);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["pick"], true);
+    click(&mut runtime, 0);
+    assert_eq!(
+        runtime.sync_ui_bindings_native(),
+        Ok(false),
+        "already selected"
+    );
+    assert_eq!(state(&runtime)["pick"], true);
+}
+
+#[test]
+fn a_radio_button_toggles_like_a_checkbox_because_nothing_groups_radios() {
+    let mut runtime = library(
+        "state a: Bool = false; state b: Bool = false; Column { width: 320; height: 200; \
+         RadioButton { key: 'a'; checked <-> state.a; } \
+         RadioButton { key: 'b'; checked <-> state.b; } }",
+    )
+    .unwrap();
+    click(&mut runtime, 0);
+    runtime.sync_ui_bindings_native().unwrap();
+    click(&mut runtime, 1);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(
+        state(&runtime),
+        serde_json::json!({ "a": true, "b": true }),
+        "both stay on"
+    );
+    click(&mut runtime, 0);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(
+        state(&runtime)["a"],
+        false,
+        "a second click turns a radio off"
+    );
+}
+
+/// F-10: the check mark of the library is a component used as the value of a `match` arm, and
+/// the runtime does not expand it there, so a checked checkbox does not load. When this starts
+/// passing, replace it with a test that a checked checkbox renders.
+#[test]
+fn a_checked_library_checkbox_does_not_load() {
+    let column = |control: &str| format!("Column {{ width: 320; height: 200; {control} }}");
+    assert_eq!(
+        library(&column("Checkbox { key: 'c'; checked: true; }"))
+            .err()
+            .as_deref(),
+        Some("Unknown visual CheckMark"),
+    );
+    // Its other states load, and so do a checked switch and radio button, which draw no mark.
+    for control in [
+        "Checkbox { key: 'c'; }",
+        "Checkbox { key: 'c'; indeterminate: true; }",
+        "Switch { key: 'c'; checked: true; }",
+        "RadioButton { key: 'c'; checked: true; }",
+    ] {
+        assert!(library(&column(control)).is_ok(), "{control}");
+    }
+    // So toggling a bound checkbox on writes the state and then fails to rebuild the scene.
+    let mut runtime = library(&format!(
+        "state on: Bool = false; {}",
+        column("Checkbox { key: 'c'; checked <-> state.on; }")
+    ))
+    .unwrap();
+    click(&mut runtime, 0);
+    assert_eq!(
+        runtime.sync_ui_bindings_native(),
+        Err("Unknown visual CheckMark".to_owned())
+    );
+}
