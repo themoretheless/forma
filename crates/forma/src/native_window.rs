@@ -67,6 +67,12 @@ fn pointer_cursor(runtime: &crate::Runtime, x: f32, y: f32) -> winit::window::Cu
     }
 }
 
+/// Whether a resize is answered with a frame inside the event itself. The Metal layer presents
+/// with the window's transaction, so a frame drawn later would show the old size stretched.
+fn resize_presents_now(gpu: bool) -> bool {
+    cfg!(target_os = "macos") && gpu
+}
+
 /// Physical window size to the logical size reported to the application.
 fn logical_size(width: u32, height: u32, scale: f32) -> (f32, f32) {
     let scale = if scale > 0. { scale } else { 1. };
@@ -180,6 +186,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
             }
             WindowEvent::RedrawRequested => return self.draw(),
+            WindowEvent::Resized(_) if resize_presents_now(self.gpu.is_some()) => {
+                self.report_size()?;
+                return self.draw();
+            }
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
                 self.report_size()?;
                 if let Some(window) = &self.window {

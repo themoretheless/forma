@@ -2310,3 +2310,9 @@ fn the_cursor_is_a_text_beam_over_an_editable_control_only() {
     let (x, y) = center(&buttons, 0);
     assert_eq!(pointer_cursor(&buttons, x, y), CursorIcon::Default);
 }
+
+#[test]
+fn a_resize_is_presented_at_once_only_with_a_metal_surface() {
+    assert!(!resize_presents_now(false));
+    assert_eq!(resize_presents_now(true), cfg!(target_os = "macos"));
+}
