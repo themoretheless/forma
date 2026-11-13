@@ -1522,7 +1522,10 @@ fn accent_bar_is_painted_for_the_demo_egui_profile_only() {
 }
 
 /// Host without a window, as the loop builds it before `resumed`.
-fn windowless_host<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> NativeHost<A> {
+pub(super) fn windowless_host<A: NativeApp + 'static>(
+    app: A,
+    config: NativeWindowConfig,
+) -> NativeHost<A> {
     NativeHost {
         app,
         backend: config.resolved_backend(),

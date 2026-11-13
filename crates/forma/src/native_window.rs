@@ -31,13 +31,10 @@ mod input;
 mod waker;
 
 pub use app::*;
-#[doc(hidden)]
-pub use aux_window::*;
+use aux_window::*;
 pub use config::*;
 pub use demo::*;
-#[doc(hidden)]
 pub use dev_app::*;
-#[doc(hidden)]
 pub use dev_project::*;
 use extension::*;
 use frame::*;

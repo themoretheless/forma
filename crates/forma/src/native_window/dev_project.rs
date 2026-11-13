@@ -10,7 +10,7 @@ fn file_stamp(path: Option<&str>) -> Option<FileStamp> {
 }
 
 /// The files the dev window was started from, watched for changes.
-pub struct HotReload {
+pub(super) struct HotReload {
     pub(super) source_path: Option<String>,
     pub(super) template_path: Option<String>,
     pub(super) source_meta: Option<FileStamp>,
@@ -25,18 +25,18 @@ pub struct HotReload {
 
 impl HotReload {
     /// The built-in two-button demo: nothing on disk to watch.
-    pub fn is_demo(&self) -> bool {
+    pub(super) fn is_demo(&self) -> bool {
         self.source_path.is_none() && self.project_root.is_none()
     }
 
     /// When the files are looked at next, if anything is watched.
-    pub fn deadline(&self) -> Option<Instant> {
+    pub(super) fn deadline(&self) -> Option<Instant> {
         (!self.is_demo()).then_some(self.next_hot_check)
     }
 
     /// Looks at the watched files when the check is due. Returns the runtime rebuilt from changed
     /// files and the line to print; a change that does not compile keeps the current runtime.
-    pub fn poll(
+    pub(super) fn poll(
         &mut self,
         now: Instant,
         current: &crate::Runtime,
@@ -99,7 +99,7 @@ impl HotReload {
     }
 }
 
-pub fn collect_ui_project_files(
+pub(super) fn collect_ui_project_files(
     root: &std::path::Path,
 ) -> std::io::Result<std::collections::BTreeMap<String, String>> {
     fn walk(
@@ -144,7 +144,7 @@ pub fn collect_ui_project_files(
     Ok(files)
 }
 
-pub fn resolve_ui_project_root_and_entry(
+pub(super) fn resolve_ui_project_root_and_entry(
     input_path: &std::path::Path,
 ) -> Option<(std::path::PathBuf, String)> {
     if input_path.is_dir() {
@@ -190,7 +190,7 @@ pub struct DevProject {
     pub runtime: crate::Runtime,
     pub source: String,
     pub template: String,
-    pub hot: HotReload,
+    pub(super) hot: HotReload,
 }
 
 impl DevProject {

@@ -17,17 +17,13 @@ struct AuxiliaryWindow {
 
 /// The secondary windows of one event loop, by window id.
 #[derive(Default)]
-pub struct AuxiliaryWindows {
+pub(super) struct AuxiliaryWindows {
     windows: HashMap<WindowId, AuxiliaryWindow>,
 }
 
 impl AuxiliaryWindows {
-    pub fn contains(&self, window_id: WindowId) -> bool {
-        self.windows.contains_key(&window_id)
-    }
-
     /// Opens the detached popup, or closes every secondary window when one is open.
-    pub fn toggle_popup(&mut self, event_loop: &ActiveEventLoop) {
+    pub(super) fn toggle_popup(&mut self, event_loop: &ActiveEventLoop, allow_gpu: bool) {
         if !self.windows.is_empty() {
             self.windows.clear();
             println!("F10: вторичное окно попапа/инспектора закрыто");
@@ -51,7 +47,7 @@ impl AuxiliaryWindows {
         let win = Arc::new(raw_win);
         let id = win.id();
         let mut gpu = None;
-        if std::env::var("FORMA_RENDERER").as_deref() != Ok("cpu") {
+        if allow_gpu {
             gpu = pollster::block_on(GpuWindow::new(win.clone())).ok();
         }
         let surface = if gpu.is_none() {
@@ -75,7 +71,7 @@ impl AuxiliaryWindows {
         println!("F10: открыто вторичное нативное окно (Multi-Window popup)");
     }
 
-    pub fn window_event(&mut self, window_id: WindowId, event: WindowEvent) {
+    pub(super) fn window_event(&mut self, window_id: WindowId, event: WindowEvent) {
         if matches!(event, WindowEvent::CloseRequested) {
             self.windows.remove(&window_id);
             return;

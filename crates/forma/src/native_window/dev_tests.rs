@@ -381,3 +381,295 @@ fn a_file_that_is_not_a_single_scene_loads_as_a_project() {
         .is_err()
     );
 }
+
+/// The dev window as `run_dev` builds it, before the loop creates the window.
+fn dev_host(project: DevProject, environment: DevEnvironment) -> NativeHost<DevApp> {
+    let backend = Some(UiBackend::Svet);
+    let config = NativeWindowConfig {
+        title: "Forma".into(),
+        width: project.runtime.render_width(),
+        height: project.runtime.render_height(),
+        resizable: true,
+        backend,
+        platform: TargetPlatform::Desktop,
+        mode: HostMode::Demo,
+    };
+    NativeHost {
+        extension: DevApp::extension,
+        ..super::tests::windowless_host(DevApp::new(project, backend, environment), config)
+    }
+}
+
+fn demo_host() -> NativeHost<DevApp> {
+    dev_host(DevProject::load(None, None).unwrap(), Default::default())
+}
+
+fn control_center(runtime: &crate::Runtime, index: usize) -> (f32, f32) {
+    let b = runtime.control_bounds(index);
+    (b[0] + b[2] * 0.5, b[1] + b[3] * 0.5)
+}
+
+fn click(host: &mut NativeHost<DevApp>, index: usize) {
+    host.pointer = control_center(&host.app.runtime, index);
+    host.primary_button(true, Instant::now()).unwrap();
+    host.primary_button(false, Instant::now()).unwrap();
+}
+
+#[test]
+fn a_slow_touch_drag_scrolls_the_dev_window_by_its_whole_distance() {
+    // F-4: the dev window used to remember the touch position on every move, so a drag in
+    // steps below half a pixel never scrolled. It now runs on the host that accumulates them.
+    let mut project = DevProject::load(None, None).unwrap();
+    project.runtime = crate::Runtime::from_source("component Demo { Frame { width:200; height:100; Scroll { Button { key:'large'; width:180; height:400; } } } }").unwrap();
+    let mut host = dev_host(project, Default::default());
+    let b = host.app.runtime.control_bounds(0);
+    let (x, y) = (b[0] + 20., b[1] + 60.);
+    let device = winit::event::DeviceId::dummy();
+    host.touch_input(device, 1, TouchPhase::Started, x, y)
+        .unwrap();
+    for step in 1..=80 {
+        host.touch_input(device, 1, TouchPhase::Moved, x, y - step as f32 * 0.25)
+            .unwrap();
+    }
+    let scrolled = host.app.runtime.scroll_offset()[1];
+    assert!(
+        (19.5..=20.).contains(&scrolled),
+        "80 quarter-pixel moves scroll 20 px less a pending remainder, got {scrolled}"
+    );
+    host.touch_input(device, 1, TouchPhase::Ended, x, y - 20.)
+        .unwrap();
+    assert_eq!(host.app.runtime.control_clicks(0), 0, "a drag is not a tap");
+}
+
+#[test]
+fn a_click_is_printed_and_counted_in_the_title() {
+    let mut host = demo_host();
+    host.sync_window_title();
+    assert_eq!(
+        host.app.title(&host.status(), Instant::now()),
+        "Forma [svet] · CPU · ожидание кадра · F6: iOS/Android · F7: бэкенд"
+    );
+    click(&mut host, 1);
+    let runtime = &host.app.runtime;
+    assert_eq!(runtime.control_clicks(1), 1);
+    assert_eq!(
+        host.app.printed,
+        [format!(
+            "{}.clicked → {} (событие; обработчик приложения пока не подключён)",
+            runtime.key(),
+            runtime.action()
+        )]
+    );
+    assert!(runtime.key() == "second" && !runtime.action().is_empty());
+    let status = host.status();
+    assert!(
+        host.app
+            .title(&status, Instant::now())
+            .ends_with(" · кликов: 1")
+    );
+}
+
+#[test]
+fn the_element_picker_selects_instead_of_clicking_and_prints_what_changed() {
+    let mut host = demo_host();
+    host.app.toggle_inspect();
+    assert!(host.picks_elements());
+    assert_eq!(host.app.printed, ["F9: выбор элемента включён"]);
+
+    click(&mut host, 1);
+    assert_eq!(host.app.runtime.clicks(), 0);
+    assert_eq!(host.app.runtime.focused_index(), 1);
+    let printed = host.app.printed.clone();
+    assert_eq!(printed.len(), 3, "{printed:?}");
+    assert_eq!(
+        printed[1],
+        format!("FORMA_INSPECT {}", inspect_report(&host.app.runtime))
+    );
+    assert!(printed[1].contains("\"selected\":1"));
+    assert_eq!(
+        printed[2],
+        format!("FORMA_A11Y {}", host.app.runtime.accessibility_tree_json())
+    );
+    // The same selection again prints nothing.
+    click(&mut host, 1);
+    assert_eq!(host.app.printed.len(), 3);
+    click(&mut host, 0);
+    assert!(host.app.printed[3].contains("\"selected\":0"));
+
+    host.app.toggle_inspect();
+    assert!(!host.picks_elements());
+    assert_eq!(host.app.runtime.focused_index(), -1);
+    assert_eq!(
+        host.app.printed.last().unwrap(),
+        "F9: выбор элемента выключен"
+    );
+    click(&mut host, 0);
+    assert_eq!(host.app.runtime.control_clicks(0), 1);
+}
+
+#[test]
+fn the_frame_rate_test_keeps_the_window_redrawing_and_shows_in_the_title() {
+    let mut host = demo_host();
+    assert!(!host.app.redraws_continuously());
+    host.app.on_frame_presented(NativeRenderer::Cpu).unwrap();
+    let status = host.status();
+    assert!(
+        host.app
+            .title(&status, Instant::now())
+            .contains(" · замер… · F6: iOS/Android · F7: бэкенд")
+    );
+    host.app.toggle_fps_test();
+    assert!(host.app.redraws_continuously());
+    assert!(
+        host.app
+            .title(&status, Instant::now())
+            .ends_with(" · ожидание кадра · FPS-тест"),
+        "switching the test restarts the measurement"
+    );
+    host.app.toggle_fps_test();
+    assert!(!host.app.redraws_continuously());
+
+    let environment = DevEnvironment {
+        fps_test: true,
+        fps_log: true,
+        cpu_only: true,
+    };
+    let mut host = dev_host(DevProject::load(None, None).unwrap(), environment);
+    assert!(host.app.redraws_continuously());
+    assert!(!host.app.allows_gpu());
+    assert!(demo_host().app.allows_gpu());
+    // FORMA_FPS_LOG prints the title when it changes, not on every look at it.
+    let status = host.status();
+    let now = Instant::now();
+    host.app.title(&status, now);
+    host.app.title(&status, now);
+    assert_eq!(host.app.printed.len(), 1);
+    assert!(host.app.printed[0].starts_with("Frame stats: Forma [svet] · CPU · "));
+}
+
+#[test]
+fn a_backend_change_reaches_the_title_and_a_binding_error_replaces_the_cadence() {
+    let mut host = demo_host();
+    host.select_backend(UiBackend::Egui);
+    let status = host.status();
+    let now = Instant::now();
+    assert_eq!(
+        host.app.title(&status, now),
+        "Forma [egui] · CPU · ожидание кадра · F6: iOS/Android · F7: бэкенд"
+    );
+    host.select_platform(TargetPlatform::Ios);
+    let status = host.status();
+    assert!(
+        host.app
+            .title(&status, now)
+            .starts_with("Forma [egui · iOS] · Metal (iOS) · ")
+    );
+    host.app
+        .set_binding_error(Some("state.a is not a number".into()));
+    assert!(
+        host.app
+            .title(&status, now)
+            .contains(" · ошибка: state.a is not a number · ")
+    );
+    // The next successful update clears it.
+    host.app.update(&mut |_| {}).unwrap();
+    assert!(!host.app.title(&status, now).contains("ошибка"));
+    host.occluded = true;
+    let status = host.status();
+    assert!(host.app.title(&status, now).contains(" · occluded · "));
+}
+
+#[test]
+fn the_idle_dev_window_reloads_changed_files_and_refreshes_its_title_on_schedule() {
+    let dir = TempDir::new("idle");
+    let scene = "component Demo { Frame { width:200; height:100; Button { key:'one'; } } }";
+    let path = dir.write("Demo.ui", scene);
+    let mut host = dev_host(
+        DevProject::load(Some(path), None).unwrap(),
+        Default::default(),
+    );
+    assert!(host.app.runtime.focus_control(0));
+    let status = host.status();
+    let now = Instant::now() + Duration::from_secs(1);
+
+    let first = host.app.idle(&status, now);
+    assert!(!first.redraw);
+    assert_eq!(
+        first.title.as_deref(),
+        Some("Forma [svet] · CPU · ожидание кадра · F6: iOS/Android · F7: бэкенд")
+    );
+    // Nothing was presented, so only the file check wakes the loop.
+    assert_eq!(first.deadline, Some(now + Duration::from_millis(120)));
+    let again = host.app.idle(&status, now + Duration::from_millis(10));
+    assert_eq!(again.title, None, "the title is looked at every 250 ms");
+    assert!(!again.redraw);
+
+    dir.write(
+        "Demo.ui",
+        "component Demo { Frame { width:200; height:100; Button { key:'one'; } Button { key:'two'; } } }",
+    );
+    let (redraw, deadline) = host.extension_idle(now + Duration::from_secs(1));
+    assert!(redraw);
+    assert!(deadline.is_some());
+    assert_eq!(host.app.runtime.control_count(), 2);
+    assert_eq!(host.app.runtime.focused_index(), 0, "focus survives");
+    assert_eq!(
+        host.app.printed,
+        ["Hot reload: векторная сцена обновлена на лету"]
+    );
+
+    // After a frame the title is refreshed until the meter reports idle, then wakeups stop.
+    let mut host = demo_host();
+    let now = Instant::now();
+    host.app.on_frame_presented(NativeRenderer::Gpu).unwrap();
+    let request = host.app.idle(&status, now);
+    assert!(request.title.is_some());
+    let due = request.deadline.unwrap();
+    assert!(due > now && due <= now + Duration::from_millis(250));
+    let idle = host.app.idle(&status, now + Duration::from_secs(2));
+    assert!(idle.title.unwrap().contains(" · idle · "));
+    assert_eq!(idle.deadline, None);
+}
+
+#[test]
+fn the_built_in_demo_follows_the_screen_size_and_marks_the_pressed_button() {
+    let mut host = demo_host();
+    assert!(host.app.runtime.focus_control(1));
+    host.app.fit_demo(393., 852.);
+    assert_eq!(
+        (host.app.runtime.width(), host.app.runtime.height()),
+        (393., 852.)
+    );
+    assert_eq!(host.app.runtime.focused_index(), 1);
+    let revision = host.app.runtime.visual_revision();
+    host.app.fit_demo(393.4, 852.);
+    assert_eq!(host.app.runtime.visual_revision(), revision);
+
+    click(&mut host, 0);
+    host.app.restyle_demo("first");
+    assert_eq!(
+        (host.app.runtime.width(), host.app.runtime.height()),
+        (393., 852.)
+    );
+    assert!(
+        host.app
+            .runtime
+            .accessibility_tree_json()
+            .contains("Первая кнопка · нажата (1)")
+    );
+
+    // A scene from disk is never replaced by the demo.
+    let dir = TempDir::new("fit");
+    let path = dir.write(
+        "Demo.ui",
+        "component Demo { Frame { width:200; height:100; Button { key:'one'; } } }",
+    );
+    let mut host = dev_host(
+        DevProject::load(Some(path), None).unwrap(),
+        Default::default(),
+    );
+    host.app.fit_demo(393., 852.);
+    host.app.restyle_demo("one");
+    assert_eq!(host.app.runtime.width(), 200.);
+    assert_eq!(host.app.runtime.control_count(), 1);
+}
