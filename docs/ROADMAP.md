@@ -82,7 +82,7 @@
 - [ ] `gpu_shader::valid::Validator` не возвращает ошибок (проверено): ill-typed шейдер доходит
   до компилятора Metal. Нужна настоящая проверка типов.
 - [ ] `// SAFETY:` помодульно со снятием crate-wide `allow(unsafe_op_in_unsafe_fn)`, декомпозиция
-  `submit_with_error_sink` (352 строки) и `encode_render_pass` (345).
+  `submit_with_error_sink` (352 строки).
 - [ ] Device loss, смена GPU, forced faults, квалификация signal-driven пути.
 
 Бэкенды (реализации нет, по порядку проверяемости):

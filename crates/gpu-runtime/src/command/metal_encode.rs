@@ -523,6 +523,15 @@ unsafe fn resolve_timestamps(
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
+type MsgSetU64 = unsafe extern "C" fn(*mut c_void, *mut c_void, u64);
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+type MsgSetObj = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void);
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+type MsgSetAtIndex = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize);
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+type MsgSetBuffer = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize, usize);
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) unsafe fn encode_render_pass(
     metal: &MetalDevice,
     cmd_buf: *mut c_void,
@@ -530,74 +539,13 @@ pub(crate) unsafe fn encode_render_pass(
 ) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
-    let f_sub: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void = msg_send();
-    let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
-    let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) = msg_send();
-    let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) = msg_send();
-    let f_set_cc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLClearColor) = msg_send();
 
     let rpd = f_obj(s.cls_mtl_render_pass_descriptor, s.render_pass_descriptor);
-    let color_atts = f_obj(rpd, s.color_attachments);
-
     let owned_color_atts = std::mem::take(&mut rp.color_attachments);
-    for (i, ca_opt) in owned_color_atts.iter().enumerate() {
-        if let Some(ca) = ca_opt {
-            let att = f_sub(color_atts, s.object_at_indexed_subscript, i);
-            f_set_obj(att, s.set_attachment_texture, ca.view.texture.raw.as_ptr());
-            f_set_u64(att, s.set_level, ca.view.base_mip_level as u64);
-            f_set_u64(att, s.set_slice, ca.view.base_array_layer as u64);
-            match ca.ops.load {
-                LoadOp::Clear(c) => {
-                    f_set_u64(att, s.set_load_action, 2); // MTLLoadActionClear
-                    f_set_cc(
-                        att,
-                        s.set_clear_color,
-                        MTLClearColor {
-                            red: c.r,
-                            green: c.g,
-                            blue: c.b,
-                            alpha: c.a,
-                        },
-                    );
-                }
-                LoadOp::Load => {
-                    f_set_u64(att, s.set_load_action, 1); // MTLLoadActionLoad
-                }
-            }
-            let store_act = match ca.ops.store {
-                StoreOp::Store => 1u64,   // MTLStoreActionStore
-                StoreOp::Discard => 0u64, // MTLStoreActionDontCare
-            };
-            f_set_u64(att, s.set_store_action, store_act);
-        }
-    }
+    configure_color_attachments(rpd, &owned_color_atts);
     metal.recycle_color_atts(owned_color_atts);
-
     if let Some(dsa) = &rp.depth_stencil_attachment {
-        let d_att = f_obj(rpd, s.depth_attachment);
-        f_set_obj(
-            d_att,
-            s.set_attachment_texture,
-            dsa.view.texture.raw.as_ptr(),
-        );
-        f_set_u64(d_att, s.set_level, dsa.view.base_mip_level as u64);
-        f_set_u64(d_att, s.set_slice, dsa.view.base_array_layer as u64);
-        if let Some(ops) = &dsa.depth_ops {
-            match ops.load {
-                LoadOp::Clear(d) => {
-                    f_set_u64(d_att, s.set_load_action, 2);
-                    f_set_f64(d_att, s.set_clear_depth, d as f64);
-                }
-                LoadOp::Load => {
-                    f_set_u64(d_att, s.set_load_action, 1);
-                }
-            }
-            let store_act = match ops.store {
-                StoreOp::Store => 1u64,
-                StoreOp::Discard => 0u64,
-            };
-            f_set_u64(d_att, s.set_store_action, store_act);
-        }
+        configure_depth_attachment(rpd, dsa);
     }
 
     let mut commands = std::mem::take(&mut rp.commands);
@@ -609,143 +557,130 @@ pub(crate) unsafe fn encode_render_pass(
         return;
     }
 
-    let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
-    let f_set_dss: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) = msg_send();
-    let f_set_buf: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize, usize) =
-        msg_send();
-    let f_set_bytes: unsafe extern "C" fn(*mut c_void, *mut c_void, *const c_void, usize, usize) =
-        msg_send();
-    let f_set_tex: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
-    let f_set_samp: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, usize) = msg_send();
-    let f_set_db: unsafe extern "C" fn(*mut c_void, *mut c_void, f32, f32, f32) = msg_send();
-    let f_set_vp: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLViewport) = msg_send();
-    let f_set_sc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLScissorRect) = msg_send();
-    let f_draw: unsafe extern "C" fn(*mut c_void, *mut c_void, u64, usize, usize, usize, usize) =
-        msg_send();
-    let f_draw_idx: unsafe extern "C" fn(
-        *mut c_void,
-        *mut c_void,
-        u64,
-        usize,
-        u64,
-        *mut c_void,
-        usize,
-        usize,
-        isize,
-        usize,
-    ) = msg_send();
-    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+    let mut pass = RenderPassEncoder {
+        enc,
+        s,
+        primitive_type: 3, // MTLPrimitiveTypeTriangle
+        index_buffer: None,
+        pipeline: None,
+        bound_groups: Default::default(),
+    };
+    for cmd in commands.drain(..) {
+        pass.encode(cmd);
+    }
 
-    let mut current_primitive_type = 3u64; // MTLPrimitiveTypeTriangle
-    let mut active_index_buffer: Option<(Buffer, IndexFormat, u64)> = None;
-    // Texture and sampler slots belong to each stage's shader, so they are bound against the
-    // current pipeline; groups set before a pipeline are bound when it arrives.
-    let mut current_pipeline: Option<RenderPipeline> = None;
-    let mut bound_groups: std::collections::BTreeMap<u32, BindGroup> = Default::default();
-    let bind_render_handles = |index: u32, bind_group: &BindGroup, pipe: &RenderPipeline| {
-        for (binding, tex) in bind_group.textures.iter() {
-            if let Some(&slot) = pipe.vertex_bindings.textures.get(&(index, *binding)) {
-                f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot as usize);
-            }
-            if let Some(map) = &pipe.fragment_bindings {
-                if let Some(&slot) = map.textures.get(&(index, *binding)) {
-                    f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot as usize);
-                }
-            }
-        }
-        for (binding, samp) in bind_group.samplers.iter() {
-            if let Some(&slot) = pipe.vertex_bindings.samplers.get(&(index, *binding)) {
-                f_set_samp(
-                    enc,
-                    s.set_vertex_sampler_state,
-                    samp.raw.as_ptr(),
-                    slot as usize,
+    metal.recycle_render_cmds(commands);
+    let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+    f_void(enc, s.end_encoding);
+}
+
+/// Texture, load action and store action of each colour attachment.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+unsafe fn configure_color_attachments(
+    rpd: *mut c_void,
+    attachments: &[Option<OwnedColorAttachment>],
+) {
+    let s = metal_selectors();
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+    let f_sub: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void = msg_send();
+    let f_set_obj: MsgSetObj = msg_send();
+    let f_set_u64: MsgSetU64 = msg_send();
+    let f_set_cc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLClearColor) = msg_send();
+    let color_atts = f_obj(rpd, s.color_attachments);
+    for (i, ca_opt) in attachments.iter().enumerate() {
+        let Some(ca) = ca_opt else { continue };
+        let att = f_sub(color_atts, s.object_at_indexed_subscript, i);
+        f_set_obj(att, s.set_attachment_texture, ca.view.texture.raw.as_ptr());
+        f_set_u64(att, s.set_level, ca.view.base_mip_level as u64);
+        f_set_u64(att, s.set_slice, ca.view.base_array_layer as u64);
+        match ca.ops.load {
+            LoadOp::Clear(c) => {
+                f_set_u64(att, s.set_load_action, 2); // MTLLoadActionClear
+                f_set_cc(
+                    att,
+                    s.set_clear_color,
+                    MTLClearColor {
+                        red: c.r,
+                        green: c.g,
+                        blue: c.b,
+                        alpha: c.a,
+                    },
                 );
             }
-            if let Some(map) = &pipe.fragment_bindings {
-                if let Some(&slot) = map.samplers.get(&(index, *binding)) {
-                    f_set_samp(
-                        enc,
-                        s.set_fragment_sampler_state,
-                        samp.raw.as_ptr(),
-                        slot as usize,
-                    );
-                }
+            LoadOp::Load => {
+                f_set_u64(att, s.set_load_action, 1); // MTLLoadActionLoad
             }
         }
-    };
+        f_set_u64(att, s.set_store_action, store_action(ca.ops.store));
+    }
+}
 
-    for cmd in commands.drain(..) {
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+unsafe fn configure_depth_attachment(rpd: *mut c_void, dsa: &OwnedDepthAttachment) {
+    let s = metal_selectors();
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+    let f_set_obj: MsgSetObj = msg_send();
+    let f_set_u64: MsgSetU64 = msg_send();
+    let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) = msg_send();
+    let d_att = f_obj(rpd, s.depth_attachment);
+    f_set_obj(
+        d_att,
+        s.set_attachment_texture,
+        dsa.view.texture.raw.as_ptr(),
+    );
+    f_set_u64(d_att, s.set_level, dsa.view.base_mip_level as u64);
+    f_set_u64(d_att, s.set_slice, dsa.view.base_array_layer as u64);
+    let Some(ops) = &dsa.depth_ops else { return };
+    match ops.load {
+        LoadOp::Clear(d) => {
+            f_set_u64(d_att, s.set_load_action, 2);
+            f_set_f64(d_att, s.set_clear_depth, d as f64);
+        }
+        LoadOp::Load => {
+            f_set_u64(d_att, s.set_load_action, 1);
+        }
+    }
+    f_set_u64(d_att, s.set_store_action, store_action(ops.store));
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn store_action(store: StoreOp) -> u64 {
+    match store {
+        StoreOp::Store => 1,   // MTLStoreActionStore
+        StoreOp::Discard => 0, // MTLStoreActionDontCare
+    }
+}
+
+/// The state a render pass carries from one command to the next.
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+struct RenderPassEncoder {
+    enc: *mut c_void,
+    s: &'static crate::metal::Selectors,
+    primitive_type: u64,
+    index_buffer: Option<(Buffer, IndexFormat, u64)>,
+    /// Texture and sampler slots belong to each stage's shader, so they are bound against the
+    /// current pipeline; groups set before a pipeline are bound when it arrives.
+    pipeline: Option<RenderPipeline>,
+    bound_groups: std::collections::BTreeMap<u32, BindGroup>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+impl RenderPassEncoder {
+    unsafe fn encode(&mut self, cmd: RenderCommand) {
+        let (enc, s) = (self.enc, self.s);
         match cmd {
-            RenderCommand::SetPipeline(pipe) => {
-                let Some(pso) = &pipe.pso else {
-                    current_pipeline = None;
-                    continue;
-                };
-                for (index, bind_group) in &bound_groups {
-                    bind_render_handles(*index, bind_group, &pipe);
-                }
-                current_pipeline = Some(pipe.clone());
-                f_set_pso(enc, s.set_render_pipeline_state, pso.as_ptr());
-                if let Some(dss) = &pipe.depth_stencil_state {
-                    f_set_dss(enc, s.set_depth_stencil_state, dss.as_ptr());
-                }
-                current_primitive_type = pipe.primitive.topology.to_mtl();
-                let winding = match pipe.primitive.front_face {
-                    FrontFace::Cw => 0u64,  // MTLWindingClockwise
-                    FrontFace::Ccw => 1u64, // MTLWindingCounterClockwise
-                };
-                f_set_u64(enc, s.set_front_facing_winding, winding);
-                let cull = match pipe.primitive.cull_mode {
-                    None => 0u64,              // MTLCullModeNone
-                    Some(Face::Front) => 1u64, // MTLCullModeFront
-                    Some(Face::Back) => 2u64,  // MTLCullModeBack
-                };
-                f_set_u64(enc, s.set_cull_mode, cull);
-                if pipe.depth_bias.constant != 0 || pipe.depth_bias.slope_scale != 0.0 {
-                    f_set_db(
-                        enc,
-                        s.set_depth_bias,
-                        pipe.depth_bias.constant as f32,
-                        pipe.depth_bias.slope_scale,
-                        pipe.depth_bias.clamp,
-                    );
-                }
-            }
+            RenderCommand::SetPipeline(pipe) => self.set_pipeline(pipe),
             RenderCommand::SetBindGroup {
                 index,
                 bind_group,
                 offsets,
-            } => {
-                for (b_i, (binding, buf, base_off, _)) in bind_group.buffers.iter().enumerate() {
-                    let slot = msl_buffer_slot(index, *binding) as usize;
-                    let dyn_off = offsets.get(b_i).unwrap_or(0) as u64;
-                    let final_off = (*base_off + dyn_off) as usize;
-                    f_set_buf(
-                        enc,
-                        s.set_vertex_buffer,
-                        buf.inner.raw.as_ptr(),
-                        final_off,
-                        slot,
-                    );
-                    f_set_buf(
-                        enc,
-                        s.set_fragment_buffer,
-                        buf.inner.raw.as_ptr(),
-                        final_off,
-                        slot,
-                    );
-                }
-                if let Some(pipe) = &current_pipeline {
-                    bind_render_handles(index, &bind_group, pipe);
-                }
-                bound_groups.insert(index, bind_group);
-            }
+            } => self.set_bind_group(index, bind_group, &offsets),
             RenderCommand::SetVertexBuffer {
                 slot,
                 buffer,
                 offset,
             } => {
+                let f_set_buf: MsgSetBuffer = msg_send();
                 let mtl_slot = (MSL_VERTEX_BUFFER_BASE_SLOT + slot) as usize;
                 f_set_buf(
                     enc,
@@ -760,24 +695,26 @@ pub(crate) unsafe fn encode_render_pass(
                 format,
                 offset,
             } => {
-                active_index_buffer = Some((buffer, format, offset));
+                self.index_buffer = Some((buffer, format, offset));
             }
             RenderCommand::SetImmediates { offset: _, data } => {
+                let f_set_bytes: unsafe extern "C" fn(
+                    *mut c_void,
+                    *mut c_void,
+                    *const c_void,
+                    usize,
+                    usize,
+                ) = msg_send();
                 let slot = MSL_IMMEDIATE_BUFFER_SLOT as usize;
-                f_set_bytes(
-                    enc,
-                    s.set_vertex_bytes,
-                    data.as_ptr() as *const c_void,
-                    data.len(),
-                    slot,
-                );
-                f_set_bytes(
-                    enc,
-                    s.set_fragment_bytes,
-                    data.as_ptr() as *const c_void,
-                    data.len(),
-                    slot,
-                );
+                for selector in [s.set_vertex_bytes, s.set_fragment_bytes] {
+                    f_set_bytes(
+                        enc,
+                        selector,
+                        data.as_ptr() as *const c_void,
+                        data.len(),
+                        slot,
+                    );
+                }
             }
             RenderCommand::SetViewport {
                 x,
@@ -787,6 +724,8 @@ pub(crate) unsafe fn encode_render_pass(
                 min_depth,
                 max_depth,
             } => {
+                let f_set_vp: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLViewport) =
+                    msg_send();
                 f_set_vp(
                     enc,
                     s.set_viewport,
@@ -801,6 +740,8 @@ pub(crate) unsafe fn encode_render_pass(
                 );
             }
             RenderCommand::SetScissorRect { x, y, w, h } => {
+                let f_set_sc: unsafe extern "C" fn(*mut c_void, *mut c_void, MTLScissorRect) =
+                    msg_send();
                 f_set_sc(
                     enc,
                     s.set_scissor_rect,
@@ -815,59 +756,181 @@ pub(crate) unsafe fn encode_render_pass(
             RenderCommand::Draw {
                 vertices,
                 instances,
-            } => {
-                let v_count = vertices.end.saturating_sub(vertices.start) as usize;
-                let i_count = instances.end.saturating_sub(instances.start) as usize;
-                if v_count > 0 && i_count > 0 && current_pipeline.is_some() {
-                    f_draw(
-                        enc,
-                        s.draw_primitives,
-                        current_primitive_type,
-                        vertices.start as usize,
-                        v_count,
-                        i_count,
-                        instances.start as usize,
-                    );
-                }
-            }
+            } => self.draw(vertices, instances),
             RenderCommand::DrawIndexed {
                 indices,
                 base_vertex,
                 instances,
-            } => {
-                let idx_count = indices.end.saturating_sub(indices.start) as usize;
-                let i_count = instances.end.saturating_sub(instances.start) as usize;
-                if idx_count > 0 && i_count > 0 && current_pipeline.is_some() {
-                    if let Some((ibuf, fmt, base_off)) = &active_index_buffer {
-                        let elem_size = match fmt {
-                            IndexFormat::Uint16 => 2u64,
-                            IndexFormat::Uint32 => 4u64,
-                        };
-                        let mtl_idx_type = match fmt {
-                            IndexFormat::Uint16 => 0u64, // MTLIndexTypeUInt16
-                            IndexFormat::Uint32 => 1u64, // MTLIndexTypeUInt32
-                        };
-                        let byte_off = (*base_off + indices.start as u64 * elem_size) as usize;
-                        f_draw_idx(
-                            enc,
-                            s.draw_indexed_primitives,
-                            current_primitive_type,
-                            idx_count,
-                            mtl_idx_type,
-                            ibuf.inner.raw.as_ptr(),
-                            byte_off,
-                            i_count,
-                            base_vertex as isize,
-                            instances.start as usize,
-                        );
-                    }
-                }
+            } => self.draw_indexed(indices, base_vertex, instances),
+        }
+    }
+
+    /// Binds the textures and samplers of `bind_group` to the slots `pipe` gives them.
+    unsafe fn bind_handles(&self, index: u32, bind_group: &BindGroup, pipe: &RenderPipeline) {
+        let (enc, s) = (self.enc, self.s);
+        let f_set: MsgSetAtIndex = msg_send();
+        let fragment = pipe.fragment_bindings.as_ref();
+        for (binding, tex) in bind_group.textures.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.textures.get(&(index, *binding)) {
+                f_set(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot as usize);
+            }
+            if let Some(&slot) = fragment.and_then(|map| map.textures.get(&(index, *binding))) {
+                f_set(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot as usize);
+            }
+        }
+        for (binding, samp) in bind_group.samplers.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.samplers.get(&(index, *binding)) {
+                f_set(
+                    enc,
+                    s.set_vertex_sampler_state,
+                    samp.raw.as_ptr(),
+                    slot as usize,
+                );
+            }
+            if let Some(&slot) = fragment.and_then(|map| map.samplers.get(&(index, *binding))) {
+                f_set(
+                    enc,
+                    s.set_fragment_sampler_state,
+                    samp.raw.as_ptr(),
+                    slot as usize,
+                );
             }
         }
     }
 
-    metal.recycle_render_cmds(commands);
-    f_void(enc, s.end_encoding);
+    unsafe fn set_pipeline(&mut self, pipe: RenderPipeline) {
+        let (enc, s) = (self.enc, self.s);
+        let Some(pso) = &pipe.pso else {
+            self.pipeline = None;
+            return;
+        };
+        for (index, bind_group) in &self.bound_groups {
+            self.bind_handles(*index, bind_group, &pipe);
+        }
+        let f_set_obj: MsgSetObj = msg_send();
+        let f_set_u64: MsgSetU64 = msg_send();
+        f_set_obj(enc, s.set_render_pipeline_state, pso.as_ptr());
+        if let Some(dss) = &pipe.depth_stencil_state {
+            f_set_obj(enc, s.set_depth_stencil_state, dss.as_ptr());
+        }
+        self.primitive_type = pipe.primitive.topology.to_mtl();
+        let winding = match pipe.primitive.front_face {
+            FrontFace::Cw => 0u64,  // MTLWindingClockwise
+            FrontFace::Ccw => 1u64, // MTLWindingCounterClockwise
+        };
+        f_set_u64(enc, s.set_front_facing_winding, winding);
+        let cull = match pipe.primitive.cull_mode {
+            None => 0u64,              // MTLCullModeNone
+            Some(Face::Front) => 1u64, // MTLCullModeFront
+            Some(Face::Back) => 2u64,  // MTLCullModeBack
+        };
+        f_set_u64(enc, s.set_cull_mode, cull);
+        if pipe.depth_bias.constant != 0 || pipe.depth_bias.slope_scale != 0.0 {
+            let f_set_db: unsafe extern "C" fn(*mut c_void, *mut c_void, f32, f32, f32) =
+                msg_send();
+            f_set_db(
+                enc,
+                s.set_depth_bias,
+                pipe.depth_bias.constant as f32,
+                pipe.depth_bias.slope_scale,
+                pipe.depth_bias.clamp,
+            );
+        }
+        self.pipeline = Some(pipe);
+    }
+
+    unsafe fn set_bind_group(
+        &mut self,
+        index: u32,
+        bind_group: BindGroup,
+        offsets: &DynamicOffsets,
+    ) {
+        let (enc, s) = (self.enc, self.s);
+        let f_set_buf: MsgSetBuffer = msg_send();
+        for (b_i, (binding, buf, base_off, _)) in bind_group.buffers.iter().enumerate() {
+            let slot = msl_buffer_slot(index, *binding) as usize;
+            let dyn_off = offsets.get(b_i).unwrap_or(0) as u64;
+            let final_off = (*base_off + dyn_off) as usize;
+            for selector in [s.set_vertex_buffer, s.set_fragment_buffer] {
+                f_set_buf(enc, selector, buf.inner.raw.as_ptr(), final_off, slot);
+            }
+        }
+        if let Some(pipe) = &self.pipeline {
+            self.bind_handles(index, &bind_group, pipe);
+        }
+        self.bound_groups.insert(index, bind_group);
+    }
+
+    unsafe fn draw(&self, vertices: std::ops::Range<u32>, instances: std::ops::Range<u32>) {
+        let v_count = vertices.end.saturating_sub(vertices.start) as usize;
+        let i_count = instances.end.saturating_sub(instances.start) as usize;
+        if v_count == 0 || i_count == 0 || self.pipeline.is_none() {
+            return;
+        }
+        let f_draw: unsafe extern "C" fn(
+            *mut c_void,
+            *mut c_void,
+            u64,
+            usize,
+            usize,
+            usize,
+            usize,
+        ) = msg_send();
+        f_draw(
+            self.enc,
+            self.s.draw_primitives,
+            self.primitive_type,
+            vertices.start as usize,
+            v_count,
+            i_count,
+            instances.start as usize,
+        );
+    }
+
+    unsafe fn draw_indexed(
+        &self,
+        indices: std::ops::Range<u32>,
+        base_vertex: i32,
+        instances: std::ops::Range<u32>,
+    ) {
+        let idx_count = indices.end.saturating_sub(indices.start) as usize;
+        let i_count = instances.end.saturating_sub(instances.start) as usize;
+        if idx_count == 0 || i_count == 0 || self.pipeline.is_none() {
+            return;
+        }
+        let Some((ibuf, fmt, base_off)) = &self.index_buffer else {
+            return;
+        };
+        let (elem_size, mtl_idx_type) = match fmt {
+            IndexFormat::Uint16 => (2u64, 0u64), // MTLIndexTypeUInt16
+            IndexFormat::Uint32 => (4u64, 1u64), // MTLIndexTypeUInt32
+        };
+        let byte_off = (*base_off + indices.start as u64 * elem_size) as usize;
+        let f_draw_idx: unsafe extern "C" fn(
+            *mut c_void,
+            *mut c_void,
+            u64,
+            usize,
+            u64,
+            *mut c_void,
+            usize,
+            usize,
+            isize,
+            usize,
+        ) = msg_send();
+        f_draw_idx(
+            self.enc,
+            self.s.draw_indexed_primitives,
+            self.primitive_type,
+            idx_count,
+            mtl_idx_type,
+            ibuf.inner.raw.as_ptr(),
+            byte_off,
+            i_count,
+            base_vertex as isize,
+            instances.start as usize,
+        );
+    }
 }
 
 /// Metal row and image strides for a buffer<->texture copy of one image.
