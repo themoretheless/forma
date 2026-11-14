@@ -63,7 +63,15 @@ fn main() {
             env!("CARGO_MANIFEST_DIR")
         )
     });
-    for count in [32usize, 256] {
+    // Control counts from the command line, e.g. `8 32 96 256`; by default 32 and 256.
+    let mut counts: Vec<usize> = std::env::args()
+        .skip(1)
+        .filter_map(|arg| arg.parse().ok())
+        .collect();
+    if counts.is_empty() {
+        counts = vec![32, 256];
+    }
+    for count in counts {
         let path = format!("{dir}/forma-transport-{count}.txt");
         let text = std::fs::read_to_string(&path).unwrap_or_else(|error| {
             panic!("missing {path}: run `node scripts/transport-fixture.mjs` first ({error})")

@@ -16,7 +16,9 @@ const components = {
 };
 const compile = createComponentCompiler();
 const rows = [];
-for (const count of [1, 32, 256]) {
+// Control counts as a comma-separated second argument, e.g. `1,8,32,96,256`.
+const counts = (process.argv[3] ?? '1,32,256').split(',').map(Number);
+for (const count of counts) {
   const controls = Array.from(
     { length: count },
     (_, i) => `ImageButton { text: 'Item ${i}'; width: 180; height: 50; }`,
