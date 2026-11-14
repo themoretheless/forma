@@ -115,7 +115,15 @@ impl Runtime {
     }
 
     pub fn from_sources(source: &str, component: &str) -> Result<Self, String> {
-        let mut scene = markup::parse(source)?;
+        let mut scene = markup::parse(source).map_err(|error| {
+            // The layout places a control that does not fit its container at a negative
+            // position, which the scene format refuses; say what that means.
+            if error.contains("must be non-negative") {
+                format!("A control does not fit inside its container: {error}")
+            } else {
+                error
+            }
+        })?;
         let templates = templates(component, scene.buttons.len())?;
         let mut controls = Vec::with_capacity(scene.buttons.len());
         let modal_of: Vec<Option<usize>> = (0..scene.buttons.len())

@@ -72,6 +72,10 @@ const CASES: &[(&str, &str)] = &[
         "child wider than its column",
         "Column { width: 200; height: 200; Text { text: 'a'; width: 260; height: 20; } }",
     ),
+    (
+        "keyed child wider than its column",
+        "Column { width: 200; height: 200; Text { key: 'wide'; text: 'a'; width: 260; height: 20; } }",
+    ),
 ];
 
 #[test]

@@ -13,4 +13,5 @@ clip on the root: loads, 1 control(s), 2 node(s)
 clip on a nested column: ERROR Nested scene clipping is unsupported; use the root Frame clip
 stack overlap: loads, 2 control(s), 3 node(s)
 grid with cells: loads, 2 control(s), 3 node(s)
-child wider than its column: ERROR 'x' must be non-negative (byte 197)
+child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative (byte 197)
+keyed child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative (byte 196)
