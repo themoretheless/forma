@@ -88,6 +88,9 @@ impl Document {
         root.props.insert("width".into(), number(root_size[0]));
         root.props.insert("height".into(), number(root_size[1]));
         let scroll = root.children.len() == 1 && root.children[0].kind == "Scroll";
+        if !scroll && contains_scroll(&root.children) {
+            return Err("Scroll is supported only as the single child of the root".into());
+        }
         let scroll_viewport = if scroll {
             Some(root_scroll_viewport(&root, &measuring, root_size)?)
         } else {
@@ -485,6 +488,13 @@ impl SceneEmitter {
         });
         Ok(())
     }
+}
+
+/// Whether a Scroll appears anywhere among these nodes or below them.
+fn contains_scroll(nodes: &[Node]) -> bool {
+    nodes
+        .iter()
+        .any(|node| node.kind == "Scroll" || contains_scroll(&node.children))
 }
 
 /// Appends a Slider's `RangeInput`: its current value and the visuals of both endpoints.
