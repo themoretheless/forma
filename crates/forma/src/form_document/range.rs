@@ -37,6 +37,11 @@ impl RangeBounds {
         }
     }
 
+    /// The ends of the scale when they are not the default 0 and 1.
+    pub(super) fn scale(self) -> Option<(f64, f64)> {
+        (self.min != 0. || self.max != 1.).then_some((self.min, self.max))
+    }
+
     /// The step as a fraction of the scale; 0 without a grid.
     pub(super) fn step_fraction(self) -> f64 {
         (self.step / (self.max - self.min)).clamp(0., 1.)

@@ -69,7 +69,8 @@ export function createInstanceCompiler({
       };
       const { min, max, step } = rangeBounds(name => resolved[name]);
       const grid = step > 0 ? ` step: ${Math.min(1, step / (max - min))};` : '';
-      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100};${grid} Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
+      const scale = min !== 0 || max !== 1 ? ` min: ${min}; max: ${max};` : '';
+      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100};${grid}${scale} Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
     }
     const root = roots[0],
       out = [],

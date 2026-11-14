@@ -128,6 +128,10 @@ pub struct RangeInput {
     pub value: f32,
     /// The step grid as a fraction of the scale; 0 when the control moves freely.
     pub step: f32,
+    /// The ends of the scale the application counts in; 0 and 1 when it gives none. The control
+    /// itself works with `value` as a fraction, these are what a reader of the value is told.
+    pub min: f32,
+    pub max: f32,
     pub minimum: Vec<Content>,
     pub maximum: Vec<Content>,
 }
@@ -141,6 +145,21 @@ impl RangeInput {
         } else {
             fraction
         }
+    }
+
+    /// Whether the application gave a scale of its own.
+    pub fn has_scale(&self) -> bool {
+        self.min != 0. || self.max != 1.
+    }
+
+    /// The current value on the application's scale.
+    pub fn scaled_value(&self) -> f32 {
+        self.min + self.value * (self.max - self.min)
+    }
+
+    /// The fraction at which `scaled` lies on the application's scale.
+    pub fn fraction_of(&self, scaled: f32) -> f32 {
+        ((scaled - self.min) / (self.max - self.min)).clamp(0., 1.)
     }
 
     /// The distance of one arrow key press and of one page key press.

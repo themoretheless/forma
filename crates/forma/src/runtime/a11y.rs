@@ -42,6 +42,9 @@ pub struct A11yNode {
     pub value: Option<String>,
     #[serde(skip)]
     pub numeric_value: Option<f32>,
+    /// Minimum, maximum, step and jump of a slider on the application's scale.
+    #[serde(skip)]
+    pub numeric_range: Option<[f32; 4]>,
     #[serde(serialize_with = "serialize_a11y_bounds")]
     pub bounds: [f32; 4],
     pub focused: bool,
@@ -92,6 +95,7 @@ impl Runtime {
                         label: self.scene.name.clone(),
                         value: None,
                         numeric_value: None,
+                        numeric_range: None,
                         bounds: [0.0, 0.0, self.render_width(), self.render_height()],
                         focused: false,
                         disabled: false,
@@ -112,6 +116,7 @@ impl Runtime {
                         label: "Scrollable Region".into(),
                         value: Some(format!("{:.0},{:.0}", self.scroll[0], self.scroll[1])),
                         numeric_value: Some(self.scroll[1]),
+                        numeric_range: None,
                         bounds: self.viewport_rect(),
                         focused: false,
                         disabled: false,
@@ -142,6 +147,7 @@ impl Runtime {
                         label: m_spec.key.clone(),
                         value: Some(if open { "open" } else { "closed" }.into()),
                         numeric_value: None,
+                        numeric_range: None,
                         bounds: [m_spec.x, m_spec.y, m_spec.width, m_spec.height],
                         focused: false,
                         disabled: !open,
@@ -166,10 +172,11 @@ impl Runtime {
                     if focused {
                         focused_node_id = Some(node.id);
                     }
-                    let is_ranged = self
+                    let range = self
                         .controls
                         .get(idx)
-                        .is_some_and(|c| c.template.range.is_some());
+                        .and_then(|c| c.template.range.as_ref());
+                    let is_ranged = range.is_some();
                     let role = if self.control_editable(idx) {
                         A11yRole::TextInput
                     } else if is_ranged {
@@ -195,16 +202,19 @@ impl Runtime {
                     }
                     let value = if self.control_editable(idx) {
                         Some(self.text_value(idx))
+                    } else if let Some(range) = range.filter(|range| range.has_scale()) {
+                        Some(format!("{}", range.scaled_value()))
                     } else if is_ranged {
                         Some(format!("{:.0}%", self.range_value(idx) * 100.0))
                     } else {
                         None
                     };
-                    let numeric_value = if is_ranged {
-                        Some(self.range_value(idx))
-                    } else {
-                        None
-                    };
+                    let numeric_range = range.map(|range| {
+                        let span = range.max - range.min;
+                        let (step, jump) = range.key_steps();
+                        [range.min, range.max, step * span, jump * span]
+                    });
+                    let numeric_value = range.map(|range| range.scaled_value());
                     let mut actions = Vec::new();
                     if !disabled && !blocked {
                         match role {
@@ -230,6 +240,7 @@ impl Runtime {
                         label,
                         value,
                         numeric_value,
+                        numeric_range,
                         bounds,
                         focused,
                         disabled,

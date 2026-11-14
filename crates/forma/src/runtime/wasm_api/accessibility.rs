@@ -53,8 +53,10 @@ impl Runtime {
 
     /// Set a normalized `[0.0, 1.0]` slider range value via semantic accessibility action.
     /// Accepts values in `[0.0, 1.0]` or percentage `[0.0, 100.0]` (normalized when `> 1.0 && <= 100.0`).
+    ///
+    /// A slider with a scale of its own takes the value on that scale instead.
     pub fn accessibility_set_range_value(&mut self, node_id: usize, value: f64) -> bool {
-        if !value.is_finite() || !(0. ..=100.).contains(&value) {
+        if !value.is_finite() {
             return false;
         }
         let Some(index) = self
@@ -68,27 +70,30 @@ impl Runtime {
         if !self.enabled(index) {
             return false;
         }
-        if self
+        let Some(range) = self
             .controls
             .get(index)
             .and_then(|c| c.template.range.as_ref())
-            .is_none()
-        {
+        else {
             return false;
-        }
-        if !self.focus_control(index) {
+        };
+        let normalized = if range.has_scale() {
+            range.fraction_of(value as f32)
+        } else if !(0. ..=100.).contains(&value) {
             return false;
-        }
-        let normalized = if value > 1. {
+        } else if value > 1. {
             (value / 100.).clamp(0., 1.) as f32
         } else {
             value.clamp(0., 1.) as f32
         };
+        if !self.focus_control(index) {
+            return false;
+        }
         if let Some(range) = Arc::make_mut(&mut self.controls[index].template)
             .range
             .as_mut()
         {
-            range.value = normalized;
+            range.value = range.snapped(normalized);
         }
         self.refresh_editors();
         true
@@ -125,7 +130,13 @@ impl Runtime {
             .range
             .as_mut()
         {
-            range.value = (range.value + delta).clamp(0., 1.);
+            // On a step grid one increment is one step, whatever distance the caller asked for.
+            let distance = if range.step > 0. {
+                delta.signum() * range.key_steps().0
+            } else {
+                delta
+            };
+            range.value = range.snapped(range.value + distance);
         }
         self.refresh_editors();
         true

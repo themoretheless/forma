@@ -288,6 +288,69 @@ fn the_keys_and_the_pointer_of_a_stepped_slider_move_along_the_step_grid() {
     assert!((runtime.range_value(0) - 0.52).abs() < 1e-6);
 }
 
+fn slider_node(runtime: &Runtime) -> A11yNode {
+    let tree = runtime.accessibility_tree();
+    tree.nodes
+        .into_iter()
+        .find(|node| node.role == A11yRole::Slider)
+        .unwrap()
+}
+
+#[test]
+fn accessibility_reads_and_sets_a_slider_on_its_own_scale() {
+    let source = SCALED_SLIDER
+        .replace("LEVEL", "50")
+        .replace("STEP", "step: 25;");
+    let mut runtime = builtin(&source);
+    let node = slider_node(&runtime);
+    assert_eq!(node.value.as_deref(), Some("50"));
+    assert_eq!(node.numeric_value, Some(50.));
+    assert_eq!(
+        node.numeric_range,
+        Some([0., 100., 25., 25.]),
+        "minimum, maximum, step, jump"
+    );
+
+    assert!(runtime.accessibility_set_range_value(node.id, 75.));
+    assert_eq!(runtime.range_value(0), 0.75);
+    assert!(
+        runtime.accessibility_set_range_value(node.id, 60.),
+        "off the grid moves to it"
+    );
+    assert_eq!(runtime.range_value(0), 0.5);
+    assert!(
+        runtime.accessibility_set_range_value(node.id, 500.),
+        "past the end stops at it"
+    );
+    assert_eq!(runtime.range_value(0), 1.);
+
+    // One increment is one step of the grid, whatever fraction the assistive technology sends.
+    assert!(runtime.accessibility_step_range(node.id, -0.05));
+    assert_eq!(runtime.range_value(0), 0.75);
+    assert!(runtime.accessibility_step_range(node.id, 0.05));
+    assert_eq!(runtime.range_value(0), 1.);
+    assert_eq!(slider_node(&runtime).numeric_value, Some(100.));
+}
+
+#[test]
+fn accessibility_keeps_fractions_and_percentages_for_a_slider_without_a_scale() {
+    let mut runtime = builtin(&BOUND_SLIDER.replace("LEVEL", "0.5"));
+    let node = slider_node(&runtime);
+    assert_eq!(node.value.as_deref(), Some("50%"));
+    assert_eq!(node.numeric_value, Some(0.5));
+    assert_eq!(node.numeric_range, Some([0., 1., 0.01, 0.1]));
+    assert!(runtime.accessibility_set_range_value(node.id, 0.25));
+    assert_eq!(runtime.range_value(0), 0.25);
+    assert!(
+        runtime.accessibility_set_range_value(node.id, 80.),
+        "above one is a percentage"
+    );
+    assert_eq!(runtime.range_value(0), 0.8);
+    assert!(!runtime.accessibility_set_range_value(node.id, 500.));
+    assert!(runtime.accessibility_step_range(node.id, 0.05));
+    assert!((runtime.range_value(0) - 0.85).abs() < 1e-6);
+}
+
 #[test]
 fn a_slider_without_a_scale_still_treats_the_bound_number_as_a_fraction() {
     let mut runtime = builtin(&BOUND_SLIDER.replace("LEVEL", "0.25"));

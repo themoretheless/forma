@@ -111,10 +111,11 @@ pub fn tree_update(tree: &A11yTree) -> TreeUpdate {
                 node.add_action(Action::SetValue);
             }
             if source.role == A11yRole::Slider {
-                node.set_min_numeric_value(0.);
-                node.set_max_numeric_value(1.);
-                node.set_numeric_value_step(0.01);
-                node.set_numeric_value_jump(0.1);
+                let [min, max, step, jump] = source.numeric_range.unwrap_or([0., 1., 0.01, 0.1]);
+                node.set_min_numeric_value(f64::from(min));
+                node.set_max_numeric_value(f64::from(max));
+                node.set_numeric_value_step(f64::from(step));
+                node.set_numeric_value_jump(f64::from(jump));
                 if source.actions.contains(&"increment") {
                     node.add_action(Action::Increment);
                 }

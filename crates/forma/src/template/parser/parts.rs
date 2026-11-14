@@ -7,6 +7,7 @@ impl<'a> Parser<'a> {
         self.open()?;
         let mut value = 0.;
         let mut step = 0.;
+        let (mut min, mut max) = (0., 1.);
         let mut minimum = None;
         let mut maximum = None;
         let mut seen = SeenFields::default();
@@ -20,6 +21,14 @@ impl<'a> Parser<'a> {
             } else if name == "step" {
                 self.colon()?;
                 step = self.scalar("step", false)?;
+                self.semi()?;
+            } else if name == "min" {
+                self.colon()?;
+                min = self.scalar("min", false)?;
+                self.semi()?;
+            } else if name == "max" {
+                self.colon()?;
+                max = self.scalar("max", false)?;
                 self.semi()?;
             } else if name == "Minimum" || name == "Maximum" {
                 self.open()?;
@@ -61,6 +70,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.close()?;
+        let scaled = min.is_finite() && max.is_finite() && min < max && (max - min).is_finite();
         let range = RangeInput {
             value: value.clamp(0., 1.),
             step: if step.is_finite() {
@@ -68,6 +78,8 @@ impl<'a> Parser<'a> {
             } else {
                 0.
             },
+            min: if scaled { min } else { 0. },
+            max: if scaled { max } else { 1. },
             minimum: minimum.ok_or("Missing Minimum")?,
             maximum: maximum.ok_or("Missing Maximum")?,
         };
