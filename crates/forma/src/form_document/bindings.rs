@@ -128,7 +128,7 @@ impl Document {
                     let path = path_val.text()?;
                     let applies = match prop_name.as_str() {
                         "value" => activated_index.is_none(),
-                        "checked" | "selected" => activated_index == Some(idx),
+                        "checked" | "selected" | "group" => activated_index == Some(idx),
                         _ => false,
                     };
                     if !applies {
@@ -209,6 +209,11 @@ impl Document {
                             Some(Value::Bool(!checked))
                         }
                         "selected" if activated_index == Some(idx) => Some(Value::Bool(true)),
+                        "group" if activated_index == Some(idx) => {
+                            src_node.props.get("__group_value").and_then(|value| {
+                                eval(value, &Properties::new(), &state, &mut Vec::new()).ok()
+                            })
+                        }
                         _ => None,
                     };
                     let Some(val) = new_val else {

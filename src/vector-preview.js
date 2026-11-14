@@ -363,6 +363,15 @@ export function createVectorPreview({
                     range,
                   );
               } else if (
+                property === 'group' &&
+                eventNode === node &&
+                node.groupValue !== undefined &&
+                typeof node.groupValue !== 'object'
+              ) {
+                value = node.groupValue;
+                // Choosing the choice the group already holds writes nothing.
+                if (node.props.checked === true) value = undefined;
+              } else if (
                 (property === 'checked' || property === 'selected') &&
                 eventNode === node &&
                 typeof node.props[property] === 'boolean'

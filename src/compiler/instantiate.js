@@ -47,6 +47,13 @@ export function createInstantiator({
       throw Error(`Цикл композиции: ${[...parents, instance.type].join(' → ')}`);
     if (parents.length >= 32) throw Error('Глубина композиции компонентов превышает 32');
     if (!top) rejectInteraction(instance);
+    if (instance.groupBound && own(instance.props, 'group')) {
+      // The shared expansion copies every binding into the properties; the group is not a
+      // property of the control, its `checked` was derived from it when the source was parsed.
+      const props = { ...instance.props };
+      delete props.group;
+      instance = { ...instance, props };
+    }
     const linked = link(instance.type);
     if (instance.normalizedRange && typeof instance.props.value === 'number') {
       // A bound number lies on the control's scale; the template takes a fraction of it.

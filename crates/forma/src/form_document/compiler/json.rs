@@ -274,7 +274,23 @@ pub(super) fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
                 .as_str()
                 .or_else(|| path_val.get("expr").and_then(|e| e.as_str()))
             {
-                props.insert(prop_name.clone(), Value::Expr(path.to_string()));
+                if prop_name == "group" {
+                    // One choice of a group: it is checked while the group holds its `value`,
+                    // and choosing it writes that value. Neither name is a property of the
+                    // control itself.
+                    let value = props.remove("value").unwrap_or(Value::Null);
+                    props.insert(
+                        "checked".into(),
+                        Value::Expression(Box::new(Expression::Binary(
+                            "==".into(),
+                            Value::Expr(path.to_string()),
+                            value.clone(),
+                        ))),
+                    );
+                    props.insert("__group_value".into(), value);
+                } else {
+                    props.insert(prop_name.clone(), Value::Expr(path.to_string()));
+                }
                 bindings.insert(prop_name.clone(), Value::Text(path.to_string()));
             }
         }

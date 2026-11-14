@@ -453,6 +453,55 @@ fn a_two_way_selected_binding_sets_the_bound_state_and_never_clears_it() {
     assert_eq!(state(&runtime)["pick"], true);
 }
 
+const RADIO_GROUP: &str = "state choice: String = 'b'; Column { width: 320; height: 200; \
+     RadioButton { key: 'a'; value: 'a'; group <-> state.choice; } \
+     RadioButton { key: 'b'; value: 'b'; group <-> state.choice; } \
+     RadioButton { key: 'c'; value: 'c'; group <-> state.choice; } }";
+
+#[test]
+fn a_radio_group_holds_one_choice_and_a_click_moves_it() {
+    let mut runtime = library(RADIO_GROUP).unwrap();
+    assert_eq!(runtime.control_count(), 3);
+    assert_eq!(state(&runtime)["choice"], "b");
+    click(&mut runtime, 2);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["choice"], "c");
+    click(&mut runtime, 0);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["choice"], "a");
+    // Choosing the choice already held changes nothing.
+    click(&mut runtime, 0);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(false));
+    assert_eq!(state(&runtime)["choice"], "a");
+}
+
+#[test]
+fn a_radio_group_paints_only_the_chosen_button_as_checked() {
+    let frame = |choice: &str| {
+        let runtime = library(&RADIO_GROUP.replace("= 'b'", &format!("= '{choice}'"))).unwrap();
+        let mut pixels = vec![0; 320 * 200 * 4];
+        runtime.paint_rgba(&mut pixels, 320, 200, 1., true).unwrap();
+        pixels
+    };
+    let (a, b, none) = (frame("a"), frame("b"), frame("z"));
+    assert_ne!(a, b, "the mark follows the choice");
+    assert_ne!(a, none);
+    assert_ne!(b, none);
+}
+
+#[test]
+fn a_group_value_can_be_a_number_and_comes_from_the_choice_itself() {
+    let mut runtime = library(
+        "state size: Number = 1; Column { width: 320; height: 200; \
+         RadioButton { key: 's'; value: 1; group <-> state.size; } \
+         RadioButton { key: 'm'; value: 2; group <-> state.size; } }",
+    )
+    .unwrap();
+    click(&mut runtime, 1);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["size"], 2.0);
+}
+
 #[test]
 fn a_radio_button_toggles_like_a_checkbox_because_nothing_groups_radios() {
     let mut runtime = library(
