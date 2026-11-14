@@ -73,6 +73,27 @@ fn text_editing_handles_scripts_as_recorded() {
         writeln!(out, "  word backspace leaves {after:?}").unwrap();
 
         let mut runtime = field(sample);
+        runtime.text_key("Home", false, false);
+        let mut positions = Vec::new();
+        for _ in 0..=chars(sample) {
+            positions.push(
+                runtime
+                    .text_caret_bounds()
+                    .first()
+                    .copied()
+                    .unwrap_or(f32::NAN),
+            );
+            runtime.text_key("ArrowRight", false, false);
+        }
+        let rightward = positions.windows(2).all(|pair| pair[1] >= pair[0]);
+        // Without bidirectional layout a right-to-left script still advances rightward.
+        writeln!(
+            out,
+            "  caret advances rightward through the whole text: {rightward}"
+        )
+        .unwrap();
+
+        let mut runtime = field(sample);
         runtime.text_word_key("ArrowLeft", false);
         writeln!(
             out,

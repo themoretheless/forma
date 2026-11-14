@@ -2,77 +2,90 @@ ascii: 11 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [10, 10]
   word backspace leaves "hello "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [6, 6]
   word right from start stops at utf16 [5, 5]
 cyrillic: 10 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [9, 9]
   word backspace leaves "привет "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [7, 7]
   word right from start stops at utf16 [6, 6]
 combining acute: 8 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [7, 7]
   word backspace leaves "cafe\u{301} "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [6, 6]
   word right from start stops at utf16 [5, 5]
 combining acute at the end: 8 chars
   backspace removes 2 char(s)
   left arrow puts the caret at utf16 [6, 6]
   word backspace leaves "ok "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [3, 3]
   word right from start stops at utf16 [2, 2]
 thai two words: 11 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [10, 10]
   word backspace leaves "สว\u{e31}สด\u{e35} "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [7, 7]
   word right from start stops at utf16 [6, 6]
 flag: 5 chars
   backspace removes 2 char(s)
   left arrow puts the caret at utf16 [3, 3]
   word backspace leaves "go "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [3, 3]
   word right from start stops at utf16 [2, 2]
 zwj family: 8 chars
   backspace removes 5 char(s)
   left arrow puts the caret at utf16 [3, 3]
   word backspace leaves "hi "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [3, 3]
   word right from start stops at utf16 [2, 2]
 skin tone: 5 chars
   backspace removes 2 char(s)
   left arrow puts the caret at utf16 [3, 3]
   word backspace leaves "ok "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [3, 3]
   word right from start stops at utf16 [2, 2]
 hebrew: 9 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [8, 8]
   word backspace leaves "שלום "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [5, 5]
   word right from start stops at utf16 [4, 4]
 arabic: 13 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [12, 12]
   word backspace leaves "مرحبا "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [6, 6]
   word right from start stops at utf16 [5, 5]
 mixed direction: 11 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [10, 10]
   word backspace leaves "abc אבג "
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [8, 8]
   word right from start stops at utf16 [3, 3]
 japanese: 8 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [7, 7]
   word backspace leaves "日本語の"
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [4, 4]
   word right from start stops at utf16 [3, 3]
 thai: 10 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [9, 9]
   word backspace leaves "สว\u{e31}สด\u{e35}"
+  caret advances rightward through the whole text: true
   word left from the end stops at utf16 [6, 6]
   word right from start stops at utf16 [6, 6]
