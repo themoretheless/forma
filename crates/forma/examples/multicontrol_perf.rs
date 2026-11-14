@@ -26,8 +26,10 @@ fn source(count: usize) -> String {
         )
         .unwrap();
     }
+    // Rows of four; a form taller than the default frame grows the frame instead of overflowing it.
+    let height = 288.max(20 + count.div_ceil(4) * 34);
     format!(
-        "component Demo {{ Frame {{ width:512; height:288; padding:0; radius:12; background:#102030c0; {controls} }} }}"
+        "component Demo {{ Frame {{ width:512; height:{height}; padding:0; radius:12; background:#102030c0; {controls} }} }}"
     )
 }
 fn digest(pixels: &[u32]) -> u64 {
@@ -94,7 +96,15 @@ fn main() {
     warm.paint_native(&mut host, WIDTH, HEIGHT, SCALE).unwrap();
     warm.pointer(24., 20., 0);
     drop(warm);
-    for count in [1, 8, 32] {
+    // Control counts from the command line, e.g. `8 32 96 256`; by default 1, 8 and 32.
+    let mut counts: Vec<usize> = std::env::args()
+        .skip(1)
+        .filter_map(|arg| arg.parse().ok())
+        .collect();
+    if counts.is_empty() {
+        counts = vec![1, 8, 32];
+    }
+    for count in counts {
         let source = source(count);
         let retained_base = ALLOCATOR.snapshot().live_bytes;
         let mut runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
