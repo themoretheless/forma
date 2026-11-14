@@ -95,10 +95,34 @@ pub fn segment_words_dictionary(value: &str) -> Vec<(usize, &str)> {
                 continue;
             }
         }
+        if is_thai(token) {
+            // Thai has no spaces and UAX #29 splits it into single letters; a run the
+            // dictionary does not know is kept as one word up to the next known word.
+            let mut end = start + token.len();
+            let mut j = i + 1;
+            while j < raw.len()
+                && is_thai(raw[j].1)
+                && !CJK_THAI_COMPOUNDS
+                    .iter()
+                    .any(|word| value[raw[j].0..].starts_with(word))
+            {
+                end = raw[j].0 + raw[j].1.len();
+                j += 1;
+            }
+            out.push((start, &value[start..end]));
+            i = j;
+            continue;
+        }
         out.push((start, token));
         i += 1;
     }
     out
+}
+
+fn is_thai(s: &str) -> bool {
+    s.chars()
+        .next()
+        .is_some_and(|first| matches!(first as u32, 0x0E00..=0x0E7F))
 }
 
 pub(super) fn word_edge_dictionary(value: &str, at: usize, forward: bool, count: usize) -> usize {

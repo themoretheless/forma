@@ -374,3 +374,29 @@ fn rich_text_code_editor_datetime_and_command_palette_models_preserve_invariants
     palette.set_query("zoom".into());
     assert_eq!(palette.active_command().unwrap().id, "view.zoom");
 }
+
+/// F-12: Thai words missing from the dictionary were split into single letters, so a word step
+/// back from the end of `สวัสดีครับ` removed `บ` alone while a step forward found `สวัสดี`.
+#[test]
+fn a_thai_word_missing_from_the_dictionary_is_one_word() {
+    for value in ["สวัสดีครับ", "สวัสดี ครับ"] {
+        let mut edit = TextEdit::new(value.into()).unwrap();
+        edit.end(false);
+        assert!(edit.backspace_word_dictionary(), "{value}");
+        assert_eq!(edit.value().trim_end(), "สวัสดี", "{value}");
+    }
+    let mut edit = TextEdit::new("สวัสดีครับ".into()).unwrap();
+    edit.end(false);
+    edit.move_words_dictionary(-1, false);
+    assert_eq!(
+        edit.caret(),
+        "สวัสดี".len(),
+        "a word step back lands after the dictionary word"
+    );
+    // Han characters outside the dictionary stay one word each, as before.
+    let words: Vec<&str> = segment_words_dictionary("猫犬")
+        .into_iter()
+        .map(|(_, w)| w)
+        .collect();
+    assert_eq!(words, ["猫", "犬"]);
+}
