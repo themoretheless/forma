@@ -4,21 +4,20 @@ import { parse } from './language.js';
 import { attachSources, createElementTree } from './element-tree.js';
 import { createCacheBudget } from './cache-budget.js';
 import { evaluate, expandStructure } from './component-semantics.js';
-import {
-  containerTypes,
-  naturalContainer,
-  intrinsicLength,
-  length,
-  constrained,
-} from './component-layout.js';
+import { containerTypes } from './component-layout.js';
 import { frameTemplates, serialize } from './component-template.js';
-import { own } from './shared/object.js';
 import { clone, visit } from './compiler/data.js';
 import { cachingMetrics } from './compiler/metrics-cache.js';
 import { applyDesigns } from './compiler/design-patch.js';
 import { createLinker } from './compiler/link.js';
 import { createInstanceCompiler } from './compiler/instance.js';
-import { createSceneLayout, needsFlowLayout, placeOnRootGrid } from './compiler/scene-layout.js';
+import {
+  createSceneLayout,
+  declaredRootSize,
+  fitRootToContent,
+  needsFlowLayout,
+  placeOnRootGrid,
+} from './compiler/scene-layout.js';
 import { createInstantiator } from './compiler/instantiate.js';
 import { addComponentDeclarations, sharedDeclarations } from './compiler/declarations.js';
 import { documentProperties, evaluationEnvironment } from './compiler/environment.js';
@@ -163,13 +162,7 @@ function compile(files, entry, state, metrics, read, links) {
     rootProps = root.props;
   const { modalNodes, children, scroll, controls: sceneControls } = sceneParts(root);
   instances = sceneControls;
-  let rootWidth = constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360),
-    rootHeight = constrained(
-      length(rootProps.height ?? 220, 220, 220, 'height'),
-      rootProps,
-      1,
-      220,
-    );
+  let [rootWidth, rootHeight] = declaredRootSize(rootProps);
   // `width: content` / `height: content` on the root fits the frame to what it holds, so a shell
   // region or popup is exactly as large as its controls instead of the 360×220 default.
   const { intrinsicScene, layoutScene, previewContainers } = createSceneLayout({
@@ -181,20 +174,10 @@ function compile(files, entry, state, metrics, read, links) {
       rootVisual.grid = grid;
     },
   });
-  if (containerTypes.has(root.type)) {
-    const fit = {
-      ...root,
-      children,
-      layoutKind:
-        root.type === 'Frame' && rootProps.columns === undefined && rootProps.rows === undefined
-          ? 'Column'
-          : root.type,
-    };
-    if (own(rootProps, 'width') && intrinsicLength(rootProps.width))
-      rootWidth = naturalContainer(fit, 0, intrinsicScene);
-    if (own(rootProps, 'height') && intrinsicLength(rootProps.height))
-      rootHeight = naturalContainer(fit, 1, intrinsicScene);
-  }
+  fitRootToContent(root, children, intrinsicScene, (axis, size) => {
+    if (axis === 0) rootWidth = size;
+    else rootHeight = size;
+  });
   const modals = sceneModals(modalNodes, rootWidth, rootHeight);
   const rootVisual = {
     id: -1,

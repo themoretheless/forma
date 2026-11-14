@@ -185,3 +185,36 @@ export function needsFlowLayout(root, controls) {
     )
   );
 }
+
+/** The size a root declares, or 360 by 220 when it declares none. */
+export function declaredRootSize(rootProps) {
+  return [
+    constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360),
+    constrained(length(rootProps.height ?? 220, 220, 220, 'height'), rootProps, 1, 220),
+  ];
+}
+
+/**
+ * `width: content` / `height: content` on the root fits the frame to what it holds, so a shell
+ * region or popup is exactly as large as its controls instead of the default. The width is fitted
+ * first and reported through `fit` before the height is measured, because the height of wrapped
+ * content depends on it.
+ *
+ * @param {(axis: 0 | 1, size: number) => void} fit receives each fitted size
+ */
+export function fitRootToContent(root, children, intrinsicScene, fit) {
+  if (!containerTypes.has(root.type)) return;
+  const props = root.props;
+  const content = {
+    ...root,
+    children,
+    layoutKind:
+      root.type === 'Frame' && props.columns === undefined && props.rows === undefined
+        ? 'Column'
+        : root.type,
+  };
+  if (own(props, 'width') && intrinsicLength(props.width))
+    fit(0, naturalContainer(content, 0, intrinsicScene));
+  if (own(props, 'height') && intrinsicLength(props.height))
+    fit(1, naturalContainer(content, 1, intrinsicScene));
+}
