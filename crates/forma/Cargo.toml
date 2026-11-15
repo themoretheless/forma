@@ -37,6 +37,8 @@ bytemuck = { version = "1", optional = true }
 
 [dev-dependencies]
 libc = "0.2"
+# Worker protocol for `cargo airbug-bench`: perf_bench and window_bench hand it their raw series.
+airbug-bench = { git = "https://github.com/themoretheless/airbug", rev = "f0bbffee1cf44eaf386e059565734b0044eb8f3e", default-features = false }
 
 # The in-tree runtime currently implements Metal only; Linux uses upstream wgpu's Vulkan backend.
 [target.'cfg(target_os = "linux")'.dependencies]

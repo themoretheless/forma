@@ -181,3 +181,30 @@ node scripts/interleave-bench.mjs /path/to/before /path/to/after \
 - Pixel-regression для nested/translucent clips, overflow, scroll, fractional DPI.
 - Не обещать 120 FPS, пока реальное окно и нужные стресс-сцены не укладываются
   в бюджет 8.33 ms с запасом; для 60 FPS бюджет 16.67 ms.
+
+## Сырые ряды для airbug-bench
+
+`perf_bench` и `window_bench` по-прежнему печатают свою сводную JSON-строку. Под process runner
+airbug (`AIRBUG_BENCH_RUNNER=1`, его выставляет `cargo airbug-bench run --protocol`) они
+дополнительно отдают сырые покадровые ряды в протоколе worker, так что парное расписание AB/BA,
+сравнение с baseline и отчёты работают по отдельным кадрам, а не по перцентилям:
+
+```sh
+cargo build --release --example perf_bench --features gpu
+cargo airbug-bench run --protocol --program target/release/examples/perf_bench \
+  -o .airbug-bench/forma -- crates/forma/examples/Button.ui \
+  crates/forma/examples/Button.component.ui gpu animation 1280 720 240
+```
+
+| Метрика | Источник |
+|---|---|
+| `cpu.submit.ns` | `perf_bench`: tick и draw до возврата submit |
+| `frame.completed.ns` | `perf_bench`: тот же кадр до возврата device poll |
+| `gpu.pass.ns` | `perf_bench`: 30 дополнительных кадров на отдельном профилируемом renderer; неразрешившийся query записывается как недоступный, backend без timestamp queries — как неподдерживаемый |
+| `window.present.interval.ns` | `window_bench`: между успешными вызовами present |
+| `frame.acquire_draw_present.ns` | `window_bench`: получение surface, draw и вызов present |
+
+Ряды собираются после измеряемой фазы из массивов, которые бенчмарки и так заполняют
+(`examples/bench_support/protocol.rs`): в измеряемый кадр не добавляется ни чтение часов, ни
+аллокация, ни ветвление, а вывод без runner побайтно прежний. Проверено с backend `cpu` на Linux;
+пути GPU и окна компилируются, но на устройстве с этим изменением не запускались.

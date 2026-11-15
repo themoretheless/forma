@@ -267,6 +267,32 @@ async fn run() {
         allocation_after.live_bytes,
         allocation_after.peak_live_bytes
     );
+    // The same run as raw per-frame series, for `cargo airbug-bench run --protocol`.
+    if mode != "idle" {
+        let size = format!("{w}x{h}");
+        bench_support::protocol::emit(bench_support::protocol::Series {
+            case: &format!("forma/offscreen/{backend}/{mode}/{size}"),
+            contract: std::collections::BTreeMap::from([
+                ("backend".to_string(), backend.to_string()),
+                ("adapter".to_string(), adapter_name.to_string()),
+                ("mode".to_string(), mode.to_string()),
+                ("target".to_string(), format!("{size} @2x; offscreen, no window or compositor")),
+                ("frames.warmup".to_string(), "20".to_string()),
+                ("completion".to_string(), "device poll returned after the frame".to_string()),
+                ("memory_architecture".to_string(), memory_architecture.to_string()),
+            ]),
+            durations: vec![
+                (airbug_bench::frames::SUBMIT, "calling thread; tick and draw until submit returns", "submit", &submit),
+                (airbug_bench::frames::COMPLETED, "calling thread; tick, draw and device poll", "completed", &completed),
+            ],
+            gpu: if timestamp_supported {
+                bench_support::protocol::GpuPass::Series { ms: &gpu_ms, expected: 30 }
+            } else {
+                bench_support::protocol::GpuPass::Unsupported("no GPU timestamp queries on this backend or adapter")
+            },
+            notes: vec!["Frames are a dependent series. The GPU pass comes from 30 extra frames on a separately profiled renderer and is not a part of the frames above.".into()],
+        });
+    }
 }
 
 #[cfg(feature = "gpu")]

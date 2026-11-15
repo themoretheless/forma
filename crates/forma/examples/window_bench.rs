@@ -530,6 +530,48 @@ mod native {
         let cpu_seconds = finish.process.cpu_seconds - phase.process.cpu_seconds;
         let gpu = app.gpu.as_ref().unwrap();
         let resources = gpu.renderer.resource_stats();
+        // Raw series for `cargo airbug-bench run --protocol`, before the percentiles sort them.
+        super::bench_support::protocol::emit(super::bench_support::protocol::Series {
+            case: &format!("forma/window/{}x{}", app.actual.width, app.actual.height),
+            contract: std::collections::BTreeMap::from([
+                ("adapter".to_string(), gpu.adapter_name.clone()),
+                ("backend".to_string(), gpu.backend.clone()),
+                ("present_mode".to_string(), "Fifo".to_string()),
+                (
+                    "target".to_string(),
+                    format!(
+                        "{}x{} @{}x; native window",
+                        app.actual.width, app.actual.height, app.actual_scale
+                    ),
+                ),
+                ("warmup_seconds".to_string(), "1".to_string()),
+                (
+                    "completion".to_string(),
+                    "present call returned; not a confirmed scanout".to_string(),
+                ),
+            ]),
+            durations: vec![
+                (
+                    airbug_bench::frames::PRESENT_INTERVAL,
+                    "window; between successful present calls",
+                    "present",
+                    &app.intervals_ms,
+                ),
+                (
+                    "frame.acquire_draw_present.ns",
+                    "calling thread; surface acquisition, draw and present call",
+                    "present",
+                    &app.draw_ms,
+                ),
+            ],
+            gpu: super::bench_support::protocol::GpuPass::Unsupported(
+                "the window benchmark takes no per-frame GPU timestamps",
+            ),
+            notes: vec![format!(
+                "Presents are counted calls, not scanouts; FIFO pacing bounds the interval. {} attempt(s) did not present; occlusion observed: {}.",
+                app.nonpresent_attempts, app.was_occluded
+            )],
+        });
         let p50 = percentile(&mut app.intervals_ms, 0.50);
         let p95 = percentile(&mut app.intervals_ms, 0.95);
         let p99 = percentile(&mut app.intervals_ms, 0.99);
