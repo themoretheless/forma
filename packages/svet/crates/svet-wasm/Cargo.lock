@@ -4,19 +4,19 @@ version = 4
 
 [[package]]
 name = "svet-gpu-arena"
-version = "0.3.7"
+version = "0.3.8"
 
 [[package]]
 name = "svet-graph"
-version = "0.3.7"
+version = "0.3.8"
 
 [[package]]
 name = "svet-reconcile"
-version = "0.3.7"
+version = "0.3.8"
 
 [[package]]
 name = "svet-wasm"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "svet-gpu-arena",
  "svet-graph",

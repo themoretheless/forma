@@ -1,6 +1,6 @@
 [package]
 name = "svet-wasm"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
 rust-version = "1.92"
 publish = false
@@ -11,9 +11,9 @@ license = "MIT OR Apache-2.0"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-svet-graph = { path = "../../../../crates/svet-graph", version = "0.3.7" }
-svet-reconcile = { path = "../../../../crates/svet-reconcile", version = "0.3.7" }
-svet-gpu-arena = { path = "../../../../crates/svet-gpu-arena", version = "0.3.7" }
+svet-graph = { path = "../../../../crates/svet-graph", version = "0.3.8" }
+svet-reconcile = { path = "../../../../crates/svet-reconcile", version = "0.3.8" }
+svet-gpu-arena = { path = "../../../../crates/svet-gpu-arena", version = "0.3.8" }
 
 [profile.release]
 opt-level = "z"
