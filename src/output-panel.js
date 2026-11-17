@@ -1,6 +1,6 @@
 // What the panel under the editor shows: diagnostics, the event journal or the preview state.
 // Pure: the editor passes what it knows and gets counts, markup and link targets back.
-import { escapeHtml } from './shared/text.js';
+import { countLines, escapeHtml } from './shared/text.js';
 
 const JOURNAL_LIMIT = 200;
 
@@ -44,7 +44,7 @@ export function diagnosticTargets({ tab, error, diagnostic, files }) {
   ]) {
     if (!source || !Object.hasOwn(files, source.file) || typeof files[source.file] !== 'string')
       continue;
-    const line = files[source.file].slice(0, source.from).split('\n').length;
+    const line = countLines(files[source.file], source.from);
     targets.push({
       label: `${label} · ${source.file}:${line}`,
       file: source.file,

@@ -83,6 +83,25 @@ fn c_abi_gpu_math_and_picking_roundtrip() {
     svet_reset();
 }
 
+#[test]
+fn c_abi_guards_overflowing_scratch_caps_and_saturates_batch_depth() {
+    svet_reset();
+    let over_cap = (MAX_GPU_ARENA_FLOATS as usize) + 1;
+    assert!(svet_prepare_lis_input(over_cap).is_null());
+    assert!(svet_prepare_gpu_pick_indices(over_cap).is_null());
+    assert!(svet_prepare_gpu_pick_vertices(over_cap).is_null());
+    assert!(svet_prepare_lis_input(usize::MAX).is_null());
+    assert!(svet_prepare_gpu_pick_indices(usize::MAX).is_null());
+
+    assert_eq!(svet_create_node(255), u32::MAX);
+    assert_eq!(svet_get_node_count(), 0);
+
+    ffi::with_core(|c| c.graph.batch_depth = u32::MAX);
+    svet_batch_start();
+    assert_eq!(ffi::with_core(|c| c.graph.batch_depth), u32::MAX);
+    svet_reset();
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 mod native_abi_thread_tests {
     use super::*;

@@ -41,3 +41,18 @@ it('preserves escaping when current form values contain HTML-like payloads', () 
   expect(parsed.querySelector('img')).toBeNull();
   expect(parsed.querySelector('input')!.value).toBe(input.value);
 });
+
+it('serializes <style> and <script> raw text without HTML-escaping CSS combinators or JS operators', () => {
+  const root = document.createElement('div');
+  const style = document.createElement('style');
+  style.textContent = '.card > .title { content: "a & b"; }';
+  const script = document.createElement('script');
+  script.textContent = 'if (a < b && c > d) { const s = "</script>"; }';
+  root.append(style, script);
+
+  const html = serializeDomNodeToHtml(root);
+  expect(html).toContain('<style>.card > .title { content: "a & b"; }</style>');
+  expect(html).toContain('if (a < b && c > d)');
+  expect(html).toContain('<\\/script>');
+  expect(html).not.toContain('<script>if (a < b && c > d) { const s = "</script>"; }</script>');
+});

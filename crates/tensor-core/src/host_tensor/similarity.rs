@@ -79,6 +79,7 @@ impl Tensor {
         let mut values = Vec::with_capacity(num_groups * k);
         let mut indices = Vec::with_capacity(num_groups * k);
         let mut row: Vec<(u32, f32)> = Vec::with_capacity(last_dim);
+        let cmp = |a: &(u32, f32), b: &(u32, f32)| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0));
         for chunk in self.data.chunks(last_dim) {
             row.clear();
             row.extend(
@@ -87,7 +88,10 @@ impl Tensor {
                     .enumerate()
                     .map(|(idx, &val)| (idx as u32, val)),
             );
-            row.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            if k < last_dim {
+                row.select_nth_unstable_by(k - 1, cmp);
+            }
+            row[..k].sort_unstable_by(cmp);
             for &(idx, val) in &row[..k] {
                 values.push(val);
                 indices.push(idx);

@@ -78,28 +78,32 @@ impl DataTableModel {
             })
             .collect();
         if let Some(col) = self.sort_column {
-            match self.sort_direction {
-                SortDirection::Ascending => {
-                    indices.sort_by(|&a, &b| {
-                        let ca = self.rows[a].get(col).map(String::as_str).unwrap_or("");
-                        let cb = self.rows[b].get(col).map(String::as_str).unwrap_or("");
-                        match (ca.parse::<f64>(), cb.parse::<f64>()) {
-                            (Ok(na), Ok(nb)) => na.total_cmp(&nb),
+            if self.sort_direction != SortDirection::None {
+                let mut keyed: Vec<(usize, Option<f64>, &str)> = indices
+                    .iter()
+                    .map(|&r| {
+                        let cell = self.rows[r].get(col).map(String::as_str).unwrap_or("");
+                        (r, cell.parse::<f64>().ok(), cell)
+                    })
+                    .collect();
+                match self.sort_direction {
+                    SortDirection::Ascending => {
+                        keyed.sort_by(|(_, na, ca), (_, nb, cb)| match (na, nb) {
+                            (Some(na), Some(nb)) => na.total_cmp(nb),
                             _ => ca.cmp(cb),
-                        }
-                    });
-                }
-                SortDirection::Descending => {
-                    indices.sort_by(|&a, &b| {
-                        let ca = self.rows[a].get(col).map(String::as_str).unwrap_or("");
-                        let cb = self.rows[b].get(col).map(String::as_str).unwrap_or("");
-                        match (ca.parse::<f64>(), cb.parse::<f64>()) {
-                            (Ok(na), Ok(nb)) => nb.total_cmp(&na),
+                        });
+                    }
+                    SortDirection::Descending => {
+                        keyed.sort_by(|(_, na, ca), (_, nb, cb)| match (na, nb) {
+                            (Some(na), Some(nb)) => nb.total_cmp(na),
                             _ => cb.cmp(ca),
-                        }
-                    });
+                        });
+                    }
+                    SortDirection::None => unreachable!(),
                 }
-                SortDirection::None => {}
+                for (dst, (r, _, _)) in indices.iter_mut().zip(keyed) {
+                    *dst = r;
+                }
             }
         }
         self.visible_rows = indices;

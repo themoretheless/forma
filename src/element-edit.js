@@ -1,21 +1,26 @@
-import { parse } from './language.js';
+import { parse, parseShared } from './language.js';
 import { containerTypes, intrinsicLength, weight } from './component-layout.js';
 import { flowsCoordinates, hasTracks } from './positioning.js';
+import { formaStringLiteral } from './shared/text.js';
 export function locateElement(source, start) {
   let found;
   const walk = (nodes, parent) => {
     for (const node of nodes) {
-      if (node.start === start) found = { node, parent };
+      if (found) return;
+      if (node.start === start) {
+        found = { node, parent };
+        return;
+      }
       walk(node.children, node);
     }
   };
-  walk(parse(source).nodes, null);
+  walk(parseShared(source).nodes, null);
   if (!found) throw Error('Выберите элемент заново');
   return found;
 }
 const literal = v =>
   typeof v === 'string'
-    ? `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t').replace(/\$\{/g, '\\${')}'`
+    ? formaStringLiteral(v)
     : Array.isArray(v)
       ? '[' + v.join(', ') + ']'
       : String(v);
@@ -241,7 +246,7 @@ export function insertElement(source, start, text, multiple = false, side = 'aut
       walk(n.children);
     }
   };
-  walk(parse(source).nodes);
+  walk(parseShared(source).nodes);
   // Rename copied keys without changing labels, bindings or comments.
   let wrapped = WRAPPER + text + ' } }';
   const all = [];

@@ -753,3 +753,93 @@ fn long_subscriber_lists_stay_consistent_through_link_unlink_and_reuse() {
     g.reset();
     assert!(g.sub_index.is_empty() && g.sub_indexed.is_empty());
 }
+
+#[test]
+fn sync_sources_fast_path_preserves_topology_epoch_and_vec_capacity() {
+    let mut g = ReactiveGraph::new();
+    let s0 = g.create_node(KIND_SIGNAL);
+    let s1 = g.create_node(KIND_SIGNAL);
+    let s2 = g.create_node(KIND_SIGNAL);
+    let eff = g.create_node(KIND_EFFECT);
+
+    g.sync_sources(eff, &[s0, s1]);
+    let epoch_after_init = g.topology_epoch;
+    let src_ptr = g.sources[eff as usize].as_ptr();
+    let src_cap = g.sources[eff as usize].capacity();
+
+    g.set_state(eff, STATE_DIRTY);
+    g.sync_sources(eff, &[s0, s1]);
+    assert_eq!(g.topology_epoch, epoch_after_init);
+    assert_eq!(g.get_state(eff), STATE_CLEAN);
+    assert_eq!(g.sources[eff as usize].as_ptr(), src_ptr);
+    assert_eq!(g.sources[eff as usize].capacity(), src_cap);
+
+    // Prefix retention: [s0, s1] -> [s0, s2] keeps s0 linked, unlinks s1, links s2.
+    let sub0_ptr = g.subscribers[s0 as usize].as_ptr();
+    g.sync_sources(eff, &[s0, s2]);
+    assert_eq!(g.sources[eff as usize], vec![s0, s2]);
+    assert!(g.subscribers[s0 as usize].contains(&eff));
+    assert!(!g.subscribers[s1 as usize].contains(&eff));
+    assert!(g.subscribers[s2 as usize].contains(&eff));
+    assert_eq!(g.subscribers[s0 as usize].as_ptr(), sub0_ptr);
+    assert!(g.sources[eff as usize].capacity() >= src_cap);
+}
+
+#[test]
+fn clear_sources_and_slot_recycling_preserve_warmed_capacities() {
+    let mut g = ReactiveGraph::new();
+    let sources: Vec<u32> = (0..12).map(|_| g.create_node(KIND_SIGNAL)).collect();
+    let eff = g.create_node(KIND_EFFECT);
+    g.sync_sources(eff, &sources);
+    let warmed_src_cap = g.sources[eff as usize].capacity();
+    assert!(warmed_src_cap >= 12);
+
+    g.clear_sources(eff);
+    assert!(g.sources[eff as usize].is_empty());
+    assert_eq!(g.sources[eff as usize].capacity(), warmed_src_cap);
+
+    let hub = g.create_node(KIND_SIGNAL);
+    let observers: Vec<u32> = (0..20)
+        .map(|_| {
+            let obs = g.create_node(KIND_EFFECT);
+            g.sync_sources(obs, &[hub]);
+            obs
+        })
+        .collect();
+    let warmed_sub_cap = g.subscribers[hub as usize].capacity();
+    assert!(warmed_sub_cap >= 20);
+
+    g.dispose_node(hub);
+    let recycled = g.create_node(KIND_SIGNAL);
+    assert_eq!(recycled, hub);
+    assert!(g.subscribers[recycled as usize].is_empty());
+    assert_eq!(g.subscribers[recycled as usize].capacity(), warmed_sub_cap);
+    for obs in observers {
+        assert!(g.sources[obs as usize].is_empty());
+    }
+}
+
+#[test]
+fn invalid_kind_state_and_global_epoch_wraparound_are_guarded() {
+    let mut g = ReactiveGraph::new();
+    assert_eq!(g.create_node(KIND_EFFECT + 1), u32::MAX);
+    assert_eq!(g.create_node(u8::MAX), u32::MAX);
+    assert_eq!(g.active_count, 0);
+
+    let sig = g.create_node(KIND_SIGNAL);
+    let eff = g.create_node(KIND_EFFECT);
+    g.sync_sources(eff, &[sig]);
+    assert_eq!(g.get_state(eff), STATE_CLEAN);
+
+    g.set_state(eff, STATE_DISPOSED);
+    assert_eq!(g.get_state(eff), STATE_CLEAN);
+    g.set_state(eff, 99);
+    assert_eq!(g.get_state(eff), STATE_CLEAN);
+    g.set_state(eff, STATE_CHECK);
+    assert_eq!(g.get_state(eff), STATE_CHECK);
+
+    g.global_epoch = u32::MAX;
+    g.trigger_write(sig);
+    assert_eq!(g.global_epoch, 1);
+    assert_eq!(g.nodes[sig as usize].epoch, 1);
+}

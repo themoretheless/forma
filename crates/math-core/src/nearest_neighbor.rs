@@ -6,22 +6,19 @@ use crate::{Acceleration, V3, dot, sub};
 /// the CPU reference for [`crate::nearest_neighbor_accelerated`]; O(queries *
 /// targets) work, exact in f64.
 pub fn nearest_neighbor(queries: &[V3], targets: &[V3]) -> Vec<(u32, f64)> {
-    queries
-        .iter()
-        .map(|&q| {
-            let mut best_index = u32::MAX;
-            let mut best_dist = f64::INFINITY;
-            for (i, &t) in targets.iter().enumerate() {
-                let d = sub(q, t);
-                let dist = dot(d, d);
-                if dist < best_dist {
-                    best_dist = dist;
-                    best_index = i as u32;
-                }
+    crate::parallel::par_map(queries, 64, |&q| {
+        let mut best_index = u32::MAX;
+        let mut best_dist = f64::INFINITY;
+        for (i, &t) in targets.iter().enumerate() {
+            let d = sub(q, t);
+            let dist = dot(d, d);
+            if dist < best_dist {
+                best_dist = dist;
+                best_index = i as u32;
             }
-            (best_index, best_dist)
-        })
-        .collect()
+        }
+        (best_index, best_dist)
+    })
 }
 
 /// `nearest_neighbor` with an optional GPU/CUDA batch kernel.

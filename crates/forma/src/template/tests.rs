@@ -371,6 +371,12 @@ fn rejects_duplicate_primitives_properties_and_missing_required_values() {
         "Border { width:1; width:2; background: Brush {color:#fff;}; }",
         "Border { background: Brush {color:#fff;}; background: Brush {color:#000;}; }",
         "Text { text:'a'; text:'b'; }",
+        "Text { fontFamily: sans; font.family: mono; }",
+        "Text { fontWeight: bold; font.weight: regular; }",
+        "ContentLink { x:0; y:0; width:10; height:10; link:'a'; link:'b'; }",
+        "RangeInput { step: 0.1; step: 0.2; Minimum {} Maximum {} }",
+        "RangeInput { min: 0; min: 1; Minimum {} Maximum {} }",
+        "RangeInput { max: 1; max: 2; Minimum {} Maximum {} }",
         "background: Brush {};",
         "Border {}",
     ] {

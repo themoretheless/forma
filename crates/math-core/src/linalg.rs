@@ -285,14 +285,14 @@ mod transform_tests {
 
 /// Banded Cholesky (lower triangle stored, half-bandwidth `bw`) — O(n·bw²).
 /// For the banded normal equations of B-spline fitting (bw = 2p+1).
-/// Row-major packed storage: `a[i*bw + j]` = A[i][i+j] for j < bw, i.e. the
+/// Row-major packed storage: `a[i*bw + j] = A[i][i+j]` for `j < bw`, i.e. the
 /// diagonal and upper band; the lower band follows by symmetry. On success `a`
-/// holds the factor (a[i*bw] = L[i][i], a[i*bw+j] = L[i+j][i]) and `b` holds
-/// the solution of A·x = b.
+/// holds the factor (`a[i*bw] = L[i][i]`, `a[i*bw+j] = L[i+j][i]`) and `b` holds
+/// the solution of `A·x = b`.
 /// Returns None on non-positive pivot or malformed input (caller maps to its
 /// error type).
 pub fn cholesky_banded(n: usize, bw: usize, a: &mut [f64], b: &mut [f64]) -> Option<()> {
-    if bw == 0 || a.len() != n * bw || b.len() != n {
+    if bw == 0 || n.checked_mul(bw) != Some(a.len()) || b.len() != n {
         return None;
     }
     for i in 0..n {
@@ -439,6 +439,7 @@ mod banded_tests {
         let mut a = vec![1.; 5];
         let mut b = vec![1.; 3];
         assert!(cholesky_banded(3, 2, &mut a, &mut b).is_none());
+        assert!(cholesky_banded(usize::MAX, 2, &mut a, &mut b).is_none());
     }
 
     #[test]

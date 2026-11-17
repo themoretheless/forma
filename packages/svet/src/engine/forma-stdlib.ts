@@ -156,19 +156,70 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
   },
 };
 
+function splitTopLevelPipes(expr: string): string[] {
+  const stages: string[] = [];
+  let start = 0;
+  let i = 0;
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let quote: string | null = null;
+  const n = expr.length;
+
+  while (i < n) {
+    const ch = expr.charAt(i);
+    if (quote) {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      i++;
+      continue;
+    }
+    if (ch === '(') parenDepth++;
+    else if (ch === ')') parenDepth = Math.max(0, parenDepth - 1);
+    else if (ch === '[') bracketDepth++;
+    else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+    else if (ch === '{') braceDepth++;
+    else if (ch === '}') braceDepth = Math.max(0, braceDepth - 1);
+    else if (
+      ch === '|' &&
+      expr.charAt(i + 1) === '>' &&
+      parenDepth === 0 &&
+      bracketDepth === 0 &&
+      braceDepth === 0
+    ) {
+      stages.push(expr.slice(start, i).trim());
+      i += 2;
+      start = i;
+      continue;
+    }
+    i++;
+  }
+  stages.push(expr.slice(start).trim());
+  return stages;
+}
+
 /**
  * Transforms Forma pipe syntax `a |> fn(b, c) |> fn2()` into standard nested calls `fn2(fn(a, b, c))`.
  */
 export function transformFormaPipes(expr: string): string {
   if (!expr.includes('|>')) return expr;
-  const stages = expr.split('|>').map(s => s.trim());
-  // split always yields at least one piece: the expression before the first pipe.
+  const stages = splitTopLevelPipes(expr);
+  if (stages.length <= 1) return expr;
   let acc = stages[0] ?? '';
-  for (const stage of stages.slice(1)) {
+  for (let sIdx = 1; sIdx < stages.length; sIdx++) {
+    const stage = stages[sIdx] ?? '';
     const openParen = stage.indexOf('(');
     if (openParen !== -1 && stage.endsWith(')')) {
       const fnName = stage.slice(0, openParen).trim();
-      const argsInner = stage.slice(openParen + 1, -1).trim();
+      const argsInner = transformFormaPipes(stage.slice(openParen + 1, -1).trim());
       acc = argsInner.length > 0 ? `${fnName}(${acc}, ${argsInner})` : `${fnName}(${acc})`;
     } else {
       acc = `${stage}(${acc})`;

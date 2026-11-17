@@ -1,25 +1,14 @@
 use crate::geometry::{
-    ViewportPickQuery, clip_primitive_3d, pick_nearest_vertex_3d, pick_visible_vertex_3d,
+    OccluderTriangle, ViewportPickQuery, clip_primitive_3d, pick_nearest_vertex_3d,
+    pick_visible_vertex_3d_into,
 };
-use crate::math::{compose_trs_matrix, mat4_mul_in_place, perspective_matrix, vector_fma_in_place};
+use crate::math::{
+    align4, checked_range, compose_trs_matrix, mat4_mul_in_place, perspective_matrix,
+    vector_fma_in_place,
+};
 
 /// Maximum per-context GPU arena storage: 256 MiB of `f32` values.
 pub const MAX_GPU_ARENA_FLOATS: u32 = 67_108_864;
-
-#[inline]
-pub(crate) const fn align4(len: u32) -> Option<u32> {
-    match len.checked_add(3) {
-        Some(v) => Some(v & !3),
-        None => None,
-    }
-}
-
-#[inline]
-pub(crate) fn checked_range(offset: u32, len: usize, arena_len: usize) -> Option<(usize, usize)> {
-    let start = offset as usize;
-    let end = start.checked_add(len)?;
-    (end <= arena_len).then_some((start, end))
-}
 
 /// Grow the arena within a caller-supplied element limit (small limits aid tests).
 pub fn grow_gpu_arena(arena: &mut Vec<f32>, new_len: usize, limit: usize) -> bool {
@@ -46,6 +35,8 @@ pub struct GpuArena {
     pub clip_output: Vec<f32>,
     pub pick_indices: Vec<u32>,
     pub pick_vertices: Vec<f32>,
+    /// Reusable clipped-triangle occluder scratch to eliminate per-pick heap allocations.
+    pick_triangles: Vec<OccluderTriangle>,
     /// Dirty bitset (1 bit per 32 floats / 128-byte cache line) for partial DUMA DMA transfers.
     pub dirty_blocks: Vec<u32>,
     /// Free blocks `(offset, aligned_len)` in `f32_arena` for O(1) GPU tensor memory recycling.
@@ -69,6 +60,7 @@ impl GpuArena {
             clip_output: Vec::new(),
             pick_indices: Vec::new(),
             pick_vertices: Vec::new(),
+            pick_triangles: Vec::new(),
             dirty_blocks: Vec::new(),
             free_blocks: Vec::new(),
             dirty_min: u32::MAX,
@@ -81,6 +73,7 @@ impl GpuArena {
         self.clip_output.clear();
         self.pick_indices.clear();
         self.pick_vertices.clear();
+        self.pick_triangles.clear();
         self.dirty_blocks.clear();
         self.free_blocks.clear();
         self.dirty_min = u32::MAX;
@@ -152,6 +145,9 @@ impl GpuArena {
     /// Returns a previously allocated tensor slice `[offset, offset + aligned_len)` to `free_blocks`
     /// and coalesces any adjacent left/right free blocks to eliminate arena fragmentation.
     pub fn free_f32(&mut self, offset: u32, len: u32) {
+        if !offset.is_multiple_of(4) {
+            return;
+        }
         let Some(aligned_len) = align4(len) else {
             return;
         };
@@ -422,13 +418,16 @@ impl GpuArena {
         index_count: u32,
         query: ViewportPickQuery,
     ) -> i32 {
-        pick_visible_vertex_3d(
+        let Some(indices) = self.pick_indices.get(..index_count as usize) else {
+            return -1;
+        };
+        pick_visible_vertex_3d_into(
             &self.f32_arena,
             offset,
             count,
-            &self.pick_indices,
-            index_count,
+            indices,
             &mut self.clip_output,
+            &mut self.pick_triangles,
             query,
         )
     }
@@ -443,13 +442,16 @@ impl GpuArena {
         query: ViewportPickQuery,
     ) -> i32 {
         if occlude != 0 && indices != 0 {
-            pick_visible_vertex_3d(
+            let Some(slice) = self.pick_indices.get(..indices as usize) else {
+                return -1;
+            };
+            pick_visible_vertex_3d_into(
                 &self.pick_vertices,
                 0,
                 count,
-                &self.pick_indices,
-                indices,
+                slice,
                 &mut self.clip_output,
+                &mut self.pick_triangles,
                 query,
             )
         } else {

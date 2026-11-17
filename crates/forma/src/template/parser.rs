@@ -29,6 +29,7 @@ impl SeenFields {
             "radius" => 10,
             "background" => 11,
             "text" => 12,
+            "font.family" | "fontFamily" => 13,
             "font.size" | "fontSize" => 14,
             "points" => 15,
             "Border" => 16,
@@ -59,6 +60,11 @@ impl SeenFields {
             "label" => 41,
             "readOnly" => 42,
             "wrap" => 43,
+            "step" => 44,
+            "min" => 45,
+            "max" => 46,
+            "font.weight" | "fontWeight" => 47,
+            "link" => 48,
             _ => return None,
         };
         Some(1u64 << index)

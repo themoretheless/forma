@@ -450,11 +450,11 @@ pub(crate) fn place(content: &CanvasContent, origin: [f32; 2], view: CanvasView)
         c[6] *= z;
         c[7] *= z;
     }
-    let edges = content
-        .edges
-        .chunks_exact(4)
-        .flat_map(|e| [e[0] * z + tx, e[1] * z + ty, e[2] * z + tx, e[3] * z + ty])
-        .collect();
+    let mut edges = content.edges.clone();
+    for pt in edges.chunks_exact_mut(2) {
+        pt[0] = pt[0] * z + tx;
+        pt[1] = pt[1] * z + ty;
+    }
     DisplayList { commands, edges }
 }
 

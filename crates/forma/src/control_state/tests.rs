@@ -400,3 +400,40 @@ fn a_thai_word_missing_from_the_dictionary_is_one_word() {
         .collect();
     assert_eq!(words, ["猫", "犬"]);
 }
+
+#[test]
+fn multiline_text_edit_reset_preserves_multiline_mode() {
+    let mut edit = TextEdit::with_multiline("line1\nline2".into(), true).unwrap();
+    edit.insert("\nline3").unwrap();
+    assert!(edit.can_undo());
+    assert!(edit.reset("fresh1\nfresh2".into()).unwrap());
+    assert!(!edit.can_undo());
+    assert_eq!(edit.value(), "fresh1\nfresh2");
+    // Multiline mode must remain enabled after reset so subsequent newlines are accepted.
+    assert!(edit.insert("\nfresh3").unwrap());
+    assert_eq!(edit.value(), "fresh1\nfresh2\nfresh3");
+    assert!(edit.insert_graphemes("\nfresh4").unwrap());
+    assert_eq!(edit.value(), "fresh1\nfresh2\nfresh3\nfresh4");
+}
+
+#[test]
+fn datetime_step_days_is_constant_time_and_accurate_across_million_days() {
+    let mut dt = DateTimeModel::new(2024, 2, 29, 12, 0).unwrap();
+    dt.step_days(1_000_000);
+    // 1_000_000 days after 2024-02-29 in the proleptic Gregorian calendar is 4762-01-26.
+    assert_eq!(dt.format_date(), "4762-01-26");
+    dt.step_days(-1_000_000);
+    assert_eq!(dt.format_iso(), "2024-02-29 12:00");
+
+    // Verify exact parity with day-by-day stepping across leap-year and century boundaries.
+    let mut fast = DateTimeModel::new(1999, 12, 31, 0, 0).unwrap();
+    let mut step = DateTimeModel::new(1999, 12, 31, 0, 0).unwrap();
+    for delta in [1, 59, 60, 366, -426, 400 * 365 + 97, -(400 * 365 + 97)] {
+        fast.step_days(delta);
+        let dir = delta.signum();
+        for _ in 0..delta.abs() {
+            step.step_days(dir);
+        }
+        assert_eq!(fast, step, "mismatch after delta {delta}");
+    }
+}

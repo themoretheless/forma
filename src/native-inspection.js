@@ -10,9 +10,12 @@
  * @param {boolean} current the source the window was started from is still the source on screen
  */
 export function nativeInspectionModel(data, controls, current) {
+  const controlsByIndex = new Map();
+  for (const c of data.controls ?? [])
+    if (!controlsByIndex.has(c.index)) controlsByIndex.set(c.index, c);
   const rows = (data.nodes ?? []).map(node => {
-    const control = data.controls?.find(c => c.index === node.control),
-      source = controls[node.control];
+    const control = node.control == null ? undefined : controlsByIndex.get(node.control),
+      source = node.control == null ? undefined : controls[node.control];
     let label = source ? source.type + ' ' + (source.props.key ?? '') : node.kind;
     if (control)
       label +=
@@ -27,7 +30,7 @@ export function nativeInspectionModel(data, controls, current) {
       source,
     };
   });
-  const selected = controls[data.selected];
+  const selected = data.selected == null ? undefined : controls[data.selected];
   return {
     status: current
       ? 'Данные из работающего Rust runtime. F9 и щелчок в окне выбирают элемент.'

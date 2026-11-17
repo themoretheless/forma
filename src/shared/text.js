@@ -15,8 +15,20 @@ export function parentDirOf(path = '') {
 /** One-based line number of offset `end` in `text`. */
 export function countLines(text, end = text.length) {
   let n = 1;
-  for (let i = 0; i < end; i++) if (text.charCodeAt(i) === 10) n++;
+  const stop = Math.min(end, text.length);
+  for (let i = 0; i < stop; i++) if (text.charCodeAt(i) === 10) n++;
   return n;
+}
+
+/** Escapes a string as a single-quoted Forma `.ui` literal without template interpolation. */
+export function formaStringLiteral(value) {
+  return `'${String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    .replace(/\$\{/g, '\\${')}'`;
 }
 
 /** Re-keys a path-to-text map by removing a common path prefix from every key. */

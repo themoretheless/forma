@@ -1,29 +1,22 @@
 import { compileComponents } from './components.js';
+import { controlsLibrary } from './controls-library.js';
+import { stripPathPrefix } from './shared/text.js';
 import { createVectorPreview } from './vector-preview.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
 export { keyText } from './studio-window.js';
 
 // Studio's own chrome is a Forma project: `studio-ui/ui/*.ui` composed from the shared control
 // library, compiled by the same compiler and drawn by the same Rust/WASM runtime as a user's UI.
-const raw = {
-  ...import.meta.glob('../crates/forma/controls/{components,assets}/*', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }),
-  ...import.meta.glob('../studio-ui/{components,ui}/*.ui', {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  }),
-};
+const studioUiFiles = import.meta.glob('../studio-ui/{components,ui}/*.ui', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
 export const shellFiles = materializeTheme(
-  Object.fromEntries(
-    Object.entries(raw).map(([path, value]) => [
-      path.replace(/^\.\.\/(?:crates\/forma\/controls|studio-ui)\//, ''),
-      value,
-    ]),
-  ),
+  {
+    ...controlsLibrary,
+    ...stripPathPrefix(studioUiFiles, '../studio-ui/'),
+  },
   'dark',
 );
 

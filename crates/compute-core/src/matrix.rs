@@ -1,7 +1,7 @@
 mod kernels;
 pub(crate) use kernels::MatmulKernels;
 
-use crate::{ComputeError, ComputeProgram, GpuArray, uniform_f32};
+use crate::{ComputeError, ComputeProgram, GpuArray};
 
 /// A dense row-major matrix using an existing f32 array. Shapes are exact:
 /// padding, arbitrary strides and implicit transposes are not accepted.
@@ -154,20 +154,16 @@ impl ComputeProgram<'_> {
                     .max_compute_workgroups_per_dimension,
             )
             .min(65535);
-        let params = uniform_f32(
-            &self.runtime.device,
-            &self.runtime.queue,
-            &[
-                f32::from_bits(a.rows),
-                f32::from_bits(a.columns),
-                f32::from_bits(b.columns),
-                f32::from_bits(groups),
-            ],
-        );
+        let params = self.uniform_params(&[
+            f32::from_bits(a.rows),
+            f32::from_bits(a.columns),
+            f32::from_bits(b.columns),
+            f32::from_bits(groups),
+        ])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
             &[
-                &params,
+                params.raw(),
                 a.values.buffer(),
                 b.values.buffer(),
                 output.values.buffer(),
@@ -193,8 +189,26 @@ pub fn matmul_f32_tiled_8x8(
 ) -> Vec<f32> {
     let total_out = rows.saturating_mul(cols);
     let mut out = vec![0.0_f32; total_out];
+    matmul_f32_tiled_8x8_into(a, b, &mut out, rows, inner, cols);
+    out
+}
+
+fn matmul_f32_tiled_8x8_into(
+    a: &[f32],
+    b: &[f32],
+    out: &mut [f32],
+    rows: usize,
+    inner: usize,
+    cols: usize,
+) {
+    let total_out = rows.saturating_mul(cols);
+    assert!(
+        out.len() >= total_out,
+        "matmul_f32_tiled_8x8_into output slice shorter than declared matrix dimensions"
+    );
+    out[..total_out].fill(0.0_f32);
     if rows == 0 || cols == 0 || inner == 0 {
-        return out;
+        return;
     }
     assert!(
         a.len() >= rows.saturating_mul(inner) && b.len() >= inner.saturating_mul(cols),
@@ -279,8 +293,6 @@ pub fn matmul_f32_tiled_8x8(
             }
         }
     }
-
-    out
 }
 
 /// Batched strided `f32` matrix multiplication `C[b] = A[b] @ B[b]` for `b in 0..batch`, where each
@@ -322,11 +334,11 @@ pub fn batched_matmul_f32(
             actual: b.len(),
         });
     }
-    if batch == 0 || m == 0 || n == 0 {
-        return Ok(vec![0.0_f32; total_c]);
+    let mut out = vec![0.0_f32; total_c];
+    if batch == 0 || m == 0 || n == 0 || k == 0 {
+        return Ok(out);
     }
 
-    let mut out = Vec::with_capacity(total_c);
     for idx in 0..batch {
         let a_slice = &a[idx * a_stride..(idx + 1) * a_stride];
         let b_slice = if broadcast_b {
@@ -334,8 +346,8 @@ pub fn batched_matmul_f32(
         } else {
             &b[idx * b_stride..(idx + 1) * b_stride]
         };
-        let c_slice = matmul_f32_tiled_8x8(a_slice, b_slice, m, k, n);
-        out.extend_from_slice(&c_slice);
+        let out_slice = &mut out[idx * c_stride..(idx + 1) * c_stride];
+        matmul_f32_tiled_8x8_into(a_slice, b_slice, out_slice, m, k, n);
     }
     Ok(out)
 }

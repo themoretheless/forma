@@ -77,14 +77,10 @@ pub fn wrap_text_ranges_in(
         let mut cur_start = 0;
         while cur_start < line.len() {
             let rest = &line[cur_start..];
-            let full_w = measure_shaped_text(rest, font_size);
-            if full_w <= max_width {
-                result.push(((hard_start + cur_start)..(hard_start + line.len()), full_w));
-                break;
-            }
             let mut best_word_end = None;
             let mut running_w = 0.0_f32;
             let mut trailing_ws_w = 0.0_f32;
+            let mut overflowed = false;
             for (seg_idx, seg) in rest.split_word_bound_indices() {
                 let end = seg_idx + seg.len();
                 let seg_w = measure_shaped_text(seg, font_size);
@@ -103,6 +99,14 @@ pub fn wrap_text_ranges_in(
                 if w <= max_width && end > 0 {
                     best_word_end = Some(end);
                 } else {
+                    overflowed = true;
+                    break;
+                }
+            }
+            if !overflowed || best_word_end == Some(rest.len()) {
+                let full_w = measure_shaped_text(rest, font_size);
+                if full_w <= max_width {
+                    result.push(((hard_start + cur_start)..(hard_start + line.len()), full_w));
                     break;
                 }
             }

@@ -153,3 +153,33 @@ it('renders wrapped Text, multiline TextInput, and two-way Slider in DOM', () =>
   }
   expect(getGraphTelemetry().nodes).toBe(0);
 });
+
+it('ignores braces, quotes, and semicolons inside line and block comments when parsing .ui AST', () => {
+  const ui = `component CommentSafe {
+    // Line comment with unmatched { and } and 'unclosed quote and ;
+    /* Block comment with { } ; and "unclosed quote */
+    state label: String = 'ready'; /* inline comment with ; and } */
+    let summary = state.label; // trailing comment with ; and {
+    Column {
+      // Visual comment with { and }
+      /* Multi-line block comment
+         with Text { text: 'ignored'; } and } */
+      Text {
+        key: 'out';
+        text: summary /* inline ; comment */ ;
+      }
+    }
+  }`;
+  const inst = compileFormaAst(parseFormaSource(ui)),
+    container = document.createElement('div'),
+    handle = inst.mount(container);
+  try {
+    expect(inst.getElementByKey('out')?.textContent).toBe('ready');
+    inst.state.label!.set('updated');
+    expect(inst.getElementByKey('out')?.textContent).toBe('updated');
+  } finally {
+    handle.unmount();
+    inst.dispose();
+  }
+  expect(getGraphTelemetry().nodes).toBe(0);
+});

@@ -188,6 +188,24 @@ impl Frustum {
     /// Extract a 6-plane frustum (Gribb-Hartmann) from a row-major 4x4 view-projection matrix.
     /// Near plane uses standard OpenGL/clip `[-w, w]` (`r3 + r2`); see [`Self::from_view_proj_zero_to_one`] for WebGPU `[0, w]`.
     pub fn from_view_proj_row_major(m: AffineMatrix) -> Option<Self> {
+        let near = Plane3::from_coeffs(
+            m[3][0] + m[2][0],
+            m[3][1] + m[2][1],
+            m[3][2] + m[2][2],
+            m[3][3] + m[2][3],
+        )?;
+        Self::from_view_proj_with_near(m, near)
+    }
+
+    /// Extract a 6-plane frustum from a row-major 4x4 view-projection matrix using WebGPU/Vulkan/D3D
+    /// zero-to-one `[0, w]` clip-space depth (`z >= 0` from `r2`).
+    pub fn from_view_proj_zero_to_one(m: AffineMatrix) -> Option<Self> {
+        let r2 = m[2];
+        let near = Plane3::from_coeffs(r2[0], r2[1], r2[2], r2[3])?;
+        Self::from_view_proj_with_near(m, near)
+    }
+
+    fn from_view_proj_with_near(m: AffineMatrix, near: Plane3) -> Option<Self> {
         let r0 = m[0];
         let r1 = m[1];
         let r2 = m[2];
@@ -198,7 +216,6 @@ impl Frustum {
         let bottom =
             Plane3::from_coeffs(r3[0] + r1[0], r3[1] + r1[1], r3[2] + r1[2], r3[3] + r1[3])?;
         let top = Plane3::from_coeffs(r3[0] - r1[0], r3[1] - r1[1], r3[2] - r1[2], r3[3] - r1[3])?;
-        let near = Plane3::from_coeffs(r3[0] + r2[0], r3[1] + r2[1], r3[2] + r2[2], r3[3] + r2[3])?;
         let far = Plane3::from_coeffs(r3[0] - r2[0], r3[1] - r2[1], r3[2] - r2[2], r3[3] - r2[3])?;
         Some(Self {
             planes: [left, right, bottom, top, near, far],
@@ -282,5 +299,19 @@ impl Frustum {
                 true
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frustum_zero_to_one_enforces_non_negative_clip_z() {
+        let frustum = Frustum::from_view_proj_zero_to_one(IDENTITY).unwrap();
+        assert!(frustum.contains_point([0.0, 0.0, 0.5]));
+        assert!(frustum.contains_point([0.0, 0.0, 0.0]));
+        assert!(!frustum.contains_point([0.0, 0.0, -0.1]));
+        assert!(!frustum.contains_point([0.0, 0.0, 1.1]));
     }
 }

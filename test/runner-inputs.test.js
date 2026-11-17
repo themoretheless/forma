@@ -96,3 +96,62 @@ test('rust runner enables native only for a native generated-form launch', async
   assert.ok(!invocations[1][1].includes('--features'));
   children[1].emit('close', 0, null);
 });
+
+test('rust and native runners terminate the Unix process group and guard against stale close after error', async () => {
+  for (const [kind, create, payload] of [
+    [
+      'rust',
+      createRustRunner,
+      { 'Cargo.toml': '[package]\nname="a"\nversion="0.1.0"\n', 'src/main.rs': 'fn main(){}' },
+    ],
+    [
+      'native',
+      createNativeRunner,
+      { files: { 'src/actions.rs': 'pub fn init() {}' }, snapshot: { html: '<div/>' } },
+    ],
+  ]) {
+    const events = [],
+      signals = [],
+      spawns = [],
+      children = [];
+    const runner = create(e => events.push(e), {
+      platform: 'darwin',
+      root: '/project',
+      async mkdtemp(prefix) {
+        return `${prefix}${children.length + 1}`;
+      },
+      async mkdir() {},
+      async writeFile() {},
+      async rm() {},
+      kill(...args) {
+        signals.push(args);
+      },
+      spawn(...args) {
+        spawns.push(args);
+        const child = new EventEmitter();
+        child.pid = 200 + children.length;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        child.kill = sig => signals.push([child.pid, sig]);
+        children.push(child);
+        return child;
+      },
+    });
+    await runner.run(payload);
+    assert.equal(spawns[0][2].detached, true, `${kind} must spawn detached on Unix`);
+    runner.stop();
+    runner.stop();
+    assert.deepEqual(signals, [[-200, 'SIGTERM']], `${kind} must signal -pid once`);
+    children[0].emit('close', null, 'SIGTERM');
+
+    // A spawn error followed by a stale close must not clear a newly started run.
+    await runner.run(payload);
+    children[1].emit('error', new Error('spawn failed'));
+    await runner.run(payload);
+    children[1].emit('close', -2, null);
+    await runner.run(payload);
+    assert.equal(spawns.length, 3, `${kind} must keep third run busy despite stale close`);
+    assert.match(events.at(-1).text, /уже запущен|уже запущено/);
+    children[2].emit('close', 0, null);
+  }
+});

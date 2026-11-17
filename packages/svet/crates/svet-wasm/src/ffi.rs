@@ -120,7 +120,7 @@ pub extern "C" fn svet_set_state(id: u32, state: u8) {
 #[unsafe(no_mangle)]
 pub extern "C" fn svet_batch_start() {
     with_core(|c| {
-        c.graph.batch_depth += 1;
+        c.graph.batch_depth = c.graph.batch_depth.saturating_add(1);
     });
 }
 
@@ -171,8 +171,15 @@ pub extern "C" fn svet_get_lis_ptr() -> *const u32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn svet_prepare_lis_input(len: usize) -> *mut u32 {
+    if len > MAX_GPU_ARENA_FLOATS as usize {
+        return std::ptr::null_mut();
+    }
     with_core(|c| {
         if c.scratch_in.len() < len {
+            let extra = len - c.scratch_in.len();
+            if c.scratch_in.try_reserve(extra).is_err() {
+                return std::ptr::null_mut();
+            }
             c.scratch_in.resize(len, 0);
         }
         c.scratch_in.as_mut_ptr()
@@ -380,6 +387,12 @@ pub extern "C" fn svet_prepare_gpu_pick_vertices(len: usize) -> *mut f32 {
         return std::ptr::null_mut();
     }
     with_core(|c| {
+        if let Some(extra) = len.checked_sub(c.gpu.pick_vertices.len())
+            && extra > 0
+            && c.gpu.pick_vertices.try_reserve(extra).is_err()
+        {
+            return std::ptr::null_mut();
+        }
         c.gpu.pick_vertices.resize(len, 0.0);
         c.gpu.pick_vertices.as_mut_ptr()
     })
@@ -408,7 +421,16 @@ pub extern "C" fn svet_gpu_pick_snapshot_3d(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn svet_prepare_gpu_pick_indices(len: usize) -> *mut u32 {
+    if len > MAX_GPU_ARENA_FLOATS as usize {
+        return std::ptr::null_mut();
+    }
     with_core(|c| {
+        if let Some(extra) = len.checked_sub(c.gpu.pick_indices.len())
+            && extra > 0
+            && c.gpu.pick_indices.try_reserve(extra).is_err()
+        {
+            return std::ptr::null_mut();
+        }
         c.gpu.pick_indices.resize(len, 0);
         c.gpu.pick_indices.as_mut_ptr()
     })

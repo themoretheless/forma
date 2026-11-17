@@ -246,8 +246,12 @@ impl Runtime {
                 if let Some(editor) = &mut self.editors[i] {
                     editor.hit(x - b[0], y - b[1], kind == 0);
                 }
-                if let Some(range) = Arc::make_mut(&mut self.controls[i].template).range.as_mut() {
-                    range.value = range.snapped((x - b[0] - 8.) / (b[2] - 16.).max(1.));
+                if self.controls[i].template.range.is_some() {
+                    if let Some(range) =
+                        Arc::make_mut(&mut self.controls[i].template).range.as_mut()
+                    {
+                        range.value = range.snapped((x - b[0] - 8.) / (b[2] - 16.).max(1.));
+                    }
                 }
             }
             self.refresh_editors();

@@ -32,31 +32,30 @@ impl Tensor {
             });
         }
 
+        let batch_dims = plan.batch.dims();
+        let batch_rank = batch_dims.len();
         let batch_elems = plan.batch.numel().max(1);
-        let q_batch_elems = q.data.len() / (plan.query_heads * plan.queries * plan.depth).max(1);
-        let k_batch_elems = k.data.len() / (plan.key_heads * plan.keys * plan.depth).max(1);
-        let v_batch_elems = v.data.len() / (plan.key_heads * plan.keys * plan.value_depth).max(1);
+        let q_batch_strides = broadcast_batch_strides(q.shape().dims(), batch_dims);
+        let k_batch_strides = broadcast_batch_strides(k.shape().dims(), batch_dims);
+        let v_batch_strides = broadcast_batch_strides(v.shape().dims(), batch_dims);
 
         let scale = plan.scale as f64;
         let mut out = vec![0.0_f32; plan.output.numel()];
         let mut logits = vec![0.0_f64; plan.keys];
 
         for b in 0..batch_elems {
-            let qb = if q_batch_elems <= 1 {
-                0
-            } else {
-                b % q_batch_elems
-            };
-            let kb = if k_batch_elems <= 1 {
-                0
-            } else {
-                b % k_batch_elems
-            };
-            let vb = if v_batch_elems <= 1 {
-                0
-            } else {
-                b % v_batch_elems
-            };
+            let mut rem = b;
+            let mut qb = 0usize;
+            let mut kb = 0usize;
+            let mut vb = 0usize;
+            for axis in (0..batch_rank).rev() {
+                let dim = batch_dims[axis];
+                let coord = rem % dim;
+                rem /= dim;
+                qb += coord * q_batch_strides[axis];
+                kb += coord * k_batch_strides[axis];
+                vb += coord * v_batch_strides[axis];
+            }
 
             for h in 0..plan.query_heads {
                 let kh = h / plan.group_size;
@@ -216,5 +215,93 @@ impl Tensor {
             shape: self.shape.clone(),
             data: out,
         })
+    }
+}
+
+/// Computes right-aligned broadcast batch strides (in units of per-batch slice index)
+/// for an operand's shape against `batch_dims`.
+/// Leading batch axes live in `operand_dims[..rank - 3]` when `rank >= 3` (2D operands have no batch axes).
+fn broadcast_batch_strides(operand_dims: &[usize], batch_dims: &[usize]) -> Vec<usize> {
+    let batch_rank = batch_dims.len();
+    let mut strides = vec![0usize; batch_rank];
+    if operand_dims.len() <= 3 || batch_rank == 0 {
+        return strides;
+    }
+    let op_batch = &operand_dims[..operand_dims.len() - 3];
+    let offset = batch_rank - op_batch.len();
+    let mut running_stride = 1usize;
+    for (axis, &dim) in op_batch.iter().enumerate().rev() {
+        if dim != 1 {
+            strides[offset + axis] = running_stride;
+        }
+        running_stride *= dim;
+    }
+    strides
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scaled_dot_product_attention_broadcasts_multi_axis_batches() {
+        // 5D multi-axis batch broadcast: Q=[2, 1, 1, 2, 2], K=V=[1, 3, 1, 2, 2] -> output [2, 3, 1, 2, 2]
+        // Also test 4D batch+head broadcast: Q=[2, 1, 2, 2] (batch=2, heads=1) vs K=V=[1, 3, 2, 2] is invalid GQA (1 % 3 != 0),
+        // whereas Q=[2, 1, 1, 2, 2] x K=V=[1, 3, 1, 2, 2] has batch [2, 3] and heads=1, S=2, D=2!
+        let q_5d = Tensor::new(
+            vec![2, 1, 1, 2, 2],
+            vec![
+                // q batch (0, 0): identity queries
+                1.0, 0.0, 0.0, 1.0, // q batch (1, 0): swapped queries
+                0.0, 1.0, 1.0, 0.0,
+            ],
+        )
+        .unwrap();
+        let k_5d = Tensor::new(
+            vec![1, 3, 1, 2, 2],
+            vec![
+                // k batch (0, 0)
+                2.0, 0.0, 0.0, 2.0, // k batch (0, 1)
+                0.0, 2.0, 2.0, 0.0, // k batch (0, 2): zero keys -> uniform attention
+                0.0, 0.0, 0.0, 0.0,
+            ],
+        )
+        .unwrap();
+        let v_5d = Tensor::new(
+            vec![1, 3, 1, 2, 2],
+            vec![
+                // v batch (0, 0)
+                10.0, 20.0, 30.0, 40.0, // v batch (0, 1)
+                100.0, 200.0, 300.0, 400.0, // v batch (0, 2)
+                5.0, 7.0, 9.0, 11.0,
+            ],
+        )
+        .unwrap();
+
+        let out = Tensor::scaled_dot_product_attention(&q_5d, &k_5d, &v_5d, false).unwrap();
+        assert_eq!(out.shape().dims(), &[2, 3, 1, 2, 2]);
+
+        // Verify each (i, j) in 2x3 matches independent 3D [1, 2, 2] slice attention!
+        for qi in 0..2 {
+            let q_slice =
+                Tensor::new(vec![1, 2, 2], q_5d.data()[qi * 4..(qi + 1) * 4].to_vec()).unwrap();
+            for kj in 0..3 {
+                let k_slice =
+                    Tensor::new(vec![1, 2, 2], k_5d.data()[kj * 4..(kj + 1) * 4].to_vec()).unwrap();
+                let v_slice =
+                    Tensor::new(vec![1, 2, 2], v_5d.data()[kj * 4..(kj + 1) * 4].to_vec()).unwrap();
+                let expected =
+                    Tensor::scaled_dot_product_attention(&q_slice, &k_slice, &v_slice, false)
+                        .unwrap();
+                let b_idx = qi * 3 + kj;
+                let actual_slice = &out.data()[b_idx * 4..(b_idx + 1) * 4];
+                for (a, e) in actual_slice.iter().zip(expected.data().iter()) {
+                    assert!(
+                        (a - e).abs() < 1e-6,
+                        "mismatch at batch ({qi}, {kj}): {a} != {e}"
+                    );
+                }
+            }
+        }
     }
 }

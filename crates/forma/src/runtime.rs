@@ -41,6 +41,7 @@ pub struct Node {
     pub children: Vec<usize>,
     pub kind: NodeKind,
     pub control: Option<usize>,
+    pub modal: Option<usize>,
 }
 struct GeometryCache {
     scale: f32,

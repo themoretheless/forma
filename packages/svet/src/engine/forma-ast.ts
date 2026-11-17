@@ -108,6 +108,16 @@ export function extractBraceBlock(
       i++;
       continue;
     }
+    if (ch === '/' && source.charAt(i + 1) === '/') {
+      const nl = source.indexOf('\n', i + 2);
+      i = nl === -1 ? n : nl + 1;
+      continue;
+    }
+    if (ch === '/' && source.charAt(i + 1) === '*') {
+      const endComment = source.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
+      continue;
+    }
     if (ch === '{') depth++;
     else if (ch === '}') {
       depth--;
@@ -134,6 +144,11 @@ export function parseFormaUiBody(bodyStr: string): FormaAstNode[] {
     if (src.startsWith('//', i)) {
       const nl = src.indexOf('\n', i + 2);
       i = nl === -1 ? n : nl + 1;
+      continue;
+    }
+    if (src.startsWith('/*', i)) {
+      const endComment = src.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
       continue;
     }
 
@@ -298,6 +313,17 @@ function parseMatchArms(armsSource: string): FormaMatchArm[] {
     while (i < n && /\s/.test(src.charAt(i))) i++;
     if (i >= n) break;
 
+    if (src.startsWith('//', i)) {
+      const nl = src.indexOf('\n', i + 2);
+      i = nl === -1 ? n : nl + 1;
+      continue;
+    }
+    if (src.startsWith('/*', i)) {
+      const endComment = src.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
+      continue;
+    }
+
     const arrowIdx = src.indexOf('=>', i);
     if (arrowIdx === -1) break;
     const pattern = src.slice(i, arrowIdx).trim();
@@ -377,6 +403,11 @@ function parseElementInterior(tag: string, interior: string): FormaAstNode {
       i = nl === -1 ? n : nl + 1;
       continue;
     }
+    if (src.startsWith('/*', i)) {
+      const endComment = src.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
+      continue;
+    }
 
     // Check `forward props { a, b, c };`
     const forwardMatch = src.slice(i).match(/^forward\s+props\s*\{([^}]*)\}\s*;?/);
@@ -397,7 +428,7 @@ function parseElementInterior(tag: string, interior: string): FormaAstNode {
       const blk = extractBraceBlock(src, bIdx);
       i = blk.endIdx;
       node.transition = node.transition ?? {};
-      for (const rawLine of blk.body.split(';')) {
+      for (const rawLine of stripCommentsFromStatement(blk.body).split(';')) {
         const line = rawLine.trim();
         if (!line) continue;
         const cIdx = line.indexOf(':');
@@ -424,7 +455,9 @@ function parseElementInterior(tag: string, interior: string): FormaAstNode {
 
     // Statement ending with `;`
     const semiIdx = findStatementSemicolon(src, i);
-    const stmt = (semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx)).trim();
+    const stmt = stripCommentsFromStatement(
+      semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx),
+    ).trim();
     i = semiIdx === -1 ? n : semiIdx + 1;
 
     if (!stmt) continue;
@@ -465,6 +498,45 @@ function parseElementInterior(tag: string, interior: string): FormaAstNode {
   return node;
 }
 
+function stripCommentsFromStatement(stmt: string): string {
+  if (!stmt.includes('//') && !stmt.includes('/*')) return stmt;
+  let out = '';
+  let i = 0;
+  const n = stmt.length;
+  while (i < n) {
+    const ch = stmt.charAt(i);
+    if (ch === "'" || ch === '"') {
+      const q = ch;
+      const start = i;
+      i++;
+      while (i < n && stmt.charAt(i) !== q) {
+        if (stmt.charAt(i) === '\\') i++;
+        i++;
+      }
+      i++;
+      out += stmt.slice(start, i);
+      continue;
+    }
+    if (ch === '/' && stmt.charAt(i + 1) === '/') {
+      const nl = stmt.indexOf('\n', i + 2);
+      if (nl === -1) break;
+      out += '\n';
+      i = nl + 1;
+      continue;
+    }
+    if (ch === '/' && stmt.charAt(i + 1) === '*') {
+      const end = stmt.indexOf('*/', i + 2);
+      if (end === -1) break;
+      out += ' ';
+      i = end + 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
 function findStatementSemicolon(src: string, start: number): number {
   let i = start;
   const n = src.length;
@@ -478,6 +550,16 @@ function findStatementSemicolon(src: string, start: number): number {
         i++;
       }
       i++;
+      continue;
+    }
+    if (ch === '/' && src.charAt(i + 1) === '/') {
+      const nl = src.indexOf('\n', i + 2);
+      i = nl === -1 ? n : nl + 1;
+      continue;
+    }
+    if (ch === '/' && src.charAt(i + 1) === '*') {
+      const endComment = src.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
       continue;
     }
     if (ch === ';') return i;
@@ -521,6 +603,10 @@ function assertFormaContractDepth(source: string): void {
       const end = source.indexOf('\n', i + 2);
       if (end === -1) break;
       i = end;
+    } else if (source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2);
+      if (end === -1) break;
+      i = end + 1;
     } else if (source.startsWith('#[', i)) {
       if (depth !== 0)
         throw new Error('Forma contract annotation is unsupported inside nested blocks');
@@ -918,6 +1004,11 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
       i = nl === -1 ? n : nl + 1;
       continue;
     }
+    if (src.startsWith('/*', i)) {
+      const endComment = src.indexOf('*/', i + 2);
+      i = endComment === -1 ? n : endComment + 2;
+      continue;
+    }
 
     // Attribute annotations: `#[range(min, max)]` or `#[pattern('regex')]`
     if (src.startsWith('#[', i)) {
@@ -961,7 +1052,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
       const bIdx = src.indexOf('{', i);
       const blk = extractBraceBlock(src, bIdx);
       i = blk.endIdx;
-      for (const rawLine of blk.body.split(';')) {
+      for (const rawLine of stripCommentsFromStatement(blk.body).split(';')) {
         const line = rawLine.trim();
         if (!line) continue;
         const cIdx = line.indexOf(':');
@@ -983,7 +1074,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
       const blk = extractBraceBlock(src, bIdx);
       i = blk.endIdx;
       const dict = (i18nDictionaries[loc] ??= {});
-      for (const rawLine of blk.body.split(';')) {
+      for (const rawLine of stripCommentsFromStatement(blk.body).split(';')) {
         const line = rawLine.trim();
         if (!line) continue;
         const cIdx = line.indexOf(':');
@@ -1008,7 +1099,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
       i = blk.endIdx;
       const styleMap: Record<string, string> = {};
       styles[styleName] = styleMap;
-      for (const rawLine of blk.body.split(';')) {
+      for (const rawLine of stripCommentsFromStatement(blk.body).split(';')) {
         const line = rawLine.trim();
         if (!line) continue;
         const cIdx = line.indexOf(':');
@@ -1027,7 +1118,9 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
 
     // Top-level statement ending with `;`
     const semiIdx = findStatementSemicolon(src, i);
-    const stmt = (semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx)).trim();
+    const stmt = stripCommentsFromStatement(
+      semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx),
+    ).trim();
     i = semiIdx === -1 ? n : semiIdx + 1;
     if (!stmt) continue;
 

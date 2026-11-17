@@ -129,6 +129,7 @@ export function createControlTree({
     scope = 'designer',
     roots = [],
     rows = [],
+    rowById = new Map(),
     selectedId = null,
     focusId = null,
     query = '',
@@ -175,6 +176,7 @@ export function createControlTree({
   }
   function draw(restoreFocus = false) {
     rows = treeRows(roots, collapsed, query);
+    rowById = new Map(rows.map(n => [n.id, n]));
     // Where a drag may start: a source control whose parent is itself a source control. A neighbour
     // to move between is no longer required, because the drop can also hand the control to another
     // container. Computed once for the list because draw runs on every keystroke.
@@ -182,19 +184,16 @@ export function createControlTree({
     movable = new Set();
     reorderDrawn = reorderReady();
     if (!disabled && !query && reorderDrawn) {
-      const byId = new Map(rows.map(n => [n.id, n]));
       for (const n of rows)
-        if (structural(n.id) && n.node && byId.get(n.parent)?.node) movable.add(n.id);
+        if (structural(n.id) && n.node && rowById.get(n.parent)?.node) movable.add(n.id);
     }
-    const keep = new Set(rows.map(n => n.id));
     for (const [id, row] of elements)
-      if (!keep.has(id)) {
+      if (!rowById.has(id)) {
         row.remove();
         elements.delete(id);
       }
     list.querySelector('.control-tree-empty')?.remove();
-    if (!rows.some(n => n.id === focusId))
-      focusId = rows.some(n => n.id === selectedId) ? selectedId : rows[0]?.id;
+    if (!rowById.has(focusId)) focusId = rowById.has(selectedId) ? selectedId : rows[0]?.id;
     for (const [index, n] of rows.entries()) {
       let row = elements.get(n.id);
       if (!row) {
@@ -282,7 +281,7 @@ export function createControlTree({
     }
   }
   function fold(id, collapse) {
-    const item = rows.find(n => n.id === id);
+    const item = rowById.get(id);
     if (!item?.children.length) return;
     if (collapse) collapsed.add(id);
     else collapsed.delete(id);
@@ -297,7 +296,7 @@ export function createControlTree({
   const events = createEventScope();
   events.listen(list, 'click', e => {
     const row = e.target.closest('[data-control-id]');
-    const item = rows.find(n => n.id === row?.dataset.controlId);
+    const item = rowById.get(row?.dataset.controlId);
     if (!item || disabled) return;
     if (e.target.closest('[data-disclosure]') && item.children.length) {
       focusId = item.id;
@@ -347,8 +346,8 @@ export function createControlTree({
       : null;
   }
   function move(sourceId, targetId, side) {
-    const a = rows.find(n => n.id === sourceId),
-      b = rows.find(n => n.id === targetId);
+    const a = rowById.get(sourceId),
+      b = rowById.get(targetId);
     if (!reorderReady() || !a?.node || !b?.node || a === b) return;
     if (side === 'inside') {
       if (!takes(a, b)) return;
@@ -374,8 +373,8 @@ export function createControlTree({
   events.listen(list, 'dragover', e => {
     const row = rowOf(e),
       id = row?.dataset.controlId;
-    const source = rows.find(n => n.id === draggingId),
-      target = rows.find(n => n.id === id);
+    const source = rowById.get(draggingId),
+      target = rowById.get(id);
     // A slot opens only where the drop would change the markup; anywhere else the drag stays away.
     const side = slotOf(source, target, e.clientY, row?.getBoundingClientRect());
     if (!reorderReady() || !side || !movable.has(draggingId)) {
@@ -401,9 +400,7 @@ export function createControlTree({
   });
   events.listen(list, 'dragend', endDrag);
   events.listen(list, 'keydown', e => {
-    const current = rows.find(
-      n => n.id === e.target.closest('[data-control-id]')?.dataset.controlId,
-    );
+    const current = rowById.get(e.target.closest('[data-control-id]')?.dataset.controlId);
     if (!current || disabled) return;
     if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       const group = groupOf(current),
@@ -589,11 +586,11 @@ export function createControlTree({
     },
     // A row click: a control is selected, a row that only groups others folds.
     activate(id) {
-      const item = rows.find(n => n.id === id);
+      const item = rowById.get(id);
       if (item) choose(item);
     },
     toggle(id) {
-      const item = rows.find(n => n.id === id);
+      const item = rowById.get(id);
       if (item && !disabled) fold(id, item.expanded);
     },
     search(text) {
@@ -612,17 +609,15 @@ export function createControlTree({
     // `fraction` is how far down the target row the pointer is, 0 at its top edge and 1 at its bottom.
     slot(sourceId, targetId, fraction) {
       if (!reorderReady() || !movable.has(sourceId)) return null;
-      return slotOf(
-        rows.find(n => n.id === sourceId),
-        rows.find(n => n.id === targetId),
-        fraction,
-        { top: 0, height: 1 },
-      );
+      return slotOf(rowById.get(sourceId), rowById.get(targetId), fraction, {
+        top: 0,
+        height: 1,
+      });
     },
     move,
     // Alt+arrow: one place up or down among the siblings the row shares a container with.
     nudge(id, up) {
-      const current = rows.find(n => n.id === id),
+      const current = rowById.get(id),
         group = groupOf(current),
         neighbour = group[group.indexOf(current) + (up ? -1 : 1)];
       if (neighbour) move(id, neighbour.id, up ? 'before' : 'after');
@@ -648,13 +643,13 @@ export function createControlTree({
       };
     },
     selectId(id) {
-      const n = rows.find(n => n.id === id);
+      const n = rowById.get(id);
       if (!n || !n.node) throw Error('Контрол не найден в видимом дереве');
       if (disabled) throw Error('Исправьте разметку перед выбором');
       choose(n);
     },
     fold(id, collapsed) {
-      if (!rows.some(n => n.id === id)) throw Error('Узел дерева не найден');
+      if (!rowById.has(id)) throw Error('Узел дерева не найден');
       fold(id, collapsed);
     },
   };

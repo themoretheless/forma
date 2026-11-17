@@ -3,8 +3,9 @@
 //! host-visible aperture windows for small payloads (`<= 16 MiB`) and 4-way multi-buffered pinned DMA
 //! staging rings for large streaming transfers (`> 16 MiB`).
 
-use crate::platform::{MemoryArchitecture, StorageDirectCapability};
+use crate::platform::{BackendReport, MemoryArchitecture, StorageDirectCapability};
 use crate::transfer::{TransferStrategy, UnifiedTransferPlan};
+use crate::uma::UmaMemoryPolicy;
 
 /// Default threshold (`16 MiB`) up to which discrete GPUs map payloads directly through the
 /// PCIe Resizable BAR (`ReBAR` / Smart Access Memory) host-visible VRAM window.
@@ -71,6 +72,22 @@ impl DumaMemoryPolicy {
             } else {
                 self.dma_staging_ring_chunks
             },
+        }
+    }
+}
+
+impl UnifiedTransferPlan {
+    /// Computes the optimal transfer plan for `byte_len` bytes on the given `backend`.
+    pub const fn for_payload(backend: crate::Backend, byte_len: u64, page_aligned: bool) -> Self {
+        let report = BackendReport::from_wgpu(backend);
+        let storage_direct = report.storage_direct_capability();
+        match report.memory_architecture() {
+            MemoryArchitecture::Uma => {
+                UmaMemoryPolicy::new(storage_direct).plan_transfer(byte_len, page_aligned)
+            }
+            MemoryArchitecture::Duma => {
+                DumaMemoryPolicy::new(storage_direct).plan_transfer(byte_len, page_aligned)
+            }
         }
     }
 }

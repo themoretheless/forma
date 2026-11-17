@@ -555,7 +555,7 @@ impl TextEdit {
         }
         let changed =
             self.value() != value || self.caret() != value.len() || self.anchor() != value.len();
-        *self = Self::new(value)?;
+        *self = Self::with_multiline(value, self.multiline)?;
         Ok(changed)
     }
 }

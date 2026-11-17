@@ -1,4 +1,4 @@
-use crate::{CompareOp, ComputeError, ComputeProgram, GpuArray, uniform_f32};
+use crate::{CompareOp, ComputeError, ComputeProgram, GpuArray};
 
 impl ComputeProgram<'_> {
     /// Compares finite f32 values and produces exact zero/one u32 masks without
@@ -40,25 +40,18 @@ impl ComputeProgram<'_> {
             return Ok(());
         }
         let kernel = &self.runtime.compare;
-        let params = uniform_f32(
-            &self.runtime.device,
-            &self.runtime.queue,
-            &[
-                f32::from_bits(len as u32),
-                f32::from_bits(op as u32),
-                f32::from_bits(u32::from(a.len() != 1)),
-                f32::from_bits(u32::from(b.len() != 1)),
-            ],
-        );
+        let params = self.uniform_params(&[
+            f32::from_bits(len as u32),
+            f32::from_bits(op as u32),
+            f32::from_bits(u32::from(a.len() != 1)),
+            f32::from_bits(u32::from(b.len() != 1)),
+        ])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
-            &[&params, a.buffer(), b.buffer(), output.buffer()],
+            &[params.raw(), a.buffer(), b.buffer(), output.buffer()],
         );
-        self.batch.push(
-            kernel,
-            &bindings,
-            kernel.workgroup_count(len as u32).min(65535),
-        );
+        self.batch
+            .push(kernel, &bindings, self.grid_groups(kernel, len as u32));
         Ok(())
     }
 }

@@ -273,6 +273,8 @@ function createCanvas3D(
     pickSnapshot = null;
   }
   let pickSequence = 0;
+  let pickVertexBacking = new Float32Array(0);
+  let pickIndexBacking = new Uint32Array(0);
   const capturePickFrame = (
     mesh: Mesh3D,
     vertices: Float32Array | null,
@@ -282,6 +284,26 @@ function createCanvas3D(
   ) => {
     clearPickFrame();
     if (!props.onVertexPick) return;
+    let verticesView: Float32Array;
+    if (vertices && vertices.length > 0) {
+      if (pickVertexBacking.length < vertices.length) {
+        pickVertexBacking = new Float32Array(vertices.length);
+      }
+      pickVertexBacking.set(vertices);
+      verticesView = pickVertexBacking.subarray(0, vertices.length);
+    } else {
+      verticesView = pickVertexBacking.subarray(0, 0);
+    }
+    let indicesView: Uint32Array | undefined;
+    if (indices && indices.length > 0) {
+      if (pickIndexBacking.length < indices.length) {
+        pickIndexBacking = new Uint32Array(indices.length);
+      }
+      pickIndexBacking.set(indices);
+      indicesView = pickIndexBacking.subarray(0, indices.length);
+    } else if (indices) {
+      indicesView = pickIndexBacking.subarray(0, 0);
+    }
     pickSnapshot = {
       mesh,
       id: ++pickSequence,
@@ -289,9 +311,9 @@ function createCanvas3D(
       height,
       backend,
       vertexCount: mesh.vertexCount,
-      vertices: vertices?.slice() ?? new Float32Array(0),
+      vertices: verticesView,
       resident,
-      indices: indices?.slice(),
+      indices: indicesView,
     };
   };
 
@@ -1090,6 +1112,8 @@ function createCanvas3D(
     drainingFrame = null;
     renderState.renderers.delete(onDeviceChange);
     releaseRenderResources();
+    pickVertexBacking = new Float32Array(0);
+    pickIndexBacking = new Uint32Array(0);
     setValidation('disposed');
   };
   if (isOwnerScopeDisposed(renderOwner) || renderGeneration !== getReactiveGeneration(renderCore)) {

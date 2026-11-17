@@ -611,7 +611,7 @@ export function completeCode({
             .map(f => option(prefix + f.name, 'property', `${f.kind}<${f.type}>`)),
           ...(property !== 'context'
             ? localStates.map(name => option('state.' + name, 'property', 'Локальное состояние'))
-            : ''),
+            : []),
         ];
       }
     } else if (root === 'props') {

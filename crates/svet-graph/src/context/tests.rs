@@ -241,3 +241,20 @@ fn drained_frame_job_cannot_render_a_replacement_lifetime() {
     let next = graph.take_effects();
     assert_eq!(next, vec![replacement]);
 }
+
+#[test]
+fn signal_reads_skip_dependency_pass_allocation() {
+    let mut graph = Context::new();
+    let s0 = graph.create(Kind::Signal).unwrap();
+    let s1 = graph.create(Kind::Signal).unwrap();
+    let view = graph.create(Kind::Effect).unwrap();
+    graph
+        .track(&view, |reads| {
+            reads.read(&s0).unwrap();
+            reads.read(&s1).unwrap();
+        })
+        .unwrap();
+    assert_eq!(graph.graph.dependency_epoch, 0);
+    assert!(graph.graph.dependency_seen.is_empty());
+    assert_eq!(graph.telemetry().edges, 2);
+}

@@ -34,10 +34,11 @@ function cachedSvgShapes(name, source) {
     .split(/[\s,]+/)
     .map(Number);
   const width = view?.[2] ?? Number(source.match(/\bwidth=['"]([^'"]+)/)?.[1]),
-    height = view?.[3] ?? Number(source.match(/\bheight=['"]([^'"]+)/)?.[1]);
-  const first = svgShapes(source, [0, 0, width, height], '#010203'),
-    second = svgShapes(source, [0, 0, width, height], '#030201');
-  const entry = `(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${first.map((shape, i) => `(vec![${shape.points.map(([x, y]) => `[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(shape.color !== second[i].color ? 'currentColor' : shape.color)}.into())`).join(',')}]})`;
+    height = view?.[3] ?? Number(source.match(/\bheight=['"]([^'"]+)/)?.[1]),
+    box = [0, 0, width, height];
+  const first = svgShapes(source, box, '#010203'),
+    second = source.includes('currentColor') ? svgShapes(source, box, '#fe0203') : null;
+  const entry = `(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${first.map((shape, i) => `(vec![${shape.points.map(([x, y]) => `[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(second && shape.color !== second[i].color ? 'currentColor' : shape.color)}.into())`).join(',')}]})`;
   if (svgPairCache.size >= 256) svgPairCache.delete(svgPairCache.keys().next().value);
   svgPairCache.set(key, entry);
   return entry;
@@ -115,6 +116,7 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
     eventStructs = [];
   let serial = 0,
     nodeSerial = 0;
+  const nodeIndices = new WeakMap();
   const linked = linkComponentDefinitions(files);
   const usedDefinitions = new Set();
   const collectionBlueprints = new Map();
@@ -215,7 +217,7 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
     if (Object.keys(node.slots).length)
       fail('override объявляется в наследнике component', node.start);
     const nodeIndex = nodeSerial++;
-    node.__formIndex = nodeIndex;
+    nodeIndices.set(node, nodeIndex);
     const [current, type] = scope(node, parent, parentType);
     if (node.type === 'If' || node.type === 'For') {
       if (node.type === 'For' && loops.has(node.item))
@@ -570,31 +572,36 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
       .filter(([k]) => !['context', 'contextType'].includes(k))
       .map(([k, value]) => `(${rustString(k)},${v(value)})`)
       .join(',')}])`;
-  const metadata = node => ({
-    ...node.props,
-    ...(node.forward?.length ? { __forward: node.forward } : {}),
-    ...(node.styles?.length ? { __styles: node.styles } : {}),
-    ...((node.matches ?? []).length
-      ? {
-          __matches: node.matches.map(m => ({
-            match: m.match,
-            branches: m.branches.map(b => ({ pattern: b.pattern, value: b.props })),
-          })),
-        }
-      : {}),
-    ...(node.eventArgs ? { __event_args: node.eventArgs } : {}),
-    ...(node.__formIndex !== undefined ? { __node: node.__formIndex } : {}),
-    ...(node.__formIndex === 0
-      ? {
-          __scope: definitionDefaults({
-            ...doc,
-            defaults: Object.fromEntries(
-              Object.entries(doc.defaults).filter(([k]) => !['contextType', 'events'].includes(k)),
-            ),
-          }),
-        }
-      : {}),
-  });
+  const metadata = node => {
+    const formIndex = nodeIndices.get(node);
+    return {
+      ...node.props,
+      ...(node.forward?.length ? { __forward: node.forward } : {}),
+      ...(node.styles?.length ? { __styles: node.styles } : {}),
+      ...((node.matches ?? []).length
+        ? {
+            __matches: node.matches.map(m => ({
+              match: m.match,
+              branches: m.branches.map(b => ({ pattern: b.pattern, value: b.props })),
+            })),
+          }
+        : {}),
+      ...(node.eventArgs ? { __event_args: node.eventArgs } : {}),
+      ...(formIndex !== undefined ? { __node: formIndex } : {}),
+      ...(formIndex === 0
+        ? {
+            __scope: definitionDefaults({
+              ...doc,
+              defaults: Object.fromEntries(
+                Object.entries(doc.defaults).filter(
+                  ([k]) => !['contextType', 'events'].includes(k),
+                ),
+              ),
+            }),
+          }
+        : {}),
+    };
+  };
   const n = (node, scene = false) => {
     const props = {
       ...metadata(node),
@@ -623,7 +630,7 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
       !['If', 'For', 'Else', 'Empty'].includes(node.type) &&
       !node.props?.key
     )
-      props.key = '__generated_' + node.__formIndex;
+      props.key = '__generated_' + nodeIndices.get(node);
     return `N {kind:${rustString(node.type)}.into(),props: ${p(props)},children:vec![${children.map(c => n(c, scene)).join(',')}],action:${node.events?.clicked ? `Some(${rustString(scene ? 'actions.' + node.events.clicked.split('.').at(-1) : node.events.clicked)}.into())` : 'None'}}`;
   };
   const definitionDefaults = d => {

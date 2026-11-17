@@ -11,6 +11,7 @@ import {
   signal,
   type Signal,
 } from '../src/engine';
+import { jsx } from '../src/engine/jsx-runtime';
 let stops: Array<() => void> = [],
   sources: Array<Signal<any>> = [];
 beforeEach(() => {
@@ -412,4 +413,47 @@ it('earlier sibling cleanup cannot invoke handlers or effects under a stopping a
   });
   stops[0]!();
   expect([calls, runs, modelValue()]).toEqual([0, 1, 'kept']);
+});
+
+it('jsx() preserves prop getter, key override, and owner teardown semantics without rest-spreading children', () => {
+  let reads = 0;
+  let captured!: Record<PropertyKey, unknown>;
+  createRoot(stop => {
+    stops.push(stop);
+    const node = jsx(
+      p => {
+        captured = p;
+        return document.createTextNode(String(p.key));
+      },
+      {
+        get title() {
+          reads++;
+          return 'hello';
+        },
+        key: 'prop-key',
+        children: ['a', 'b'],
+      },
+      'explicit-key',
+    );
+    expect(node.textContent).toBe('explicit-key');
+  });
+  expect(reads).toBe(1);
+  expect(captured.title).toBe('hello');
+  expect(captured.key).toBe('explicit-key');
+  expect(captured.children).toEqual(['a', 'b']);
+
+  let disposedReads = 0;
+  createRoot(stop => {
+    stops.push(stop);
+    stop();
+    expect(() =>
+      jsx('div', {
+        get title() {
+          disposedReads++;
+          return 'stale';
+        },
+      }),
+    ).toThrow(/disposed/);
+  });
+  expect(disposedReads).toBe(0);
 });

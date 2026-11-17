@@ -5,24 +5,21 @@ pub type TwoNearest = [Neighbor; 2];
 
 /// Brute-force exact top-2 nearest-neighbor search for every query point.
 pub fn nearest_two(queries: &[V3], targets: &[V3]) -> Vec<TwoNearest> {
-    queries
-        .iter()
-        .map(|&q| {
-            let mut best = (u32::MAX, f64::INFINITY);
-            let mut second = (u32::MAX, f64::INFINITY);
-            for (i, &t) in targets.iter().enumerate() {
-                let d = sub(q, t);
-                let dist = dot(d, d);
-                if dist < best.1 {
-                    second = best;
-                    best = (i as u32, dist);
-                } else if dist < second.1 {
-                    second = (i as u32, dist);
-                }
+    crate::parallel::par_map(queries, 64, |&q| {
+        let mut best = (u32::MAX, f64::INFINITY);
+        let mut second = (u32::MAX, f64::INFINITY);
+        for (i, &t) in targets.iter().enumerate() {
+            let d = sub(q, t);
+            let dist = dot(d, d);
+            if dist < best.1 {
+                second = best;
+                best = (i as u32, dist);
+            } else if dist < second.1 {
+                second = (i as u32, dist);
             }
-            [best, second]
-        })
-        .collect()
+        }
+        [best, second]
+    })
 }
 
 /// [`nearest_two`] with optional GPU/CUDA batch kernels.

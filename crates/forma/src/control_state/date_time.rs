@@ -91,33 +91,33 @@ impl DateTimeModel {
     }
 
     pub fn step_months(&mut self, delta: i32) {
-        let total = self.year * 12 + (i32::from(self.month) - 1) + delta;
-        self.year = total.div_euclid(12);
+        let total = i64::from(self.year) * 12 + (i64::from(self.month) - 1) + i64::from(delta);
+        self.year = total
+            .div_euclid(12)
+            .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
         self.month = (total.rem_euclid(12) + 1) as u8;
         let max_day = Self::days_in_month(self.year, self.month);
         self.day = self.day.min(max_day);
     }
 
     pub fn step_days(&mut self, delta: i32) {
-        let mut remaining = delta;
-        while remaining > 0 {
-            let max_d = Self::days_in_month(self.year, self.month);
-            if self.day < max_d {
-                self.day += 1;
-            } else {
-                self.day = 1;
-                self.step_months(1);
-            }
-            remaining -= 1;
+        if delta == 0 {
+            return;
         }
-        while remaining < 0 {
-            if self.day > 1 {
-                self.day -= 1;
-            } else {
-                self.step_months(-1);
-                self.day = Self::days_in_month(self.year, self.month);
-            }
-            remaining += 1;
+        let days = days_from_civil(i64::from(self.year), self.month, self.day) + i64::from(delta);
+        let (y, m, d) = civil_from_days(days);
+        if y < i64::from(i32::MIN) {
+            self.year = i32::MIN;
+            self.month = 1;
+            self.day = 1;
+        } else if y > i64::from(i32::MAX) {
+            self.year = i32::MAX;
+            self.month = 12;
+            self.day = 31;
+        } else {
+            self.year = y as i32;
+            self.month = m;
+            self.day = d;
         }
     }
 
@@ -132,4 +132,33 @@ impl DateTimeModel {
         }
         grid
     }
+}
+
+/// Howard Hinnant's proleptic Gregorian `days_from_civil` (`1970-01-01 == 0`).
+#[inline]
+fn days_from_civil(year: i64, month: u8, day: u8) -> i64 {
+    let m = i64::from(month);
+    let d = i64::from(day);
+    let y = year - i64::from(m <= 2);
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400; // [0, 399]
+    let mp = m + if m > 2 { -3 } else { 9 }; // [0, 11]
+    let doy = (153 * mp + 2) / 5 + d - 1; // [0, 365]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
+    era * 146_097 + doe - 719_468
+}
+
+/// Howard Hinnant's proleptic Gregorian `civil_from_days` (`0 == 1970-01-01`).
+#[inline]
+fn civil_from_days(z: i64) -> (i64, u8, u8) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097; // [0, 146096]
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let m = mp + if mp < 10 { 3 } else { -9 }; // [1, 12]
+    (y + i64::from(m <= 2), m as u8, d as u8)
 }

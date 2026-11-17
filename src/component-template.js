@@ -1,4 +1,6 @@
 // Primitive template literal escaping, serialization, and byte-length framing.
+import { formaStringLiteral } from './shared/text.js';
+
 const templateEncoder = new TextEncoder();
 
 // Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
@@ -23,14 +25,7 @@ export function literal(v) {
       .map(([k, x]) => `${k}: ${literal(x)};`)
       .join(' ')} ${(v.children ?? []).map(serialize).join(' ')} }`;
   if (Array.isArray(v)) return v.map(literal).join(' ');
-  if (typeof v === 'string')
-    return `'${v
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r')
-      .replace(/\t/g, '\\t')
-      .replace(/\$\{/g, '\\${')}'`;
+  if (typeof v === 'string') return formaStringLiteral(v);
   if (typeof v === 'number' && !Number.isFinite(v)) throw Error('Нечисловой размер');
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   throw Error('Значение не удалось вычислить');

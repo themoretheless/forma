@@ -133,10 +133,11 @@ pub(super) fn check_dtype(expected: LowDtype, actual: LowDtype) -> Result<()> {
     }
     Ok(())
 }
-fn pack(bits: &[u16]) -> Vec<u32> {
-    bits.chunks(2)
-        .map(|p| u32::from(p[0]) | (u32::from(p.get(1).copied().unwrap_or(0)) << 16))
-        .collect()
+fn packed_word(bits: &[u16], word_index: usize) -> u32 {
+    let base = word_index * 2;
+    let lo = u32::from(bits[base]);
+    let hi = u32::from(bits.get(base + 1).copied().unwrap_or(0));
+    lo | (hi << 16)
 }
 
 impl ComputeRuntime {
@@ -174,9 +175,10 @@ impl ComputeRuntime {
             .into());
         }
         checked_index(bits.len())?;
+        let word_len = bits.len().div_ceil(2);
         GpuLowTensor::from_packed(
             dtype,
-            self.upload(&pack(bits))?,
+            self.upload_generated(word_len, |idx| packed_word(bits, idx))?,
             bits.len(),
             Layout::contiguous(shape)?,
         )
@@ -193,6 +195,7 @@ impl ComputeRuntime {
             }
             .into());
         }
-        Ok(self.write(&tensor.words, 0, &pack(bits))?)
+        let word_len = bits.len().div_ceil(2);
+        Ok(self.write_generated(&tensor.words, 0, word_len, |idx| packed_word(bits, idx))?)
     }
 }
