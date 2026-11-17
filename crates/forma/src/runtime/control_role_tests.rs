@@ -476,6 +476,28 @@ fn a_radio_group_holds_one_choice_and_a_click_moves_it() {
 }
 
 #[test]
+fn arrow_keys_move_through_a_radio_group_and_choose() {
+    let mut runtime = library(RADIO_GROUP).unwrap();
+    assert!(runtime.focus_control(1));
+    assert!(runtime.range_key("ArrowDown"));
+    assert_eq!(runtime.focused_index(), 2);
+    assert_eq!(runtime.sync_ui_bindings_native(), Ok(true));
+    assert_eq!(state(&runtime)["choice"], "c");
+    // Past the last button it wraps to the first.
+    assert!(runtime.range_key("ArrowRight"));
+    assert_eq!(runtime.focused_index(), 0);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(state(&runtime)["choice"], "a");
+    // And backwards from the first to the last.
+    assert!(runtime.range_key("ArrowUp"));
+    assert_eq!(runtime.focused_index(), 2);
+    runtime.sync_ui_bindings_native().unwrap();
+    assert_eq!(state(&runtime)["choice"], "c");
+    // Other keys are not the group's.
+    assert!(!runtime.range_key("Home"));
+}
+
+#[test]
 fn a_radio_group_paints_only_the_chosen_button_as_checked() {
     let frame = |choice: &str| {
         let runtime = library(&RADIO_GROUP.replace("= 'b'", &format!("= '{choice}'"))).unwrap();

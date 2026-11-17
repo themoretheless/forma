@@ -315,6 +315,7 @@ impl Runtime {
             scroll_areas: Vec::new(),
             scroll_chains: Vec::new(),
             pointer_at: None,
+            groups: Vec::new(),
             area_nodes: Vec::new(),
             control_homes: Vec::new(),
             ui_binding_states: Vec::new(),
@@ -348,6 +349,7 @@ impl Runtime {
         (self.scroll_areas, self.scroll_chains) =
             super::scroll_areas::areas_of(controls.iter().map(|c| c.scroll.as_slice()));
         self.attach_area_nodes();
+        self.groups = controls.iter().map(|c| c.group.clone()).collect();
         self.set_clips(
             controls
                 .iter()

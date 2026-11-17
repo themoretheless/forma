@@ -8,6 +8,18 @@ impl Runtime {
         self.controls.len()
     }
 
+    /// Put control `i` in the radio group of the state path `group`, as a `group <->` binding does;
+    /// an empty path takes it out. Arrow keys move through a group. A scene loaded from markup
+    /// alone carries no bindings to say this. Returns whether `i` exists.
+    pub fn set_control_group(&mut self, i: usize, group: &str) -> bool {
+        if i >= self.controls.len() {
+            return false;
+        }
+        self.groups.resize(self.controls.len(), None);
+        self.groups[i] = (!group.is_empty()).then(|| group.to_owned());
+        true
+    }
+
     /// Put the controls inside scroll areas, as `Scroll` containers below the root do: a JSON array
     /// with, per control, the areas around it outermost first, each
     /// `{ "area", "viewport": [x, y, w, h], "content": [w, h] }`. A scene loaded from markup alone

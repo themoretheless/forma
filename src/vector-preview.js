@@ -928,6 +928,10 @@ export function createVectorPreview({
           });
           if (controlScrolls.some(chain => chain.length))
             candidate.set_control_scroll_areas(JSON.stringify(controlScrolls));
+          (previewControls ?? []).forEach((node, index) => {
+            const group = node.bindings?.group;
+            if (typeof group === 'string') candidate.set_control_group?.(index, group);
+          });
           if (button) candidate.preserve_interaction(button);
         }
         if (changed || current.reducedMotion !== reducedMotion)

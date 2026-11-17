@@ -1295,6 +1295,7 @@ fn cyclic_collection_parent_metadata_refuses_before_recursing_unbounded() {
         event_args: BTreeMap::new(),
         clip: None,
         scroll: Vec::new(),
+        group: None,
         state: props(vec![("__collection.item", string("item.items"))]),
     };
     assert!(
@@ -1714,6 +1715,7 @@ fn borrowed_collection_keys_preserve_computed_and_exact_field_semantics() {
         event_args: BTreeMap::new(),
         clip: None,
         scroll: Vec::new(),
+        group: None,
         state: props(vec![
             ("__collection.item", string("state.items")),
             (

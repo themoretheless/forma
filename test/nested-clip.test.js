@@ -148,3 +148,34 @@ test('a capturing container lays its area over its children', () => {
     /capture требует clicked/,
   );
 });
+
+test(
+  'arrow keys move through a Studio radio group in the runtime',
+  { skip: !existsSync(new URL('../public/vector-pkg/forma.js', import.meta.url)) },
+  async () => {
+    const runtime = await import('../public/vector-pkg/forma.js');
+    await runtime.default({
+      module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
+    });
+    const model = new runtime.Runtime();
+    try {
+      // Two pressable controls stand in for radio buttons; the group comes from outside.
+      const out = compileComponents(
+        {
+          'ui/App.ui': `component App { Column { width: 200; height: 200; TextInput { key: 'a'; width: 100; height: 30; } TextInput { key: 'b'; width: 100; height: 30; } } }`,
+        },
+        'ui/App.ui',
+      );
+      model.load_component(out.source, out.template);
+      assert.ok(model.set_control_group(0, 'state.choice'));
+      assert.ok(model.set_control_group(1, 'state.choice'));
+      assert.ok(!model.set_control_group(2, 'state.choice'));
+      assert.ok(model.focus_control(0));
+      assert.ok(model.range_key('ArrowDown'));
+      assert.equal(model.focused_index(), 1);
+      assert.equal(model.control_clicks(1), 1, 'and chooses it');
+    } finally {
+      model.free();
+    }
+  },
+);

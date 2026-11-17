@@ -124,6 +124,10 @@ pub struct SceneControl {
     /// only the root scrolls it, or nothing does.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scroll: Vec<SceneScroll>,
+    /// The state path of this control's `group <->` binding: radio buttons with the same path
+    /// form one group, which arrow keys move through.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 /// A `Scroll` container below the root, as one of the controls inside it sees it.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -119,6 +119,8 @@ pub struct Runtime {
     // `Scroll` containers below the root, and per control the ones around it, outermost first.
     scroll_areas: Vec<scroll_areas::ScrollArea>,
     scroll_chains: Vec<Vec<usize>>,
+    // Per control, the state path of its `group <->` binding: one radio group per path.
+    groups: Vec<Option<String>>,
     // The tree node of each scroll area, and the node each control sat under before areas.
     area_nodes: Vec<usize>,
     control_homes: Vec<usize>,

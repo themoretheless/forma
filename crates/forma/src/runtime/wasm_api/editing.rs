@@ -13,6 +13,9 @@ impl Runtime {
 
     pub fn range_key(&mut self, key: &str) -> bool {
         let Some(i) = self.focused else { return false };
+        if self.group_key(i, key) {
+            return true;
+        }
         if self.controls[i].disabled() || self.controls[i].template.range.is_none() {
             return false;
         }
@@ -31,6 +34,34 @@ impl Runtime {
         };
         range.value = range.snapped(moved);
         self.refresh_editors();
+        true
+    }
+
+    /// An arrow key on a radio button of a `group <->` binding moves focus to the next (Down,
+    /// Right) or previous (Up, Left) enabled button of the same group, wrapping around, and
+    /// selects it, as radio groups do.
+    fn group_key(&mut self, i: usize, key: &str) -> bool {
+        let Some(group) = self.groups.get(i).cloned().flatten() else {
+            return false;
+        };
+        let forward = match key {
+            "ArrowDown" | "ArrowRight" => true,
+            "ArrowUp" | "ArrowLeft" => false,
+            _ => return false,
+        };
+        let members: Vec<usize> = (0..self.controls.len())
+            .filter(|&j| self.groups[j].as_deref() == Some(group.as_str()) && self.enabled(j))
+            .collect();
+        let Some(at) = members.iter().position(|&j| j == i) else {
+            return false;
+        };
+        let next = if forward {
+            members[(at + 1) % members.len()]
+        } else {
+            members[(at + members.len() - 1) % members.len()]
+        };
+        self.set_focus(Some(next));
+        self.activate_control(next);
         true
     }
 

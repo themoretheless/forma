@@ -56,6 +56,7 @@ impl Document {
                     event_args,
                     clip: None,
                     scroll: Vec::new(),
+                    group: None,
                 });
             }
             Ok(())
@@ -529,6 +530,13 @@ impl SceneEmitter {
                 .collect::<Result<_, _>>()?,
             _ => Vec::new(),
         };
+        let group = match instance.props.get("__bindings") {
+            Some(Value::Object(bindings)) => match bindings.get("group") {
+                Some(Value::Text(path)) => Some(path.clone()),
+                _ => None,
+            },
+            _ => None,
+        };
         self.mapping.push(SceneControl {
             node,
             key,
@@ -536,6 +544,7 @@ impl SceneEmitter {
             event_args,
             clip,
             scroll,
+            group,
         });
         Ok(())
     }
