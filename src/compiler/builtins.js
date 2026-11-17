@@ -34,6 +34,11 @@ export const builtinSources = {
       PointerArea { clicked -> events.clicked(); }
     }
   }`,
+  // The pressable area a container with a `clicked` handler lays under its children.
+  ContainerArea: `component ContainerArea {
+    width: 0; height: 0;
+    Rectangle { background: #00000000; PointerArea { clicked -> events.clicked(); } }
+  }`,
 };
 export const fallback = {
   width: 260,

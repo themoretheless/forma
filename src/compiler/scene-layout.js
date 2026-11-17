@@ -28,6 +28,8 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
   // inside one lists the ones around it, outermost first, as `{ area, viewport }`.
   const scrollAreas = [];
   let scrollChain = [];
+  // The `clicked` handler of the nearest container: a control without its own answers with it.
+  let bubble = null;
   function intrinsicScene(node, axis) {
     const key = axis === 0 ? 'width' : 'height',
       value = node.props[key];
@@ -60,6 +62,12 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
   function layoutScene(node, box, output, frame = [0, 0, 0, 0], clip = null) {
     if (node.type === 'Scroll' && node !== root) return layoutScrollArea(node, box, output, clip);
     if (!containerTypes.has(node.type)) {
+      if (bubble && !node.events?.clicked)
+        node = {
+          ...node,
+          events: { ...node.events, clicked: bubble.clicked },
+          eventArgs: node.eventArgs ?? bubble.eventArgs,
+        };
       // A flow container measures a child's own `x`/`y` from its outer corner and percentages
       // against its outer size, so a tool that writes a coordinate needs that box next to the drawn
       // one. The page corner is just the case where the two frames coincide.
@@ -74,6 +82,20 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
     }
     // A clipping container below the root narrows what its controls may show; the runtime
     // receives the rectangle per control, since the scene markup has no containers.
+    const outerBubble = bubble;
+    if (node.events?.clicked) {
+      // Clicks on the container's empty space land on an invisible pressable area under its
+      // children; children without a handler of their own answer with the container's.
+      const area = {
+        ...node,
+        type: 'ContainerArea',
+        props: node.props.key === undefined ? {} : { key: node.props.key },
+        bindings: {},
+        children: [],
+      };
+      layoutScene(area, box, output, frame, clip);
+      bubble = { clicked: node.events.clicked, eventArgs: node.eventArgs };
+    }
     if (node !== root && node.props.clip !== undefined && typeof node.props.clip !== 'boolean')
       throw Error(`${node.type}.clip ожидает boolean`);
     if (node !== root && node.props.clip) clip = clip ? intersect(clip, box) : [...box];
@@ -129,6 +151,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
         });
       layoutScene(child, layout.boxes[index], output, box, clip);
     });
+    bubble = outerBubble;
   }
   /**
    * A `Scroll` below the root: its children are laid out like a column's, free to run past its

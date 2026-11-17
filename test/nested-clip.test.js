@@ -83,3 +83,49 @@ test(
     }
   },
 );
+
+const panel = {
+  'ui/App.ui': `component App { Column { width: 200; height: 200; Column { key: 'panel'; width: 120; height: 100; clicked -> actions.panel(); Text { key: 'label'; text: 'a'; width: 60; height: 20; } } } }`,
+};
+
+test('a container clicked handler becomes a pressable area under its children', () => {
+  const out = compileComponents(panel, 'ui/App.ui');
+  assert.deepEqual(
+    out.previewControls.map(c => [c.type, c.props.key]),
+    [
+      ['ContainerArea', 'panel'],
+      ['Text', 'label'],
+    ],
+  );
+  assert.deepEqual(out.previewControls[0].props.width, 120);
+  assert.equal(out.previewControls[1].events.clicked, out.previewControls[0].events.clicked);
+});
+
+test(
+  'the runtime answers clicks on the container and through its Text',
+  { skip: !existsSync(new URL('../public/vector-pkg/forma.js', import.meta.url)) },
+  async () => {
+    const runtime = await import('../public/vector-pkg/forma.js');
+    await runtime.default({
+      module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
+    });
+    const out = compileComponents(panel, 'ui/App.ui');
+    const model = new runtime.Runtime();
+    try {
+      model.load_component(out.source, out.template);
+      assert.equal(model.control_action(0), 'actions.panel');
+      const click = (x, y) => {
+        const before = model.control_clicks(0);
+        model.pointer(x, y, 0);
+        model.pointer(x, y, 1);
+        model.pointer(x, y, 2);
+        return model.control_clicks(0) - before;
+      };
+      assert.equal(click(45, 90), 1, 'empty space of the panel');
+      assert.equal(click(75, 5), 1, 'through the Text');
+      assert.equal(click(190, 5), 0, 'outside the panel');
+    } finally {
+      model.free();
+    }
+  },
+);

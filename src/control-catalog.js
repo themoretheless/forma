@@ -17,6 +17,8 @@ export function insertableControls(files) {
   const items = [];
   for (const [name, definition] of Object.entries(definitions)) {
     if (definition?.nodes?.length !== 1 || definition.nodes[0].type !== 'Rectangle') continue;
+    // The area a container's `clicked` handler lays under its children is not placed by hand.
+    if (name === 'ContainerArea') continue;
     // A control whose own label default is empty would land on the canvas invisible.
     const props = definition.defaults?.text === '' ? ["text: 'Текст';"] : [];
     items.push({
