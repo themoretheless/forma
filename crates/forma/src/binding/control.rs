@@ -31,14 +31,12 @@ impl Target {
 }
 
 impl Binding {
-    /// The bound value as a document property; a slider takes its number as a percentage.
-    pub(super) fn node_value(&self, slider: bool) -> crate::form_document::Value {
+    /// The bound value as a document property. A slider's number is on its own scale; the
+    /// document turns it into a fraction of `min` to `max` (see `__range_normalized`).
+    pub(super) fn node_value(&self) -> crate::form_document::Value {
         match self {
             Binding::String(f, _) => f.get().unwrap_or_default().to_value(),
             Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
-            Binding::Number(f, _) if slider => {
-                crate::form_document::Value::Expr(format!("{}%", f.number() * 100.))
-            }
             Binding::Number(f, _) => crate::form_document::Value::Number(f.number()),
         }
     }

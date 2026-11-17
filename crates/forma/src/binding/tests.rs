@@ -358,3 +358,44 @@ fn a_typed_slider_writes_its_own_scale_to_the_model() {
     .unwrap();
     assert_eq!(level.get(), 100., "the end of a 0..100 scale is 100, not 1");
 }
+
+#[test]
+fn a_document_slider_reads_and_writes_the_model_on_its_scale() {
+    struct Vm {
+        level: Property<f64>,
+    }
+    let files = std::collections::BTreeMap::from([(
+        "App.ui".to_owned(),
+        "component App { Column { width: 260; height: 80; Slider { key: 'level'; min: 0; max: 100; value: 0; } } }".to_owned(),
+    )]);
+    let document =
+        crate::form_document::Document::from_ui_files(&files, "App.ui", &Default::default())
+            .unwrap();
+    let mut form = Form::from_document(document).unwrap();
+    let vm = Rc::new(Vm {
+        level: Property::new(25.),
+    });
+    // A document form ties each control to the node it overrides, as generated forms do: the
+    // Slider is node 1.
+    form.bind_node(0, 1);
+    let control = form.add_control(0, Context::new(vm.clone())).unwrap();
+    control.bind_range_path(|vm: &Vm| vm.level.clone(), true);
+    form.sync().unwrap();
+    assert_eq!(
+        form.runtime().range_value(0),
+        0.25,
+        "25 of 0..100 is a quarter"
+    );
+    form.update(|runtime| {
+        assert!(runtime.focus_control(0));
+        assert!(runtime.range_key("End"));
+    })
+    .unwrap();
+    assert_eq!(vm.level.get(), 100.);
+    form.sync().unwrap();
+    assert_eq!(
+        form.runtime().range_value(0),
+        1.,
+        "and the end reads back as the end"
+    );
+}

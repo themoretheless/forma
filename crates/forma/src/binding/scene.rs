@@ -43,8 +43,14 @@ pub(super) fn write_control_overrides(document: &mut DocumentState, controls: &[
                     node.props.insert(name.clone(), input.value());
                 }
                 for (target, binding) in control.bindings.borrow().iter() {
-                    let value = binding.node_value(node.kind == "Slider");
-                    node.props.insert(target.property_name().into(), value);
+                    node.props
+                        .insert(target.property_name().into(), binding.node_value());
+                    if node.kind == "Slider" && *target == Target::Value {
+                        node.props.insert(
+                            "__range_normalized".into(),
+                            crate::form_document::Value::Bool(true),
+                        );
+                    }
                 }
             }
         },
