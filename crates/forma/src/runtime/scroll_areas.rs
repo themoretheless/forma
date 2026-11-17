@@ -246,6 +246,23 @@ impl Runtime {
         true
     }
 
+    /// After a rebuild, give each area the offset the same area had before: same number, same
+    /// viewport, limited by its new content.
+    pub(super) fn keep_area_scroll(&mut self, previous: &Runtime) {
+        let mut moved = false;
+        for (area, old) in self.scroll_areas.iter_mut().zip(&previous.scroll_areas) {
+            if area.viewport == old.viewport && old.offset != [0.; 2] {
+                let limit = area.limit();
+                area.offset = [old.offset[0].min(limit[0]), old.offset[1].min(limit[1])];
+                moved = true;
+            }
+        }
+        if moved {
+            self.sync_control_scroll();
+            *self.geometry.borrow_mut() = None;
+        }
+    }
+
     /// Scroll the areas around control `index`, innermost first, just far enough to show it.
     pub(super) fn reveal_in_scroll_areas(&mut self, index: usize) {
         let Some(chain) = self.scroll_chains.get(index).cloned() else {

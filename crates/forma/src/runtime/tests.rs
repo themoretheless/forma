@@ -2242,3 +2242,31 @@ fn accessibility_bounds_stop_at_a_clip() {
     assert_eq!([hidden[2], hidden[3]], [0., 0.]);
 }
 
+#[test]
+fn a_binding_rebuild_keeps_where_a_scroll_area_was() {
+    let rows: String = (0..5)
+        .map(|i| format!("TextInput {{ key: 'r{i}'; width: 80; height: 40; }}"))
+        .collect();
+    // Typing into a bound field writes state, which rebuilds the scene.
+    let source = format!(
+        "component App {{ state note: String = ''; Column {{ width: 200; height: 240; TextInput {{ key: 'note'; width: 150; height: 30; value <-> state.note; }} Scroll {{ width: 100; height: 60; Column {{ width: 100; height: 200; {rows} }} }} }} }}"
+    );
+    let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source)]);
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+    let viewport = runtime.scroll_areas[0].viewport;
+    runtime.pointer(viewport[0] + 5., viewport[1] + 5., 0);
+    runtime.scroll(0., 50.);
+    assert_eq!(runtime.area_scroll(0), Some([0., 50.]));
+    assert!(runtime.focus_control(0));
+    assert!(runtime.text_insert("x"));
+    assert_eq!(
+        runtime.sync_ui_bindings_native(),
+        Ok(true),
+        "the write rebuilt the scene"
+    );
+    assert_eq!(
+        runtime.area_scroll(0),
+        Some([0., 50.]),
+        "and the area stayed where it was"
+    );
+}
