@@ -107,6 +107,14 @@ impl Runtime {
                     });
                 }
                 NodeKind::Scroll => {
+                    // The root's scroll, or one of the areas below it.
+                    let (offset, bounds) = match self.area_of_node(node.id) {
+                        Some(area) => (
+                            self.scroll_areas[area].offset,
+                            self.area_screen_viewport(area),
+                        ),
+                        None => (self.scroll, self.viewport_rect()),
+                    };
                     a11y_nodes.push(A11yNode {
                         id: node.id,
                         parent: node.parent,
@@ -114,10 +122,10 @@ impl Runtime {
                         role: A11yRole::ScrollView,
                         key: "scroll".into(),
                         label: "Scrollable Region".into(),
-                        value: Some(format!("{:.0},{:.0}", self.scroll[0], self.scroll[1])),
-                        numeric_value: Some(self.scroll[1]),
+                        value: Some(format!("{:.0},{:.0}", offset[0], offset[1])),
+                        numeric_value: Some(offset[1]),
                         numeric_range: None,
-                        bounds: self.viewport_rect(),
+                        bounds,
                         focused: false,
                         disabled: false,
                         multiline: false,

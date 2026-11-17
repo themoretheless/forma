@@ -2076,3 +2076,35 @@ fn focus_scrolls_an_area_to_show_its_control() {
         "and back up for the first row"
     );
 }
+
+#[test]
+fn a_scroll_area_is_a_node_of_the_tree_and_a_scroll_view() {
+    let mut runtime = scroll_area_runtime();
+    let area_node = runtime.area_nodes[0];
+    let node = &runtime.nodes()[area_node];
+    assert_eq!(node.kind, NodeKind::Scroll);
+    assert_eq!(node.parent, Some(0));
+    assert_eq!(node.children.len(), 5, "its five rows moved under it");
+    for &child in &node.children {
+        assert_eq!(runtime.nodes()[child].parent, Some(area_node));
+    }
+    assert!(!runtime.nodes()[0].children.contains(&node.children[0]));
+    // Accessibility reports the area and scrolls it by its node.
+    assert!(runtime.accessibility_scroll(area_node, 0., 30.));
+    assert_eq!(runtime.area_scroll(0), Some([0., 30.]));
+    let tree = runtime.accessibility_tree();
+    let view = tree.nodes.iter().find(|n| n.id == area_node).unwrap();
+    assert_eq!(view.role, A11yRole::ScrollView);
+    assert_eq!(view.value.as_deref(), Some("0,30"));
+    assert_eq!(view.bounds, runtime.scroll_areas[0].viewport);
+    // Installing the areas again leaves one node per area.
+    let chains: Vec<Vec<_>> = runtime
+        .ui_binding_scene
+        .iter()
+        .map(|c| c.scroll.clone())
+        .collect();
+    let count = runtime.nodes().len();
+    runtime.set_scroll_areas(chains.iter().map(Vec::as_slice));
+    assert_eq!(runtime.nodes().len(), count);
+    assert_eq!(runtime.nodes()[area_node].children.len(), 5);
+}

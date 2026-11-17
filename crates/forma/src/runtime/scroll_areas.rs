@@ -74,6 +74,7 @@ impl Runtime {
         chains: impl IntoIterator<Item = &'a [SceneScroll]>,
     ) {
         (self.scroll_areas, self.scroll_chains) = areas_of(chains);
+        self.attach_area_nodes();
         let clips = std::mem::take(&mut self.clips);
         self.set_clips(clips);
     }
@@ -108,8 +109,83 @@ impl Runtime {
         }
     }
 
+    /// Put a `Scroll` node in the tree for every area, under its parent area or where its controls
+    /// were, and move each control under its innermost area. Existing node ids stay as they are.
+    pub(super) fn attach_area_nodes(&mut self) {
+        let control_node = |nodes: &[super::Node], index: usize| {
+            nodes.iter().position(|node| node.control == Some(index))
+        };
+        // Undo a previous attachment: controls go home, area nodes go away.
+        if !self.area_nodes.is_empty() {
+            let first = self.area_nodes[0];
+            for (index, &home) in self.control_homes.iter().enumerate() {
+                if let Some(node) = control_node(&self.nodes, index) {
+                    self.nodes[node].parent = Some(home);
+                    if !self.nodes[home].children.contains(&node) {
+                        self.nodes[home].children.push(node);
+                    }
+                }
+            }
+            self.nodes.truncate(first);
+            for node in &mut self.nodes {
+                node.children.retain(|&child| child < first);
+            }
+            self.area_nodes.clear();
+        }
+        self.control_homes = (0..self.controls.len())
+            .map(|index| {
+                control_node(&self.nodes, index)
+                    .and_then(|node| self.nodes[node].parent)
+                    .unwrap_or(0)
+            })
+            .collect();
+        if self.scroll_areas.is_empty() {
+            return;
+        }
+        let first = self.nodes.len();
+        self.area_nodes = (first..first + self.scroll_areas.len()).collect();
+        for area in 0..self.scroll_areas.len() {
+            let parent = match self.scroll_areas[area].parent {
+                Some(outer) => self.area_nodes[outer],
+                // Where the first control inside it lived.
+                None => self
+                    .scroll_chains
+                    .iter()
+                    .position(|chain| chain.first() == Some(&area))
+                    .map_or(0, |index| self.control_homes[index]),
+            };
+            let id = first + area;
+            self.nodes.push(super::Node {
+                id,
+                parent: Some(parent),
+                children: Vec::new(),
+                kind: super::NodeKind::Scroll,
+                control: None,
+            });
+            self.nodes[parent].children.push(id);
+        }
+        for index in 0..self.controls.len() {
+            let Some(&inner) = self.scroll_chains[index].last() else {
+                continue;
+            };
+            let Some(node) = control_node(&self.nodes, index) else {
+                continue;
+            };
+            let home = self.control_homes[index];
+            self.nodes[home].children.retain(|&child| child != node);
+            let area_node = self.area_nodes[inner];
+            self.nodes[node].parent = Some(area_node);
+            self.nodes[area_node].children.push(node);
+        }
+    }
+
+    /// The scroll area whose tree node is `node`, if it is one.
+    pub(super) fn area_of_node(&self, node: usize) -> Option<usize> {
+        self.area_nodes.iter().position(|&id| id == node)
+    }
+
     /// Where area `index`'s viewport is on screen now: moved by the root and the areas around it.
-    fn area_screen_viewport(&self, index: usize) -> [f32; 4] {
+    pub(super) fn area_screen_viewport(&self, index: usize) -> [f32; 4] {
         let mut shift = self.scroll;
         let mut parent = self.scroll_areas[index].parent;
         while let Some(p) = parent {
@@ -144,24 +220,29 @@ impl Runtime {
             })
             .collect();
         candidates.sort_by_key(|&i| std::cmp::Reverse(self.area_depth(i)));
-        for index in candidates {
-            let area = &mut self.scroll_areas[index];
-            let limit = area.limit();
-            let old = area.offset;
-            area.offset = [
-                (old[0] + dx).clamp(0., limit[0]),
-                (old[1] + dy).clamp(0., limit[1]),
-            ];
-            if area.offset != old {
-                self.sync_control_scroll();
-                *self.geometry.borrow_mut() = None;
-                self.revision = self.revision.wrapping_add(1);
-                self.geometry_revision = self.geometry_revision.wrapping_add(1);
-                self.layout_revision = self.layout_revision.wrapping_add(1);
-                return true;
-            }
+        candidates
+            .into_iter()
+            .any(|index| self.move_area(index, dx, dy))
+    }
+
+    /// Move area `index` by `dx, dy` within its content. Returns whether it moved.
+    pub(super) fn move_area(&mut self, index: usize, dx: f32, dy: f32) -> bool {
+        let area = &mut self.scroll_areas[index];
+        let limit = area.limit();
+        let old = area.offset;
+        area.offset = [
+            (old[0] + dx).clamp(0., limit[0]),
+            (old[1] + dy).clamp(0., limit[1]),
+        ];
+        if area.offset == old {
+            return false;
         }
-        false
+        self.sync_control_scroll();
+        *self.geometry.borrow_mut() = None;
+        self.revision = self.revision.wrapping_add(1);
+        self.geometry_revision = self.geometry_revision.wrapping_add(1);
+        self.layout_revision = self.layout_revision.wrapping_add(1);
+        true
     }
 
     /// Scroll the areas around control `index`, innermost first, just far enough to show it.

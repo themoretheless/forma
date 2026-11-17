@@ -167,15 +167,21 @@ impl Runtime {
         else {
             return false;
         };
-        let _ = node;
-        if !self.scene.scroll
-            || self.active_modal_index().is_some()
-            || !dx.is_finite()
-            || !dy.is_finite()
-        {
+        let area = self.area_of_node(node.id);
+        if self.active_modal_index().is_some() || !dx.is_finite() || !dy.is_finite() {
             return false;
         }
+        if let Some(area) = area {
+            self.move_area(area, dx, dy);
+            return true;
+        }
+        if !self.scene.scroll {
+            return false;
+        }
+        // The root's region, not whatever area the pointer happens to be over.
+        let pointer_at = self.pointer_at.take();
         self.scroll(dx, dy);
+        self.pointer_at = pointer_at;
         true
     }
 

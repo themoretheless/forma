@@ -309,6 +309,8 @@ impl Runtime {
             scroll_areas: Vec::new(),
             scroll_chains: Vec::new(),
             pointer_at: None,
+            area_nodes: Vec::new(),
+            control_homes: Vec::new(),
             ui_binding_states: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             svet_document: None,
@@ -339,6 +341,7 @@ impl Runtime {
     pub(super) fn install_clips(&mut self, controls: &[crate::form_document::SceneControl]) {
         (self.scroll_areas, self.scroll_chains) =
             super::scroll_areas::areas_of(controls.iter().map(|c| c.scroll.as_slice()));
+        self.attach_area_nodes();
         self.set_clips(
             controls
                 .iter()
