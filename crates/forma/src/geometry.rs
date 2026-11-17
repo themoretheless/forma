@@ -110,3 +110,17 @@ pub(crate) fn round_coverage(x: u32, y: u32, scale: f32, bounds: [f32; 4], radiu
     }
     count / 16.
 }
+
+/// The part of rectangle `a` that `b` also covers, both `[x, y, width, height]`. Rectangles that
+/// do not meet give zero size at the corner where they would.
+pub(crate) fn intersect_rect(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+    let left = a[0].max(b[0]);
+    let top = a[1].max(b[1]);
+    let right = (a[0] + a[2]).min(b[0] + b[2]);
+    let bottom = (a[1] + a[3]).min(b[1] + b[3]);
+    if right > left && bottom > top {
+        [left, top, right - left, bottom - top]
+    } else {
+        [left, top, 0., 0.]
+    }
+}

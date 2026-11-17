@@ -93,13 +93,7 @@ impl Runtime {
         };
         let offset = [screen[0] - content[0], screen[1] - content[1]];
         let screen = match self.screen_clip(index) {
-            Some(clip) => {
-                let left = screen[0].max(clip[0]);
-                let top = screen[1].max(clip[1]);
-                let right = (screen[0] + screen[2]).min(clip[0] + clip[2]);
-                let bottom = (screen[1] + screen[3]).min(clip[1] + clip[3]);
-                [left, top, (right - left).max(0.), (bottom - top).max(0.)]
-            }
+            Some(clip) => crate::geometry::intersect_rect(screen, clip),
             None => screen,
         };
         canvas::rasterize(&list, pixels, w, h, s, offset, screen);

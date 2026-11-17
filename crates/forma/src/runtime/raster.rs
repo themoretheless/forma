@@ -146,7 +146,7 @@ impl Runtime {
                 for py in edge(y, h)..edge(y + th, h) {
                     for px in edge(x, w)..edge(x + tw, w) {
                         let at = ((py * w + px) * 4) as usize;
-                        cache.pixels[at..at + 4].copy_from_slice(&super::vector::AREA_THUMB);
+                        cache.pixels[at..at + 4].copy_from_slice(&super::scroll_areas::AREA_THUMB);
                     }
                 }
             }

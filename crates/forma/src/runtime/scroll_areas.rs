@@ -4,6 +4,9 @@
 use super::Runtime;
 use crate::form_document::SceneScroll;
 
+/// The colour of scroll area thumbs, the same as the root's.
+pub(super) const AREA_THUMB: [u8; 4] = [110, 130, 170, 255];
+
 /// One scroll area: what it shows, how far its content reaches, and how far it has moved.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct ScrollArea {
@@ -22,6 +25,26 @@ impl ScrollArea {
             (self.content[0] - self.viewport[2]).max(0.),
             (self.content[1] - self.viewport[3]).max(0.),
         ]
+    }
+
+    /// The offset that shows `rect`, a rectangle in this area's content, moving as little as
+    /// possible from where the area is now.
+    fn revealing(&self, rect: [f32; 4]) -> [f32; 2] {
+        let limit = self.limit();
+        let axis = |i: usize| {
+            let (start, size) = (rect[i], rect[i + 2]);
+            let (view, extent) = (self.viewport[i], self.viewport[i + 2]);
+            // Visible content runs from view + offset to view + offset + extent.
+            let offset = if start < view + self.offset[i] {
+                start - view
+            } else if start + size > view + self.offset[i] + extent {
+                start + size - view - extent
+            } else {
+                self.offset[i]
+            };
+            offset.clamp(0., limit[i])
+        };
+        [axis(0), axis(1)]
     }
 }
 
@@ -238,12 +261,18 @@ impl Runtime {
         if area.offset == old {
             return false;
         }
+        self.areas_moved();
+        true
+    }
+
+    /// An area's offset changed: controls take their new places and everything painted or laid
+    /// out from the old ones is stale.
+    fn areas_moved(&mut self) {
         self.sync_control_scroll();
         *self.geometry.borrow_mut() = None;
         self.revision = self.revision.wrapping_add(1);
         self.geometry_revision = self.geometry_revision.wrapping_add(1);
         self.layout_revision = self.layout_revision.wrapping_add(1);
-        true
     }
 
     /// After a rebuild, give each area the offset the same area had before: same number, same
@@ -258,8 +287,7 @@ impl Runtime {
             }
         }
         if moved {
-            self.sync_control_scroll();
-            *self.geometry.borrow_mut() = None;
+            self.areas_moved();
         }
     }
 
@@ -274,35 +302,14 @@ impl Runtime {
         let mut changed = false;
         for &area in chain.iter().rev() {
             let area = &mut self.scroll_areas[area];
-            let [vx, vy, vw, vh] = area.viewport;
-            let limit = area.limit();
             let old = area.offset;
-            let reveal =
-                |offset: f32, start: f32, size: f32, view: f32, extent: f32, limit: f32| {
-                    // Visible content runs from view + offset to view + offset + extent.
-                    let offset = if start < view + offset {
-                        start - view
-                    } else if start + size > view + offset + extent {
-                        start + size - view - extent
-                    } else {
-                        offset
-                    };
-                    offset.clamp(0., limit)
-                };
-            area.offset = [
-                reveal(old[0], rect[0], rect[2], vx, vw, limit[0]),
-                reveal(old[1], rect[1], rect[3], vy, vh, limit[1]),
-            ];
+            area.offset = area.revealing(rect);
             changed |= area.offset != old;
             rect[0] -= area.offset[0];
             rect[1] -= area.offset[1];
         }
         if changed {
-            self.sync_control_scroll();
-            *self.geometry.borrow_mut() = None;
-            self.revision = self.revision.wrapping_add(1);
-            self.geometry_revision = self.geometry_revision.wrapping_add(1);
-            self.layout_revision = self.layout_revision.wrapping_add(1);
+            self.areas_moved();
         }
     }
 

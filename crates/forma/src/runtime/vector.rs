@@ -2,9 +2,6 @@
 
 use super::*;
 
-/// The colour of scroll area thumbs, the same as the root's.
-pub(super) const AREA_THUMB: [u8; 4] = [110, 130, 170, 255];
-
 impl Runtime {
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
         if self.single_leaf() {
@@ -128,7 +125,7 @@ impl Runtime {
             }
         }
         for thumb in self.area_thumbs() {
-            list.command(5., thumb, AREA_THUMB, 0., 0.);
+            list.command(5., thumb, super::scroll_areas::AREA_THUMB, 0., 0.);
         }
         if self.scene.scroll {
             list.mark_scrolled(content_start);

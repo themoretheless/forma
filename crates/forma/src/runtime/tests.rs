@@ -2042,7 +2042,7 @@ fn a_scroll_area_is_drawn_where_it_is_hit() {
     let thumb_x = viewport[0] + viewport[2] - 2.;
     assert_eq!(
         &pixels[((viewport[1] as usize + 20) * 200 + thumb_x as usize) * 4..][..4],
-        &super::vector::AREA_THUMB
+        &super::scroll_areas::AREA_THUMB
     );
     // The vector list moves the area's commands by its offset on top of the root scroll.
     let list = runtime.vector_snapshot(1., false);
