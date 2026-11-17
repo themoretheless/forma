@@ -164,6 +164,49 @@ impl Runtime {
         false
     }
 
+    /// Scroll the areas around control `index`, innermost first, just far enough to show it.
+    pub(super) fn reveal_in_scroll_areas(&mut self, index: usize) {
+        let Some(chain) = self.scroll_chains.get(index).cloned() else {
+            return;
+        };
+        let b = &self.controls[index].scene.button;
+        // The control's rectangle as each area sees it: moved by the areas inside that one.
+        let mut rect = [b.x, b.y, b.width, b.height];
+        let mut changed = false;
+        for &area in chain.iter().rev() {
+            let area = &mut self.scroll_areas[area];
+            let [vx, vy, vw, vh] = area.viewport;
+            let limit = area.limit();
+            let old = area.offset;
+            let reveal =
+                |offset: f32, start: f32, size: f32, view: f32, extent: f32, limit: f32| {
+                    // Visible content runs from view + offset to view + offset + extent.
+                    let offset = if start < view + offset {
+                        start - view
+                    } else if start + size > view + offset + extent {
+                        start + size - view - extent
+                    } else {
+                        offset
+                    };
+                    offset.clamp(0., limit)
+                };
+            area.offset = [
+                reveal(old[0], rect[0], rect[2], vx, vw, limit[0]),
+                reveal(old[1], rect[1], rect[3], vy, vh, limit[1]),
+            ];
+            changed |= area.offset != old;
+            rect[0] -= area.offset[0];
+            rect[1] -= area.offset[1];
+        }
+        if changed {
+            self.sync_control_scroll();
+            *self.geometry.borrow_mut() = None;
+            self.revision = self.revision.wrapping_add(1);
+            self.geometry_revision = self.geometry_revision.wrapping_add(1);
+            self.layout_revision = self.layout_revision.wrapping_add(1);
+        }
+    }
+
     /// The scroll offset of area `index`.
     #[cfg(test)]
     pub(super) fn area_scroll(&self, index: usize) -> Option<[f32; 2]> {

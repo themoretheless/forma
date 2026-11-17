@@ -2053,3 +2053,26 @@ fn a_scroll_area_is_drawn_where_it_is_hit() {
         .count();
     assert!(moved > 0);
 }
+
+#[test]
+fn focus_scrolls_an_area_to_show_its_control() {
+    let rows: String = (0..5)
+        .map(|i| format!("TextInput {{ key: 'r{i}'; width: 80; height: 40; }}"))
+        .collect();
+    let source = format!(
+        "component App {{ Column {{ width: 200; height: 200; Text {{ text: 't'; width: 80; height: 30; }} Scroll {{ width: 100; height: 60; Column {{ width: 100; height: 200; {rows} }} }} }} }}"
+    );
+    let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source)]);
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+    let top = runtime.scroll_areas[0].viewport[1];
+    assert!(runtime.focus_control(5));
+    // The last row ends 200 below the content's top; a 60-high viewport shows it from 140.
+    assert_eq!(runtime.area_scroll(0), Some([0., 140.]));
+    assert_eq!(runtime.control_bounds(5)[1] + 40., top + 60.);
+    assert!(runtime.focus_control(1));
+    assert_eq!(
+        runtime.area_scroll(0),
+        Some([0., 0.]),
+        "and back up for the first row"
+    );
+}

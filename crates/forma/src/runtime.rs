@@ -233,6 +233,9 @@ impl Runtime {
         for (i, c) in self.controls.iter_mut().enumerate() {
             c.focus(Some(i) == self.focused);
         }
+        if let Some(i) = self.focused {
+            self.reveal_in_scroll_areas(i);
+        }
         self.refresh_editors();
     }
 
