@@ -11,6 +11,14 @@ impl Runtime {
             .map_or(f32::NAN, |r| r.value)
     }
 
+    /// Control `i`'s range value on its own scale, from `min` to `max`; NaN without a range.
+    pub fn range_scaled_value(&self, i: usize) -> f32 {
+        self.controls
+            .get(i)
+            .and_then(|c| c.template.range.as_ref())
+            .map_or(f32::NAN, |r| r.scaled_value())
+    }
+
     pub fn range_key(&mut self, key: &str) -> bool {
         let Some(i) = self.focused else { return false };
         if self.group_key(i, key) {

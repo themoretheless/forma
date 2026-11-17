@@ -442,6 +442,7 @@ impl Form {
             let change = ControlChange {
                 next_text: self.runtime.text_value(index),
                 next_range: self.runtime.range_value(index),
+                next_scaled: self.runtime.range_scaled_value(index),
                 clicks: self
                     .runtime
                     .control_clicks(index)

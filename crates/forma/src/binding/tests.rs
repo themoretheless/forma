@@ -339,3 +339,22 @@ fn double_clicking_selected_target_keeps_control_selected() {
     .unwrap();
     assert!(model.selected.get());
 }
+
+#[test]
+fn a_typed_slider_writes_its_own_scale_to_the_model() {
+    let mut form = Form::new(
+        "component Demo { Frame { width:220; height:60; Button { width:200; height:36; } } }",
+        "component Button { Rectangle { RangeInput { value: 0.5; min: 0; max: 100; Minimum {} Maximum {} } PointerArea { clicked -> events.clicked(); } } }",
+    )
+    .unwrap();
+    let level = Property::new(50_f64);
+    let control = form.add_control(0, Context::new(Rc::new(()))).unwrap();
+    control.bind_range(level.clone());
+    form.sync().unwrap();
+    form.update(|runtime| {
+        assert!(runtime.focus_control(0));
+        assert!(runtime.range_key("End"));
+    })
+    .unwrap();
+    assert_eq!(level.get(), 100., "the end of a 0..100 scale is 100, not 1");
+}

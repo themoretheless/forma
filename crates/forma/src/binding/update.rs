@@ -54,6 +54,8 @@ pub(super) struct ControlChange {
     pub(super) next_text: String,
     pub(super) range: f32,
     pub(super) next_range: f32,
+    /// `next_range` on the slider's own scale (`min` to `max`): what the model is given.
+    pub(super) next_scaled: f32,
     pub(super) clicks: u32,
 }
 
@@ -125,7 +127,7 @@ impl PendingWrites {
                     if target == Target::Value && change.range_changed() =>
                 {
                     self.numbers
-                        .push((field.clone(), change.next_range as f64, epoch))
+                        .push((field.clone(), change.next_scaled as f64, epoch))
                 }
                 Binding::Number(field, true)
                     if target == Target::Value && change.text_changed() =>
@@ -182,7 +184,7 @@ impl PendingWrites {
                 continue;
             };
             let value = match binding.target.as_str() {
-                "value" if change.range_changed() => Some(Value::Number(change.next_range as f64)),
+                "value" if change.range_changed() => Some(Value::Number(change.next_scaled as f64)),
                 "value" if change.text_changed() => Some(Value::Text(change.next_text.clone())),
                 "checked" if change.clicks % 2 == 1 => {
                     toggled = true;
