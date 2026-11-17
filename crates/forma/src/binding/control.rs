@@ -9,12 +9,15 @@ pub(super) enum Target {
     Disabled,
     Checked,
     Selected,
+    /// One choice of a radio group: checked while the model holds its value.
+    Group,
 }
 
 pub(super) enum Binding {
     String(Field<String>, bool),
     Bool(Field<bool>),
     Number(Rc<dyn NumericInput>, bool),
+    Group(Rc<dyn GroupInput>),
 }
 
 impl Target {
@@ -26,6 +29,8 @@ impl Target {
             Target::Disabled => "disabled",
             Target::Checked => "checked",
             Target::Selected => "selected",
+            // A group choice shows itself as checked.
+            Target::Group => "checked",
         }
     }
 }
@@ -38,6 +43,7 @@ impl Binding {
             Binding::String(f, _) => f.get().unwrap_or_default().to_value(),
             Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
             Binding::Number(f, _) => crate::form_document::Value::Number(f.number()),
+            Binding::Group(g) => crate::form_document::Value::Bool(g.chosen()),
         }
     }
 
@@ -46,6 +52,7 @@ impl Binding {
             Self::String(f, _) => f.0.dirty.get(),
             Self::Bool(f) => f.0.dirty.get(),
             Self::Number(f, _) => f.dirty(),
+            Self::Group(g) => g.dirty(),
         }
     }
     pub(super) fn sync(
@@ -71,6 +78,7 @@ impl Binding {
             Self::Number(field, _) => {
                 field.clean();
             }
+            Self::Group(group) => group.clean(),
             Self::Bool(field) => {
                 if !field.0.dirty.get() {
                     return Ok(());
@@ -294,6 +302,30 @@ impl<C: 'static> Control<C> {
         self.insert(
             Target::Checked,
             Binding::Bool(Field::path(context, select, self.state.wake.clone())),
+        );
+    }
+    /// Bind this control as one choice of a radio group, `group <-> state.x` with `value`: it
+    /// shows as checked while the model field holds `value`, and choosing it writes `value`.
+    /// Choosing the choice the field already holds writes nothing.
+    pub fn bind_group_path<T: ModelValue>(
+        &self,
+        select: impl Fn(&C) -> Property<T> + 'static,
+        value: crate::form_document::Value,
+    ) {
+        self.bind_group_context(&self.context, select, value);
+    }
+    pub fn bind_group_context<P: 'static, T: ModelValue>(
+        &self,
+        context: &Context<P>,
+        select: impl Fn(&P) -> Property<T> + 'static,
+        value: crate::form_document::Value,
+    ) {
+        self.insert(
+            Target::Group,
+            Binding::Group(Rc::new(GroupChoice {
+                field: Field::path(context, select, self.state.wake.clone()),
+                value,
+            })),
         );
     }
     pub fn bind_selected_path(&self, select: impl Fn(&C) -> Property<bool> + 'static) {

@@ -284,7 +284,8 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
     if (!definition && !layoutTypes.has(node.type))
       fail('Неизвестный компонент ' + node.type, node.start);
     for (const key of [...Object.keys(node.props), ...Object.keys(node.bindings)])
-      if (!allowed.has(key))
+      // A radio group choice is a binding of its own, not a property of the control.
+      if (!allowed.has(key) && !(key === 'group' && node.groupBound))
         fail(
           `Неизвестное свойство ${node.type}.${key}`,
           node.statementRanges[key]?.from ?? node.start,
@@ -416,8 +417,29 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
         bindings.set(key, { expr: value.expr, twoWay: false });
     for (const [key, { expr, twoWay }] of bindings) {
       const offset = node.statementRanges[key].from;
-      if (twoWay && !['value', 'checked', 'selected'].includes(key))
+      if (twoWay && !['value', 'checked', 'selected', 'group'].includes(key))
         fail(`Не поддерживается двусторонняя привязка ${key}`, offset);
+      if (twoWay && key === 'group') {
+        const value = node.groupValue;
+        if (typeof value !== 'string' && typeof value !== 'number')
+          fail('value радиокнопки в типизированной форме должно быть строкой или числом', offset);
+        if (!expr.startsWith('state.') || loops.get(expr.split('.')[0]))
+          fail('Привязка group в типизированной форме требует поле state', offset);
+        const segments = path(expr, offset),
+          field = segments.pop();
+        const owner = project(current, segments);
+        const literal =
+          typeof value === 'string'
+            ? `::forma::form_document::Value::Text(${rustString(value)}.into())`
+            : `::forma::form_document::Value::Number(${Number(value).toFixed(12)})`;
+        statements.push(`// @forma-source ${entry}:${source.slice(0, offset).split('\n').length}`);
+        statements.push(
+          owner === current
+            ? `${variable}.bind_group_path(|vm| vm.${field}.clone(), ${literal});`
+            : `${variable}.bind_group_context(&${owner}, |vm| vm.${field}.clone(), ${literal});`,
+        );
+        continue;
+      }
       const local = loops.get(expr.split('.')[0]);
       if (twoWay && local) {
         const parts = expr
@@ -605,7 +627,12 @@ export function generateForm(files, entry, { state = {}, nativeApp = false } = {
   const n = (node, scene = false) => {
     const props = {
       ...metadata(node),
-      ...Object.fromEntries(Object.entries(node.bindings ?? {}).map(([k, expr]) => [k, { expr }])),
+      ...Object.fromEntries(
+        Object.entries(node.bindings ?? {})
+          // The group choice reaches the node as `checked`, from its binding.
+          .filter(([k]) => !(k === 'group' && node.groupBound))
+          .map(([k, expr]) => [k, { expr }]),
+      ),
     };
     if (
       scene &&

@@ -10,6 +10,7 @@ pub struct TaskVm {
     pub tasks: Property<Vec<Task>>,
     pub show_info: Property<bool>,
     pub status: Property<String>,
+    pub priority: Property<String>,
 }
 include!(concat!(env!("OUT_DIR"), "/task_list.rs"));
 
@@ -33,6 +34,7 @@ fn main() -> Result<(), String> {
         ]),
         show_info: Property::new(true),
         status: Property::new("Ready".into()),
+        priority: Property::new("low".into()),
     });
     let mut form = TaskList::new(vm.clone())?;
     form.on_edited(|event| {
@@ -49,6 +51,17 @@ fn main() -> Result<(), String> {
     form.on_toggle_info(|event| {
         event.context.show_info.set(!event.context.show_info.get());
     });
+
+    // A radio group: choosing writes the choice's value, choosing it again writes nothing.
+    let high = control(&mut form, "high");
+    form.update(|runtime| runtime.activate_control(high))?;
+    assert_eq!(vm.priority.get(), "high");
+    let high = control(&mut form, "high");
+    form.update(|runtime| runtime.activate_control(high))?;
+    assert_eq!(vm.priority.get(), "high");
+    let low = control(&mut form, "low");
+    form.update(|runtime| runtime.activate_control(low))?;
+    assert_eq!(vm.priority.get(), "low");
 
     let editor = control(&mut form, "editor");
     let editor_key = form.runtime()?.control_key(editor);
@@ -79,7 +92,7 @@ fn main() -> Result<(), String> {
     assert!(!vm.show_info.get());
     assert!(!form.runtime()?.pixels(560, 460, 1.).is_empty());
     println!(
-        "Typed components, keyed edits/reorder/removal, events, Row/Grid and live expressions: OK"
+        "Typed components, keyed edits/reorder/removal, events, Row/Grid, a radio group and live expressions: OK"
     );
     Ok(())
 }

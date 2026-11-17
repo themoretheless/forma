@@ -203,6 +203,7 @@ impl Form {
                 Binding::String(field, _) => field.0.property.borrow().is_none(),
                 Binding::Bool(field) => field.0.property.borrow().is_none(),
                 Binding::Number(field, _) => !field.present(),
+                Binding::Group(group) => !group.present(),
             })
         {
             return true;
@@ -357,6 +358,7 @@ impl Form {
                         f.0.reset.set(false);
                     }
                     Binding::Number(f, _) => f.clean(),
+                    Binding::Group(g) => g.clean(),
                     Binding::Bool(f) => {
                         f.0.dirty.set(false);
                         f.0.reset.set(false);

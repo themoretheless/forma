@@ -399,3 +399,57 @@ fn a_document_slider_reads_and_writes_the_model_on_its_scale() {
         "and the end reads back as the end"
     );
 }
+
+#[test]
+fn a_typed_radio_group_writes_the_chosen_value() {
+    struct Vm {
+        choice: Property<String>,
+    }
+    let files = std::collections::BTreeMap::from([
+        (
+            "Choice.ui".to_owned(),
+            "component Choice { width: 100; height: 30; checked: false; Rectangle { background: props.checked ? #ffffff : #202020; PointerArea { clicked -> events.clicked(); } } }".to_owned(),
+        ),
+        (
+            "App.ui".to_owned(),
+            "component App { Column { width: 200; height: 100; Choice { key: 'a'; } Choice { key: 'b'; } } }".to_owned(),
+        ),
+    ]);
+    let document =
+        crate::form_document::Document::from_ui_files(&files, "App.ui", &Default::default())
+            .unwrap();
+    let mut form = Form::from_document(document).unwrap();
+    let vm = Rc::new(Vm {
+        choice: Property::new("a".to_owned()),
+    });
+    let text = |s: &str| crate::form_document::Value::Text(s.into());
+    for (control, node, value) in [(0, 1, "a"), (1, 2, "b")] {
+        form.bind_node(control, node);
+        form.add_control(control, Context::new(vm.clone()))
+            .unwrap()
+            .bind_group_path(|vm: &Vm| vm.choice.clone(), text(value));
+    }
+    form.sync().unwrap();
+    let painted = |form: &Form| {
+        let runtime = form.runtime();
+        let mut pixels = vec![0; 200 * 100 * 4];
+        runtime.paint_rgba(&mut pixels, 200, 100, 1., true).unwrap();
+        pixels
+    };
+    let before = painted(&form);
+    let click = |form: &mut Form, index: usize| {
+        form.update(|runtime| runtime.activate_control(index))
+            .unwrap();
+        form.sync().unwrap();
+    };
+    click(&mut form, 1);
+    assert_eq!(vm.choice.get(), "b");
+    assert_ne!(
+        painted(&form),
+        before,
+        "the check moves to the second choice"
+    );
+    click(&mut form, 0);
+    assert_eq!(vm.choice.get(), "a");
+    assert_eq!(painted(&form), before, "and back");
+}

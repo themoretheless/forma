@@ -1,0 +1,13 @@
+// One choice of a radio group: `value` and `group <-> state.x` make `checked` follow the group.
+component Choice {
+    width: 160;
+    height: 36;
+    text: '';
+    checked: false;
+    Rectangle {
+        radius: 8;
+        background: props.checked ? #3b5bdb : #2a3142;
+        Text { text: props.text; color: #ffffff; fontSize: 15; }
+        PointerArea { clicked -> events.clicked(); }
+    }
+}

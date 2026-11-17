@@ -121,3 +121,46 @@ impl<T: Clone + PartialEq + 'static> CollectionWrite for CollectionField<T> {
         Ok(Some(Box::new(move || field.set(items))))
     }
 }
+
+/// The model side of one radio group choice.
+pub(super) trait GroupInput {
+    fn present(&self) -> bool;
+    fn dirty(&self) -> bool;
+    fn epoch(&self) -> u64;
+    fn clean(&self);
+    /// Whether the model holds this choice's value.
+    fn chosen(&self) -> bool;
+    /// Writes this choice's value, once the whole batch has validated.
+    fn prepare_choose(&self) -> Result<Box<dyn FnOnce()>, String>;
+}
+
+pub(super) struct GroupChoice<T> {
+    pub(super) field: Field<T>,
+    pub(super) value: crate::form_document::Value,
+}
+
+impl<T: ModelValue> GroupInput for GroupChoice<T> {
+    fn present(&self) -> bool {
+        self.field.get().is_some()
+    }
+    fn dirty(&self) -> bool {
+        self.field.0.dirty.get()
+    }
+    fn epoch(&self) -> u64 {
+        self.field.0.epoch.get()
+    }
+    fn clean(&self) {
+        self.field.0.dirty.set(false);
+        self.field.0.reset.set(false);
+    }
+    fn chosen(&self) -> bool {
+        self.field
+            .get()
+            .is_some_and(|current| current.to_value() == self.value)
+    }
+    fn prepare_choose(&self) -> Result<Box<dyn FnOnce()>, String> {
+        let converted = T::from_value(&self.value)?;
+        let field = self.field.clone();
+        Ok(Box::new(move || field.set(converted)))
+    }
+}

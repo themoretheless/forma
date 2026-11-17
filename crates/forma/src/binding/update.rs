@@ -34,6 +34,7 @@ impl ControlSnapshot {
                             Binding::String(f, _) => f.0.epoch.get(),
                             Binding::Number(f, _) => f.epoch(),
                             Binding::Bool(f) => f.0.epoch.get(),
+                            Binding::Group(g) => g.epoch(),
                         },
                     )
                 })
@@ -87,6 +88,7 @@ pub(super) struct PendingWrites {
     pub(super) strings: Vec<(Field<String>, String, u64)>,
     pub(super) numbers: Vec<(Rc<dyn NumericInput>, f64, u64)>,
     pub(super) bools: Vec<(Field<bool>, bool, u64)>,
+    pub(super) groups: Vec<(Rc<dyn GroupInput>, u64)>,
     pub(super) collections: Vec<CollectionItemWrite>,
 }
 
@@ -151,6 +153,12 @@ impl PendingWrites {
                         },
                         epoch,
                     ));
+                    toggled = true;
+                }
+                Binding::Group(group)
+                    if target == Target::Group && change.clicks > 0 && !group.chosen() =>
+                {
+                    self.groups.push((group.clone(), epoch));
                     toggled = true;
                 }
                 _ => {}
@@ -241,6 +249,16 @@ impl PendingWrites {
                     field.set(value);
                 }
             }));
+        }
+        for (group, epoch) in self.groups {
+            if group.epoch() == epoch {
+                let commit = group.prepare_choose()?;
+                commits.push(Box::new(move || {
+                    if group.epoch() == epoch {
+                        commit();
+                    }
+                }));
+            }
         }
         for CollectionItemWrite {
             field,
