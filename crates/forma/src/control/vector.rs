@@ -160,8 +160,8 @@ impl Button {
         self.composite_content_clipped(dst, width, height, scale, None);
     }
 
-    /// Composite a leaf, keeping only the pixels whose centres fall inside `clip`, a rectangle in
-    /// scene coordinates that scrolls with the control.
+    /// Composite a leaf, keeping only the pixels whose centres fall inside `clip`, a rectangle on
+    /// screen.
     pub(crate) fn composite_content_clipped(
         &self,
         dst: &mut [u8],
@@ -177,9 +177,7 @@ impl Button {
         // Device pixels whose centres lie inside the clip: [x0, y0, x1, y1), half-open.
         let window = clip.map(|[x, y, w, h]| {
             let edge = |v: f32| (v * scale - 0.5).ceil().max(0.) as usize;
-            let left = x - self.scroll_x;
-            let top = y - self.scroll_y;
-            [edge(left), edge(top), edge(left + w), edge(top + h)]
+            [edge(x), edge(y), edge(x + w), edge(y + h)]
         });
         let row = width as usize;
         let mut pixels = cache.pixels.as_slice();

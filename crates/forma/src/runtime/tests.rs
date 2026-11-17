@@ -1964,3 +1964,92 @@ fn a_clip_set_from_outside_matches_the_one_the_document_computes() {
     assert!(set.set_control_clip(1, 0., 0., -1., 0.));
     assert_eq!(set.clip(1), None);
 }
+
+/// A 30-high title above a 100 x 60 scroll area holding five 40-high rows (200 of content).
+fn scroll_area_runtime() -> Runtime {
+    let rows: String = (0..5)
+        .map(|i| format!("Text {{ key: 'r{i}'; text: 'r{i}'; width: 80; height: 40; background: '#ff0000'; }}"))
+        .collect();
+    let source = format!(
+        "component App {{ Column {{ width: 200; height: 200; Text {{ key: 'title'; text: 't'; width: 80; height: 30; }} Scroll {{ width: 100; height: 60; Column {{ width: 100; height: 200; {rows} }} }} }} }}"
+    );
+    let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source)]);
+    Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap()
+}
+
+#[test]
+fn a_scroll_below_the_root_scrolls_only_its_own_controls() {
+    let mut runtime = scroll_area_runtime();
+    assert_eq!(runtime.scroll_areas.len(), 1);
+    assert_eq!(runtime.scroll_areas[0].content[1], 200.);
+    let row = |runtime: &Runtime, i: usize| runtime.control_bounds(i + 1);
+    let viewport = runtime.scroll_areas[0].viewport;
+    let title = runtime.control_bounds(0);
+    let (x, y) = (viewport[0] + 10., viewport[1] + 10.);
+    assert_eq!(runtime.hit_index(x, y), 1, "first row under the pointer");
+    // The third row starts below the viewport: clipped, so neither painted nor hit.
+    let hidden = row(&runtime, 2);
+    assert!(hidden[1] >= viewport[1] + viewport[3]);
+    assert_eq!(runtime.hit_index(x, hidden[1] + 5.), -1);
+
+    runtime.pointer(x, y, 0);
+    runtime.scroll(0., 50.);
+    assert_eq!(runtime.area_scroll(0), Some([0., 50.]));
+    assert_eq!(
+        runtime.scroll_offset(),
+        vec![0., 0.],
+        "the root does not move"
+    );
+    assert_eq!(
+        runtime.control_bounds(0),
+        title,
+        "nor does the title outside the area"
+    );
+    assert_eq!(row(&runtime, 2)[1], hidden[1] - 50.);
+    assert_eq!(
+        runtime.hit_index(x, y),
+        2,
+        "the second row is under the pointer now"
+    );
+
+    // The area stops at its content's end.
+    runtime.pointer(x, y, 0);
+    runtime.scroll(0., 1000.);
+    assert_eq!(runtime.area_scroll(0), Some([0., 140.]));
+
+    // A wheel outside the area leaves it alone.
+    runtime.pointer(title[0] + 5., title[1] + 5., 0);
+    runtime.scroll(0., -100.);
+    assert_eq!(runtime.area_scroll(0), Some([0., 140.]));
+}
+
+#[test]
+fn a_scroll_area_is_drawn_where_it_is_hit() {
+    let mut runtime = scroll_area_runtime();
+    let viewport = runtime.scroll_areas[0].viewport;
+    let (x, y) = (viewport[0] + 10., viewport[1] + 10.);
+    runtime.pointer(x, y, 0);
+    runtime.scroll(0., 50.);
+    let pixels = runtime.raster(200, 200, 1., false);
+    let alpha = |px: f32, py: f32| pixels[(py as usize * 200 + px as usize) * 4 + 3];
+    assert!(alpha(x, y) > 0, "a row fills the viewport");
+    assert_eq!(
+        alpha(x, viewport[1] + viewport[3] + 5.),
+        0,
+        "nothing below it"
+    );
+    // Its thumb sits at the right edge, a fifth of the way down for 50 of 140.
+    let thumb_x = viewport[0] + viewport[2] - 2.;
+    assert_eq!(
+        &pixels[((viewport[1] as usize + 20) * 200 + thumb_x as usize) * 4..][..4],
+        &super::vector::AREA_THUMB
+    );
+    // The vector list moves the area's commands by its offset on top of the root scroll.
+    let list = runtime.vector_snapshot(1., false);
+    let moved = list
+        .commands
+        .chunks_exact(STRIDE)
+        .filter(|c| c[crate::display_list::SCROLL_EXTRA + 1] == 50.)
+        .count();
+    assert!(moved > 0);
+}

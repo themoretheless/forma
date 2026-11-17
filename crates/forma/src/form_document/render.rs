@@ -55,6 +55,7 @@ impl Document {
                     state: compact_scene_control_state(state),
                     event_args,
                     clip: None,
+                    scroll: Vec::new(),
                 });
             }
             Ok(())
@@ -89,15 +90,12 @@ impl Document {
         root.props.insert("width".into(), number(root_size[0]));
         root.props.insert("height".into(), number(root_size[1]));
         let scroll = root.children.len() == 1 && root.children[0].kind == "Scroll";
-        if !scroll && contains_scroll(&root.children) {
-            return Err("Scroll is supported only as the single child of the root".into());
-        }
         let scroll_viewport = if scroll {
             Some(root_scroll_viewport(&root, &measuring, root_size)?)
         } else {
             None
         };
-        let (instances, logical_end) =
+        let (instances, logical_end, scroll_content_sizes) =
             self.place_scene_instances(&mut root, measuring, scroll_viewport, root_size)?;
         root.kind = "Frame".into();
 
@@ -109,6 +107,11 @@ impl Document {
             root.children[0].children = emitter.source_controls;
         } else {
             root.children = emitter.source_controls;
+        }
+        for control in &mut emitter.mapping {
+            for area in &mut control.scroll {
+                area.content = scroll_content_sizes[area.area];
+            }
         }
         Ok((
             self.scene_source(&root, scroll)?,
@@ -164,7 +167,7 @@ impl Document {
         measuring: Node,
         scroll_viewport: Option<[f64; 4]>,
         [root_width, root_height]: [f64; 2],
-    ) -> Result<(Vec<SceneInstance>, [f64; 2]), String> {
+    ) -> Result<PlacedScene, String> {
         let scroll = scroll_viewport.is_some();
         let layout = if scroll { &root.children[0] } else { &*root };
         let advanced = scroll
@@ -174,6 +177,7 @@ impl Document {
             || layout.children.iter().any(|n| is_layout(&n.kind));
         let mut instances: Vec<SceneInstance> = Vec::new();
         let mut logical_end = [0_f64; 2];
+        let mut scroll_content_sizes = Vec::new();
         let precomputed = if scroll {
             measuring.children.into_iter().next()
         } else {
@@ -205,6 +209,8 @@ impl Document {
                     logical_end: &mut logical_end,
                     scroll_content: scroll,
                     clip: None,
+                    scroll_chain: Vec::new(),
+                    scroll_content_sizes: &mut scroll_content_sizes,
                 },
             )?;
             for key in ["columns", "rows", "padding", "gap"] {
@@ -243,7 +249,7 @@ impl Document {
                 instances = children.into_iter().map(|n| (n, None)).collect();
             }
         }
-        Ok((instances, logical_end))
+        Ok((instances, logical_end, scroll_content_sizes))
     }
 
     /// The scene component as text: the root shell with the emitted controls.
@@ -265,6 +271,10 @@ impl Document {
 
 /// An expanded control and, when it was measured with the layout, its visual tree.
 type SceneInstance = (Node, Option<Node>);
+
+/// The placed controls, the logical end of a root `Scroll`'s content, and the content size of
+/// each scroll area below the root.
+type PlacedScene = (Vec<SceneInstance>, [f64; 2], Vec<[f64; 2]>);
 
 /// Visual kinds flattened into a control's template rather than serialized as they are.
 const FLATTENABLE_KINDS: [&str; 9] = [
@@ -494,22 +504,39 @@ impl SceneEmitter {
             },
             _ => None,
         };
+        let scroll = match instance.props.remove("__scroll") {
+            Some(Value::List(chain)) => chain
+                .iter()
+                .map(|entry| match entry {
+                    Value::List(values) => match values.as_slice() {
+                        [
+                            Value::Number(area),
+                            Value::Number(x),
+                            Value::Number(y),
+                            Value::Number(w),
+                            Value::Number(h),
+                        ] => Ok(SceneScroll {
+                            area: *area as usize,
+                            viewport: [*x, *y, *w, *h],
+                            content: [*w, *h],
+                        }),
+                        _ => Err("A scroll area must be five numbers".to_string()),
+                    },
+                    _ => Err("A scroll area must be five numbers".to_string()),
+                })
+                .collect::<Result<_, _>>()?,
+            _ => Vec::new(),
+        };
         self.mapping.push(SceneControl {
             node,
             key,
             state: compact_scene_control_state(state),
             event_args,
             clip,
+            scroll,
         });
         Ok(())
     }
-}
-
-/// Whether a Scroll appears anywhere among these nodes or below them.
-fn contains_scroll(nodes: &[Node]) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.kind == "Scroll" || contains_scroll(&node.children))
 }
 
 /// Appends a Slider's `RangeInput`: its current value and the visuals of both endpoints.

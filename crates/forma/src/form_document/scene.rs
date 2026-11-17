@@ -45,6 +45,10 @@ pub(super) struct ScenePositionTarget<'a> {
     pub(super) scroll_content: bool,
     /// What the clipping containers around the node being positioned leave visible.
     pub(super) clip: Option<[f64; 4]>,
+    /// The scroll areas around the node being positioned, outermost first: number and viewport.
+    pub(super) scroll_chain: Vec<(usize, [f64; 4])>,
+    /// The content size of every scroll area below the root, by number.
+    pub(super) scroll_content_sizes: &'a mut Vec<[f64; 2]>,
 }
 
 impl Document {

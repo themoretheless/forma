@@ -14,6 +14,7 @@ mod loading;
 mod modal;
 mod popup;
 mod raster;
+mod scroll_areas;
 mod ui_state;
 mod vector;
 mod wasm_api;
@@ -114,6 +115,11 @@ pub struct Runtime {
     // The scene rectangle each control stays inside, set by clipping containers below the root;
     // empty when the scene came without control mappings.
     clips: Vec<Option<[f32; 4]>>,
+    // `Scroll` containers below the root, and per control the ones around it, outermost first.
+    scroll_areas: Vec<scroll_areas::ScrollArea>,
+    scroll_chains: Vec<Vec<usize>>,
+    // Where the pointer last was, so a wheel reaches the scroll area under it.
+    pointer_at: Option<[f32; 2]>,
     // State of the last successfully displayed retained scene. Documents are
     // private to Runtime; project/source replacement installs a new Runtime.
     ui_binding_states: Vec<crate::form_document::Properties>,

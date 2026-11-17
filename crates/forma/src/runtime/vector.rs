@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// The colour of scroll area thumbs, the same as the root's.
+pub(super) const AREA_THUMB: [u8; 4] = [110, 130, 170, 255];
+
 impl Runtime {
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
         if self.single_leaf() {
@@ -81,6 +84,7 @@ impl Runtime {
                 list.push(rect, 0.);
             }
             let child = &children[index];
+            let area_start = list.commands.len();
             let edge_offset = list.edges.len() / 4;
             for command in child.commands.chunks_exact(STRIDE) {
                 let start = list.commands.len();
@@ -110,6 +114,10 @@ impl Runtime {
                 list.edges.extend(&placed.edges);
                 list.pop();
             }
+            let area = self.area_offset(index);
+            if area != [0.; 2] {
+                list.mark_area_scrolled(area_start, area);
+            }
             if clip.is_some() {
                 list.pop();
             }
@@ -118,6 +126,9 @@ impl Runtime {
             if self.modal_of[index].is_none() {
                 emit(&mut list, index);
             }
+        }
+        for thumb in self.area_thumbs() {
+            list.command(5., thumb, AREA_THUMB, 0., 0.);
         }
         if self.scene.scroll {
             list.mark_scrolled(content_start);

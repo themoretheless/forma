@@ -1,5 +1,6 @@
 // Same vector rasterizer in native wgpu and browser WebGPU. No input textures.
-// scroll.x: 0 fixed, 1 content (bounds - params.scroll.xy),
+// scroll.x: 0 fixed, 1 content (bounds - params.scroll.xy - scroll.zw, the offset of the
+// scroll areas below the root),
 // 2 vertical thumb (bounds.y + scroll.y * scroll.y factor), 3 horizontal thumb.
 struct Command { info:vec4f, bounds:vec4f, color:vec4f, extra:vec4f, scroll:vec4f }
 struct Params { viewport:vec4f, fill:vec4f, border:vec4f, scroll:vec4f }
@@ -14,7 +15,7 @@ struct Params { viewport:vec4f, fill:vec4f, border:vec4f, scroll:vec4f }
 // edges are shifted the same way inside path_coverage. Returns a vec4 rather
 // than copying the whole Command per command per pixel.
 fn scrolled_bounds(c:Command)->vec4f {
-    if c.scroll.x==1.{return vec4f(c.bounds.xy-params.scroll.xy,c.bounds.zw);}
+    if c.scroll.x==1.{return vec4f(c.bounds.xy-params.scroll.xy-c.scroll.zw,c.bounds.zw);}
     if c.scroll.x==2.{return vec4f(c.bounds.x,c.bounds.y+params.scroll.y*c.scroll.y,c.bounds.zw);}
     if c.scroll.x==3.{return vec4f(c.bounds.x+params.scroll.x*c.scroll.y,c.bounds.yzw);}
     return c.bounds;
@@ -126,7 +127,7 @@ fn coverage(pixel:vec2f,c:Command,b:vec4f)->vec4f {
         return premul(c.color)*outer;
     }
     // Edges are stored unscrolled; scrolled content shifts them into screen space.
-    let shift=select(vec2f(0.),params.scroll.xy,c.scroll.x==1.);
+    let shift=select(vec2f(0.),params.scroll.xy+c.scroll.zw,c.scroll.x==1.);
     return premul(c.color)*path_coverage(pixel,c,shift);
 }
 fn linear(c:vec3f)->vec3f {

@@ -81,6 +81,7 @@ fn scene_json_roundtrip_preserves_extents_and_typed_binding_values() {
         state: state.clone(),
         event_args: BTreeMap::from([("event".into(), vec![Value::Null, Value::Bool(true)])]),
         clip: Some([10., 20., 30., 40.]),
+        scroll: Vec::new(),
     });
     let restored = SceneArtifact::from_json(&artifact.to_json().unwrap()).unwrap();
     assert_eq!(restored.controls[0].state, state);

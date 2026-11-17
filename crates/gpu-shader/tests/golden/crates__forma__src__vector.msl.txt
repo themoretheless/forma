@@ -90,7 +90,7 @@ float3 linear(float3 c);
 
 float4 scrolled_bounds(Command c, constant Params& params) {
 
-    if (c.scroll.x==1.) {return float4(c.bounds.xy-params.scroll.xy, c.bounds.zw);}
+    if (c.scroll.x==1.) {return float4(c.bounds.xy-params.scroll.xy-c.scroll.zw, c.bounds.zw);}
     if (c.scroll.x==2.) {return float4(c.bounds.x, c.bounds.y+params.scroll.y*c.scroll.y, c.bounds.zw);}
     if (c.scroll.x==3.) {return float4(c.bounds.x+params.scroll.x*c.scroll.y, c.bounds.yzw);}
     return c.bounds;
@@ -209,7 +209,7 @@ float4 coverage(float2 pixel, Command c, float4 b, constant Params& params, cons
         return premul(c.color)*outer;
     }
                                                                                    
-    const auto shift = select(float2(0.), params.scroll.xy, c.scroll.x==1.);
+    const auto shift = select(float2(0.), params.scroll.xy+c.scroll.zw, c.scroll.x==1.);
     return premul(c.color)*path_coverage(pixel, c, shift, params, edges);
 }
 

@@ -72,8 +72,21 @@ impl Document {
                 node.props
                     .insert("__clip".into(), Value::List(clip.map(number).to_vec()));
             }
+            if !target.scroll_chain.is_empty() {
+                let chain = target
+                    .scroll_chain
+                    .iter()
+                    .map(|(area, [x, y, w, h])| {
+                        Value::List([*area as f64, *x, *y, *w, *h].map(number).to_vec())
+                    })
+                    .collect();
+                node.props.insert("__scroll".into(), Value::List(chain));
+            }
             target.instances.push((node, Some(visual)));
             return Ok(());
+        }
+        if !root_legacy && node.kind == "Scroll" {
+            return self.position_scroll_area(node, bounds, target);
         }
         let enclosing_clip = target.clip;
         if !root_legacy && boolean(&node.props, "clip", false)? {
@@ -135,6 +148,47 @@ impl Document {
         }
         target.clip = enclosing_clip;
         Ok(())
+    }
+}
+
+impl Document {
+    /// Positions a `Scroll` below the root: its children are laid out like a column's, free to
+    /// run past its bounds, which become a viewport that clips them and scrolls on its own.
+    fn position_scroll_area(
+        &self,
+        mut node: Node,
+        bounds: [f64; 4],
+        target: &mut ScenePositionTarget<'_>,
+    ) -> Result<(), String> {
+        let area = target.scroll_content_sizes.len();
+        target.scroll_content_sizes.push([bounds[2], bounds[3]]);
+        let outer = (
+            target.clip,
+            target.scroll_content,
+            target.logical_end.to_owned(),
+        );
+        target.clip = Some(match outer.0 {
+            Some(clip) => intersect(clip, bounds),
+            None => bounds,
+        });
+        target.scroll_content = true;
+        *target.logical_end = [bounds[0] + bounds[2], bounds[1] + bounds[3]];
+        target.scroll_chain.push((area, bounds));
+        node.kind = "Column".into();
+        node.props.remove("clip");
+        let placed = self.position_scene(node, None, bounds, false, target);
+        target.scroll_chain.pop();
+        let end = *target.logical_end;
+        target.scroll_content_sizes[area] = [
+            (end[0] - bounds[0]).max(bounds[2]),
+            (end[1] - bounds[1]).max(bounds[3]),
+        ];
+        (target.clip, target.scroll_content) = (outer.0, outer.1);
+        *target.logical_end = outer.2;
+        // The area itself occupies its bounds in whatever contains it.
+        target.logical_end[0] = target.logical_end[0].max(bounds[0] + bounds[2]);
+        target.logical_end[1] = target.logical_end[1].max(bounds[1] + bounds[3]);
+        placed
     }
 }
 

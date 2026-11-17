@@ -306,6 +306,9 @@ impl Runtime {
             ui_binding_idle_ready: false,
             ui_binding_scene: Vec::new(),
             clips: Vec::new(),
+            scroll_areas: Vec::new(),
+            scroll_chains: Vec::new(),
+            pointer_at: None,
             ui_binding_states: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             svet_document: None,
@@ -334,6 +337,7 @@ impl Runtime {
     /// the multi-control path, which owns the root frame's clipping and scrolling, so a lone
     /// control hands those back to the runtime like it does beside siblings.
     pub(super) fn install_clips(&mut self, controls: &[crate::form_document::SceneControl]) {
+        (self.scroll_areas, self.scroll_chains) = super::scroll_areas::areas_of(controls);
         self.set_clips(
             controls
                 .iter()
@@ -351,6 +355,7 @@ impl Runtime {
                 control.scene.scroll = false;
             }
         }
+        self.sync_control_scroll();
         *self.geometry.borrow_mut() = None;
         self.revision = self.revision.wrapping_add(1);
         self.geometry_revision = self.geometry_revision.wrapping_add(1);

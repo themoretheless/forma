@@ -30,10 +30,17 @@ impl Runtime {
     /// Whether the screen point `(x, y)` is inside control `index`'s clip, if it has one.
     pub(super) fn inside_clip(&self, index: usize, x: f32, y: f32) -> bool {
         self.clip(index).is_none_or(|[cx, cy, w, h]| {
-            let control = &self.controls[index];
-            let (x, y) = (x + control.scroll_x, y + control.scroll_y);
+            let root = self.root_scroll_of(index);
+            let (x, y) = (x + root[0], y + root[1]);
             x >= cx && y >= cy && x < cx + w && y < cy + h
         })
+    }
+
+    /// Control `index`'s clip on screen: clips move with the root scroll, not with the areas.
+    pub(super) fn screen_clip(&self, index: usize) -> Option<[f32; 4]> {
+        let root = self.root_scroll_of(index);
+        self.clip(index)
+            .map(|[x, y, w, h]| [x - root[0], y - root[1], w, h])
     }
 
     pub(super) fn raster_cached(
@@ -123,8 +130,24 @@ impl Runtime {
             cache.pixels.fill(0);
             for (i, control) in self.controls.iter().enumerate() {
                 if self.modal_of[i].is_none() {
-                    control.composite_content_clipped(&mut cache.pixels, w, h, s, self.clip(i));
+                    control.composite_content_clipped(
+                        &mut cache.pixels,
+                        w,
+                        h,
+                        s,
+                        self.screen_clip(i),
+                    );
                     self.raster_canvas(i, &mut cache.pixels, w, h, s);
+                }
+            }
+            for [x, y, tw, th] in self.area_thumbs() {
+                let (x, y) = (x - self.scroll[0], y - self.scroll[1]);
+                let edge = |v: f32, limit: u32| ((v * s - 0.5).ceil().max(0.) as u32).min(limit);
+                for py in edge(y, h)..edge(y + th, h) {
+                    for px in edge(x, w)..edge(x + tw, w) {
+                        let at = ((py * w + px) * 4) as usize;
+                        cache.pixels[at..at + 4].copy_from_slice(&super::vector::AREA_THUMB);
+                    }
                 }
             }
             if self.scene.scroll {
@@ -153,7 +176,7 @@ impl Runtime {
                         w,
                         h,
                         s,
-                        self.clip(index),
+                        self.screen_clip(index),
                     );
                     self.raster_canvas(index, &mut cache.pixels, w, h, s);
                 }

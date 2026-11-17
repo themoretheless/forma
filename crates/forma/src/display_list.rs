@@ -61,6 +61,9 @@ pub const STRIDE: usize = 20;
 pub const SCROLL_MODE: usize = 16;
 /// `commands[SCROLL_FACTOR]` scales the scroll offset for scrollbar thumbs.
 pub const SCROLL_FACTOR: usize = 17;
+/// `commands[SCROLL_EXTRA..SCROLL_EXTRA + 2]`: how far the scroll areas below the root have moved
+/// a content command, subtracted on top of the root scroll. Zero outside such areas.
+pub const SCROLL_EXTRA: usize = 18;
 pub const SCROLL_FIXED: f32 = 0.;
 /// Content inside the scroll viewport: drawn at `bounds - scroll`.
 pub const SCROLL_CONTENT: f32 = 1.;
@@ -75,8 +78,8 @@ pub fn scrolled_bounds(command: &[f32], scroll: [f32; 2]) -> [f32; 4] {
     let mut b = [command[4], command[5], command[6], command[7]];
     let mode = command[SCROLL_MODE];
     if mode == SCROLL_CONTENT {
-        b[0] -= scroll[0];
-        b[1] -= scroll[1];
+        b[0] -= scroll[0] + command[SCROLL_EXTRA];
+        b[1] -= scroll[1] + command[SCROLL_EXTRA + 1];
     } else if mode == SCROLL_THUMB_Y {
         b[1] += scroll[1] * command[SCROLL_FACTOR];
     } else if mode == SCROLL_THUMB_X {
@@ -244,6 +247,15 @@ impl DisplayList {
     pub(crate) fn mark_scrolled(&mut self, start: usize) {
         for command in self.commands[start..].chunks_exact_mut(STRIDE) {
             command[SCROLL_MODE] = SCROLL_CONTENT;
+        }
+    }
+    /// Mark the commands from `start` as content moved by scroll areas below the root by
+    /// `offset`, on top of whatever the root scroll does.
+    pub(crate) fn mark_area_scrolled(&mut self, start: usize, offset: [f32; 2]) {
+        for command in self.commands[start..].chunks_exact_mut(STRIDE) {
+            command[SCROLL_MODE] = SCROLL_CONTENT;
+            command[SCROLL_EXTRA] = offset[0];
+            command[SCROLL_EXTRA + 1] = offset[1];
         }
     }
     /// Scrollbar thumbs for a viewport `v` and content size. Their base

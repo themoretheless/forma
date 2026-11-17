@@ -120,6 +120,21 @@ pub struct SceneControl {
     /// when no container below the root clips it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clip: Option<[f64; 4]>,
+    /// The scroll areas below the root that contain this control, outermost first. Empty when
+    /// only the root scrolls it, or nothing does.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scroll: Vec<SceneScroll>,
+}
+/// A `Scroll` container below the root, as one of the controls inside it sees it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SceneScroll {
+    /// The area's number in the scene, shared by every control inside it.
+    pub area: usize,
+    /// The visible rectangle `[x, y, width, height]` in scene coordinates.
+    pub viewport: [f64; 4],
+    /// How far its content reaches from the viewport's corner, never less than the viewport.
+    pub content: [f64; 2],
 }
 /// Owned Rust scene transport including layout bounds absent from control-only markup.
 #[derive(Clone, Debug)]

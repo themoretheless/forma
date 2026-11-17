@@ -14,6 +14,17 @@ impl Runtime {
                 return;
             }
         }
+        if self.active_modal_index().is_none()
+            && dx.is_finite()
+            && dy.is_finite()
+            && self.scroll_area_under_pointer(dx, dy)
+        {
+            let pointer_at = self.pointer_at;
+            self.replace_open_popups();
+            self.pointer(-1., -1., 3);
+            self.pointer_at = pointer_at;
+            return;
+        }
         // Modal input is isolated from the base scroll container, just as
         // pointer hit testing and keyboard focus are isolated from the base.
         // A refused scroll must also preserve the active modal's press.
@@ -35,17 +46,13 @@ impl Runtime {
             self.revision = self.revision.wrapping_add(1);
             self.layout_revision = self.layout_revision.wrapping_add(1);
         }
-        for (i, c) in self.controls.iter_mut().enumerate() {
-            if self.modal_of[i].is_some() {
-                continue;
-            }
-            c.scroll_x = self.scroll[0];
-            c.scroll_y = self.scroll[1];
-        }
+        self.sync_control_scroll();
         if old != self.scroll {
             self.replace_open_popups();
         }
+        let pointer_at = self.pointer_at;
         self.pointer(-1., -1., 3);
+        self.pointer_at = pointer_at;
     }
 
     pub fn hit_index(&self, x: f32, y: f32) -> i32 {
@@ -183,6 +190,7 @@ impl Runtime {
     }
 
     pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
+        self.pointer_at = (kind != 3 && x.is_finite() && y.is_finite()).then_some([x, y]);
         let before = self.child_revision();
         if kind == 1 {
             self.popup_press(x, y);
