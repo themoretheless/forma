@@ -173,7 +173,22 @@ impl Runtime {
                 NodeKind::Control => {
                     let idx = node.control.unwrap_or(0);
                     let b = self.control_bounds(idx);
-                    let bounds = [b[0], b[1], b[2], b[3]];
+                    // Only what a clip leaves visible can be found: a control scrolled or cut
+                    // away must not cover the controls around it.
+                    let bounds = match self.screen_clip(idx) {
+                        Some([cx, cy, cw, ch]) => {
+                            let left = b[0].max(cx);
+                            let top = b[1].max(cy);
+                            let right = (b[0] + b[2]).min(cx + cw);
+                            let bottom = (b[1] + b[3]).min(cy + ch);
+                            if right > left && bottom > top {
+                                [left, top, right - left, bottom - top]
+                            } else {
+                                [left, top, 0., 0.]
+                            }
+                        }
+                        None => [b[0], b[1], b[2], b[3]],
+                    };
                     let disabled = self.control_disabled(idx);
                     let blocked = self.control_blocked(idx);
                     let focused = self.focused == Some(idx);

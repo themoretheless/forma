@@ -2222,3 +2222,23 @@ fn a_capturing_container_takes_clicks_its_children_would_handle() {
         "{error}"
     );
 }
+
+#[test]
+fn accessibility_bounds_stop_at_a_clip() {
+    let mut runtime = scroll_area_runtime();
+    let viewport = runtime.scroll_areas[0].viewport;
+    let bounds = |runtime: &Runtime, key: &str| {
+        let tree = runtime.accessibility_tree();
+        tree.nodes.iter().find(|n| n.key == key).unwrap().bounds
+    };
+    // Row 1 is half visible after a 20-point scroll: its node ends at the viewport's top edge.
+    runtime.pointer(viewport[0] + 5., viewport[1] + 5., 0);
+    runtime.scroll(0., 20.);
+    let row = bounds(&runtime, "r0");
+    assert_eq!(row[1], viewport[1], "cut at the top of the viewport");
+    assert_eq!(row[3], 20., "only what shows");
+    // Row 5 lies wholly below the viewport: no area to hit.
+    let hidden = bounds(&runtime, "r4");
+    assert_eq!([hidden[2], hidden[3]], [0., 0.]);
+}
+
