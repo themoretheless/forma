@@ -83,6 +83,13 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
     // A clipping container below the root narrows what its controls may show; the runtime
     // receives the rectangle per control, since the scene markup has no containers.
     const outerBubble = bubble;
+    const capture = node.props.capture;
+    if (capture !== undefined && typeof capture !== 'boolean')
+      throw Error(`${node.type}.capture ожидает boolean`);
+    if (capture && !node.events?.clicked)
+      throw Error(`${node.type}.capture требует clicked на том же контейнере`);
+    // With `capture: true` the area goes over the children instead, taking every click inside.
+    let capturedArea = null;
     if (node.events?.clicked) {
       // Clicks on the container's empty space land on an invisible pressable area under its
       // children; children without a handler of their own answer with the container's.
@@ -93,7 +100,8 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
         bindings: {},
         children: [],
       };
-      layoutScene(area, box, output, frame, clip);
+      if (capture) capturedArea = area;
+      else layoutScene(area, box, output, frame, clip);
       bubble = { clicked: node.events.clicked, eventArgs: node.eventArgs };
     }
     if (node !== root && node.props.clip !== undefined && typeof node.props.clip !== 'boolean')
@@ -152,6 +160,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
       layoutScene(child, layout.boxes[index], output, box, clip);
     });
     bubble = outerBubble;
+    if (capturedArea) layoutScene(capturedArea, box, output, frame, clip);
   }
   /**
    * A `Scroll` below the root: its children are laid out like a column's, free to run past its

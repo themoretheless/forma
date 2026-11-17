@@ -2184,3 +2184,41 @@ fn a_container_clicked_handler_takes_clicks_its_children_do_not() {
         0
     );
 }
+
+#[test]
+fn a_capturing_container_takes_clicks_its_children_would_handle() {
+    let source = |capture: &str| {
+        format!(
+            "component App {{ Column {{ width: 200; height: 200; Column {{ key: 'panel'; width: 120; height: 100; {capture} clicked -> actions.panel(); TextInput {{ key: 'own'; width: 100; height: 30; clicked -> actions.own(); }} }} }} }}"
+        )
+    };
+    let load = |capture: &str| {
+        let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source(capture))]);
+        Runtime::from_ui_files(&files, "App.ui", &Default::default())
+    };
+    let runtime = load("capture: true;").unwrap();
+    let keys: Vec<String> = (0..runtime.control_count())
+        .map(|i| runtime.control_key(i))
+        .collect();
+    assert_eq!(keys, ["own", "panel"], "the area lies over the child");
+    let own = runtime.control_bounds(0);
+    let (x, y) = (own[0] + 5., own[1] + 5.);
+    assert_eq!(
+        runtime.hit_index(x, y),
+        1,
+        "a click on the child reaches the container"
+    );
+    let plain = load("").unwrap();
+    assert_eq!(plain.control_key(plain.hit_index(x, y) as usize), "own");
+    let files = std::collections::BTreeMap::from([(
+        "App.ui".to_owned(),
+        "component App { Column { width: 200; height: 200; Column { capture: true; Text { text: 'a'; width: 50; height: 20; } } } }".to_owned(),
+    )]);
+    let error = Runtime::from_ui_files(&files, "App.ui", &Default::default())
+        .err()
+        .unwrap();
+    assert!(
+        error.contains("capture requires a clicked handler"),
+        "{error}"
+    );
+}

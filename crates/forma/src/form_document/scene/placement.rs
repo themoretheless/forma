@@ -101,6 +101,13 @@ impl Document {
         // A container's `clicked` handler takes clicks on its empty space through an invisible
         // pressable area under its children, and clicks on children without a handler of their own.
         let enclosing_bubble = target.bubble.clone();
+        let capture = boolean(&node.props, "capture", false)?;
+        if capture && node.action.is_none() {
+            return Err("capture requires a clicked handler on the same container".into());
+        }
+        node.props.remove("capture");
+        // With `capture: true` the area goes over the children instead, taking every click inside.
+        let mut captured_area = None;
         if let Some(action) = node.action.take() {
             let args = node.props.get("__event_args").cloned();
             let mut props = Properties::new();
@@ -123,7 +130,11 @@ impl Document {
                 children: Vec::new(),
                 action: Some(action.clone()),
             };
-            self.position_scene(area, None, bounds, false, target)?;
+            if capture {
+                captured_area = Some(area);
+            } else {
+                self.position_scene(area, None, bounds, false, target)?;
+            }
             target.bubble = Some((action, args));
         }
         let enclosing_clip = target.clip;
@@ -186,6 +197,9 @@ impl Document {
         }
         target.clip = enclosing_clip;
         target.bubble = enclosing_bubble;
+        if let Some(area) = captured_area {
+            self.position_scene(area, None, bounds, false, target)?;
+        }
         Ok(())
     }
 }

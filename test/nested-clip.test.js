@@ -129,3 +129,22 @@ test(
     }
   },
 );
+
+test('a capturing container lays its area over its children', () => {
+  const scene = capture => ({
+    'ui/App.ui': `component App { Column { width: 200; height: 200; Column { key: 'panel'; width: 120; height: 100; ${capture} clicked -> actions.panel(); TextInput { key: 'own'; width: 100; height: 30; clicked -> actions.own(); } } } }`,
+  });
+  const keys = out => out.previewControls.map(c => c.props.key);
+  assert.deepEqual(keys(compileComponents(scene(''), 'ui/App.ui')), ['panel', 'own']);
+  assert.deepEqual(keys(compileComponents(scene('capture: true;'), 'ui/App.ui')), ['own', 'panel']);
+  assert.throws(
+    () =>
+      compileComponents(
+        {
+          'ui/App.ui': `component App { Column { width: 200; height: 200; Column { capture: true; Text { text: 'a'; width: 50; height: 20; } } } }`,
+        },
+        'ui/App.ui',
+      ),
+    /capture требует clicked/,
+  );
+});

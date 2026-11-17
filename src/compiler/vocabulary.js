@@ -15,11 +15,11 @@ export const layoutProps = new Set(
 export const visualTypes = new Set([...containerTypes, 'Text', 'TextInput', 'Image', 'Rectangle']);
 export const contentProps = new Map(
   Object.entries({
-    Frame: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius'],
-    Row: ['gap', 'padding', 'clip', 'radius'],
-    Column: ['gap', 'padding', 'clip', 'radius'],
-    Grid: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius'],
-    Stack: ['gap', 'padding', 'clip', 'radius'],
+    Frame: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius', 'capture'],
+    Row: ['gap', 'padding', 'clip', 'radius', 'capture'],
+    Column: ['gap', 'padding', 'clip', 'radius', 'capture'],
+    Grid: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius', 'capture'],
+    Stack: ['gap', 'padding', 'clip', 'radius', 'capture'],
     Rectangle: ['background', 'radius'],
     TextInput: ['value', 'placeholder', 'color', 'placeholderColor', 'fontSize', 'multiline'],
     Text: ['text', 'color', 'fontSize', 'font.size', 'fontFamily', 'font.family', 'wrap'],
