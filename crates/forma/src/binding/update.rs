@@ -137,8 +137,8 @@ impl PendingWrites {
                     self.numbers.push((field.clone(), value, epoch));
                 }
                 Binding::Bool(field)
-                    if (target == Target::Checked || target == Target::Selected)
-                        && change.clicks % 2 == 1 =>
+                    if (target == Target::Checked && change.clicks % 2 == 1)
+                        || (target == Target::Selected && change.clicks > 0) =>
                 {
                     self.bools.push((
                         field.clone(),

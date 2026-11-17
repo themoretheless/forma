@@ -26,7 +26,14 @@ macro_rules! cuda_then_gpu {
 
 impl DeviceKernels for Device {
     fn cuda_available(&self) -> bool {
-        cfg!(feature = "cuda")
+        #[cfg(feature = "cuda")]
+        {
+            crate::cuda::available()
+        }
+        #[cfg(not(feature = "cuda"))]
+        {
+            false
+        }
     }
     fn nearest_neighbor(
         &self,

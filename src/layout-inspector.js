@@ -1,5 +1,6 @@
 import { displayProperty } from './property-origins.js';
 import { createEventScope } from './event-scope.js';
+import { countLines } from './shared/text.js';
 export function resizeTracks(values, sizes, index, delta) {
   const next = values.map(v => v?.expr ?? v);
   if (index < 0 || index >= sizes.length - 1) throw Error('Нет соседней колонки');
@@ -303,8 +304,7 @@ export function createLayoutInspector({
           const source = origin.source,
             body = source && readSource(source.file),
             link = document.createElement(typeof body === 'string' ? 'button' : 'small');
-          const line =
-            typeof body === 'string' ? body.slice(0, source.from).split('\n').length : null;
+          const line = typeof body === 'string' ? countLines(body, source.from) : null;
           link.textContent =
             (origin.label ?? source?.label ?? 'Объявление') +
             (line ? ` · ${source.file.split('/').at(-1)}:${line}` : '');

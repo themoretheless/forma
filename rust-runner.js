@@ -12,9 +12,26 @@ export function createRustRunner(send, dependencies = {}) {
     writeFile: writeSourceFile = writeFile,
     mkdir: makeDirectory = mkdir,
     rm: removeDirectory = rm,
+    kill: signalProcess = process.kill.bind(process),
+    platform = process.platform,
   } = dependencies;
-  let process = null,
-    busy = false;
+  const grouped = platform !== 'win32';
+  let child = null,
+    busy = false,
+    active = null;
+  function kill(job, signal) {
+    if (!job.child || job.finished) return;
+    try {
+      if (grouped && job.child.pid) {
+        signalProcess(-job.child.pid, signal);
+      } else {
+        job.child.kill(signal);
+      }
+    } catch (error) {
+      if (error.code !== 'ESRCH')
+        send({ kind: 'error', text: `Не удалось остановить Rust: ${error.message}` });
+    }
+  }
   return {
     async run(files, options = {}) {
       if (busy) {
@@ -30,6 +47,25 @@ export function createRustRunner(send, dependencies = {}) {
         const target = directory;
         directory = null;
         Promise.resolve(removeDirectory(target, { recursive: true, force: true })).catch(() => {});
+      };
+      const job = {
+        child: null,
+        stopped: false,
+        finished: false,
+        killTimer: null,
+      };
+      active = job;
+      const release = () => {
+        if (job.finished) return false;
+        job.finished = true;
+        clearTimeout(job.killTimer);
+        if (active === job) {
+          active = null;
+          child = null;
+          busy = false;
+        }
+        cleanup();
+        return true;
       };
       try {
         if (!files || typeof files !== 'object' || Array.isArray(files))
@@ -66,6 +102,11 @@ export function createRustRunner(send, dependencies = {}) {
           await makeDirectory(path.dirname(destination), { recursive: true });
           await writeSourceFile(destination, source);
         }
+        if (job.stopped) {
+          if (release())
+            send({ kind: 'finished', code: null, signal: 'SIGTERM', text: 'Завершено: SIGTERM' });
+          return;
+        }
         send({ kind: 'started', text: 'cargo run — ' + directory });
         const extraArgs = [
           ...(options.backend === 'egui' || options.backend === 'svet'
@@ -86,47 +127,53 @@ export function createRustRunner(send, dependencies = {}) {
         const env =
           options.backend || options.platform
             ? {
-                ...globalThis.process?.env,
+                ...process.env,
                 ...(options.backend ? { FORMA_BACKEND: options.backend } : {}),
                 ...(options.platform ? { FORMA_PLATFORM: options.platform } : {}),
               }
             : undefined;
-        process = spawnProcess('cargo', args, {
+        const proc = spawnProcess('cargo', args, {
           cwd: directory,
+          detached: grouped,
           stdio: ['ignore', 'pipe', 'pipe'],
           ...(env ? { env } : {}),
         });
-        process.stdout.on('data', chunk => send({ kind: 'stdout', text: chunk.toString() }));
+        child = proc;
+        job.child = proc;
+        proc.stdout.on('data', chunk => {
+          if (!job.finished) send({ kind: 'stdout', text: chunk.toString() });
+        });
         let errorBuffer = '';
-        process.stderr.on('data', chunk => {
+        proc.stderr.on('data', chunk => {
+          if (job.finished) return;
           errorBuffer += chunk.toString();
           const lines = errorBuffer.split('\n');
           errorBuffer = lines.pop();
           if (lines.length)
             send({ kind: 'stderr', text: mapFormDiagnostic(lines.join('\n') + '\n', sourceMap) });
         });
-        process.once('error', e => {
-          busy = false;
-          process = null;
-          cleanup();
+        proc.once('error', e => {
+          if (!release()) return;
           send({ kind: 'error', text: e.message });
         });
-        process.once('close', (code, signal) => {
+        proc.once('close', (code, signal) => {
+          if (!release()) return;
           if (errorBuffer)
             send({ kind: 'stderr', text: mapFormDiagnostic(errorBuffer, sourceMap) });
-          busy = false;
-          process = null;
-          cleanup();
-          send({ kind: 'finished', code, text: `Завершено: ${signal ?? code}` });
+          send({ kind: 'finished', code, signal, text: `Завершено: ${signal ?? code}` });
         });
       } catch (e) {
-        busy = false;
-        cleanup();
-        send({ kind: 'error', text: e.message });
+        if (release()) send({ kind: 'error', text: e.message });
       }
     },
     stop() {
-      process?.kill('SIGTERM');
+      const job = active;
+      if (!job || job.stopped) return;
+      job.stopped = true;
+      if (!child) return;
+      kill(job, 'SIGTERM');
+      job.killTimer = setTimeout(() => kill(job, 'SIGKILL'), 1500);
+      job.killTimer.unref();
     },
   };
 }

@@ -1845,4 +1845,58 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     removeGuard();
     advRouter.dispose();
   });
+
+  it('34. VirtualList skips DOM rebuilds on sub-row 1px scrolls and disposes row scopes and internal signals on unmount', () => {
+    const items = Array.from({ length: 100 }, (_, i) => ({ id: i, text: `Row ${i}` }));
+    const rowSignal = signal('initial');
+    let renderCalls = 0;
+    let rowEffectRuns = 0;
+
+    let stopRoot!: () => void;
+    const baseNodes = getGraphTelemetry().nodes;
+    const vList = createRoot(dispose => {
+      stopRoot = dispose;
+      return VirtualList({
+        items,
+        itemHeight: 30,
+        height: 120, // 4 visible rows
+        overscan: 2, // [0 .. 6) initially
+        renderItem: item => {
+          renderCalls++;
+          effect(() => {
+            rowSignal();
+            rowEffectRuns++;
+          });
+          return h('span', { className: 'vl-item' }, item.text);
+        },
+      });
+    });
+
+    document.body.appendChild(vList);
+    expect(renderCalls).toBe(6);
+    expect(rowEffectRuns).toBe(6);
+    const firstRowNode = vList.querySelector('.vl-item');
+
+    // 1px scroll keeps rawStart = 0, startIdx = 0, endIdx = 6 -> 0 DOM rebuilds!
+    vList.scrollTop = 1;
+    vList.dispatchEvent(new Event('scroll'));
+    vList.scrollTop = 15;
+    vList.dispatchEvent(new Event('scroll'));
+    expect(renderCalls).toBe(6);
+    expect(vList.querySelector('.vl-item')).toBe(firstRowNode);
+
+    // Jump to index 50 -> old 6 row scopes must be disposed before mounting new 8 rows ([48..56))
+    vList.scrollToIndex(50);
+    expect(renderCalls).toBe(6 + 8);
+    const prevRuns = rowEffectRuns;
+    rowSignal.set('updated');
+    // Only the 8 currently mounted rows run their effect, not the 6 unmounted ones!
+    expect(rowEffectRuns - prevRuns).toBe(8);
+
+    // Unmounting VirtualList disposes all row scopes and internal signals (`scrollTopSig`, `visibleRangeSig`)
+    stopRoot();
+    vList.remove();
+    expect(getGraphTelemetry().nodes).toBe(baseNodes);
+    rowSignal.dispose();
+  });
 });

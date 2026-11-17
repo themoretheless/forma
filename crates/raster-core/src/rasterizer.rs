@@ -6,8 +6,11 @@
 //! depth writes, morph source bound at vertex slot 1, rest morph weight 1.
 
 use crate::pipeline::RasterPipelines;
+use crate::resources;
 use crate::shaders::MORPH_VERTEX_STRIDE;
-use crate::uniform::{SCENE_UNIFORM_BYTES, SCENE_UNIFORM_FLOATS, SceneUniform, shadow_light_vp};
+use crate::uniform::{
+    ObjectUniform, SCENE_UNIFORM_BYTES, SCENE_UNIFORM_FLOATS, SceneUniform, shadow_light_vp,
+};
 use gpu_compute::{GpuContext, f32_le_bytes, wgpu};
 
 pub use crate::resources::{
@@ -182,6 +185,90 @@ impl Rasterizer {
 
     pub fn device(&self) -> &wgpu::Device {
         &self.context.device
+    }
+
+    /// Creates a mesh with its own object uniform buffer and bind group.
+    /// `vertices` is the interleaved position+normal layout (6 floats per
+    /// vertex); `morph_source` is positions only (3 floats per vertex).
+    pub fn create_mesh(
+        &self,
+        vertices: &[f32],
+        indices: &[u32],
+        uniform: &ObjectUniform,
+        morph_source: Option<&[f32]>,
+    ) -> DrawMesh {
+        resources::create_mesh(
+            &self.context,
+            &self.pipelines,
+            vertices,
+            indices,
+            uniform,
+            morph_source,
+        )
+    }
+
+    /// Creates an edge draw over the same interleaved vertex layout; edge
+    /// indices are u32 pairs into `vertices`.
+    pub fn create_edges(
+        &self,
+        vertices: &[f32],
+        edge_indices: &[u32],
+        uniform: &ObjectUniform,
+        morph_source: Option<&[f32]>,
+    ) -> DrawEdges {
+        resources::create_edges(
+            &self.context,
+            &self.pipelines,
+            vertices,
+            edge_indices,
+            uniform,
+            morph_source,
+        )
+    }
+
+    /// Line segments, 7 floats per vertex (pos3 + color4).
+    pub fn create_line_batch(&self, vertices: &[f32]) -> LineBatch {
+        resources::create_line_batch(&self.context.device, vertices)
+    }
+
+    /// Overlay triangles, 7 floats per vertex (pos3 + color4).
+    pub fn create_overlay_batch(&self, vertices: &[f32]) -> OverlayBatch {
+        resources::create_overlay_batch(&self.context.device, vertices)
+    }
+
+    /// Uploads per-instance records (one [`ObjectUniform`] per instance).
+    pub fn create_instance_pool(&self, records: &[ObjectUniform]) -> InstancePool {
+        resources::create_instance_pool(&self.context.device, &self.pipelines, records)
+    }
+
+    /// Geometry shared by instances (same interleaved layout as [`create_mesh`]).
+    pub fn create_instanced_geometry(
+        &self,
+        vertices: &[f32],
+        indices: &[u32],
+        morph_source: Option<&[f32]>,
+    ) -> InstancedGeometry {
+        resources::create_instanced_geometry(&self.context.device, vertices, indices, morph_source)
+    }
+
+    /// Updates the 4-float style vector (alpha, selected, edge, hovered).
+    pub fn set_style(&self, mesh: &DrawMesh, style: [f32; 4]) {
+        resources::set_style(&self.context.queue, &mesh.uniform_buffer, style);
+    }
+
+    /// Edge variant of [`set_style`] (edge alpha lives in `style.z`).
+    pub fn set_edge_style(&self, edges: &DrawEdges, style: [f32; 4]) {
+        resources::set_style(&self.context.queue, &edges.uniform_buffer, style);
+    }
+
+    /// Updates the morph blend weight (`morph.x`, 0 = source, 1 = target/rest).
+    pub fn set_morph_weight(&self, mesh: &DrawMesh, weight: f32) {
+        resources::set_morph_weight(&self.context.queue, &mesh.uniform_buffer, weight);
+    }
+
+    /// Edge variant of [`set_morph_weight`].
+    pub fn set_edge_morph_weight(&self, edges: &DrawEdges, weight: f32) {
+        resources::set_morph_weight(&self.context.queue, &edges.uniform_buffer, weight);
     }
 
     /// Uploads the full scene uniform. When shadows are active (enabled via

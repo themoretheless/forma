@@ -1,9 +1,6 @@
-//! Unified memory transfer coordinator dispatching between [` crate::uma::UmaMemoryPolicy`],
-//! [`crate::duma::DumaMemoryPolicy`], and [`crate::asd::AsdPageBuffer`].
+//! Shared memory transfer strategy and plan descriptors across UMA, dUMA, and ASD tiers.
 
-use crate::duma::DumaMemoryPolicy;
-use crate::platform::{BackendReport, MemoryArchitecture, StorageDirectCapability};
-use crate::uma::UmaMemoryPolicy;
+use crate::platform::{MemoryArchitecture, StorageDirectCapability};
 
 /// Transfer mechanism chosen for a specific buffer/storage operation, cleanly separating
 /// the adapter's physical [`MemoryArchitecture`] (`Uma` vs `Duma`) from how a specific transfer is performed.
@@ -26,7 +23,7 @@ pub enum TransferStrategy {
 /// Backwards-compatible alias for [`TransferStrategy`].
 pub type ModernMemoryTech = TransferStrategy;
 
-/// Transfer planner selecting the fastest path by delegating to [`UmaMemoryPolicy`] or [`DumaMemoryPolicy`]
+/// Transfer planner selecting the fastest path across UMA or dUMA policies
 /// combined with orthogonal [`StorageDirectCapability`] (`ASD`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnifiedTransferPlan {
@@ -41,20 +38,4 @@ pub struct UnifiedTransferPlan {
     pub uses_page_aligned_no_copy: bool,
     pub uses_rebar_aperture: bool,
     pub staging_ring_chunks: u32,
-}
-
-impl UnifiedTransferPlan {
-    /// Computes the optimal transfer plan for `byte_len` bytes on the given `backend`.
-    pub const fn for_payload(backend: crate::Backend, byte_len: u64, page_aligned: bool) -> Self {
-        let report = BackendReport::from_wgpu(backend);
-        let storage_direct = report.storage_direct_capability();
-        match report.memory_architecture() {
-            MemoryArchitecture::Uma => {
-                UmaMemoryPolicy::new(storage_direct).plan_transfer(byte_len, page_aligned)
-            }
-            MemoryArchitecture::Duma => {
-                DumaMemoryPolicy::new(storage_direct).plan_transfer(byte_len, page_aligned)
-            }
-        }
-    }
 }

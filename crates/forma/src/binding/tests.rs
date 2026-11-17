@@ -312,3 +312,30 @@ fn failed_batch_binding_write_leaves_earlier_properties_and_collections_unchange
     assert_eq!(count.get(), 10);
     assert_eq!(rows.get(), vec!["row0".to_string()]);
 }
+
+#[test]
+fn double_clicking_selected_target_keeps_control_selected() {
+    struct RadioModel {
+        selected: Property<bool>,
+    }
+    let mut form = Form::new(
+        "component Demo { Frame { width:160; height:80; Button { width:120; height:36; } } }",
+        "component Button { Rectangle { PointerArea { clicked -> events.clicked(); } } }",
+    )
+    .unwrap();
+    let model = Rc::new(RadioModel {
+        selected: Property::new(false),
+    });
+    let ctx = Context::new(model.clone());
+    let ctrl = form.add_control(0, ctx).unwrap();
+    ctrl.bind_selected_path(|m| m.selected.clone());
+    form.sync().unwrap();
+
+    // Two activations in a single update batch (`clicks == 2`) must still select `Target::Selected`.
+    form.update(|runtime| {
+        runtime.activate_control(0);
+        runtime.activate_control(0);
+    })
+    .unwrap();
+    assert!(model.selected.get());
+}

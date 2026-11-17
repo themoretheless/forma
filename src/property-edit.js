@@ -1,11 +1,11 @@
 import { parse, parseShared } from './language.js';
 import { equalValues } from './expressions.js';
+import { formaStringLiteral } from './shared/text.js';
 
 const bindingPath = /^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/;
 const handlerPath = /^(?:actions|events|state)\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/;
 const staleTarget = 'Свойство изменилось: выберите элемент заново';
-export const stringLiteral = text =>
-  "'" + text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') + "'";
+export const stringLiteral = formaStringLiteral;
 
 // Resolve against the current document, never a stale inspector node or a regex. A design file
 // keeps its entries outside `nodes`, in the base list and in each state, so they are walked too.

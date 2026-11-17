@@ -509,6 +509,9 @@ impl Renderer {
         self.queue.submit(Some(encoder.finish()));
         #[cfg(not(target_os = "linux"))]
         let (begin, end) = {
+            self.device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .map_err(|e| e.to_string())?;
             let values = timing.readback.uma_slice();
             (
                 u64::from_ne_bytes(values[..8].try_into().unwrap()),

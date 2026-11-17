@@ -455,3 +455,35 @@ fn soft_wrapped_lines_and_dictionary_word_movement_work_together() {
         "ArrowDown in wrapped multiline editor moves caret to second soft line"
     );
 }
+
+#[test]
+fn offscreen_editor_rows_are_culled_while_preserving_caret_selection_and_scroll() {
+    let text = (0..100)
+        .map(|i| format!("Row {i:03}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut e = Editor::new(
+        Input {
+            value: text,
+            multiline: true,
+            bounds: [0., 10., 180., 48.], // 24px line height => at most ~3 rows intersect [10, 58]
+            ..Input::default()
+        },
+        vec![],
+    )
+    .unwrap();
+    e.reduced_motion(true);
+    // Caret at end (row 99) scrolls offset[1] to bottom; only visible rows emit Content::Text.
+    let primitives = e.content(true);
+    let visible_texts: Vec<&str> = primitives
+        .iter()
+        .filter_map(|c| match c {
+            Content::Text { text, .. } => Some(text.text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        visible_texts.len() <= 4 && visible_texts.contains(&"Row 099"),
+        "expected culled visible rows near bottom, got {visible_texts:?}"
+    );
+}

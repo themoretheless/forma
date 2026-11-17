@@ -205,22 +205,69 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
 
 function compileInterpParts(template: string): InterpPart[] {
   const parts: InterpPart[] = [];
-  const re = /\\?\$\{([^}]+)\}/g;
+  const n = template.length;
   let lastIdx = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(template)) !== null) {
-    if (match.index > lastIdx) {
-      parts.push({ literal: true, text: template.slice(lastIdx, match.index) });
+  let i = 0;
+
+  while (i < n) {
+    if (
+      template.charAt(i) === '\\' &&
+      template.charAt(i + 1) === '$' &&
+      template.charAt(i + 2) === '{'
+    ) {
+      if (i > lastIdx) {
+        parts.push({ literal: true, text: template.slice(lastIdx, i) });
+      }
+      parts.push({ literal: true, text: '${' });
+      i += 3;
+      lastIdx = i;
+      continue;
     }
-    if (match[0].startsWith('\\')) {
-      parts.push({ literal: true, text: match[0].slice(1) });
-    } else {
-      // The group is not optional, so it is present whenever the pattern matched.
-      parts.push({ literal: false, ast: parseFormaExprAst((match[1] ?? '').trim()) });
+
+    if (template.charAt(i) === '$' && template.charAt(i + 1) === '{') {
+      const exprStart = i + 2;
+      let j = exprStart;
+      let depth = 1;
+      let quote: string | null = null;
+      while (j < n && depth > 0) {
+        const ch = template.charAt(j);
+        if (quote) {
+          if (ch === '\\') {
+            j += 2;
+            continue;
+          }
+          if (ch === quote) quote = null;
+          j++;
+          continue;
+        }
+        if (ch === "'" || ch === '"') {
+          quote = ch;
+          j++;
+          continue;
+        }
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) break;
+        }
+        j++;
+      }
+
+      if (depth === 0) {
+        if (i > lastIdx) {
+          parts.push({ literal: true, text: template.slice(lastIdx, i) });
+        }
+        parts.push({ literal: false, ast: parseFormaExprAst(template.slice(exprStart, j).trim()) });
+        i = j + 1;
+        lastIdx = i;
+        continue;
+      }
     }
-    lastIdx = re.lastIndex;
+
+    i++;
   }
-  if (lastIdx < template.length) {
+
+  if (lastIdx < n) {
     parts.push({ literal: true, text: template.slice(lastIdx) });
   }
   return parts;
@@ -667,6 +714,71 @@ export function evaluateFormaExpression(rawExpr: string, scope: FormaEvalScope):
 }
 
 const _patternMatcherCache = new Map<string, (val: any) => boolean>();
+const MAX_PATTERN_MATCHER_CACHE_SIZE = 2048;
+
+function isExactQuotedLiteral(pat: string): boolean {
+  if (pat.length < 2) return false;
+  const q = pat.charAt(0);
+  if ((q !== "'" && q !== '"') || pat.charAt(pat.length - 1) !== q) return false;
+  for (let i = 1; i < pat.length - 1; i++) {
+    const ch = pat.charAt(i);
+    if (ch === '\\') {
+      i++;
+      if (i >= pat.length - 1) return false;
+      continue;
+    }
+    if (ch === q) return false;
+  }
+  return true;
+}
+
+function unescapeQuotedLiteral(pat: string): string {
+  const inner = pat.slice(1, -1);
+  if (!inner.includes('\\')) return inner;
+  let out = '';
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner.charAt(i);
+    if (ch === '\\' && i + 1 < inner.length) {
+      const next = inner.charAt(++i);
+      if (next === 'n') out += '\n';
+      else if (next === 'r') out += '\r';
+      else if (next === 't') out += '\t';
+      else out += next;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function splitTopLevelPatternOr(pat: string): string[] | null {
+  if (!pat.includes('|')) return null;
+  const parts: string[] = [];
+  let start = 0;
+  let i = 0;
+  const n = pat.length;
+  while (i < n) {
+    const ch = pat.charAt(i);
+    if (ch === "'" || ch === '"') {
+      const q = ch;
+      i++;
+      while (i < n && pat.charAt(i) !== q) {
+        if (pat.charAt(i) === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '|') {
+      parts.push(pat.slice(start, i).trim());
+      start = i + 1;
+    }
+    i++;
+  }
+  if (parts.length === 0) return null;
+  parts.push(pat.slice(start).trim());
+  return parts;
+}
 
 export function compileFormaPatternMatcher(pattern: string): (val: any) => boolean {
   let cached = _patternMatcherCache.get(pattern);
@@ -677,53 +789,59 @@ export function compileFormaPatternMatcher(pattern: string): (val: any) => boole
 
   if (pat === '_') {
     matcher = () => true;
-  } else if (pat.includes('|')) {
-    const subMatchers = pat.split('|').map(sub => compileFormaPatternMatcher(sub.trim()));
-    matcher = (actualValue: any) => {
-      for (const matches of subMatchers) {
-        if (matches(actualValue)) return true;
-      }
-      return false;
-    };
+  } else if (isExactQuotedLiteral(pat)) {
+    const expected = unescapeQuotedLiteral(pat);
+    matcher = (actualValue: any) => String(actualValue) === expected;
   } else {
-    const incRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.=(-?\d+(?:\.\d+)?)$/);
-    if (incRange) {
-      const min = Number(incRange[1]);
-      const max = Number(incRange[2]);
-      matcher = (actualValue: any) =>
-        typeof actualValue === 'number' && actualValue >= min && actualValue <= max;
+    const unionParts = splitTopLevelPatternOr(pat);
+    if (unionParts) {
+      const subMatchers = unionParts.map(sub => compileFormaPatternMatcher(sub));
+      matcher = (actualValue: any) => {
+        for (const matches of subMatchers) {
+          if (matches(actualValue)) return true;
+        }
+        return false;
+      };
     } else {
-      const excRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
-      if (excRange) {
-        const min = Number(excRange[1]);
-        const max = Number(excRange[2]);
+      const incRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.=(-?\d+(?:\.\d+)?)$/);
+      if (incRange) {
+        const min = Number(incRange[1]);
+        const max = Number(incRange[2]);
         matcher = (actualValue: any) =>
-          typeof actualValue === 'number' && actualValue >= min && actualValue < max;
-      } else if (
-        (pat.startsWith("'") && pat.endsWith("'")) ||
-        (pat.startsWith('"') && pat.endsWith('"'))
-      ) {
-        const expected = pat.slice(1, -1);
-        matcher = (actualValue: any) => String(actualValue) === expected;
-      } else if (pat.includes('.')) {
-        const shortVariant = pat.split('.').pop()!;
-        matcher = (actualValue: any) => {
-          const str = String(actualValue);
-          return str === pat || str === shortVariant;
-        };
-      } else if (/^-?\d+(\.\d+)?$/.test(pat)) {
-        const expectedNum = Number(pat);
-        matcher = (actualValue: any) => Number(actualValue) === expectedNum;
-      } else if (pat === 'true') {
-        matcher = (actualValue: any) => actualValue === true;
-      } else if (pat === 'false') {
-        matcher = (actualValue: any) => actualValue === false;
+          typeof actualValue === 'number' && actualValue >= min && actualValue <= max;
       } else {
-        matcher = (actualValue: any) => String(actualValue) === pat;
+        const excRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
+        if (excRange) {
+          const min = Number(excRange[1]);
+          const max = Number(excRange[2]);
+          matcher = (actualValue: any) =>
+            typeof actualValue === 'number' && actualValue >= min && actualValue < max;
+        } else if (pat.includes('.')) {
+          const shortVariant = pat.split('.').pop()!;
+          matcher = (actualValue: any) => {
+            const str = String(actualValue);
+            return str === pat || str === shortVariant;
+          };
+        } else if (/^-?\d+(\.\d+)?$/.test(pat)) {
+          const expectedNum = Number(pat);
+          matcher = (actualValue: any) => Number(actualValue) === expectedNum;
+        } else if (pat === 'true') {
+          matcher = (actualValue: any) => actualValue === true;
+        } else if (pat === 'false') {
+          matcher = (actualValue: any) => actualValue === false;
+        } else {
+          matcher = (actualValue: any) => String(actualValue) === pat;
+        }
       }
     }
   }
 
+  if (_patternMatcherCache.size >= MAX_PATTERN_MATCHER_CACHE_SIZE) {
+    const oldestKey = _patternMatcherCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      _patternMatcherCache.delete(oldestKey);
+    }
+  }
   _patternMatcherCache.set(pattern, matcher);
   return matcher;
 }

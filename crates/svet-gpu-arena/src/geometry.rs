@@ -1,4 +1,4 @@
-use crate::arena::checked_range;
+use crate::math::checked_range;
 
 /// Screen-space viewport parameters for 3D clip-space vertex picking.
 #[derive(Clone, Copy, Debug)]
@@ -144,6 +144,68 @@ pub fn clip_primitive_3d(
     (out.len() / 4) as u32
 }
 
+/// Precomputed 2D NDC bounding box, depth floor, and barycentric solver constants
+/// for a clipped foreground occluder triangle.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct OccluderTriangle {
+    a: [f64; 3],
+    b: [f64; 3],
+    c: [f64; 3],
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    min_z: f64,
+    inv_denominator: f64,
+}
+
+impl OccluderTriangle {
+    #[inline]
+    fn from_ndc(a: [f64; 3], b: [f64; 3], c: [f64; 3]) -> Option<Self> {
+        let denominator = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+        if denominator.abs() < 1e-14 {
+            return None;
+        }
+        Some(Self {
+            a,
+            b,
+            c,
+            min_x: a[0].min(b[0]).min(c[0]) - 1e-9,
+            max_x: a[0].max(b[0]).max(c[0]) + 1e-9,
+            min_y: a[1].min(b[1]).min(c[1]) - 1e-9,
+            max_y: a[1].max(b[1]).max(c[1]) + 1e-9,
+            min_z: a[2].min(b[2]).min(c[2]),
+            inv_denominator: 1.0 / denominator,
+        })
+    }
+
+    #[inline]
+    fn occludes(&self, px: f64, py: f64, pz: f64) -> bool {
+        if px < self.min_x
+            || px > self.max_x
+            || py < self.min_y
+            || py > self.max_y
+            || self.min_z + 1e-6 >= pz
+        {
+            return false;
+        }
+        let u = ((self.b[1] - self.c[1]) * (px - self.c[0])
+            + (self.c[0] - self.b[0]) * (py - self.c[1]))
+            * self.inv_denominator;
+        if u < -1e-9 {
+            return false;
+        }
+        let v = ((self.c[1] - self.a[1]) * (px - self.c[0])
+            + (self.a[0] - self.c[0]) * (py - self.c[1]))
+            * self.inv_denominator;
+        if v < -1e-9 {
+            return false;
+        }
+        let t = 1.0 - u - v;
+        t >= -1e-9 && u * self.a[2] + v * self.b[2] + t * self.c[2] + 1e-6 < pz
+    }
+}
+
 /// Z-aware 3D vertex picking without triangle occlusion.
 pub fn pick_nearest_vertex_3d(
     verts: &[f32],
@@ -164,11 +226,35 @@ pub fn pick_visible_vertex_3d(
     clip_scratch: &mut Vec<f32>,
     query: ViewportPickQuery,
 ) -> i32 {
-    let len = index_count as usize;
-    if len > pick_indices.len() || !len.is_multiple_of(3) {
+    let Some(indices) = pick_indices.get(..index_count as usize) else {
+        return -1;
+    };
+    let mut triangle_scratch = Vec::new();
+    pick_visible_vertex_3d_into(
+        verts,
+        offset,
+        count,
+        indices,
+        clip_scratch,
+        &mut triangle_scratch,
+        query,
+    )
+}
+
+pub(crate) fn pick_visible_vertex_3d_into(
+    verts: &[f32],
+    offset: u32,
+    count: u32,
+    pick_indices: &[u32],
+    clip_scratch: &mut Vec<f32>,
+    triangles: &mut Vec<OccluderTriangle>,
+    query: ViewportPickQuery,
+) -> i32 {
+    let len = pick_indices.len();
+    if !len.is_multiple_of(3) || !query.is_valid() {
         return -1;
     }
-    let mut triangles = Vec::new();
+    triangles.clear();
     for base in (0..len).step_by(3) {
         let indices = [
             pick_indices[base],
@@ -189,10 +275,12 @@ pub fn pick_visible_vertex_3d(
             ];
         }
         for i in 1..size.min(12) - 1 {
-            triangles.push([points[0], points[i], points[i + 1]]);
+            if let Some(tri) = OccluderTriangle::from_ndc(points[0], points[i], points[i + 1]) {
+                triangles.push(tri);
+            }
         }
     }
-    pick_vertex_impl(verts, offset, count, query, &triangles)
+    pick_vertex_impl(verts, offset, count, query, triangles)
 }
 
 fn pick_vertex_impl(
@@ -200,7 +288,7 @@ fn pick_vertex_impl(
     clip_verts_offset: u32,
     vertex_count: u32,
     query: ViewportPickQuery,
-    triangles: &[[[f64; 3]; 3]],
+    triangles: &[OccluderTriangle],
 ) -> i32 {
     if !query.is_valid() {
         return -1;
@@ -250,21 +338,14 @@ fn pick_vertex_impl(
         let dist_sq = dx * dx + dy * dy;
 
         if dist_sq <= max_dist_sq {
-            let px = f64::from(x) / f64::from(w);
-            let py = f64::from(y) / f64::from(w);
-            let pz = f64::from(z) / f64::from(w);
-            let hidden = triangles.iter().any(|[a, b, c]| {
-                let denominator = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
-                if denominator.abs() < 1e-14 {
-                    return false;
+            if !triangles.is_empty() {
+                let inv_w = 1.0 / f64::from(w);
+                let px = f64::from(x) * inv_w;
+                let py = f64::from(y) * inv_w;
+                let pz = f64::from(z) * inv_w;
+                if triangles.iter().any(|tri| tri.occludes(px, py, pz)) {
+                    continue;
                 }
-                let u = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / denominator;
-                let v = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / denominator;
-                let t = 1.0 - u - v;
-                u >= -1e-9 && v >= -1e-9 && t >= -1e-9 && u * a[2] + v * b[2] + t * c[2] + 1e-6 < pz
-            });
-            if hidden {
-                continue;
             }
             // Depth-aware composite score: when two vertices project near the same 2D pixel
             // (within ~4px tolerance), the foreground vertex (smaller `ndc_z`) always wins.

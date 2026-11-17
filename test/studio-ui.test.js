@@ -176,6 +176,15 @@ test('shortcut hints avoid glyphs the bundled font does not have', () => {
   assert.equal(keyText(undefined), '');
 });
 
+test('composeStudioWindow ignores braces inside block comments', () => {
+  const commented = {
+    ...files,
+    'ui/Title.ui': files['ui/Title.ui'].replace('{', '{\n/* stray } brace in block comment */\n'),
+  };
+  const out = composeStudioWindow(commented, { width: 900, height: 600, paletteHeight: 88 });
+  assert.ok(out.includes("key: 'menu'"));
+});
+
 test('a root sized to content fits its controls, and an unsized root keeps the 360×220 frame', () => {
   const scene = size =>
     `component Fit { Row { ${size} padding: 4; gap: 2; Button { width: 50; height: 20; } Button { width: 30; height: 24; } } }`;

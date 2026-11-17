@@ -101,7 +101,7 @@ export function flattenSvgPath(d, tolerance) {
     cubicControl = null,
     quadControl = null,
     points = [],
-    total = 0;
+    flushedPoints = 0;
   const subpaths = [];
   const peek = () => {
     PATH_TOKEN_RE.lastIndex = at;
@@ -125,7 +125,10 @@ export function flattenSvgPath(d, tolerance) {
     return f[1] === '1';
   };
   const flush = closed => {
-    if (points.length > 1) subpaths.push({ points, closed });
+    if (points.length > 1) {
+      subpaths.push({ points, closed });
+      flushedPoints += points.length;
+    }
     points = [];
   };
   for (;;) {
@@ -222,8 +225,7 @@ export function flattenSvgPath(d, tolerance) {
     }
     cubicControl = nextCubic;
     quadControl = nextQuad;
-    total = subpaths.reduce((sum, sub) => sum + sub.points.length, points.length);
-    if (total > MAX_PATH_POINTS) fail('слишком длинный');
+    if (flushedPoints + points.length > MAX_PATH_POINTS) fail('слишком длинный');
   }
   flush(false);
   if (!subpaths.length) fail('нет отрезков');

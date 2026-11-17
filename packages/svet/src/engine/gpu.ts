@@ -39,7 +39,6 @@ import {
   GpuComputeCapacityError,
   MAX_PENDING_COMPUTATIONS,
   pendingComputations,
-  pendingSnapshotBytes,
   reserveGpuComputeAdmission,
   residentComputeBudgets,
   residentComputeUsage,
@@ -824,8 +823,7 @@ export async function dispatchGpuComputeKernelAsync(
   assertContext();
   let releaseAdmission = () => {};
   if (hardware) {
-    const pending = pendingComputations.get(admissionDevice!) ?? 0;
-    if (pending >= MAX_PENDING_COMPUTATIONS)
+    if ((pendingComputations.get(admissionDevice!) ?? 0) >= MAX_PENDING_COMPUTATIONS)
       throw new GpuComputeCapacityError('count', computeQueueTelemetry(admissionDevice!));
     let snapshotBytes = 0;
     for (const tensor of [...options.inputs, options.output]) {
@@ -833,28 +831,7 @@ export async function dispatchGpuComputeKernelAsync(
         throw new Error('GPU tensor belongs to a different reactive context');
       snapshotBytes += tensor.length * Float32Array.BYTES_PER_ELEMENT;
     }
-    const retained = pendingSnapshotBytes.get(admissionDevice!) ?? 0;
-    const budget = computeSnapshotBudgets.get(admissionDevice!) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET;
-    if (!Number.isSafeInteger(snapshotBytes) || snapshotBytes > budget - retained) {
-      throw new GpuComputeCapacityError(
-        'snapshot-bytes',
-        computeQueueTelemetry(admissionDevice!),
-        snapshotBytes,
-      );
-    }
-    pendingSnapshotBytes.set(admissionDevice!, retained + snapshotBytes);
-    pendingComputations.set(admissionDevice!, pending + 1);
-    let released = false;
-    releaseAdmission = () => {
-      if (released) return;
-      released = true;
-      const retainedBytes = pendingSnapshotBytes.get(admissionDevice!)! - snapshotBytes;
-      if (retainedBytes) pendingSnapshotBytes.set(admissionDevice!, retainedBytes);
-      else pendingSnapshotBytes.delete(admissionDevice!);
-      const remaining = pendingComputations.get(admissionDevice!)! - 1;
-      if (remaining) pendingComputations.set(admissionDevice!, remaining);
-      else pendingComputations.delete(admissionDevice!);
-    };
+    releaseAdmission = reserveGpuComputeAdmission(admissionDevice!, snapshotBytes);
   }
   let enqueued = false;
   try {

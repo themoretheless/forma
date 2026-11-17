@@ -17,16 +17,20 @@ pub(crate) fn round_inside(x: f32, y: f32, bounds: [f32; 4], radius: f32) -> boo
 }
 
 #[inline]
-fn round_inside_raw(x: f32, y: f32, [bx, by, w, h]: [f32; 4], radius: f32) -> bool {
-    let r = radius.min(w / 2.).min(h / 2.);
-    let dx = (x - (bx + w / 2.)).abs() - (w / 2. - r);
-    let dy = (y - (by + h / 2.)).abs() - (h / 2. - r);
+pub(crate) fn rounded_rect_sdf(x: f32, y: f32, [bx, by, w, h]: [f32; 4], radius: f32) -> f32 {
+    let r = radius.min(w * 0.5).min(h * 0.5);
+    let dx = (x - (bx + w * 0.5)).abs() - (w * 0.5 - r);
+    let dy = (y - (by + h * 0.5)).abs() - (h * 0.5 - r);
     if dx <= 0. && dy <= 0. {
-        return true;
+        dx.max(dy) - r
+    } else {
+        dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
     }
-    let mx = dx.max(0.);
-    let my = dy.max(0.);
-    mx * mx + my * my <= r * r
+}
+
+#[inline]
+fn round_inside_raw(x: f32, y: f32, bounds: [f32; 4], radius: f32) -> bool {
+    rounded_rect_sdf(x, y, bounds, radius) <= 0.
 }
 
 /// Exact area to the right of a segment inside pixel column `px` over a unit-height
@@ -75,18 +79,16 @@ pub(crate) fn rect_area_paint(fill: [u8; 4], border: [u8; 4], outer: f32, band: 
     color
 }
 pub(crate) fn round_coverage(x: u32, y: u32, scale: f32, bounds: [f32; 4], radius: f32) -> f32 {
-    let [bx, by, w, h] = bounds;
+    let [_, _, w, h] = bounds;
     if w <= 0. || h <= 0. {
         return 0.;
     }
-    let r = radius.min(w / 2.).min(h / 2.);
-    let dx = ((x as f32 + 0.5) / scale - bx - w / 2.).abs() - (w / 2. - r);
-    let dy = ((y as f32 + 0.5) / scale - by - h / 2.).abs() - (h / 2. - r);
-    let d = if dx <= 0. && dy <= 0. {
-        dx.max(dy) - r
-    } else {
-        dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
-    };
+    let d = rounded_rect_sdf(
+        (x as f32 + 0.5) / scale,
+        (y as f32 + 0.5) / scale,
+        bounds,
+        radius,
+    );
     if d < -0.71 / scale {
         return 1.;
     }

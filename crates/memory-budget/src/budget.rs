@@ -1,5 +1,4 @@
 //! Hierarchical byte budgets and the reservations that hold their credit.
-use crate::buffer::{MutableBuffer, SharedBuffer};
 use std::{
     collections::TryReserveError,
     fmt,
@@ -167,42 +166,6 @@ impl MemoryBudget {
             }
         }
     }
-    /// Reserves before allocation, then accounts for actual reported Vec capacity.
-    /// Values are flat `Copy` elements, so initialization does not clone owned heap data.
-    ///
-    /// # Errors
-    /// Rejects capacity arithmetic overflow, exhausted budget and allocation failure.
-    pub fn try_buffer<T: Copy>(
-        &self,
-        length: usize,
-        value: T,
-    ) -> Result<MutableBuffer<T>, BufferError> {
-        let requested = buffer_bytes::<T>(length)?;
-        self.try_reserve(requested)?.try_buffer(length, value)
-    }
-    /// Adopts a legacy shared vector only when its allocation has one strong owner.
-    /// No samples are copied. Existing external owners must be released first,
-    /// otherwise their lifetime could escape the managed reservation.
-    /// Construction of the original vector is outside this budget.
-    ///
-    /// # Errors
-    /// Returns `SharedOwners` for a shared allocation, or the normal adoption errors.
-    pub fn try_adopt_arc<T: Copy>(
-        &self,
-        values: Arc<Vec<T>>,
-    ) -> Result<SharedBuffer<T>, BufferError> {
-        let values = Arc::try_unwrap(values).map_err(|_| BufferError::SharedOwners)?;
-        self.try_adopt(values)
-    }
-
-    /// Adopts an already allocated owned Vec; this does not budget its construction.
-    ///
-    /// # Errors
-    /// Rejects capacity arithmetic overflow or exhausted budget.
-    pub fn try_adopt<T: Copy>(&self, values: Vec<T>) -> Result<SharedBuffer<T>, BufferError> {
-        self.try_reserve(buffer_bytes::<T>(values.capacity())?)?
-            .try_adopt(values)
-    }
 }
 pub(crate) fn buffer_bytes<T>(capacity: usize) -> Result<u64, BufferError> {
     capacity
@@ -217,37 +180,8 @@ pub struct Reservation {
     bytes: u64,
 }
 impl Reservation {
-    /// Allocate mutable storage from already admitted credit without charging
-    /// it twice. Conservative excess credit remains attached to the buffer.
-    /// Additional capacity is admitted before initialization; errors roll back.
-    /// # Errors
-    /// Returns an error on byte-size overflow, exhausted memory credit or allocation failure.
-    pub fn try_buffer<T: Copy>(
-        mut self,
-        length: usize,
-        value: T,
-    ) -> Result<MutableBuffer<T>, BufferError> {
-        self.ensure_bytes(buffer_bytes::<T>(length)?)?;
-        let mut values = Vec::new();
-        values
-            .try_reserve_exact(length)
-            .map_err(BufferError::Allocate)?;
-        self.ensure_bytes(buffer_bytes::<T>(values.capacity())?)?;
-        values.resize_with(length, || value);
-        Ok(MutableBuffer::new(values, self))
-    }
-
     pub fn bytes(&self) -> u64 {
         self.bytes
-    }
-    /// Transfers a pre-allocation reservation into owned flat storage without copying.
-    /// Keeps any conservative excess reservation; admits extra capacity if necessary.
-    ///
-    /// # Errors
-    /// Rejects capacity arithmetic overflow and admission beyond the budget limit.
-    pub fn try_adopt<T>(mut self, values: Vec<T>) -> Result<SharedBuffer<T>, BufferError> {
-        self.ensure_bytes(buffer_bytes::<T>(values.capacity())?)?;
-        Ok(MutableBuffer::new(values, self).freeze())
     }
     /// Admits at least the requested retained capacity, preserving existing credit.
     /// Failure leaves this reservation unchanged.

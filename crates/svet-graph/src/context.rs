@@ -238,7 +238,7 @@ impl Context {
     pub fn telemetry(&self) -> Telemetry {
         Telemetry {
             nodes: self.graph.active_count,
-            edges: self.graph.sources.iter().map(Vec::len).sum(),
+            edges: self.graph.edge_count(),
             slots: self.graph.nodes.len(),
             batch_depth: self.graph.batch_depth,
             tracking_depth: self.graph.tracking_stack.len(),
@@ -278,9 +278,12 @@ impl Tracking<'_> {
         if source.kind == Kind::Effect {
             return Err(Error::WrongKind);
         }
-        if self.context.graph.nodes[source.id as usize].tracking
+        let source_idx = source.id as usize;
+        if self.context.graph.nodes[source_idx].tracking
             || source.id == self.observer
-            || self.context.graph.depends_on(source.id, self.observer)
+            || (source.kind != Kind::Signal
+                && !self.context.graph.sources[source_idx].is_empty()
+                && self.context.graph.depends_on(source.id, self.observer))
         {
             return Err(Error::Cycle);
         }

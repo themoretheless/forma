@@ -5,17 +5,8 @@ use super::{Node, Runtime};
 impl Runtime {
     /// Resolves the `scene.modals` index corresponding to a `NodeKind::Modal` tree node.
     pub(super) fn modal_index_for_node(&self, node: &Node) -> usize {
-        self.scene
-            .modals
-            .iter()
-            .position(|m| {
-                (!m.controls.is_empty()).then_some(m.controls.start)
-                    == node
-                        .children
-                        .first()
-                        .and_then(|&cid| self.nodes[cid].control)
-            })
-            .unwrap_or(0)
+        let _ = self;
+        node.modal.unwrap_or(0)
     }
 
     /// Topmost open blocking layer, if any. It alone receives pointer and keyboard input,

@@ -161,6 +161,7 @@ impl Runtime {
                 children: Vec::new(),
                 kind: super::NodeKind::Scroll,
                 control: None,
+                modal: None,
             });
             self.nodes[parent].children.push(id);
         }

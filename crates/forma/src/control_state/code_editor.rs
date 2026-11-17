@@ -82,31 +82,54 @@ impl CodeEditorModel {
     pub fn syntax_tokens(&self) -> Result<Vec<CodeTokenSpan>, String> {
         let src = self.editor.value();
         let tokens = themoretheless_tokenizer_forma::tokenize(src).map_err(|e| e.to_string())?;
-        Ok(tokens
-            .into_iter()
-            .filter(|t| !t.text.is_empty())
-            .map(|t| {
-                let prefix = &src[..t.start.min(src.len())];
-                let line = prefix.bytes().filter(|&b| b == b'\n').count() + 1;
-                let col_start = prefix.rfind('\n').map_or(0, |idx| idx + 1);
-                let column = prefix[col_start..].chars().count() + 1;
-                let kind = match t.text.as_str() {
-                    "component" | "base" | "use" | "prop" | "state" | "event" | "enum"
-                    | "struct" | "where" | "tokens" | "i18n" | "style" | "let" | "slot"
-                    | "override" | "match" | "shortcut" | "true" | "false" => "keyword",
-                    "{" | "}" | "(" | ")" | "[" | "]" | ":" | ";" | "," | "->" | "=>" => "punct",
-                    s if s.starts_with('\'') || s.starts_with('"') => "string",
-                    s if s.starts_with('#') => "color",
-                    s if s.chars().next().is_some_and(|c| c.is_ascii_digit()) => "number",
-                    _ => "ident",
-                };
-                CodeTokenSpan {
-                    kind: kind.to_string(),
-                    value: t.text,
-                    line,
-                    column,
+        let mut line = 1usize;
+        let mut line_start_byte = 0usize;
+        let mut cur_byte = 0usize;
+        let mut cur_char_col = 1usize;
+        let mut out = Vec::with_capacity(tokens.len());
+        for t in tokens {
+            if t.text.is_empty() {
+                continue;
+            }
+            let target = t.start.min(src.len());
+            if target < cur_byte {
+                line = 1;
+                line_start_byte = 0;
+                cur_byte = 0;
+                cur_char_col = 1;
+            }
+            if target > cur_byte {
+                let delta = &src[cur_byte..target];
+                if let Some(rel_nl) = delta.rfind('\n') {
+                    line += delta.bytes().filter(|&b| b == b'\n').count();
+                    line_start_byte = cur_byte + rel_nl + 1;
+                    cur_char_col = src[line_start_byte..target].chars().count() + 1;
+                } else {
+                    debug_assert_eq!(
+                        cur_char_col + delta.chars().count(),
+                        src[line_start_byte..target].chars().count() + 1
+                    );
+                    cur_char_col += delta.chars().count();
                 }
-            })
-            .collect())
+                cur_byte = target;
+            }
+            let kind = match t.text.as_str() {
+                "component" | "base" | "use" | "prop" | "state" | "event" | "enum" | "struct"
+                | "where" | "tokens" | "i18n" | "style" | "let" | "slot" | "override" | "match"
+                | "shortcut" | "true" | "false" => "keyword",
+                "{" | "}" | "(" | ")" | "[" | "]" | ":" | ";" | "," | "->" | "=>" => "punct",
+                s if s.starts_with('\'') || s.starts_with('"') => "string",
+                s if s.starts_with('#') => "color",
+                s if s.chars().next().is_some_and(|c| c.is_ascii_digit()) => "number",
+                _ => "ident",
+            };
+            out.push(CodeTokenSpan {
+                kind: kind.to_string(),
+                value: t.text,
+                line,
+                column: cur_char_col,
+            });
+        }
+        Ok(out)
     }
 }

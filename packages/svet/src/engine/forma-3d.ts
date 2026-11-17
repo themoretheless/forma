@@ -14,7 +14,7 @@ import {
 } from './gpu-scene3d.ts';
 import { effect, onCleanup } from './reactivity.ts';
 import { evalAstNode, evaluateFormaExpression, parseFormaExprAst } from './forma-expr.ts';
-import { registerFormaElement, type FormaElementContext } from './forma.ts';
+import { registerFormaElement, type FormaElementContext } from './forma-registry.ts';
 
 /** Declarative 3D widget: `Scene3D { rotX: ...; rotY: ...; rotZ: ...; scale: ...; width: ...; height: ...; }` */
 function renderForma3d({ tag, props, scope, registerKey }: FormaElementContext): Node {

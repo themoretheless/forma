@@ -27,6 +27,12 @@ function body(source, path) {
       if (i < 0) break;
       continue;
     }
+    if (c === '/' && source[i + 1] === '*') {
+      const close = source.indexOf('*/', i + 2);
+      if (close < 0) break;
+      i = close + 1;
+      continue;
+    }
     if (c === '{') depth++;
     else if (c === '}' && --depth === 0) return source.slice(open + 1, i).trim();
   }

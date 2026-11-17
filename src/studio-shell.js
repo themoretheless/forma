@@ -8,22 +8,10 @@ import { createShellPainter } from './studio-shell-painter.js';
 import { canvasIcon, glyphIcon } from './studio-canvas-icons.js';
 import { createEventScope } from './event-scope.js';
 import { collapseText, glyphPrefix } from './control-label.js';
+import { controlsLibrary } from './controls-library.js';
 import { createKeyedPool } from './keyed-pool.js';
 
-const raw = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
-const library = materializeTheme(
-  Object.fromEntries(
-    Object.entries(raw).map(([path, value]) => [
-      path.slice('../crates/forma/controls/'.length),
-      value,
-    ]),
-  ),
-  'dark',
-);
+const library = materializeTheme(controlsLibrary, 'dark');
 // Surfaces that draw themselves: the design canvas, the code editor, pickers and native inspection.
 const foreign =
   '#preview,.cm-editor,.color-picker,#native-inspection,.element-selection-overlay,.layout-overlay,.project-switcher-wrap,.tree-header-actions,.tree-search-bar,.tree-context-menu,.tree-inline-row';

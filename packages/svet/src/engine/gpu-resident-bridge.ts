@@ -1,7 +1,7 @@
 /** Internal typed bridge; GPU rendering does not import the compute executor. */
 import { getReactiveGeneration, isOwnerScopeDisposed, type OwnerScope } from './reactivity.ts';
 import type { SvetWasmExports } from './wasm-bridge.ts';
-import type { WebGpuDeviceLike } from './gpu.ts';
+import type { WebGpuDeviceLike } from './gpu-types.ts';
 
 export interface GpuResidentTensor {
   readonly length: number;

@@ -52,3 +52,9 @@ test('escaped backslash n is not decoded twice into a newline', () => {
     value,
   );
 });
+test('editing strings with ${...}, tabs, and carriage returns keeps literal text without interpolation injection', () => {
+  const source = "component Demo { Text { text:'old'; } }";
+  const value = 'Price: ${state.secret}\r\n\t100%';
+  const next = apply(source, parse(source).nodes[0].start, 'text', value);
+  assert.equal(parse(next).nodes[0].props.text, value);
+});

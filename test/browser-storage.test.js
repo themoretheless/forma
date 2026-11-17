@@ -194,3 +194,78 @@ test('local directory project reader and writer sync nested .ui/.rs files and sk
   const reread = await readDirectoryProject(root);
   assert.deepEqual(reread, updated);
 });
+
+test('writeDirectoryProject removes deleted and renamed files without recreating missing directories', async () => {
+  const { readDirectoryProject, writeDirectoryProject } = await import('../src/browser-storage.js');
+  const dirCalls = [];
+  function mockDir(tree) {
+    return {
+      async *entries() {
+        for (const [k, v] of Object.entries(tree)) yield [k, v];
+      },
+      async getDirectoryHandle(name, options) {
+        dirCalls.push([name, options]);
+        if (Object.hasOwn(tree, name)) return tree[name];
+        if (!options?.create) {
+          const err = new Error(`Directory not found: ${name}`);
+          err.name = 'NotFoundError';
+          throw err;
+        }
+        return (tree[name] = { kind: 'directory', ...mockDir({}) });
+      },
+      async getFileHandle(name, options) {
+        if (Object.hasOwn(tree, name)) return tree[name];
+        if (!options?.create) {
+          const err = new Error(`File not found: ${name}`);
+          err.name = 'NotFoundError';
+          throw err;
+        }
+        return (tree[name] = {
+          kind: 'file',
+          content: '',
+          async getFile() {
+            return { size: this.content.length, text: async () => this.content };
+          },
+          async createWritable() {
+            return {
+              write: async c => {
+                tree[name].content = c;
+              },
+              close: async () => {},
+            };
+          },
+        });
+      },
+      async removeEntry(name) {
+        if (!Object.hasOwn(tree, name)) {
+          const err = new Error(`Entry not found: ${name}`);
+          err.name = 'NotFoundError';
+          throw err;
+        }
+        delete tree[name];
+      },
+    };
+  }
+  const root = mockDir({});
+  const initial = {
+    'ui/Old.ui': 'component Old { Frame {} }',
+    'components/Sub/Widget.ui': 'component Widget { Frame {} }',
+    'README.md': 'old readme',
+  };
+  await writeDirectoryProject(root, initial);
+  assert.deepEqual(await readDirectoryProject(root), initial);
+
+  dirCalls.length = 0;
+  const next = {
+    'ui/New.ui': 'component New { Frame {} }',
+  };
+  await writeDirectoryProject(root, next, {
+    ...initial,
+    'missing/Ghost.ui': 'already gone',
+  });
+  assert.deepEqual(await readDirectoryProject(root), next);
+  assert.ok(
+    dirCalls.some(([name, options]) => name === 'missing' && options === undefined),
+    'parent lookup during deletion must not pass { create: true }',
+  );
+});

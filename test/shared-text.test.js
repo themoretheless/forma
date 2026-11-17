@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, parentDirOf, countLines } from '../src/shared/text.js';
+import { escapeHtml, parentDirOf, countLines, formaStringLiteral } from '../src/shared/text.js';
 
 test('escapeHtml covers text and both attribute quotes, and tolerates empty values', () => {
   assert.equal(
@@ -23,4 +23,11 @@ test('countLines counts newlines before the offset, one-based', () => {
   assert.equal(countLines('a\nb\nc'), 3);
   assert.equal(countLines('a\nb\nc', 2), 2);
   assert.equal(countLines('a\nb\nc', 1), 1);
+});
+
+test('formaStringLiteral escapes quotes, control whitespace, backslashes, and ${...} interpolation', () => {
+  assert.equal(
+    formaStringLiteral("it's a\\b\nc\rd\te ${state.secret}"),
+    "'it\\'s a\\\\b\\nc\\rd\\te \\${state.secret}'",
+  );
 });

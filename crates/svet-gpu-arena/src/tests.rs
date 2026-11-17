@@ -418,3 +418,73 @@ fn perspective_large_depth_range_avoids_intermediate_overflow() {
         assert!((depth - expected).abs() < 1.0e-6);
     }
 }
+
+#[test]
+fn test_free_f32_rejects_unaligned_offsets_preserving_16_byte_alignment() {
+    let mut g = GpuArena::new();
+    let off0 = g.alloc_f32(8);
+    let off1 = g.alloc_f32(8);
+    assert_eq!(off0, 0);
+    assert_eq!(off1, 8);
+
+    for unaligned in [1, 2, 3, 5, 6, 7] {
+        g.free_f32(unaligned, 4);
+    }
+    assert!(g.free_blocks.is_empty());
+
+    g.free_f32(off0, 8);
+    assert_eq!(g.free_blocks, vec![(0, 8)]);
+    // Unaligned free adjacent to an existing free block must also be ignored.
+    g.free_f32(9, 4);
+    assert_eq!(g.free_blocks, vec![(0, 8)]);
+
+    let reused = g.alloc_f32(4);
+    assert_eq!(reused % 4, 0);
+}
+
+#[test]
+fn test_vector_fma_overlapping_ranges_match_sequential_semantics() {
+    let mut g = GpuArena::new();
+    let off = g.alloc_f32(12);
+    assert_eq!(off, 0);
+    let init: [f32; 12] = [
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+    ];
+    g.f32_arena[..12].copy_from_slice(&init);
+
+    let mut expected = init;
+    for i in 0..8 {
+        expected[2 + i] = expected[i] * 2.0 + 1.0;
+    }
+    g.vector_fma(0, 2, 8, 2.0, 1.0);
+    assert_eq!(&g.f32_arena[..12], &expected);
+}
+
+#[test]
+fn test_visible_picker_reuses_triangle_scratch_and_standalone_api_matches() {
+    let mut g = GpuArena::new();
+    let offset = g.alloc_f32(20);
+    g.f32_arena[..20].copy_from_slice(&[
+        -0.8, -0.8, 0.2, 1.0, 0.8, -0.8, 0.2, 1.0, 0.0, 0.8, 0.2, 1.0, 0.0, 0.0, 0.8, 1.0, 0.5,
+        0.5, 0.8, 1.0,
+    ]);
+    g.pick_indices = vec![0, 1, 2];
+    let center = ViewportPickQuery::new(200.0, 200.0, 100.0, 100.0, 2.0);
+    let outside_aabb = ViewportPickQuery::new(200.0, 200.0, 150.0, 50.0, 2.0);
+    assert_eq!(g.pick_visible_vertex_3d(offset, 5, 3, center), -1);
+    assert_eq!(g.pick_visible_vertex_3d(offset, 5, 3, outside_aabb), 4);
+
+    let mut scratch = Vec::new();
+    assert_eq!(
+        pick_visible_vertex_3d(
+            &g.f32_arena,
+            offset,
+            5,
+            &g.pick_indices,
+            3,
+            &mut scratch,
+            outside_aabb,
+        ),
+        4
+    );
+}

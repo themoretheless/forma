@@ -123,6 +123,8 @@ pub struct ReactiveGraph {
     pub dependency_stack: Vec<u32>,
     pub dependency_seen: Vec<u32>,
     pub dependency_epoch: u32,
+    /// Reusable scratch buffer for severing edge lists without dropping slot `Vec` capacities.
+    edge_scratch: Vec<u32>,
 }
 
 impl Default for ReactiveGraph {
@@ -155,6 +157,7 @@ impl ReactiveGraph {
             dependency_stack: Vec::new(),
             dependency_seen: Vec::new(),
             dependency_epoch: 0,
+            edge_scratch: Vec::new(),
         }
     }
 
@@ -180,6 +183,7 @@ impl ReactiveGraph {
         self.dependency_stack.clear();
         self.dependency_seen.clear();
         self.dependency_epoch = 0;
+        self.edge_scratch.clear();
     }
 
     #[inline]
@@ -219,7 +223,19 @@ impl ReactiveGraph {
     }
 
     #[inline]
+    fn advance_global_epoch(&mut self) -> u32 {
+        self.global_epoch = self.global_epoch.wrapping_add(1);
+        if self.global_epoch == 0 {
+            self.global_epoch = 1;
+        }
+        self.global_epoch
+    }
+
+    #[inline]
     pub fn create_node(&mut self, kind: u8) -> u32 {
+        if kind > KIND_EFFECT {
+            return u32::MAX;
+        }
         let initial_state = if kind == KIND_SIGNAL {
             STATE_CLEAN
         } else {
@@ -253,7 +269,7 @@ impl ReactiveGraph {
             self.single_terminal_effect[idx] = u32::MAX;
             self.downstream_computeds[idx].clear();
             self.terminal_cache_epoch[idx] = 0;
-            self.take_subscribers(idx);
+            self.clear_subscribers_in_place(idx);
             self.sources[idx].clear();
             return reused_id;
         }
@@ -309,9 +325,10 @@ impl ReactiveGraph {
         // 1. Sever incoming edges (sources -> this node)
         self.clear_sources(id);
 
-        // 2. Sever outgoing edges (this node -> subscribers)
-        let subs = self.take_subscribers(idx);
-        for sub_id in subs {
+        // 2. Sever outgoing edges (this node -> subscribers) while preserving warmed Vec capacity
+        self.clear_subscribers_into_scratch(idx);
+        for i in 0..self.edge_scratch.len() {
+            let sub_id = self.edge_scratch[i];
             let lifetime = self
                 .nodes
                 .get(sub_id as usize)
@@ -337,6 +354,7 @@ impl ReactiveGraph {
                 }
             }
         }
+        self.edge_scratch.clear();
 
         // 3. Mark dead and push to free_list
         let node = &mut self.nodes[idx];
@@ -414,16 +432,38 @@ impl ReactiveGraph {
         }
     }
 
-    /// Empties a subscriber list and drops its index entries.
-    fn take_subscribers(&mut self, source: usize) -> Vec<u32> {
-        let subs = std::mem::take(&mut self.subscribers[source]);
+    /// Empties a subscriber list in place (preserving `Vec` capacity) and drops its index entries.
+    #[inline]
+    fn clear_subscribers_in_place(&mut self, source: usize) {
         if self.sub_indexed[source] {
             self.sub_indexed[source] = false;
-            for &sub in &subs {
+            for &sub in &self.subscribers[source] {
                 self.sub_index.remove(&edge_key(source, sub));
             }
         }
-        subs
+        self.subscribers[source].clear();
+    }
+
+    /// Copies outgoing subscribers into `self.edge_scratch`, clears `self.subscribers[source]` in place
+    /// (preserving `Vec` capacity), and drops any `sub_index` entries.
+    #[inline]
+    fn clear_subscribers_into_scratch(&mut self, source: usize) {
+        self.edge_scratch.clear();
+        self.edge_scratch
+            .extend_from_slice(&self.subscribers[source]);
+        self.clear_subscribers_in_place(source);
+    }
+
+    #[inline]
+    fn reset_observer_cursors(&mut self, target: u32) {
+        let t = target as usize;
+        if let Some(node) = self.nodes.get(t).filter(|node| node.alive) {
+            for frame in &mut self.tracking_stack {
+                if frame.0 == target && frame.2 == node.lifetime {
+                    frame.1 = 0;
+                }
+            }
+        }
     }
 
     #[inline]
@@ -432,32 +472,58 @@ impl ReactiveGraph {
         if t >= self.nodes.len() {
             return;
         }
-        if let Some(node) = self.nodes.get(t).filter(|node| node.alive) {
-            for frame in &mut self.tracking_stack {
-                if frame.0 == target && frame.2 == node.lifetime {
-                    frame.1 = 0;
-                }
-            }
+        self.reset_observer_cursors(target);
+        if self.sources[t].is_empty() {
+            return;
         }
-        if !self.sources[t].is_empty() {
-            self.advance_topology_epoch();
+        self.advance_topology_epoch();
+        for i in 0..self.sources[t].len() {
+            let src = self.sources[t][i] as usize;
+            self.remove_subscriber(src, target);
         }
-        let prev_sources = std::mem::take(&mut self.sources[t]);
-        for src in prev_sources {
-            self.remove_subscriber(src as usize, target);
-        }
+        self.sources[t].clear();
     }
 
     /// Replaces all incoming dependency edges of `target` with `new_sources` and marks `target` as `STATE_CLEAN`.
     pub fn sync_sources(&mut self, target: u32, new_sources: &[u32]) {
-        self.clear_sources(target);
-        if !self.is_alive(target) {
+        let t = target as usize;
+        if t >= self.nodes.len() {
             return;
         }
-        for &src in new_sources {
+        self.reset_observer_cursors(target);
+        if !self.is_alive(target) {
+            self.clear_sources(target);
+            return;
+        }
+
+        // Fast path: identical source slice requires zero allocations and zero topology_epoch bumps.
+        if self.sources[t].as_slice() == new_sources {
+            self.node_states[t] = STATE_CLEAN;
+            return;
+        }
+
+        // Compute longest matching prefix where every source in `new_sources` is unique and valid
+        // (matching `self.sources[t]` guarantees uniqueness, non-self, and liveness).
+        let common = self.sources[t]
+            .iter()
+            .zip(new_sources.iter())
+            .take_while(|(old, new)| old == new)
+            .count();
+
+        let old_len = self.sources[t].len();
+        if common < old_len {
+            self.advance_topology_epoch();
+            for i in common..old_len {
+                let stale_src = self.sources[t][i] as usize;
+                self.remove_subscriber(stale_src, target);
+            }
+            self.sources[t].truncate(common);
+        }
+
+        for &src in &new_sources[common..] {
             self.link(src, target);
         }
-        self.node_states[target as usize] = STATE_CLEAN;
+        self.node_states[t] = STATE_CLEAN;
     }
 
     /// Uses cursor-based edge verification: if dependencies are accessed in the same order,
@@ -594,8 +660,8 @@ impl ReactiveGraph {
 
     #[inline]
     fn mark_cached_downstream_dirty(&mut self, source: usize) {
-        self.global_epoch = self.global_epoch.wrapping_add(1);
-        self.nodes[source].epoch = self.global_epoch;
+        let epoch = self.advance_global_epoch();
+        self.nodes[source].epoch = epoch;
         for &comp_id in &self.downstream_computeds[source] {
             self.node_states[comp_id as usize] = STATE_DIRTY;
         }
@@ -648,8 +714,8 @@ impl ReactiveGraph {
             return;
         }
         let s = source as usize;
-        self.global_epoch = self.global_epoch.wrapping_add(1);
-        self.nodes[s].epoch = self.global_epoch;
+        let epoch = self.advance_global_epoch();
+        self.nodes[s].epoch = epoch;
 
         self.propagate_stack.clear();
         for &sub in &self.subscribers[s] {
@@ -697,7 +763,7 @@ impl ReactiveGraph {
 
     #[inline]
     pub fn set_state(&mut self, id: u32, state: u8) {
-        if self.is_alive(id) {
+        if matches!(state, STATE_CLEAN | STATE_CHECK | STATE_DIRTY) && self.is_alive(id) {
             self.node_states[id as usize] = state;
         }
     }

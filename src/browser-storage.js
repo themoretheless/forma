@@ -16,6 +16,12 @@ export function writeStorage(kind, key, value, host = globalThis) {
     return false;
   }
 }
+const isSafeProjectPath = path =>
+  !path.includes('\\') &&
+  !path.includes('\0') &&
+  !path
+    .split('/')
+    .some(part => !part || ['.', '..', '__proto__', 'prototype', 'constructor'].includes(part));
 export function validateProject(data) {
   if (
     !data ||
@@ -26,14 +32,7 @@ export function validateProject(data) {
   )
     throw Error('Ожидается JSON проекта: пути файлов и текст');
   for (const path of Object.keys(data))
-    if (
-      path.includes('\\') ||
-      path.includes('\0') ||
-      path
-        .split('/')
-        .some(part => !part || ['.', '..', '__proto__', 'prototype', 'constructor'].includes(part))
-    )
-      throw Error(`Недопустимый путь проекта: ${path}`);
+    if (!isSafeProjectPath(path)) throw Error(`Недопустимый путь проекта: ${path}`);
   return data;
 }
 export function restoreProject(raw, fallback) {
@@ -102,7 +101,7 @@ export async function readDirectoryProject(
 export async function writeDirectoryProject(directoryHandle, files, previous = {}) {
   validateProject(files);
   for (const [path, content] of Object.entries(files)) {
-    if (previous[path] === content) continue;
+    if (previous?.[path] === content) continue;
     const parts = path.split('/'),
       name = parts.pop();
     let dir = directoryHandle;
@@ -111,6 +110,18 @@ export async function writeDirectoryProject(directoryHandle, files, previous = {
     const writable = await handle.createWritable();
     await writable.write(content);
     await writable.close();
+  }
+  for (const path of Object.keys(previous ?? {})) {
+    if (Object.hasOwn(files, path) || !isSafeProjectPath(path)) continue;
+    const parts = path.split('/'),
+      leafName = parts.pop();
+    try {
+      let dir = directoryHandle;
+      for (const segment of parts) dir = await dir.getDirectoryHandle(segment);
+      await dir.removeEntry(leafName);
+    } catch (error) {
+      if (error?.name !== 'NotFoundError') throw error;
+    }
   }
   return true;
 }

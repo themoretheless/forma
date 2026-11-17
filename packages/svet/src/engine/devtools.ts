@@ -16,13 +16,18 @@ import { getGpuTelemetry, type GpuDeviceTelemetry } from './gpu.ts';
 import {
   batch,
   computed,
+  disposeDetachedScope,
   effect,
   getGraphTelemetry,
   onCleanup,
+  type OwnerScope,
   type ReadonlySignal,
+  runInDetachedScope,
   signal,
   type Signal,
+  untrack,
 } from './reactivity.ts';
+import { getWasmCore } from './wasm-bridge.ts';
 
 // ============================================================================
 // 1. Deterministic Time-Travel Debugger (`createTimeTravelDebugger`)
@@ -356,11 +361,33 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
   container.appendChild(phantomSpacer);
   container.appendChild(contentLayer);
 
+  const core = getWasmCore();
+  const rowScopes: OwnerScope[] = [];
+  const disposeRowScopes = () => {
+    while (rowScopes.length > 0) {
+      const scope = rowScopes.pop();
+      if (scope) disposeDetachedScope(core, scope);
+    }
+  };
+
   const onScroll = () => {
     scrollTopSig.set(container.scrollTop);
   };
   container.addEventListener('scroll', onScroll, { passive: true });
-  onCleanup(() => container.removeEventListener('scroll', onScroll));
+  onCleanup(() => {
+    container.removeEventListener('scroll', onScroll);
+    disposeRowScopes();
+    dynamicPrefixOffsets?.dispose();
+    visibleRangeSig.dispose();
+    scrollTopSig.dispose();
+  });
+
+  let prevListRef: T[] | null = null;
+  let prevTotalCount = -1;
+  let prevPrefixesRef: Float64Array | null = null;
+  let prevStartIdx = -1;
+  let prevEndIdx = -1;
+  let prevTopOffsetPx = -1;
 
   effect(() => {
     const list = getItems();
@@ -373,7 +400,9 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
     let prefixes: Float64Array | null = null;
 
     if (!isDynamicHeight) {
-      phantomSpacer.style.height = `${totalCount * fixedItemHeight}px`;
+      if (totalCount !== prevTotalCount) {
+        phantomSpacer.style.height = `${totalCount * fixedItemHeight}px`;
+      }
       const rawStart = Math.floor(scrollTop / fixedItemHeight);
       const visibleCount = Math.ceil(viewportHeight / fixedItemHeight);
       startIdx = Math.max(0, rawStart - overscan);
@@ -381,8 +410,10 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
       topOffsetPx = startIdx * fixedItemHeight;
     } else {
       prefixes = dynamicPrefixOffsets!();
-      const totalHeight = prefixes[totalCount];
-      phantomSpacer.style.height = `${totalHeight}px`;
+      if (prefixes !== prevPrefixesRef || totalCount !== prevTotalCount) {
+        const totalHeight = prefixes[totalCount] ?? 0;
+        phantomSpacer.style.height = `${totalHeight}px`;
+      }
 
       const rawStart = binarySearchPrefixOffset(prefixes, scrollTop);
       const rawEnd = binarySearchPrefixOffset(prefixes, scrollTop + viewportHeight) + 1;
@@ -391,7 +422,33 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
       topOffsetPx = prefixes[startIdx] ?? 0;
     }
 
-    visibleRangeSig.set([startIdx, endIdx]);
+    const prevRange = visibleRangeSig.peek();
+    if (prevRange[0] !== startIdx || prevRange[1] !== endIdx) {
+      visibleRangeSig.set([startIdx, endIdx]);
+    }
+
+    if (
+      startIdx === prevStartIdx &&
+      endIdx === prevEndIdx &&
+      list === prevListRef &&
+      totalCount === prevTotalCount &&
+      prefixes === prevPrefixesRef
+    ) {
+      if (topOffsetPx !== prevTopOffsetPx) {
+        prevTopOffsetPx = topOffsetPx;
+        contentLayer.style.transform = `translateY(${topOffsetPx}px)`;
+      }
+      return;
+    }
+
+    prevListRef = list;
+    prevTotalCount = totalCount;
+    prevPrefixesRef = prefixes;
+    prevStartIdx = startIdx;
+    prevEndIdx = endIdx;
+    prevTopOffsetPx = topOffsetPx;
+
+    disposeRowScopes();
     contentLayer.style.transform = `translateY(${topOffsetPx}px)`;
     contentLayer.innerHTML = '';
 
@@ -407,7 +464,12 @@ export function VirtualList<T>(props: VirtualListProps<T>): VirtualListHandle<T>
       rowWrapper.style.boxSizing = 'border-box';
       rowWrapper.style.display = 'flex';
       rowWrapper.style.alignItems = 'center';
-      insertChild(rowWrapper, props.renderItem(list[idx] as T, idx));
+      untrack(() =>
+        runInDetachedScope(scope => {
+          rowScopes.push(scope);
+          insertChild(rowWrapper, props.renderItem(list[idx] as T, idx));
+        }),
+      );
       frag.appendChild(rowWrapper);
     }
     contentLayer.appendChild(frag);

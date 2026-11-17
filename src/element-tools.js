@@ -1,5 +1,5 @@
 import { createEventScope } from './event-scope.js';
-import { parse } from './language.js';
+import { parseShared } from './language.js';
 import {
   copyElements,
   copyElement,
@@ -337,13 +337,15 @@ export function createElementTools({
   let measure = null;
   function measured(c) {
     if (measure?.scene === c.scene && measure.source === c.source) return measure;
-    const nodes = new Map();
+    const nodes = new Map(),
+      parents = new Map();
     try {
-      const stack = [...parse(c.source).nodes];
+      const stack = parseShared(c.source).nodes.map(n => [n, null]);
       while (stack.length) {
-        const n = stack.pop();
+        const [n, parent] = stack.pop();
         nodes.set(n.start, n);
-        stack.push(...(n.children ?? []));
+        parents.set(n.start, parent);
+        for (const child of n.children ?? []) stack.push([child, n]);
       }
     } catch {}
     // A drawing can carry the offset of a node from a component file, and that is not something this page's
@@ -370,6 +372,7 @@ export function createElementTools({
       panels,
       frames,
       nodes,
+      parents,
       unions: new Map(),
     });
   }
@@ -416,17 +419,10 @@ export function createElementTools({
         .sort((a, b) => a[1][2] * a[1][3] - b[1][2] * b[1][3]);
       return under.length ? under[0][0] : null;
     }
-    const parentOf = start => {
-      try {
-        return locateElement(c.source, start).parent;
-      } catch {
-        return null;
-      }
-    };
     for (
-      let node = parentOf(from);
+      let node = m.parents.get(from);
       node && node.start !== c.root?.start;
-      node = parentOf(node.start)
+      node = m.parents.get(node.start)
     )
       if (covers(m.panels.get(node.start))) return node.start;
     return null;
@@ -570,13 +566,10 @@ export function createElementTools({
     if (drag.items.length !== 1 || drag.start == null) return null;
     const found = shellAt(drag, drag.sx + dx, drag.sy + dy, null);
     if (found == null) return null;
-    try {
-      if (locateElement(drag.source, drag.start).parent?.start === found) return null;
-    } catch {
-      return null;
-    }
+    const m = measured(drag);
+    if (!m.nodes.has(drag.start) || m.parents.get(drag.start)?.start === found) return null;
     if ((drag.covered ?? (drag.covered = covered(drag, [drag.start]))).has(found)) return null;
-    return { start: found, box: measured(drag).panels.get(found) };
+    return { start: found, box: m.panels.get(found) };
   }
   // The palette entries the menu inserts are one line of markup, so a coordinate joins the properties
   // the entry already declares.
@@ -732,9 +725,8 @@ export function createElementTools({
       scale: r.width / (artboard.offsetWidth || c?.scene.width || r.width),
     };
   }
-  function box(bounds, className) {
-    const g = geometry(),
-      el = document.createElement('div');
+  function box(bounds, className, g = geometry()) {
+    const el = document.createElement('div');
     el.className = className;
     Object.assign(el.style, {
       left: g.x + bounds[0] * g.scale + 'px',
@@ -761,8 +753,7 @@ export function createElementTools({
     top: name.includes('n') ? 1 : 0,
     bottom: name.includes('s') ? 1 : 0,
   });
-  function handles(bounds) {
-    const g = geometry();
+  function handles(bounds, g = geometry()) {
     for (const [name, fx, fy, cursor] of sides) {
       const el = document.createElement('button');
       el.className = 'element-resize-handle';
@@ -784,9 +775,8 @@ export function createElementTools({
     ['bottom', 'ns-resize'],
     ['left', 'ew-resize'],
   ];
-  function paddingHandles(bounds, pad) {
-    const g = geometry(),
-      [t, r, b, l] = pad;
+  function paddingHandles(bounds, pad, g = geometry()) {
+    const [t, r, b, l] = pad;
     const coords = {
       top: [bounds[0] + bounds[2] * 0.5, bounds[1] + Math.min(bounds[3] * 0.5, Math.max(4, t))],
       right: [
@@ -819,22 +809,23 @@ export function createElementTools({
     overlay.replaceChildren();
     const c = context();
     if (!c) return;
-    for (const item of items(c)) box(item.bounds, 'element-selected-box');
-    if (!drag && resize != null) for (const item of items(c)) handles(item.bounds);
+    const g = geometry(),
+      selected = items(c);
+    for (const item of selected) box(item.bounds, 'element-selected-box', g);
+    if (!drag && resize != null) for (const item of selected) handles(item.bounds, g);
     if (!drag && padTarget != null) {
-      const item = items(c)[0],
+      const item = selected[0],
         node = measured(c).nodes.get(padTarget);
-      if (item && node) paddingHandles(item.bounds, readNodePadding(node));
+      if (item && node) paddingHandles(item.bounds, readNodePadding(node), g);
     }
-    if (!drag && hint) box(hint, 'element-drop-hint');
+    if (!drag && hint) box(hint, 'element-drop-hint', g);
     if (!drag) return;
     if (drag.kind === 'marquee') {
-      box(drag.marquee, 'element-marquee');
+      box(drag.marquee, 'element-marquee', g);
       return;
     }
     if (drag.kind === 'padding') {
-      const g = geometry(),
-        b = drag.bounds,
+      const b = drag.bounds,
         [pt, pr, pb, pl] = drag.previewPad;
       const inner = [
         b[0] + pl,
@@ -842,7 +833,7 @@ export function createElementTools({
         Math.max(0, b[2] - pl - pr),
         Math.max(0, b[3] - pt - pb),
       ];
-      box(inner, 'element-padding-preview');
+      box(inner, 'element-padding-preview', g);
       const label = document.createElement('span');
       label.className = 'element-drag-label';
       label.textContent = drag.uniform
@@ -856,12 +847,11 @@ export function createElementTools({
       return;
     }
     if (drag.kind === 'resize') {
-      const g = geometry(),
-        b = drag.preview,
+      const b = drag.preview,
         label = document.createElement('span');
       label.className = 'element-drag-label';
       label.textContent = `${Math.round(b[2])} × ${Math.round(b[3])}`;
-      box(b, 'element-drag-preview');
+      box(b, 'element-drag-preview', g);
       Object.assign(label.style, {
         left: g.x + b[0] * g.scale + 'px',
         top: g.y + b[1] * g.scale - 22 + 'px',
@@ -874,11 +864,11 @@ export function createElementTools({
       box(
         [item.bounds[0] + drag.dx, item.bounds[1] + drag.dy, item.bounds[2], item.bounds[3]],
         'element-drag-preview',
+        g,
       );
     // The same dashed frame a palette drop promises with: it names the container that will take the
     // control, which is the one thing the designer cannot tell from the moving box itself.
-    if (drag.holder) box(drag.holder.box, 'element-drop-hint');
-    const g = geometry();
+    if (drag.holder) box(drag.holder.box, 'element-drop-hint', g);
     for (const guide of drag.guides ?? []) {
       const line = document.createElement('div');
       line.className = 'element-snap-guide';

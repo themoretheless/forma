@@ -155,6 +155,8 @@ pub fn icp_register(source: &[V3], target: &[V3], options: IcpOptions) -> Result
     }
 
     let mut current = source.to_vec();
+    let mut from = Vec::with_capacity(source.len());
+    let mut to = Vec::with_capacity(source.len());
     let mut transform = RigidTransform::default();
     let mut last_mse = f64::INFINITY;
     let mut report = IcpReport {
@@ -165,8 +167,8 @@ pub fn icp_register(source: &[V3], target: &[V3], options: IcpOptions) -> Result
     };
     for iteration in 0..options.max_iterations {
         let pairs = nearest_neighbor_accelerated(&current, target, options.acceleration);
-        let mut from = Vec::with_capacity(source.len());
-        let mut to = Vec::with_capacity(source.len());
+        from.clear();
+        to.clear();
         for (i, &(j, squared)) in pairs.iter().enumerate() {
             if j == u32::MAX || max_squared.is_some_and(|cap| squared > cap) {
                 continue;

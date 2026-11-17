@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest';
 import { formaStdlib, transformFormaPipes } from '../src/engine/forma-stdlib';
+import { doesFormaPatternMatch, evaluateFormaExpression } from '../src/engine/forma-expr';
+import { computed, resetReactiveSystem, signal } from '../src/engine';
 
 const call = (name: string, ...args: unknown[]) => formaStdlib[name]?.(...args);
 
@@ -37,4 +39,44 @@ it('rewrites pipes into nested calls from left to right', () => {
   expect(transformFormaPipes('a |> f(b, c)')).toBe('f(a, b, c)');
   expect(transformFormaPipes('a |> f(b) |> g() |> h')).toBe('h(g(f(a, b)))');
   expect(transformFormaPipes(' |> f')).toBe('f()');
+});
+
+it('preserves quoted |> inside string literals and nested parentheses when transforming pipes', () => {
+  expect(transformFormaPipes("'a |> b' |> upper()")).toBe("upper('a |> b')");
+  expect(transformFormaPipes('"x |> y" |> replace(" |> ", "-")')).toBe(
+    'replace("x |> y", " |> ", "-")',
+  );
+  expect(transformFormaPipes("a |> fn('p |> q', [1, 2]) |> trim")).toBe(
+    "trim(fn(a, 'p |> q', [1, 2]))",
+  );
+});
+
+it('evaluates nested braces in string interpolations and matches exact quoted | or . patterns', () => {
+  resetReactiveSystem();
+  const flag = signal(true);
+  const i18n = computed(() => ({}));
+  const isValid = computed(() => true);
+  const scope = {
+    state: { flag },
+    props: {},
+    computedLets: {},
+    tokens: {},
+    i18n,
+    isValid,
+  };
+
+  expect(evaluateFormaExpression('\'val=${state.flag ? "{a}" : "{b}"}\'', scope)).toBe('val={a}');
+  flag.set(false);
+  expect(evaluateFormaExpression('\'val=${state.flag ? "{a}" : "{b}"}\'', scope)).toBe('val={b}');
+  expect(evaluateFormaExpression("'lit=\\' |> \\'' |> upper()", scope)).toBe("LIT=' |> '");
+
+  expect(doesFormaPatternMatch("'a|b'", 'a|b')).toBe(true);
+  expect(doesFormaPatternMatch("'a|b'", 'a')).toBe(false);
+  expect(doesFormaPatternMatch('"a.b"', 'a.b')).toBe(true);
+  expect(doesFormaPatternMatch('"a.b"', 'b')).toBe(false);
+  expect(doesFormaPatternMatch("'a|b' | 'c|d'", 'c|d')).toBe(true);
+
+  flag.dispose();
+  i18n.dispose();
+  isValid.dispose();
 });

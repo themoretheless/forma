@@ -13,7 +13,7 @@ impl Runtime {
 
     pub fn range_key(&mut self, key: &str) -> bool {
         let Some(i) = self.focused else { return false };
-        if self.controls[i].disabled() {
+        if self.controls[i].disabled() || self.controls[i].template.range.is_none() {
             return false;
         }
         let Some(range) = Arc::make_mut(&mut self.controls[i].template).range.as_mut() else {

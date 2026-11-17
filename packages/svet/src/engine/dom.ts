@@ -1839,13 +1839,16 @@ function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
   return childNode;
 }
 
-/**
- * Core hyperscript / JSX factory that builds real DOM & SVG nodes directly (Zero VDOM).
- */
-export function h(
-  type: string | Component<any> | AsyncComponent<any>,
-  props: Record<string, any> | null,
-  ...children: ChildNodeValue[]
+type ElementTypeInput = string | Component<any> | AsyncComponent<any>;
+type ElementPropsInput = Record<string, any> | null;
+
+function constructElement(
+  type: ElementTypeInput,
+  props: ElementPropsInput,
+  hasExplicitChildren: boolean,
+  explicitChildren: ChildNodeValue[],
+  hasExplicitKey: boolean,
+  explicitKey: string | number | undefined,
 ): Node {
   const assertCallerCurrent = captureViewLifetime();
   assertCallerCurrent();
@@ -1875,8 +1878,21 @@ export function h(
         });
       }
     }
-    if (children.length > 0) {
-      normalizedProps.children = children.length === 1 ? children[0] : children;
+    if (hasExplicitKey) {
+      Object.defineProperty(normalizedProps, 'key', {
+        value: explicitKey,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    }
+    if (hasExplicitChildren && explicitChildren.length > 0) {
+      Object.defineProperty(normalizedProps, 'children', {
+        value: explicitChildren.length === 1 ? explicitChildren[0] : explicitChildren,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
     }
 
     if (typeof type === 'function') {
@@ -1947,6 +1963,26 @@ export function h(
     assertCurrent();
     return el;
   });
+}
+
+/**
+ * Core hyperscript / JSX factory that builds real DOM & SVG nodes directly (Zero VDOM).
+ */
+export function h(
+  type: ElementTypeInput,
+  props: ElementPropsInput,
+  ...children: ChildNodeValue[]
+): Node {
+  return constructElement(type, props, true, children, false, undefined);
+}
+
+/** @internal Automatic JSX runtime entry without intermediate prop cloning or child rest-spreading. */
+export function createJsxElement(
+  type: ElementTypeInput,
+  props: ElementPropsInput,
+  key?: string | number,
+): Node {
+  return constructElement(type, props, false, [], key !== undefined, key);
 }
 
 export function Fragment(props: { children?: ChildNodeValue }): DocumentFragment {

@@ -40,6 +40,8 @@ struct VisualRowContext<'a> {
     selection: &'a std::ops::Range<usize>,
     px: f32,
     lh: f32,
+    min_y: f32,
+    max_y: f32,
 }
 
 impl Editor {
@@ -428,6 +430,9 @@ impl Editor {
                 ));
             }
         }
+        if py + ctx.lh <= ctx.min_y || py >= ctx.max_y {
+            return;
+        }
         if self.fades.is_empty() {
             ctx.out.push(Content::Text {
                 bounds: [ctx.px, py, self.width(line), ctx.lh],
@@ -517,6 +522,8 @@ impl Editor {
                 selection: &selection,
                 px,
                 lh,
+                min_y: y,
+                max_y: y + h,
             };
             if let Some(wrapped) = &wrapped {
                 for (row, (byte_range, _)) in wrapped.iter().enumerate() {

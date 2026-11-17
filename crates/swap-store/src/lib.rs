@@ -253,46 +253,14 @@ impl SwapStore {
         &self,
         bytes: u64,
         chunks: impl IntoIterator<Item = &'a [u8]>,
-        mut cancelled: impl FnMut() -> bool,
+        cancelled: impl FnMut() -> bool,
     ) -> Result<SwapHandle> {
-        if cancelled() {
-            return Err(SwapError::Cancelled);
-        }
-        let reservation = self.reserve(bytes)?;
-        let mut file = NamedTempFile::new_in(self.0.directory.path())?;
-        let mut hasher = blake3::Hasher::new();
-        let mut written = 0_u64;
-        for chunk in chunks {
-            if cancelled() {
-                return Err(SwapError::Cancelled);
+        self.write_stream(bytes, cancelled, |stream| {
+            for chunk in chunks {
+                stream.write_all(chunk)?;
             }
-            for block in chunk.chunks(BLOCK) {
-                if cancelled() {
-                    return Err(SwapError::Cancelled);
-                }
-                written = written
-                    .checked_add(u64::try_from(block.len()).map_err(|_| SwapError::Length)?)
-                    .ok_or(SwapError::Length)?;
-                if written > bytes {
-                    return Err(SwapError::Length);
-                }
-                file.write_all(block)?;
-                hasher.update(block);
-            }
-        }
-        if written != bytes {
-            return Err(SwapError::Length);
-        }
-        file.flush()?;
-        if cancelled() {
-            return Err(SwapError::Cancelled);
-        }
-        Ok(SwapHandle(Arc::new(Entry {
-            file,
-            bytes,
-            digest: *hasher.finalize().as_bytes(),
-            reservation,
-        })))
+            Ok(())
+        })
     }
     /// Streams an encoder without retaining a complete serialized payload in RAM.
     ///
@@ -336,7 +304,12 @@ impl SwapStore {
         if check_cancelled() {
             return Err(SwapError::Cancelled);
         }
-        result?;
+        if let Err(err) = result {
+            return Err(match err.downcast::<SwapError>() {
+                Ok(swap_err) => swap_err,
+                Err(io_err) => SwapError::Io(io_err),
+            });
+        }
         if remaining != 0 {
             return Err(SwapError::Length);
         }

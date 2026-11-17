@@ -8,7 +8,7 @@ pub(crate) struct DocumentGraph {
     graph: Context,
     render: Node,
     topology: Node,
-    sources: BTreeMap<(usize, String), Node>,
+    sources: Vec<BTreeMap<String, Node>>,
     states: Vec<Properties>,
     pending: bool,
 }
@@ -21,7 +21,7 @@ impl DocumentGraph {
             graph,
             render,
             topology,
-            sources: BTreeMap::new(),
+            sources: Vec::new(),
             states: Vec::new(),
             pending: false,
         };
@@ -35,8 +35,10 @@ impl DocumentGraph {
         self.graph
             .track(&self.render, |scope| {
                 scope.read(topology).unwrap();
-                for source in sources.values() {
-                    scope.read(source).unwrap();
+                for scope_sources in sources {
+                    for source in scope_sources.values() {
+                        scope.read(source).unwrap();
+                    }
                 }
             })
             .unwrap();
@@ -49,36 +51,45 @@ impl DocumentGraph {
             return self.pending;
         }
         let mut changed = Vec::new();
-        let retired: Vec<_> = self
-            .sources
-            .keys()
-            .filter(|(index, name)| {
-                states
-                    .get(*index)
-                    .and_then(|state| state.get(name))
-                    .is_none()
-            })
-            .cloned()
-            .collect();
-        let mut shape_changed = !retired.is_empty() || self.states.len() != states.len();
-        for key in retired {
-            self.graph
-                .dispose(&self.sources.remove(&key).unwrap())
-                .unwrap();
+        let mut shape_changed = self.states.len() != states.len();
+        while self.sources.len() > states.len() {
+            shape_changed = true;
+            if let Some(scope_sources) = self.sources.pop() {
+                for node in scope_sources.into_values() {
+                    self.graph.dispose(&node).unwrap();
+                }
+            }
+        }
+        for (index, scope_sources) in self.sources.iter_mut().enumerate() {
+            let state = &states[index];
+            let retired: Vec<String> = scope_sources
+                .keys()
+                .filter(|name| state.get(name.as_str()).is_none())
+                .cloned()
+                .collect();
+            if !retired.is_empty() {
+                shape_changed = true;
+                for name in retired {
+                    if let Some(node) = scope_sources.remove(&name) {
+                        self.graph.dispose(&node).unwrap();
+                    }
+                }
+            }
+        }
+        if self.sources.len() < states.len() {
+            self.sources.resize_with(states.len(), BTreeMap::new);
         }
         for (index, state) in states.iter().enumerate() {
             for (name, value) in state {
-                let key = (index, name.clone());
-                let node = match self.sources.entry(key) {
-                    std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
-                    std::collections::btree_map::Entry::Vacant(entry) => {
-                        shape_changed = true;
-                        entry.insert(
-                            self.graph
-                                .create(Kind::Signal)
-                                .expect("document state signal"),
-                        )
-                    }
+                let node = if let Some(existing) = self.sources[index].get(name.as_str()) {
+                    existing
+                } else {
+                    shape_changed = true;
+                    let created = self
+                        .graph
+                        .create(Kind::Signal)
+                        .expect("document state signal");
+                    self.sources[index].entry(name.clone()).or_insert(created)
                 };
                 if self.states.get(index).and_then(|old| old.get(name)) != Some(value) {
                     changed.push(node.clone());

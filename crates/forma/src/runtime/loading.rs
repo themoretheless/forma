@@ -193,6 +193,7 @@ impl Runtime {
             children: Vec::with_capacity(root_children),
             kind: NodeKind::Frame,
             control: None,
+            modal: None,
         });
         let parent = if scene.scroll {
             nodes[0].children.push(1);
@@ -202,6 +203,7 @@ impl Runtime {
                 children: Vec::with_capacity(base),
                 kind: NodeKind::Scroll,
                 control: None,
+                modal: None,
             });
             1
         } else {
@@ -216,15 +218,17 @@ impl Runtime {
             let parent = match modal_of[index] {
                 None => parent,
                 Some(m) => {
-                    if modal_nodes.len() <= m {
+                    while modal_nodes.len() <= m {
+                        let cur = modal_nodes.len();
                         let id = nodes.len();
                         nodes[0].children.push(id);
                         nodes.push(Node {
                             id,
                             parent: Some(0),
-                            children: Vec::with_capacity(scene.modals[m].controls.len()),
+                            children: Vec::with_capacity(scene.modals[cur].controls.len()),
                             kind: NodeKind::Modal,
                             control: None,
+                            modal: Some(cur),
                         });
                         modal_nodes.push(id);
                     }
@@ -239,10 +243,11 @@ impl Runtime {
                 children: vec![],
                 kind: NodeKind::Control,
                 control: Some(index),
+                modal: None,
             });
         }
         // Empty layers still exist as nodes so hosts can open and close them.
-        for _ in modal_nodes.len()..scene.modals.len() {
+        for cur in modal_nodes.len()..scene.modals.len() {
             let id = nodes.len();
             nodes[0].children.push(id);
             nodes.push(Node {
@@ -251,6 +256,7 @@ impl Runtime {
                 children: vec![],
                 kind: NodeKind::Modal,
                 control: None,
+                modal: Some(cur),
             });
             modal_nodes.push(id);
         }

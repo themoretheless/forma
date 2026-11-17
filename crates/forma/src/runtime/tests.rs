@@ -2108,3 +2108,32 @@ fn a_scroll_area_is_a_node_of_the_tree_and_a_scroll_view() {
     assert_eq!(runtime.nodes().len(), count);
     assert_eq!(runtime.nodes()[area_node].children.len(), 5);
 }
+
+#[test]
+fn empty_modals_preceding_populated_modal_preserve_distinct_indices_and_do_not_panic() {
+    let source = "component Demo { Frame { width:200; height:160; \
+        Modal { key:'empty_a'; x:10; y:10; width:60; height:40; open:false; dismissed -> actions.a(); } \
+        Modal { key:'empty_b'; x:20; y:20; width:70; height:50; open:true; dismissed -> actions.b(); } \
+        Modal { key:'populated'; x:30; y:30; width:100; height:60; open:false; Button { key:'ok'; width:50; height:24; clicked -> actions.ok(); } } \
+    } }";
+    let mut runtime = Runtime::from_sources(source, VISUAL).unwrap();
+    let tree = runtime.accessibility_tree();
+    let dialogs: Vec<_> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.role == A11yRole::Dialog)
+        .collect();
+    assert_eq!(dialogs.len(), 3);
+    assert_eq!(dialogs[0].key, "empty_a");
+    assert_eq!(dialogs[0].value.as_deref(), Some("closed"));
+    assert_eq!(dialogs[1].key, "empty_b");
+    assert_eq!(dialogs[1].value.as_deref(), Some("open"));
+    assert_eq!(dialogs[2].key, "populated");
+    assert_eq!(dialogs[2].value.as_deref(), Some("closed"));
+    assert_eq!(tree.active_modal_id, Some(dialogs[1].id));
+
+    let empty_b_node_id = dialogs[1].id;
+    assert!(runtime.accessibility_dismiss_modal(empty_b_node_id));
+    assert!(!runtime.modal_is_open(1));
+    assert!(!runtime.modal_is_open(0));
+}

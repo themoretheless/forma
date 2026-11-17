@@ -103,7 +103,16 @@ export function serializeDomNodeToHtml(node: Node): string {
     }
     const current = frame.node;
     if (current.nodeType === 3) {
-      chunks.push(escapeHtml(current.textContent ?? ''));
+      const rawText = current.textContent ?? '';
+      const parentEl = current.parentElement;
+      const parentTag = parentEl ? parentEl.tagName.toLowerCase() : '';
+      if (parentTag === 'style') {
+        chunks.push(rawText.replace(/<\/style/gi, '<\\/style'));
+      } else if (parentTag === 'script') {
+        chunks.push(rawText.replace(/<\/script/gi, '<\\/script'));
+      } else {
+        chunks.push(escapeHtml(rawText));
+      }
     } else if (current.nodeType === 8) {
       const commentText = current.nodeValue ?? '';
       // Internal dynamic anchors remain absent from SSR HTML.

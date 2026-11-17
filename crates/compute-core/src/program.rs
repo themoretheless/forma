@@ -1,6 +1,8 @@
 use crate::{
     BinaryOp, ComputeBatch, ComputeError, ComputeRuntime, GpuArray, GpuElement, Readback,
-    Reduction, UnaryOp, uniform_f32, wgpu,
+    Reduction, UnaryOp,
+    gpu_compute::{GpuBuffer, f32_le_bytes},
+    wgpu,
 };
 
 /// A prepared sequence with explicit operation order. Intermediate arrays and
@@ -12,6 +14,28 @@ pub struct ComputeProgram<'a> {
 }
 
 impl<'a> ComputeProgram<'a> {
+    pub(crate) fn uniform_params(&self, floats: &[f32; 4]) -> Result<GpuBuffer, ComputeError> {
+        let bytes = f32_le_bytes(floats);
+        Ok(GpuBuffer::new_initialized(
+            self.runtime.context(),
+            16,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            |mapping| mapping.into_slice(..16).copy_from_slice(&bytes),
+        )?)
+    }
+
+    pub(crate) fn grid_groups(&self, kernel: &crate::Kernel, invocations: u32) -> u32 {
+        kernel
+            .workgroup_count(invocations)
+            .min(
+                self.runtime
+                    .context()
+                    .limits
+                    .max_compute_workgroups_per_dimension,
+            )
+            .min(65535)
+    }
+
     fn same_length(&self, a: &GpuArray<f32>, b: &GpuArray<f32>) -> Result<(), ComputeError> {
         self.runtime.check(a)?;
         self.runtime.check(b)?;
@@ -51,20 +75,13 @@ impl<'a> ComputeProgram<'a> {
             return Ok(());
         }
         let kernel = &self.runtime.affine;
-        let params = uniform_f32(
-            &self.runtime.device,
-            &self.runtime.queue,
-            &[f32::from_bits(input.len), scale, offset, 0.0],
-        );
+        let params = self.uniform_params(&[f32::from_bits(input.len), scale, offset, 0.0])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
-            &[&params, input.buffer(), output.buffer()],
+            &[params.raw(), input.buffer(), output.buffer()],
         );
-        self.batch.push(
-            kernel,
-            &bindings,
-            kernel.workgroup_count(input.len).min(65535),
-        );
+        self.batch
+            .push(kernel, &bindings, self.grid_groups(kernel, input.len));
         Ok(())
     }
 
@@ -93,25 +110,18 @@ impl<'a> ComputeProgram<'a> {
             return Ok(());
         }
         let kernel = &self.runtime.unary;
-        let params = uniform_f32(
-            &self.runtime.device,
-            &self.runtime.queue,
-            &[
-                f32::from_bits(input.len),
-                f32::from_bits(op as u32),
-                0.0,
-                0.0,
-            ],
-        );
+        let params = self.uniform_params(&[
+            f32::from_bits(input.len),
+            f32::from_bits(op as u32),
+            0.0,
+            0.0,
+        ])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
-            &[&params, input.buffer(), output.buffer()],
+            &[params.raw(), input.buffer(), output.buffer()],
         );
-        self.batch.push(
-            kernel,
-            &bindings,
-            kernel.workgroup_count(input.len).min(65535),
-        );
+        self.batch
+            .push(kernel, &bindings, self.grid_groups(kernel, input.len));
         Ok(())
     }
 
@@ -170,25 +180,18 @@ impl<'a> ComputeProgram<'a> {
             return Ok(());
         }
         let kernel = &self.runtime.binary;
-        let params = uniform_f32(
-            &self.runtime.device,
-            &self.runtime.queue,
-            &[
-                f32::from_bits(len as u32),
-                f32::from_bits(op as u32),
-                f32::from_bits(u32::from(a.len() != 1)),
-                f32::from_bits(u32::from(b.len() != 1)),
-            ],
-        );
+        let params = self.uniform_params(&[
+            f32::from_bits(len as u32),
+            f32::from_bits(op as u32),
+            f32::from_bits(u32::from(a.len() != 1)),
+            f32::from_bits(u32::from(b.len() != 1)),
+        ])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
-            &[&params, a.buffer(), b.buffer(), output.buffer()],
+            &[params.raw(), a.buffer(), b.buffer(), output.buffer()],
         );
-        self.batch.push(
-            kernel,
-            &bindings,
-            kernel.workgroup_count(len as u32).min(65535),
-        );
+        self.batch
+            .push(kernel, &bindings, self.grid_groups(kernel, len as u32));
         Ok(())
     }
 
