@@ -2137,3 +2137,50 @@ fn empty_modals_preceding_populated_modal_preserve_distinct_indices_and_do_not_p
     assert!(!runtime.modal_is_open(1));
     assert!(!runtime.modal_is_open(0));
 }
+
+#[test]
+fn a_container_clicked_handler_takes_clicks_its_children_do_not() {
+    let files = std::collections::BTreeMap::from([(
+        "App.ui".to_owned(),
+        "component App { Column { width: 200; height: 200; Column { key: 'panel'; width: 120; height: 100; clicked -> actions.panel(); Text { key: 'label'; text: 'a'; width: 60; height: 20; } TextInput { key: 'own'; width: 100; height: 30; } } } }".to_owned(),
+    )]);
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+    let index = |runtime: &Runtime, key: &str| {
+        (0..runtime.control_count())
+            .find(|&i| runtime.control_key(i) == key)
+            .unwrap()
+    };
+    let panel = index(&runtime, "panel");
+    let label = index(&runtime, "label");
+    assert_eq!(runtime.control_action(panel), "actions.panel");
+    assert_eq!(
+        runtime.control_action(label),
+        "",
+        "a Text takes no press at all"
+    );
+    let own = index(&runtime, "own");
+    assert_eq!(
+        runtime.control_action(own),
+        "actions.panel",
+        "a pressable control without a handler answers with the container's"
+    );
+    assert!(panel < label, "the area lies under the children");
+    let click = |runtime: &mut Runtime, x: f32, y: f32| {
+        let before = runtime.control_clicks(panel);
+        runtime.pointer(x, y, 0);
+        runtime.pointer(x, y, 1);
+        runtime.pointer(x, y, 2);
+        runtime.control_clicks(panel) - before
+    };
+    let area = runtime.control_bounds(panel);
+    let text = runtime.control_bounds(label);
+    // Empty space of the panel, below its two children.
+    assert_eq!(click(&mut runtime, area[0] + 5., area[1] + area[3] - 5.), 1);
+    // The Text takes no press, so the click reaches the panel under it.
+    assert_eq!(click(&mut runtime, text[0] + 5., text[1] + 5.), 1);
+    // Outside the panel nothing happens.
+    assert_eq!(
+        click(&mut runtime, area[0] + area[2] + 20., area[1] + 5.),
+        0
+    );
+}

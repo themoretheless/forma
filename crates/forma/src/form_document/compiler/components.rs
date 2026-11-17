@@ -394,8 +394,8 @@ fn collect_component_names_in_value(value: &Value, out: &mut std::collections::B
     }
 }
 
-pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 3] {
-    static BUILTINS: std::sync::LazyLock<[(&'static str, Definition); 3]> =
+pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 4] {
+    static BUILTINS: std::sync::LazyLock<[(&'static str, Definition); 4]> =
         std::sync::LazyLock::new(|| {
             [
                 (
@@ -405,6 +405,11 @@ pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 3] 
                 (
                     "TextInput",
                     "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; wrap: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, wrap, readOnly, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+                ),
+                // The pressable area a container with a `clicked` handler lays under its children.
+                (
+                    "ContainerArea",
+                    "component ContainerArea { width: 0; height: 0; Rectangle { background: #00000000; PointerArea { clicked -> events.clicked(); } } }",
                 ),
                 (
                     "Slider",

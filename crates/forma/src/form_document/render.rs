@@ -174,7 +174,8 @@ impl Document {
             || layout.props.contains_key("columns")
             || layout.props.contains_key("rows")
             || !["Frame", "Scroll"].contains(&layout.kind.as_str())
-            || layout.children.iter().any(|n| is_layout(&n.kind));
+            || layout.children.iter().any(|n| is_layout(&n.kind))
+            || layout.action.is_some();
         let mut instances: Vec<SceneInstance> = Vec::new();
         let mut logical_end = [0_f64; 2];
         let mut scroll_content_sizes = Vec::new();
@@ -210,6 +211,7 @@ impl Document {
                     scroll_content: scroll,
                     clip: None,
                     scroll_chain: Vec::new(),
+                    bubble: None,
                     scroll_content_sizes: &mut scroll_content_sizes,
                 },
             )?;

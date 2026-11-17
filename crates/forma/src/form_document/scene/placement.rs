@@ -68,6 +68,16 @@ impl Document {
             for key in ["cell", "row", "column"] {
                 node.props.remove(key);
             }
+            if node.action.is_none() {
+                if let Some((action, args)) = &target.bubble {
+                    node.action = Some(action.clone());
+                    if let Some(args) = args {
+                        node.props
+                            .entry("__event_args".into())
+                            .or_insert_with(|| args.clone());
+                    }
+                }
+            }
             if let Some(clip) = target.clip {
                 node.props
                     .insert("__clip".into(), Value::List(clip.map(number).to_vec()));
@@ -87,6 +97,34 @@ impl Document {
         }
         if !root_legacy && node.kind == "Scroll" {
             return self.position_scroll_area(node, bounds, target);
+        }
+        // A container's `clicked` handler takes clicks on its empty space through an invisible
+        // pressable area under its children, and clicks on children without a handler of their own.
+        let enclosing_bubble = target.bubble.clone();
+        if let Some(action) = node.action.take() {
+            let args = node.props.get("__event_args").cloned();
+            let mut props = Properties::new();
+            props.insert("width".into(), number(bounds[2]));
+            props.insert("height".into(), number(bounds[3]));
+            if let Some(key) = node.props.get("key") {
+                props.insert("key".into(), key.clone());
+            }
+            if let Some(args) = &args {
+                props.insert("__event_args".into(), args.clone());
+            }
+            for key in ["__node", "__state"] {
+                if let Some(value) = node.props.get(key) {
+                    props.insert(key.into(), value.clone());
+                }
+            }
+            let area = Node {
+                kind: "ContainerArea".into(),
+                props,
+                children: Vec::new(),
+                action: Some(action.clone()),
+            };
+            self.position_scene(area, None, bounds, false, target)?;
+            target.bubble = Some((action, args));
         }
         let enclosing_clip = target.clip;
         if !root_legacy && boolean(&node.props, "clip", false)? {
@@ -147,6 +185,7 @@ impl Document {
             }
         }
         target.clip = enclosing_clip;
+        target.bubble = enclosing_bubble;
         Ok(())
     }
 }

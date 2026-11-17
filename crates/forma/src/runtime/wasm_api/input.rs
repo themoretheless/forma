@@ -85,6 +85,22 @@ impl Runtime {
             .map_or(-1, |(i, _)| i as i32)
     }
 
+    /// The topmost enabled control at `(x, y)`, looking past the ones above it that take no press
+    /// at all (a Text). A disabled pressable control still blocks what lies under it.
+    fn enabled_hit_below(&self, x: f32, y: f32) -> Option<usize> {
+        let v = self.viewport_rect();
+        let outside_viewport =
+            self.scene.scroll && (x < v[0] || y < v[1] || x >= v[0] + v[2] || y >= v[1] + v[3]);
+        let at = (0..self.controls.len()).rev().find(|&i| {
+            self.reachable(i)
+                && !(outside_viewport && self.modal_of[i].is_none())
+                && self.inside_clip(i, x, y)
+                && self.controls[i].hit(x, y)
+                && self.controls[i].template.clickable
+        })?;
+        self.enabled(at).then_some(at)
+    }
+
     pub fn hit(&self, x: f32, y: f32) -> bool {
         self.hit_index(x, y) >= 0
     }
@@ -201,12 +217,17 @@ impl Runtime {
             self.controls[i].reveal_pointer(x, y, kind != 3 && reachable);
         }
         let hit = usize::try_from(self.hit_index(x, y)).ok();
+        // A point over what takes no press (a Text) belongs to the pressable control below it,
+        // such as the area of a container with a `clicked` handler.
+        let pressed = hit
+            .filter(|i| self.enabled(*i))
+            .or_else(|| hit.and_then(|_| self.enabled_hit_below(x, y)));
         self.popup_hover(hit, kind != 3);
         if kind == 1 {
             for c in &mut self.controls {
                 c.keyboard = None;
             }
-            self.captured = hit.filter(|i| self.enabled(*i));
+            self.captured = pressed;
             self.set_focus(self.captured);
             if hit.is_none() && x.is_finite() && y.is_finite() {
                 if let Some(m) = active {
@@ -221,7 +242,11 @@ impl Runtime {
         let mut activated = None;
         for (i, c) in self.controls.iter_mut().enumerate() {
             let clicks = c.clicks();
-            let (px, py) = if hit == Some(i) { (x, y) } else { (-1., -1.) };
+            let (px, py) = if hit == Some(i) || pressed == Some(i) {
+                (x, y)
+            } else {
+                (-1., -1.)
+            };
             // Only the captured control receives release. Others cannot inherit it.
             let event = if kind == 2 && self.captured != Some(i) {
                 0
