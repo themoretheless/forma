@@ -42,3 +42,44 @@ test(
     }
   },
 );
+
+// A 100 x 60 scroll area below a title holds a 200-high column of five 40-high rows.
+const scrollArea = {
+  'ui/App.ui': `component App { Column { width: 200; height: 200; Text { key: 'title'; text: 't'; width: 80; height: 30; } Scroll { width: 100; height: 60; Column { width: 100; height: 200; ${[0, 1, 2, 3, 4].map(i => `Text { key: 'r${i}'; text: 'r${i}'; width: 80; height: 40; background: #ff0000; }`).join(' ')} } } } }`,
+};
+
+test('a Scroll below the root becomes a scroll area around its controls', () => {
+  const out = compileComponents(scrollArea, 'ui/App.ui');
+  assert.deepEqual(out.controlScrolls[0], [], 'the title is outside it');
+  const [area] = out.controlScrolls[1];
+  assert.deepEqual(area, { area: 0, viewport: [50, 30, 100, 60], content: [100, 200] });
+  for (const chain of out.controlScrolls.slice(1)) assert.deepEqual(chain, [area]);
+  assert.deepEqual(out.controlClips[1], area.viewport, 'and clips them to its viewport');
+});
+
+test(
+  'the runtime scrolls a Studio scroll area under the pointer',
+  { skip: !existsSync(new URL('../public/vector-pkg/forma.js', import.meta.url)) },
+  async () => {
+    const runtime = await import('../public/vector-pkg/forma.js');
+    await runtime.default({
+      module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
+    });
+    const out = compileComponents(scrollArea, 'ui/App.ui');
+    const model = new runtime.Runtime();
+    try {
+      model.load_component(out.source, out.template);
+      out.controlClips.forEach((clip, i) => clip && model.set_control_clip(i, ...clip));
+      model.set_control_scroll_areas(JSON.stringify(out.controlScrolls));
+      const [x, y] = [60, 40];
+      assert.equal(model.hit_index(x, y), 1, 'first row');
+      model.pointer(x, y, 0);
+      model.scroll(0, 50);
+      assert.deepEqual([...model.scroll_offset()], [0, 0], 'the root stays');
+      assert.equal(model.hit_index(x, y), 2, 'second row under the pointer');
+      assert.throws(() => model.set_control_scroll_areas('[]'));
+    } finally {
+      model.free();
+    }
+  },
+);

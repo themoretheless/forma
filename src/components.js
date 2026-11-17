@@ -165,7 +165,7 @@ function compile(files, entry, state, metrics, read, links) {
   let [rootWidth, rootHeight] = declaredRootSize(rootProps);
   // `width: content` / `height: content` on the root fits the frame to what it holds, so a shell
   // region or popup is exactly as large as its controls instead of the 360×220 default.
-  const { intrinsicScene, layoutScene, previewContainers } = createSceneLayout({
+  const { intrinsicScene, layoutScene, previewContainers, scrollAreas } = createSceneLayout({
     root,
     instantiate,
     metrics,
@@ -256,6 +256,14 @@ function compile(files, entry, state, metrics, read, links) {
     previewNodes,
     previewControls: [...instances, ...layered],
     controlClips: [...instances, ...layered].map(n => n.clip ?? null),
+    // The scroll areas around each control, outermost first, as the runtime takes them.
+    controlScrolls: [...instances, ...layered].map(n =>
+      (n.scroll ?? []).map(({ area, viewport }) => ({
+        area,
+        viewport,
+        content: scrollAreas[area].content,
+      })),
+    ),
     previewModals: modals.map(m => m.node),
     previewContainers,
     shortcuts,

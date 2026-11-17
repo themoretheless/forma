@@ -903,6 +903,7 @@ export function createVectorPreview({
       previewModals,
       previewContainers,
       controlClips = [],
+      controlScrolls = [],
       selectedStart: nextSelection = null,
       reducedMotion = false,
     }) {
@@ -912,7 +913,7 @@ export function createVectorPreview({
         if (!container?.replaceChildren) throw new Error('Не найден контейнер предпросмотра');
         designMode = Boolean(designMode);
         // Clips come from containers the markup does not carry, so they decide a reload too.
-        const clips = JSON.stringify(controlClips);
+        const clips = JSON.stringify([controlClips, controlScrolls]);
         const changed =
           !button ||
           current.source !== source ||
@@ -925,6 +926,8 @@ export function createVectorPreview({
           controlClips.forEach((clip, index) => {
             if (clip) candidate.set_control_clip(index, ...clip);
           });
+          if (controlScrolls.some(chain => chain.length))
+            candidate.set_control_scroll_areas(JSON.stringify(controlScrolls));
           if (button) candidate.preserve_interaction(button);
         }
         if (changed || current.reducedMotion !== reducedMotion)

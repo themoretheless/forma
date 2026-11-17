@@ -24,6 +24,10 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
   // what a designer means when they pick up a panel. It travels beside the drawn controls so the
   // canvas can measure, grab and move a container by the extent it actually has.
   const previewContainers = [];
+  // `Scroll` containers below the root, by number: viewport and content size. Each control
+  // inside one lists the ones around it, outermost first, as `{ area, viewport }`.
+  const scrollAreas = [];
+  let scrollChain = [];
   function intrinsicScene(node, axis) {
     const key = axis === 0 ? 'width' : 'height',
       value = node.props[key];
@@ -54,6 +58,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
     return constrained(length(resolved[key], rootSize(axis), 0), node.props, axis, rootSize(axis));
   }
   function layoutScene(node, box, output, frame = [0, 0, 0, 0], clip = null) {
+    if (node.type === 'Scroll' && node !== root) return layoutScrollArea(node, box, output, clip);
     if (!containerTypes.has(node.type)) {
       // A flow container measures a child's own `x`/`y` from its outer corner and percentages
       // against its outer size, so a tool that writes a coordinate needs that box next to the drawn
@@ -63,6 +68,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
         props: { ...node.props, x: box[0], y: box[1], width: box[2], height: box[3] },
         coordinateBox: frame,
         ...(clip ? { clip } : {}),
+        ...(scrollChain.length ? { scroll: scrollChain } : {}),
       });
       return;
     }
@@ -124,7 +130,39 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
       layoutScene(child, layout.boxes[index], output, box, clip);
     });
   }
-  return { intrinsicScene, layoutScene, previewContainers };
+  /**
+   * A `Scroll` below the root: its children are laid out like a column's, free to run past its
+   * box, which becomes a viewport that clips them and scrolls on its own.
+   */
+  function layoutScrollArea(node, box, output, clip) {
+    const area = scrollAreas.length;
+    scrollAreas.push({ viewport: [...box], content: [box[2], box[3]] });
+    const outer = scrollChain,
+      first = output.length,
+      firstContainer = previewContainers.length;
+    scrollChain = [...outer, { area, viewport: [...box] }];
+    layoutScene(
+      { ...node, type: 'Column', props: { ...node.props, clip: undefined } },
+      box,
+      output,
+      box,
+      clip ? intersect(clip, box) : [...box],
+    );
+    scrollChain = outer;
+    // How far the containers and controls inside reach from the viewport's corner, never less
+    // than it: the same extent the Rust document measures.
+    let [right, bottom] = [box[0] + box[2], box[1] + box[3]];
+    const boxes = [
+      ...previewContainers.slice(firstContainer).map(c => c.bounds),
+      ...output.slice(first).map(({ props: p }) => [p.x, p.y, p.width, p.height]),
+    ];
+    for (const [x, y, w, h] of boxes) {
+      right = Math.max(right, x + w);
+      bottom = Math.max(bottom, y + h);
+    }
+    scrollAreas[area].content = [right - box[0], bottom - box[1]];
+  }
+  return { intrinsicScene, layoutScene, previewContainers, scrollAreas };
 }
 
 /**

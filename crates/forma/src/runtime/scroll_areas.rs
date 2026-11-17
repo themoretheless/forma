@@ -2,7 +2,7 @@
 //! of whatever the root scroll does.
 
 use super::Runtime;
-use crate::form_document::SceneControl;
+use crate::form_document::SceneScroll;
 
 /// One scroll area: what it shows, how far its content reaches, and how far it has moved.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,14 +26,15 @@ impl ScrollArea {
 }
 
 /// The areas of a scene and, per control, the areas that contain it, outermost first.
-pub(super) fn areas_of(controls: &[SceneControl]) -> (Vec<ScrollArea>, Vec<Vec<usize>>) {
+pub(super) fn areas_of<'a>(
+    controls: impl IntoIterator<Item = &'a [SceneScroll]>,
+) -> (Vec<ScrollArea>, Vec<Vec<usize>>) {
     let mut areas: Vec<Option<ScrollArea>> = Vec::new();
     let chains = controls
-        .iter()
-        .map(|control| {
+        .into_iter()
+        .map(|chain| {
             let mut parent = None;
-            control
-                .scroll
+            chain
                 .iter()
                 .map(|scroll| {
                     if areas.len() <= scroll.area {
@@ -67,6 +68,16 @@ pub(super) fn areas_of(controls: &[SceneControl]) -> (Vec<ScrollArea>, Vec<Vec<u
 }
 
 impl Runtime {
+    /// Replace the scroll areas around every control, outermost first, starting them unscrolled.
+    pub(super) fn set_scroll_areas<'a>(
+        &mut self,
+        chains: impl IntoIterator<Item = &'a [SceneScroll]>,
+    ) {
+        (self.scroll_areas, self.scroll_chains) = areas_of(chains);
+        let clips = std::mem::take(&mut self.clips);
+        self.set_clips(clips);
+    }
+
     /// How far the areas around control `index` have moved it, on top of the root scroll.
     pub(super) fn area_offset(&self, index: usize) -> [f32; 2] {
         self.scroll_chains.get(index).map_or([0.; 2], |chain| {

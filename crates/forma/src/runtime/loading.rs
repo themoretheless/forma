@@ -337,7 +337,8 @@ impl Runtime {
     /// the multi-control path, which owns the root frame's clipping and scrolling, so a lone
     /// control hands those back to the runtime like it does beside siblings.
     pub(super) fn install_clips(&mut self, controls: &[crate::form_document::SceneControl]) {
-        (self.scroll_areas, self.scroll_chains) = super::scroll_areas::areas_of(controls);
+        (self.scroll_areas, self.scroll_chains) =
+            super::scroll_areas::areas_of(controls.iter().map(|c| c.scroll.as_slice()));
         self.set_clips(
             controls
                 .iter()

@@ -8,6 +8,20 @@ impl Runtime {
         self.controls.len()
     }
 
+    /// Put the controls inside scroll areas, as `Scroll` containers below the root do: a JSON array
+    /// with, per control, the areas around it outermost first, each
+    /// `{ "area", "viewport": [x, y, w, h], "content": [w, h] }`. A scene loaded from markup alone
+    /// has no containers to say this. Refuses an array of another length or a malformed area.
+    pub fn set_control_scroll_areas(&mut self, json: &str) -> Result<(), String> {
+        let chains: Vec<Vec<crate::form_document::SceneScroll>> =
+            serde_json::from_str(json).map_err(|error| format!("Invalid scroll areas: {error}"))?;
+        if chains.len() != self.controls.len() {
+            return Err("Scroll areas must list every control".into());
+        }
+        self.set_scroll_areas(chains.iter().map(Vec::as_slice));
+        Ok(())
+    }
+
     /// Clip control `i` to the scene rectangle `x, y, width, height`, as a clipping container
     /// around it does; a negative width removes the clip. A scene loaded from markup alone has no
     /// container to say this, so the caller that laid it out does. Returns whether `i` exists.
