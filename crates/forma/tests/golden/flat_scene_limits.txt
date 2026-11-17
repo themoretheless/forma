@@ -10,7 +10,7 @@ scroll beside a control: ERROR Scroll is supported only as the single child of t
 scroll inside a nested column: ERROR Scroll is supported only as the single child of the root
 scroll inside a scroll: loads, 1 control(s), 3 node(s)
 clip on the root: loads, 1 control(s), 2 node(s)
-clip on a nested column: ERROR Nested scene clipping is unsupported; use the root Frame clip
+clip on a nested column: loads, 1 control(s), 2 node(s)
 stack overlap: loads, 2 control(s), 3 node(s)
 grid with cells: loads, 2 control(s), 3 node(s)
 child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative (byte 197)

@@ -53,7 +53,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
       return constrained(natural(roots[0], axis, metrics), node.props, axis, rootSize(axis));
     return constrained(length(resolved[key], rootSize(axis), 0), node.props, axis, rootSize(axis));
   }
-  function layoutScene(node, box, output, frame = [0, 0, 0, 0]) {
+  function layoutScene(node, box, output, frame = [0, 0, 0, 0], clip = null) {
     if (!containerTypes.has(node.type)) {
       // A flow container measures a child's own `x`/`y` from its outer corner and percentages
       // against its outer size, so a tool that writes a coordinate needs that box next to the drawn
@@ -62,13 +62,15 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
         ...node,
         props: { ...node.props, x: box[0], y: box[1], width: box[2], height: box[3] },
         coordinateBox: frame,
+        ...(clip ? { clip } : {}),
       });
       return;
     }
-    if (node !== root && node.props.clip)
-      throw Error(
-        'Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame',
-      );
+    // A clipping container below the root narrows what its controls may show; the runtime
+    // receives the rectangle per control, since the scene markup has no containers.
+    if (node !== root && node.props.clip !== undefined && typeof node.props.clip !== 'boolean')
+      throw Error(`${node.type}.clip ожидает boolean`);
+    if (node !== root && node.props.clip) clip = clip ? intersect(clip, box) : [...box];
     let layout;
     if (
       node.type === 'Frame' &&
@@ -119,7 +121,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
           bounds: layout.boxes[index],
           coordinateBox: box,
         });
-      layoutScene(child, layout.boxes[index], output, box);
+      layoutScene(child, layout.boxes[index], output, box, clip);
     });
   }
   return { intrinsicScene, layoutScene, previewContainers };
@@ -217,4 +219,16 @@ export function fitRootToContent(root, children, intrinsicScene, fit) {
     fit(0, naturalContainer(content, 0, intrinsicScene));
   if (own(props, 'height') && intrinsicLength(props.height))
     fit(1, naturalContainer(content, 1, intrinsicScene));
+}
+
+/** The part of rectangle `a` that `b` also covers, with zero size when they do not meet. */
+function intersect(a, b) {
+  const x = Math.max(a[0], b[0]),
+    y = Math.max(a[1], b[1]);
+  return [
+    x,
+    y,
+    Math.max(0, Math.min(a[0] + a[2], b[0] + b[2]) - x),
+    Math.max(0, Math.min(a[1] + a[3], b[1] + b[3]) - y),
+  ];
 }

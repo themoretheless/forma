@@ -1877,3 +1877,90 @@ fn open_popup_follows_its_anchor_when_the_base_scrolls() {
     assert_eq!(r.popup_bounds("pop").unwrap()[1], 25.);
     assert_eq!(r.control_bounds(2)[1], 25.);
 }
+
+#[test]
+fn nested_clip_hides_and_disables_what_overflows_its_container() {
+    // The column is 40 high; the second button starts at 30 and overflows it by 20.
+    let source = |clip: &str| {
+        format!(
+            "component App {{ Column {{ width: 200; height: 200; Column {{ width: 100; height: 40; {clip} Text {{ key: 'a'; text: 'a'; width: 80; height: 30; background: '#ff0000'; }} Text {{ key: 'b'; text: 'b'; width: 80; height: 30; background: '#ff0000'; }} }} }} }}"
+        )
+    };
+    let load = |clip: &str| {
+        let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source(clip))]);
+        Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap()
+    };
+    let open = load("");
+    let clipped = load("clip: true;");
+    let b = open.control_bounds(1);
+    let column_bottom = clipped.control_bounds(0)[1] + 40.;
+    assert!(b[1] < column_bottom && b[1] + b[3] > column_bottom + 10.);
+    let (x, inside, outside) = (b[0] + 10., column_bottom - 2., column_bottom + 10.);
+
+    assert_eq!(open.hit_index(x, outside), 1);
+    assert_eq!(
+        clipped.hit_index(x, outside),
+        -1,
+        "clipped part takes no pointer"
+    );
+    assert_eq!(clipped.hit_index(x, inside), 1, "visible part still does");
+
+    let alpha = |runtime: &Runtime, y: f32| {
+        let pixels = runtime.raster(200, 200, 1., false);
+        pixels[(y as usize * 200 + x as usize) * 4 + 3]
+    };
+    assert!(alpha(&open, outside) > 0);
+    assert_eq!(alpha(&clipped, outside), 0, "clipped part is not painted");
+    assert!(alpha(&clipped, inside) > 0);
+
+    // The vector list wraps the clipped controls in balanced clip groups.
+    let open_list = open.vector_snapshot(1., false);
+    let clipped_list = clipped.vector_snapshot(1., false);
+    assert!(clipped_list.commands.len() > open_list.commands.len());
+}
+
+#[test]
+fn nested_clip_survives_the_scene_artifact() {
+    let files = std::collections::BTreeMap::from([(
+        "App.ui".to_owned(),
+        "component App { Column { width: 200; height: 200; Column { clip: true; width: 100; height: 40; Text { key: 'a'; text: 'a'; width: 80; height: 30; } } } }".to_owned(),
+    )]);
+    let document =
+        crate::form_document::Document::from_ui_files(&files, "App.ui", &Default::default())
+            .unwrap();
+    let artifact = document.render_scene_artifact().unwrap();
+    let clip = artifact.controls[0]
+        .clip
+        .expect("the control records its clip");
+    assert_eq!([clip[2], clip[3]], [100., 40.]);
+    let json = artifact.to_json().unwrap();
+    let restored = crate::form_document::SceneArtifact::from_json(&json).unwrap();
+    let runtime = Runtime::from_scene_artifact(&restored).unwrap();
+    assert_eq!(runtime.clip(0), Some(clip.map(|v| v as f32)));
+}
+
+#[test]
+fn a_clip_set_from_outside_matches_the_one_the_document_computes() {
+    let body = |clip: &str| {
+        format!(
+            "component App {{ Column {{ width: 200; height: 200; Column {{ width: 100; height: 40; {clip} Text {{ key: 'a'; text: 'a'; width: 80; height: 30; background: '#ff0000'; }} Text {{ key: 'b'; text: 'b'; width: 80; height: 30; background: '#ff0000'; }} }} }} }}"
+        )
+    };
+    let load = |clip: &str| {
+        let files = std::collections::BTreeMap::from([("App.ui".to_owned(), body(clip))]);
+        Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap()
+    };
+    let computed = load("clip: true;");
+    let mut set = load("");
+    for i in 0..2 {
+        let [x, y, w, h] = computed.clip(i).unwrap();
+        assert!(set.set_control_clip(i, x, y, w, h));
+    }
+    assert!(!set.set_control_clip(2, 0., 0., 1., 1.));
+    assert_eq!(
+        set.raster(200, 200, 1., true),
+        computed.raster(200, 200, 1., true)
+    );
+    assert!(set.set_control_clip(1, 0., 0., -1., 0.));
+    assert_eq!(set.clip(1), None);
+}

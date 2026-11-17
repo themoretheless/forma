@@ -54,6 +54,7 @@ impl Document {
                     key,
                     state: compact_scene_control_state(state),
                     event_args,
+                    clip: None,
                 });
             }
             Ok(())
@@ -203,6 +204,7 @@ impl Document {
                     instances: &mut instances,
                     logical_end: &mut logical_end,
                     scroll_content: scroll,
+                    clip: None,
                 },
             )?;
             for key in ["columns", "rows", "padding", "gap"] {
@@ -480,11 +482,24 @@ impl SceneEmitter {
             Some(Value::Object(state)) => state,
             _ => Properties::new(),
         };
+        let clip = match instance.props.remove("__clip") {
+            Some(Value::List(values)) => match values.as_slice() {
+                [
+                    Value::Number(x),
+                    Value::Number(y),
+                    Value::Number(w),
+                    Value::Number(h),
+                ] => Some([*x, *y, *w, *h]),
+                _ => return Err("A control clip must be four numbers".into()),
+            },
+            _ => None,
+        };
         self.mapping.push(SceneControl {
             node,
             key,
             state: compact_scene_control_state(state),
             event_args,
+            clip,
         });
         Ok(())
     }

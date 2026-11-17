@@ -111,6 +111,9 @@ pub struct Runtime {
     // Binding indices for the last committed scene, reused while model state
     // is unchanged. Recovery resolves current control identities separately.
     ui_binding_scene: Vec<crate::form_document::SceneControl>,
+    // The scene rectangle each control stays inside, set by clipping containers below the root;
+    // empty when the scene came without control mappings.
+    clips: Vec<Option<[f32; 4]>>,
     // State of the last successfully displayed retained scene. Documents are
     // private to Runtime; project/source replacement installs a new Runtime.
     ui_binding_states: Vec<crate::form_document::Properties>,
@@ -252,6 +255,7 @@ impl Runtime {
         self.controls.len() == 1
             && self.scene.modals.is_empty()
             && self.canvas_scene_rect(0).is_none()
+            && self.clip(0).is_none()
     }
 
     fn content_size(&self) -> [f32; 2] {

@@ -21,6 +21,6 @@
   width: -1;             compiler rejects, runtime rejects
   height: 4096;          compiler accepts, runtime accepts
   height: 4097;          compiler accepts, runtime accepts
-! clip: true;            compiler rejects, runtime accepts
+  clip: true;            compiler accepts, runtime accepts
   clip: false;           compiler accepts, runtime accepts
   clip: 3;               compiler rejects, runtime rejects

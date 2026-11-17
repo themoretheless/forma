@@ -72,6 +72,7 @@ impl Runtime {
             .find(|(i, c)| {
                 self.reachable(*i)
                     && !(outside_viewport && self.modal_of[*i].is_none())
+                    && self.inside_clip(*i, x, y)
                     && c.hit(x, y)
             })
             .map_or(-1, |(i, _)| i as i32)

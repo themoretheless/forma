@@ -80,8 +80,6 @@ modal handler other than dismissed
     Modal: обработчик clicked не поддерживается; используйте dismissed
 modal dismissed with arguments
     Modal.dismissed требует actions.<имя>() без аргументов
-clip on a nested container
-    Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame
 presenter with another property
     ContentPresenter принимает key и content
 content property and children together

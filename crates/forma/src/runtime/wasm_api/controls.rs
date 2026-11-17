@@ -8,6 +8,21 @@ impl Runtime {
         self.controls.len()
     }
 
+    /// Clip control `i` to the scene rectangle `x, y, width, height`, as a clipping container
+    /// around it does; a negative width removes the clip. A scene loaded from markup alone has no
+    /// container to say this, so the caller that laid it out does. Returns whether `i` exists.
+    pub fn set_control_clip(&mut self, i: usize, x: f32, y: f32, width: f32, height: f32) -> bool {
+        if i >= self.controls.len() {
+            return false;
+        }
+        let mut clips = std::mem::take(&mut self.clips);
+        clips.resize(self.controls.len(), None);
+        clips[i] = (width >= 0. && [x, y, width, height].iter().all(|v| v.is_finite()))
+            .then_some([x, y, width, height.max(0.)]);
+        self.set_clips(clips);
+        true
+    }
+
     pub fn control_key(&self, i: usize) -> String {
         self.controls.get(i).map(Button::key).unwrap_or_default()
     }

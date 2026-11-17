@@ -43,6 +43,8 @@ pub(super) struct ScenePositionTarget<'a> {
     pub(super) instances: &'a mut Vec<(Node, Option<Node>)>,
     pub(super) logical_end: &'a mut [f64; 2],
     pub(super) scroll_content: bool,
+    /// What the clipping containers around the node being positioned leave visible.
+    pub(super) clip: Option<[f64; 4]>,
 }
 
 impl Document {

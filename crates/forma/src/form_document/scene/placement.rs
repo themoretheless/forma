@@ -68,11 +68,19 @@ impl Document {
             for key in ["cell", "row", "column"] {
                 node.props.remove(key);
             }
+            if let Some(clip) = target.clip {
+                node.props
+                    .insert("__clip".into(), Value::List(clip.map(number).to_vec()));
+            }
             target.instances.push((node, Some(visual)));
             return Ok(());
         }
+        let enclosing_clip = target.clip;
         if !root_legacy && boolean(&node.props, "clip", false)? {
-            return Err("Nested scene clipping is unsupported; use the root Frame clip".into());
+            target.clip = Some(match enclosing_clip {
+                Some(outer) => intersect(outer, bounds),
+                None => bounds,
+            });
         }
         if root_legacy
             && ["Frame", "Scroll"].contains(&node.kind.as_str())
@@ -125,6 +133,16 @@ impl Document {
                 self.position_scene(child, Some(child_visual), [cx, cy, cw, ch], false, target)?;
             }
         }
+        target.clip = enclosing_clip;
         Ok(())
     }
+}
+
+/// The part of `a` that `b` also covers; empty rectangles keep zero size at a valid origin.
+fn intersect(a: [f64; 4], b: [f64; 4]) -> [f64; 4] {
+    let x = a[0].max(b[0]);
+    let y = a[1].max(b[1]);
+    let right = (a[0] + a[2]).min(b[0] + b[2]);
+    let bottom = (a[1] + a[3]).min(b[1] + b[3]);
+    [x, y, (right - x).max(0.), (bottom - y).max(0.)]
 }

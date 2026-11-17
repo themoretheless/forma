@@ -22,6 +22,20 @@ pub(super) struct RasterCache {
 }
 
 impl Runtime {
+    /// The scene rectangle control `index` stays inside, when a container below the root clips it.
+    pub(super) fn clip(&self, index: usize) -> Option<[f32; 4]> {
+        self.clips.get(index).copied().flatten()
+    }
+
+    /// Whether the screen point `(x, y)` is inside control `index`'s clip, if it has one.
+    pub(super) fn inside_clip(&self, index: usize, x: f32, y: f32) -> bool {
+        self.clip(index).is_none_or(|[cx, cy, w, h]| {
+            let control = &self.controls[index];
+            let (x, y) = (x + control.scroll_x, y + control.scroll_y);
+            x >= cx && y >= cy && x < cx + w && y < cy + h
+        })
+    }
+
     pub(super) fn raster_cached(
         &self,
         w: u32,
@@ -109,7 +123,7 @@ impl Runtime {
             cache.pixels.fill(0);
             for (i, control) in self.controls.iter().enumerate() {
                 if self.modal_of[i].is_none() {
-                    control.composite_content(&mut cache.pixels, w, h, s);
+                    control.composite_content_clipped(&mut cache.pixels, w, h, s, self.clip(i));
                     self.raster_canvas(i, &mut cache.pixels, w, h, s);
                 }
             }
@@ -134,7 +148,13 @@ impl Runtime {
                     }
                 }
                 for index in modal.controls.clone() {
-                    self.controls[index].composite_content(&mut cache.pixels, w, h, s);
+                    self.controls[index].composite_content_clipped(
+                        &mut cache.pixels,
+                        w,
+                        h,
+                        s,
+                        self.clip(index),
+                    );
                     self.raster_canvas(index, &mut cache.pixels, w, h, s);
                 }
             }

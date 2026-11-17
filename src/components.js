@@ -255,6 +255,7 @@ function compile(files, entry, state, metrics, read, links) {
     visualNodes,
     previewNodes,
     previewControls: [...instances, ...layered],
+    controlClips: [...instances, ...layered].map(n => n.clip ?? null),
     previewModals: modals.map(m => m.node),
     previewContainers,
     shortcuts,

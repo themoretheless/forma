@@ -76,6 +76,10 @@ impl Runtime {
             .map(|i| Some((self.canvas_scene_rect(i)?, self.canvas_placed(i)?)))
             .collect();
         let emit = |list: &mut DisplayList, index: usize| {
+            let clip = self.clip(index);
+            if let Some(rect) = clip {
+                list.push(rect, 0.);
+            }
             let child = &children[index];
             let edge_offset = list.edges.len() / 4;
             for command in child.commands.chunks_exact(STRIDE) {
@@ -104,6 +108,9 @@ impl Runtime {
                     cmd[2] += edge_offset;
                 }
                 list.edges.extend(&placed.edges);
+                list.pop();
+            }
+            if clip.is_some() {
                 list.pop();
             }
         };

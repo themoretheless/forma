@@ -902,6 +902,7 @@ export function createVectorPreview({
       previewControls,
       previewModals,
       previewContainers,
+      controlClips = [],
       selectedStart: nextSelection = null,
       reducedMotion = false,
     }) {
@@ -910,11 +911,20 @@ export function createVectorPreview({
         if (destroyed) throw new Error('Векторный предпросмотр уже закрыт');
         if (!container?.replaceChildren) throw new Error('Не найден контейнер предпросмотра');
         designMode = Boolean(designMode);
-        const changed = !button || current.source !== source || current.template !== template;
+        // Clips come from containers the markup does not carry, so they decide a reload too.
+        const clips = JSON.stringify(controlClips);
+        const changed =
+          !button ||
+          current.source !== source ||
+          current.template !== template ||
+          current.clips !== clips;
         const modeChanged = !changed && current.designMode !== designMode;
         if (changed) {
           candidate = new runtime.Runtime();
           candidate.load_component(source, template);
+          controlClips.forEach((clip, index) => {
+            if (clip) candidate.set_control_clip(index, ...clip);
+          });
           if (button) candidate.preserve_interaction(button);
         }
         if (changed || current.reducedMotion !== reducedMotion)
@@ -959,6 +969,7 @@ export function createVectorPreview({
         current = {
           source,
           template,
+          clips,
           designMode,
           nodes,
           previewControls,

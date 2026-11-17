@@ -115,6 +115,11 @@ pub struct SceneControl {
     pub key: String,
     pub state: Properties,
     pub event_args: BTreeMap<String, Vec<Value>>,
+    /// The scene rectangle `[x, y, width, height]` that clipping containers around this control
+    /// leave visible: the intersection of every enclosing container with `clip: true`. Absent
+    /// when no container below the root clips it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip: Option<[f64; 4]>,
 }
 /// Owned Rust scene transport including layout bounds absent from control-only markup.
 #[derive(Clone, Debug)]

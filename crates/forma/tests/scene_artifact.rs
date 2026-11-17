@@ -80,6 +80,7 @@ fn scene_json_roundtrip_preserves_extents_and_typed_binding_values() {
         key: "typed".into(),
         state: state.clone(),
         event_args: BTreeMap::from([("event".into(), vec![Value::Null, Value::Bool(true)])]),
+        clip: Some([10., 20., 30., 40.]),
     });
     let restored = SceneArtifact::from_json(&artifact.to_json().unwrap()).unwrap();
     assert_eq!(restored.controls[0].state, state);
@@ -88,6 +89,7 @@ fn scene_json_roundtrip_preserves_extents_and_typed_binding_values() {
         artifact.controls[0].event_args
     );
     assert_eq!(restored.controls[0].node, 7);
+    assert_eq!(restored.controls[0].clip, Some([10., 20., 30., 40.]));
     assert!(
         Runtime::from_scene_artifact(&restored).is_err(),
         "serialization-only mapping cannot authorize a nonexistent rendered control"

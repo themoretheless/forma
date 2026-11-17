@@ -92,6 +92,18 @@ impl Runtime {
             return;
         };
         let offset = [screen[0] - content[0], screen[1] - content[1]];
+        let screen = match self.clip(index) {
+            Some([x, y, cw, ch]) => {
+                let control = &self.controls[index];
+                let clip = [x - control.scroll_x, y - control.scroll_y, cw, ch];
+                let left = screen[0].max(clip[0]);
+                let top = screen[1].max(clip[1]);
+                let right = (screen[0] + screen[2]).min(clip[0] + clip[2]);
+                let bottom = (screen[1] + screen[3]).min(clip[1] + clip[3]);
+                [left, top, (right - left).max(0.), (bottom - top).max(0.)]
+            }
+            None => screen,
+        };
         canvas::rasterize(&list, pixels, w, h, s, offset, screen);
     }
     fn canvas_changed(&mut self) {

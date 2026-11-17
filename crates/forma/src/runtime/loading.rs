@@ -18,6 +18,7 @@ impl Runtime {
         let (scene_src, templates, controls, logical_end) = doc.render_scene_with_extents()?;
         let mut rt = Self::from_sources(&scene_src, &templates)?;
         rt.apply_logical_content_end(logical_end);
+        rt.install_clips(&controls);
         rt.ui_binding_scene = controls;
         rt.ui_binding_states = doc.states.clone();
         rt.ui_document = Some(doc);
@@ -63,6 +64,7 @@ impl Runtime {
         let (source, templates, controls, logical_end) = doc.render_scene_with_extents()?;
         let mut next = Self::from_sources(&source, &templates)?;
         next.apply_logical_content_end(logical_end);
+        next.install_clips(&controls);
         next.ui_binding_scene = controls;
         next.ui_binding_states = doc.states.clone();
         next.ui_document = Some(doc);
@@ -111,6 +113,7 @@ impl Runtime {
             return Err("Logical content extent requires a Scroll scene".into());
         }
         runtime.apply_logical_content_end(artifact.logical_content_end);
+        runtime.install_clips(&artifact.controls);
         Ok(runtime)
     }
 
@@ -302,6 +305,7 @@ impl Runtime {
             ui_render_pending: false,
             ui_binding_idle_ready: false,
             ui_binding_scene: Vec::new(),
+            clips: Vec::new(),
             ui_binding_states: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             svet_document: None,
@@ -322,5 +326,33 @@ impl Runtime {
                 .content_height
                 .max((bottom + f64::from(self.scene.padding[2])).min(f64::from(f32::MAX)) as f32);
         }
+    }
+}
+
+impl Runtime {
+    /// Take each control's clip rectangle from the scene mapping. A clipped control is drawn by
+    /// the multi-control path, which owns the root frame's clipping and scrolling, so a lone
+    /// control hands those back to the runtime like it does beside siblings.
+    pub(super) fn install_clips(&mut self, controls: &[crate::form_document::SceneControl]) {
+        self.set_clips(
+            controls
+                .iter()
+                .map(|control| control.clip.map(|rect| rect.map(|v| v as f32)))
+                .collect(),
+        );
+    }
+
+    /// Replace every control's clip rectangle and drop what was painted under the old ones.
+    pub(super) fn set_clips(&mut self, clips: Vec<Option<[f32; 4]>>) {
+        self.clips = clips;
+        if self.clips.iter().any(Option::is_some) {
+            for control in &mut self.controls {
+                control.scene.clip = false;
+                control.scene.scroll = false;
+            }
+        }
+        *self.geometry.borrow_mut() = None;
+        self.revision = self.revision.wrapping_add(1);
+        self.geometry_revision = self.geometry_revision.wrapping_add(1);
     }
 }

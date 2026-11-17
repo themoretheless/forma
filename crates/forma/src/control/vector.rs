@@ -155,18 +155,48 @@ impl Button {
 
     /// Composite a leaf without allocating/copying a transparent full canvas.
     /// Root frame clipping and scrollbars are applied once by Runtime.
+    #[cfg(test)]
     pub(crate) fn composite_content(&self, dst: &mut [u8], width: u32, height: u32, scale: f32) {
+        self.composite_content_clipped(dst, width, height, scale, None);
+    }
+
+    /// Composite a leaf, keeping only the pixels whose centres fall inside `clip`, a rectangle in
+    /// scene coordinates that scrolls with the control.
+    pub(crate) fn composite_content_clipped(
+        &self,
+        dst: &mut [u8],
+        width: u32,
+        height: u32,
+        scale: f32,
+        clip: Option<[f32; 4]>,
+    ) {
         debug_assert!(!self.scene.clip && !self.scene.scroll);
         let Some(cache) = self.cached(width, height, scale, false, true) else {
             return;
         };
+        // Device pixels whose centres lie inside the clip: [x0, y0, x1, y1), half-open.
+        let window = clip.map(|[x, y, w, h]| {
+            let edge = |v: f32| (v * scale - 0.5).ceil().max(0.) as usize;
+            let left = x - self.scroll_x;
+            let top = y - self.scroll_y;
+            [edge(left), edge(top), edge(left + w), edge(top + h)]
+        });
+        let row = width as usize;
         let mut pixels = cache.pixels.as_slice();
         for span in &cache.spans {
             let bytes = span.len() * 4;
-            for (dst, src) in dst[span.start * 4..span.end * 4]
+            for (offset, (dst, src)) in dst[span.start * 4..span.end * 4]
                 .chunks_exact_mut(4)
                 .zip(pixels[..bytes].chunks_exact(4))
+                .enumerate()
             {
+                if let Some([x0, y0, x1, y1]) = window {
+                    let index = span.start + offset;
+                    let (x, y) = (index % row, index / row);
+                    if x < x0 || x >= x1 || y < y0 || y >= y1 {
+                        continue;
+                    }
+                }
                 raster_cache::over(dst, src);
             }
             pixels = &pixels[bytes..];

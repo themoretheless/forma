@@ -138,7 +138,6 @@ const cases = {
   'modal dismissed with arguments': demo(
     `Frame { Text { text: 'a'; } Modal { key: 'm'; dismissed -> actions.x(1); Frame { Text { text: 'b'; } } } }`,
   ),
-  'clip on a nested container': demo(`Frame { Frame { clip: true; Text { text: 'a'; } } }`),
   'presenter with another property': {
     'components/Box.ui': `component Box { Frame { ContentPresenter { key: 'content'; width: 5; } } }`,
     ...demo(`Frame { Box { } }`),

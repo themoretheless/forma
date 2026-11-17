@@ -101,6 +101,7 @@ impl Runtime {
             };
             next.apply_logical_content_end(logical_end);
             next.preserve_binding_interaction(self);
+            next.install_clips(&controls);
             next.ui_binding_scene = controls;
             next.ui_binding_states = doc.states.clone();
             next.ui_document = Some(doc);
