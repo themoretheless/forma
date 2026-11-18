@@ -537,3 +537,58 @@ fn a_hebrew_line_is_edited_from_right_to_left() {
     assert!((highlight[1] - highlight[0] - word).abs() < 0.5);
     assert!((highlight[1] - (10. + total)).abs() < 0.5, "{highlight:?}");
 }
+
+#[test]
+fn arrows_move_the_caret_the_way_it_looks_on_a_right_to_left_line() {
+    let value = "abאבגcd\nxy";
+    let mut e = Editor::new(
+        Input {
+            value: value.into(),
+            multiline: true,
+            bounds: [0., 0., 300., 80.],
+            ..Input::default()
+        },
+        vec![],
+    )
+    .unwrap();
+    e.reduced_motion(true);
+    e.model.set_selection(0, 0).unwrap();
+    // Rightward from the start: every press moves the caret right and no stop repeats.
+    let mut stops = vec![0];
+    let mut x = e.caret_rect()[0];
+    for _ in 0..7 {
+        e.key("ArrowRight", false, false);
+        let next = e.caret_rect();
+        if next[1] > 0. {
+            break;
+        }
+        assert!(next[0] > x, "{stops:?}");
+        x = next[0];
+        stops.push(e.model.caret());
+    }
+    // a, b, then the Hebrew letters from the left end of their run: after ב, after א, then c, d.
+    assert_eq!(stops, [0, 1, 2, 6, 4, 9, 10]);
+    assert_eq!(
+        e.model.caret(),
+        value.find('x').unwrap(),
+        "past the end: the next line"
+    );
+
+    // And back the same way, ending on the stop after the whole run.
+    let mut back = vec![];
+    for _ in 0..8 {
+        e.key("ArrowLeft", false, false);
+        back.push(e.model.caret());
+    }
+    assert_eq!(back, [10, 9, 4, 6, 8, 1, 0, 0]);
+
+    // Shift keeps the anchor.
+    e.model.set_selection(2, 2).unwrap();
+    e.key("ArrowRight", true, false);
+    assert_eq!((e.model.anchor(), e.model.caret()), (2, 6));
+
+    // A line without such letters moves as before.
+    e.model.set_selection(value.len(), value.len()).unwrap();
+    e.key("ArrowLeft", false, false);
+    assert_eq!(e.model.caret(), value.len() - 1);
+}

@@ -292,6 +292,42 @@ impl Editor {
         self.preedit.clear();
         true
     }
+    /// Moves the caret one stop left or right as the line is drawn, when the line has
+    /// right-to-left text; past its end the caret goes on to the neighbouring line. Returns
+    /// `false` for any other line, which moves in the order of the text.
+    fn move_on_screen(&mut self, right: bool, extend: bool) -> bool {
+        if self.spec.multiline && self.spec.wrap {
+            return false;
+        }
+        let (value, caret) = (self.model.value(), self.model.caret());
+        let selection = self.model.selection();
+        if !extend && !selection.is_empty() {
+            return false;
+        }
+        let start = value[..caret].rfind('\n').map_or(0, |at| at + 1);
+        let end = value[caret..]
+            .find('\n')
+            .map_or(value.len(), |at| caret + at);
+        let line = value[start..end]
+            .strip_suffix('\r')
+            .unwrap_or(&value[start..end]);
+        if !crate::text::has_rtl(line) || caret - start > line.len() {
+            return false;
+        }
+        let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
+        let target = match crate::text::step_visual(&clusters, caret - start, right) {
+            Some(offset) => start + offset,
+            None if right && end < value.len() => end + 1,
+            None if !right && start > 0 => {
+                let before = start - 1;
+                before - usize::from(value[..before].ends_with('\r'))
+            }
+            None => caret,
+        };
+        let anchor = if extend { self.model.anchor() } else { target };
+        let _ = self.model.set_selection(anchor, target);
+        true
+    }
     pub(crate) fn key(&mut self, key: &str, shift: bool, command: bool) -> bool {
         if self.spec.read_only
             && (matches!(key, "Backspace" | "Delete" | "Enter")
@@ -343,11 +379,11 @@ impl Editor {
                 self.fades.clear();
                 self.model.delete_grapheme();
             }
-            "ArrowLeft" => {
-                self.model.move_graphemes(-1, shift);
-            }
-            "ArrowRight" => {
-                self.model.move_graphemes(1, shift);
+            "ArrowLeft" | "ArrowRight" => {
+                let right = key == "ArrowRight";
+                if !self.move_on_screen(right, shift) {
+                    self.model.move_graphemes(if right { 1 } else { -1 }, shift);
+                }
             }
             "Home" | "End" => {
                 let pos = self.model.caret();

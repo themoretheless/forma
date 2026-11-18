@@ -86,7 +86,8 @@ fn text_editing_handles_scripts_as_recorded() {
             runtime.text_key("ArrowRight", false, false);
         }
         let rightward = positions.windows(2).all(|pair| pair[1] >= pair[0]);
-        // A right-to-left line is laid out mirrored, so its caret moves leftward.
+        // Arrows move the way the line looks, so the right arrow never moves the caret left. On
+        // a right-to-left line Home is its right end, and the right arrow stays there.
         writeln!(
             out,
             "  caret advances rightward through the whole text: {rightward}"

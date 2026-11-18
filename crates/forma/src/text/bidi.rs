@@ -125,6 +125,30 @@ pub(crate) fn hit(clusters: &[VisualCluster], x: f32) -> usize {
     best.1
 }
 
+/// The caret stop one step to the right (or left) of the one at `offset`, as seen on screen:
+/// the nearest stop further that way, and of two at the same place the one closer in the text.
+/// `None` at the end of the line on that side.
+pub(crate) fn step(clusters: &[VisualCluster], offset: usize, right: bool) -> Option<usize> {
+    let from = caret_x(clusters, offset);
+    let mut best: Option<(f32, usize)> = None;
+    for stop in std::iter::once(0).chain(clusters.iter().map(|cluster| cluster.range.end)) {
+        let x = caret_x(clusters, stop);
+        let ahead = if right { x - from } else { from - x };
+        if ahead <= 0.01 {
+            continue;
+        }
+        let closer = best.is_none_or(|(distance, other)| {
+            ahead < distance - 0.01
+                || ((ahead - distance).abs() <= 0.01
+                    && stop.abs_diff(offset) < other.abs_diff(offset))
+        });
+        if closer {
+            best = Some((ahead, stop));
+        }
+    }
+    best.map(|(_, stop)| stop)
+}
+
 /// The stretches `[left, right]` a selection of bytes `range` covers, left to right. A selection
 /// across a change of direction is more than one stretch.
 pub(crate) fn selection_spans(clusters: &[VisualCluster], range: Range<usize>) -> Vec<[f32; 2]> {
