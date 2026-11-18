@@ -58,21 +58,21 @@ hebrew: 9 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [8, 8]
   word backspace leaves "שלום "
-  caret advances rightward through the whole text: true
+  caret advances rightward through the whole text: false
   word left from the end stops at utf16 [5, 5]
   word right from start stops at utf16 [4, 4]
 arabic: 13 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [12, 12]
   word backspace leaves "مرحبا "
-  caret advances rightward through the whole text: true
+  caret advances rightward through the whole text: false
   word left from the end stops at utf16 [6, 6]
   word right from start stops at utf16 [5, 5]
 mixed direction: 11 chars
   backspace removes 1 char(s)
   left arrow puts the caret at utf16 [10, 10]
   word backspace leaves "abc אבג "
-  caret advances rightward through the whole text: true
+  caret advances rightward through the whole text: false
   word left from the end stops at utf16 [8, 8]
   word right from start stops at utf16 [3, 3]
 japanese: 8 chars

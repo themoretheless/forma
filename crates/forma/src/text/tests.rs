@@ -1139,3 +1139,124 @@ fn runs_wrap_at_spaces_across_run_boundaries_and_keep_split_words_whole() {
     assert_eq!(narrow.lines, 2);
     assert!(narrow.width <= three);
 }
+
+#[test]
+fn only_right_to_left_text_asks_for_visual_order() {
+    for plain in ["", "plain", "Привет", "日本語", "สวัสดี", "👨‍👩‍👧", "é ñ ü — …"]
+    {
+        assert!(!bidi::has_rtl(plain), "{plain}");
+    }
+    for mixed in ["שלום", "abc א", "مرحبا"] {
+        assert!(bidi::has_rtl(mixed), "{mixed}");
+    }
+}
+
+#[test]
+fn a_right_to_left_run_is_laid_out_mirrored_inside_a_left_to_right_line() {
+    let line = "abאבגcd";
+    let size = 20.;
+    let w = |text: &str| measure_text(text, size);
+    let clusters = bidi::visual_line(FontFamily::Sans, line, size);
+    assert_eq!(clusters.len(), 7);
+    let x: Vec<f32> = clusters.iter().map(|cluster| cluster.x).collect();
+    let near = |a: f32, b: f32| (a - b).abs() < 0.01;
+    // Logical a b א ב ג c d is drawn as a b ג ב א c d.
+    assert!(near(x[0], 0.) && near(x[1], w("a")));
+    assert!(
+        near(x[4], w("ab")),
+        "the last Hebrew letter is leftmost in its run"
+    );
+    assert!(near(x[3], w("ab") + w("ג")));
+    assert!(near(x[2], w("ab") + w("ג") + w("ב")));
+    assert!(near(x[5], w("abאבג")) && near(x[6], w("abאבגc")));
+    assert_eq!(
+        clusters
+            .iter()
+            .map(|cluster| cluster.rtl)
+            .collect::<Vec<_>>(),
+        [false, false, true, true, true, false, false]
+    );
+
+    // The caret follows the direction of the cluster before it.
+    assert!(near(bidi::caret_x(&clusters, 0), 0.));
+    assert!(near(bidi::caret_x(&clusters, 2), w("ab")));
+    assert!(
+        near(bidi::caret_x(&clusters, 4), x[2]),
+        "after א: at its left edge"
+    );
+    assert!(
+        near(bidi::caret_x(&clusters, 8), x[4]),
+        "after ג: at the left end of the run"
+    );
+    assert!(near(bidi::caret_x(&clusters, line.len()), w(line)));
+
+    // A selection across the change of direction is two stretches: `b`, and א at the far end.
+    let spans = bidi::selection_spans(&clusters, 1..4);
+    assert_eq!(spans.len(), 2);
+    assert!(near(spans[0][0], w("a")) && near(spans[0][1], w("ab")));
+    assert!(near(spans[1][0], x[2]) && near(spans[1][1], w("abאבג")));
+    // Within the run it is one stretch.
+    assert_eq!(bidi::selection_spans(&clusters, 2..8).len(), 1);
+    assert!(bidi::selection_spans(&clusters, 3..3).is_empty());
+}
+
+#[test]
+fn the_caret_and_the_pointer_agree_on_a_right_to_left_line() {
+    // A space between two Hebrew words belongs to their run; a mark stays with its base.
+    let line = "שָׁלוֹם עולם";
+    let clusters = bidi::visual_line(FontFamily::Sans, line, 18.);
+    assert!(clusters.iter().all(|cluster| cluster.rtl));
+    let total = measure_text(line, 18.);
+    assert!(
+        (bidi::caret_x(&clusters, 0) - total).abs() < 0.01,
+        "typing starts at the right"
+    );
+    assert!(
+        bidi::caret_x(&clusters, line.len()).abs() < 0.01,
+        "and ends at the left"
+    );
+    let mut previous = f32::INFINITY;
+    for cluster in &clusters {
+        let caret = bidi::caret_x(&clusters, cluster.range.end);
+        assert!(caret <= previous, "the caret only moves left");
+        previous = caret;
+        assert_eq!(bidi::hit(&clusters, caret), cluster.range.end);
+        assert!(line.is_char_boundary(cluster.range.end));
+    }
+    assert_eq!(bidi::hit(&clusters, total + 50.), 0);
+    assert_eq!(bidi::hit(&clusters, -50.), line.len());
+
+    // Digits keep their own direction and so split the run; a trailing neutral stays outside.
+    let mixed = bidi::visual_line(FontFamily::Sans, "אב 12 גד!", 18.);
+    assert_eq!(
+        mixed.iter().map(|cluster| cluster.rtl).collect::<Vec<_>>(),
+        [true, true, false, false, false, false, true, true, false]
+    );
+}
+
+#[test]
+fn drawn_glyphs_follow_the_visual_order() {
+    let ids = |text: &str| {
+        let mut ids = Vec::new();
+        let units = glyph_ids(FontFamily::Sans, text, &mut ids);
+        (ids, units)
+    };
+    let (plain, _) = ids("abc");
+    let (a, _) = ids("a");
+    assert_eq!(plain[0], a[0], "left-to-right text is untouched");
+
+    let (hebrew, units) = ids("אבג");
+    let single: Vec<_> = ["א", "ב", "ג"].iter().map(|ch| ids(ch).0[0]).collect();
+    assert_eq!(hebrew, [single[2], single[1], single[0]]);
+    assert_eq!(
+        units,
+        single.iter().map(|glyph| glyph.1).sum::<f32>(),
+        "the width is the same"
+    );
+
+    // A combining mark is drawn after its base, not before it.
+    let (marked, _) = ids("בָא");
+    let base = ids("ב").0[0];
+    let mark = ids("\u{5b8}").0[0];
+    assert_eq!(marked, [single[0], base, mark]);
+}

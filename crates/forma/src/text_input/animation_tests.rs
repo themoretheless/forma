@@ -487,3 +487,53 @@ fn offscreen_editor_rows_are_culled_while_preserving_caret_selection_and_scroll(
         "expected culled visible rows near bottom, got {visible_texts:?}"
     );
 }
+
+#[test]
+fn a_hebrew_line_is_edited_from_right_to_left() {
+    let value = "שלום עולם";
+    let mut e = Editor::new(
+        Input {
+            value: value.into(),
+            bounds: [10., 0., 300., 30.],
+            ..Input::default()
+        },
+        vec![],
+    )
+    .unwrap();
+    e.reduced_motion(true);
+    let total = crate::text::measure_line(value, e.spec.font_size)[0];
+    let left = e.caret_rect()[0];
+    assert_eq!(
+        e.model.caret(),
+        value.len(),
+        "a new editor has its caret at the end"
+    );
+    // The end of a right-to-left line is its left edge, the start its right edge.
+    e.hit(10. + total + 40., 15., false);
+    assert_eq!(e.model.caret(), 0);
+    let right = e.caret_rect()[0];
+    assert!((right - left - total).abs() < 0.5, "{left} {right} {total}");
+    e.hit(10. - 5., 15., false);
+    assert_eq!(e.model.caret(), value.len());
+
+    // A click on the leftmost letter's left half lands after the last letter, not after the first.
+    e.hit(10. + 1., 15., false);
+    assert_eq!(e.model.caret(), value.len());
+
+    // Selecting the first word highlights the right part of the line.
+    e.model.set_selection(0, "שלום".len()).unwrap();
+    let word = crate::text::measure_line("שלום", e.spec.font_size)[0];
+    let highlight = e
+        .content(true)
+        .into_iter()
+        .find_map(|content| match content {
+            Content::Shape {
+                points,
+                color: [222, 106, 25, 90],
+            } => Some([points[0][0], points[1][0]]),
+            _ => None,
+        })
+        .expect("a selection rectangle");
+    assert!((highlight[1] - highlight[0] - word).abs() < 0.5);
+    assert!((highlight[1] - (10. + total)).abs() < 0.5, "{highlight:?}");
+}

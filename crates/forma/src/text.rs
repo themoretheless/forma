@@ -8,6 +8,7 @@
 use std::sync::OnceLock;
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
+mod bidi;
 mod fonts;
 mod metrics;
 mod outline;
@@ -17,6 +18,7 @@ mod shaping;
 mod unicode;
 mod wrap;
 
+pub(crate) use bidi::{caret_x, has_rtl, hit as hit_visual, selection_spans, visual_line};
 pub use fonts::*;
 pub use metrics::*;
 pub(crate) use outline::*;

@@ -116,6 +116,16 @@ impl Editor {
     fn width(&self, s: &str) -> f32 {
         crate::text::measure_line(s, self.spec.font_size)[0]
     }
+    /// Where the caret stands on `line` for a byte offset into it. A line with right-to-left
+    /// text is laid out in visual order; any other line is a plain prefix width.
+    fn caret_on(&self, line: &str, offset: usize) -> f32 {
+        if crate::text::has_rtl(line) {
+            let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
+            crate::text::caret_x(&clusters, offset)
+        } else {
+            self.width(&line[..offset])
+        }
+    }
     fn line_height(&self) -> f32 {
         self.spec.font_size * 1.5
     }
@@ -140,15 +150,23 @@ impl Editor {
                 {
                     let end = caret.min(byte_range.end);
                     return [
-                        self.width(&self.model.value()[byte_range.start..end]),
+                        self.caret_on(
+                            &self.model.value()[byte_range.clone()],
+                            end - byte_range.start,
+                        ),
                         row as f32 * self.line_height(),
                     ];
                 }
             }
         }
-        let prefix = &self.model.value()[..self.model.caret()];
+        let (value, caret) = (self.model.value(), self.model.caret());
+        let prefix = &value[..caret];
+        let start = prefix.rfind('\n').map_or(0, |at| at + 1);
+        let end = value[caret..]
+            .find('\n')
+            .map_or(value.len(), |at| caret + at);
         [
-            self.width(prefix.rsplit('\n').next().unwrap_or("")),
+            self.caret_on(&value[start..end], caret - start),
             prefix.bytes().filter(|b| *b == b'\n').count() as f32 * self.line_height(),
         ]
     }
@@ -184,7 +202,12 @@ impl Editor {
         if start + line.len() < self.model.value().len() {
             line = line.strip_suffix('\r').unwrap_or(line);
         }
-        let pos = crate::text::hit_grapheme(line, self.spec.font_size, x);
+        let pos = if crate::text::has_rtl(line) {
+            let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
+            crate::text::hit_visual(&clusters, x)
+        } else {
+            crate::text::hit_grapheme(line, self.spec.font_size, x)
+        };
         let anchor = if extend {
             self.model.anchor()
         } else {
@@ -414,7 +437,28 @@ impl Editor {
         if ctx.focused && !ctx.selection.is_empty() {
             let a = ctx.selection.start.max(start);
             let b = ctx.selection.end.min(start + line.len());
-            if a <= b && ctx.selection.end > start && ctx.selection.start <= start + line.len() {
+            let rtl = crate::text::has_rtl(line);
+            if rtl && a <= b && ctx.selection.end > start {
+                let clusters =
+                    crate::text::visual_line(Default::default(), line, self.spec.font_size);
+                for [left, right] in crate::text::selection_spans(&clusters, a - start..b - start) {
+                    ctx.out.push(rect(
+                        ctx.px + left,
+                        py,
+                        right - left,
+                        ctx.lh,
+                        [222, 106, 25, 90],
+                    ));
+                }
+                if ctx.selection.end > start + line.len() {
+                    let end = self.width(line);
+                    ctx.out
+                        .push(rect(ctx.px + end, py, 5., ctx.lh, [222, 106, 25, 90]));
+                }
+            } else if a <= b
+                && ctx.selection.end > start
+                && ctx.selection.start <= start + line.len()
+            {
                 let left = self.width(&line[..a.saturating_sub(start).min(line.len())]);
                 let right = self.width(&line[..b.saturating_sub(start).min(line.len())]);
                 ctx.out.push(rect(
@@ -433,7 +477,8 @@ impl Editor {
         if py + ctx.lh <= ctx.min_y || py >= ctx.max_y {
             return;
         }
-        if self.fades.is_empty() {
+        // A line with right-to-left text is drawn whole: its pieces do not sit at prefix widths.
+        if self.fades.is_empty() || crate::text::has_rtl(line) {
             ctx.out.push(Content::Text {
                 bounds: [ctx.px, py, self.width(line), ctx.lh],
                 text: Text {

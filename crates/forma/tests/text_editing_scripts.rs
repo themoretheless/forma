@@ -86,7 +86,7 @@ fn text_editing_handles_scripts_as_recorded() {
             runtime.text_key("ArrowRight", false, false);
         }
         let rightward = positions.windows(2).all(|pair| pair[1] >= pair[0]);
-        // Without bidirectional layout a right-to-left script still advances rightward.
+        // A right-to-left line is laid out mirrored, so its caret moves leftward.
         writeln!(
             out,
             "  caret advances rightward through the whole text: {rightward}"
