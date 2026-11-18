@@ -2270,3 +2270,43 @@ fn a_binding_rebuild_keeps_where_a_scroll_area_was() {
         "and the area stayed where it was"
     );
 }
+
+#[test]
+fn a_clipped_raster_is_the_open_raster_cut_to_the_clip() {
+    // Rows overflow a clip on every side at a fractional scale, so spans cross its edges.
+    let rows: String = (0..6)
+        .map(|i| format!("Text {{ key: 't{i}'; text: 'row {i}'; width: 150; height: 25; background: '#336699'; }}"))
+        .collect();
+    let load = |clip: &str| {
+        let source = format!(
+            "component App {{ Column {{ width: 300; height: 200; Text {{ text: 't'; width: 100; height: 13; }} Column {{ width: 130; height: 95; {clip} {rows} }} }} }}"
+        );
+        let files = std::collections::BTreeMap::from([("App.ui".to_owned(), source)]);
+        Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap()
+    };
+    let (open, clipped) = (load(""), load("clip: true;"));
+    let [cx, cy, cw, ch] = clipped.clip(1).unwrap();
+    for scale in [1., 1.25, 1.7] {
+        let (w, h) = ((300. * scale) as u32, (200. * scale) as u32);
+        let reference = open.raster(w, h, scale, false);
+        let actual = clipped.raster(w, h, scale, false);
+        for y in 0..h {
+            for x in 0..w {
+                let (px, py) = ((x as f32 + 0.5) / scale, (y as f32 + 0.5) / scale);
+                // The title above is unclipped; everything else shows only inside the clip.
+                let inside = px >= cx && px < cx + cw && py >= cy && py < cy + ch;
+                let at = ((y * w + x) * 4) as usize;
+                let expected = if inside || py < 13. {
+                    &reference[at..at + 4]
+                } else {
+                    &[0u8; 4][..]
+                };
+                assert_eq!(
+                    &actual[at..at + 4],
+                    expected,
+                    "pixel {x},{y} at scale {scale}"
+                );
+            }
+        }
+    }
+}

@@ -183,21 +183,41 @@ impl Button {
         let mut pixels = cache.pixels.as_slice();
         for span in &cache.spans {
             let bytes = span.len() * 4;
-            for (offset, (dst, src)) in dst[span.start * 4..span.end * 4]
-                .chunks_exact_mut(4)
-                .zip(pixels[..bytes].chunks_exact(4))
-                .enumerate()
-            {
-                if let Some([x0, y0, x1, y1]) = window {
-                    let index = span.start + offset;
-                    let (x, y) = (index % row, index / row);
-                    if x < x0 || x >= x1 || y < y0 || y >= y1 {
-                        continue;
+            let source = &pixels[..bytes];
+            pixels = &pixels[bytes..];
+            let Some([x0, y0, x1, y1]) = window else {
+                for (dst, src) in dst[span.start * 4..span.end * 4]
+                    .chunks_exact_mut(4)
+                    .zip(source.chunks_exact(4))
+                {
+                    raster_cache::over(dst, src);
+                }
+                continue;
+            };
+            // Cut the span row by row to the window's columns: one division per row it
+            // crosses instead of one test per pixel.
+            let mut at = span.start;
+            while at < span.end {
+                let y = at / row;
+                let row_end = ((y + 1) * row).min(span.end);
+                if y >= y1 {
+                    break;
+                }
+                if y >= y0 {
+                    let from = at.max(y * row + x0);
+                    let to = row_end.min(y * row + x1);
+                    if from < to {
+                        let offset = (from - span.start) * 4;
+                        for (dst, src) in dst[from * 4..to * 4]
+                            .chunks_exact_mut(4)
+                            .zip(source[offset..].chunks_exact(4))
+                        {
+                            raster_cache::over(dst, src);
+                        }
                     }
                 }
-                raster_cache::over(dst, src);
+                at = row_end;
             }
-            pixels = &pixels[bytes..];
         }
     }
 
