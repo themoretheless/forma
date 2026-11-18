@@ -8,7 +8,8 @@ Each font includes its upstream OFL and METADATA files.
 - NotoEmoji.ttf: 1,982,596 bytes; monochrome emoji vector outlines.
 - NotoSansHebrew.ttf: 112,640 bytes; Hebrew letters and points. Face 5, after the emoji face.
 - NotoSansArabic.ttf: 844,676 bytes; Arabic letters, marks and presentation forms. Face 6.
-  Letters are drawn in their isolated forms: joining is not implemented.
+  Letters of the basic alphabet are drawn in their joined presentation forms; the lam-alef
+  ligature is not formed.
 
 `cargo run --offline --locked --manifest-path crates/forma/Cargo.toml --example font_coverage_probe`
 checks weight400, glyph lookup, positive advances and nonempty outlines for

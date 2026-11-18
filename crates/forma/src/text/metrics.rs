@@ -33,8 +33,14 @@ pub fn measure_text_in(family: FontFamily, text: &str, font_size: f32) -> f32 {
     }
     let table = font_table_for(family);
     let mut units = 0.;
-    for c in text.chars() {
-        units += resolve_glyph_with_table(c, table).1;
+    if arabic::has_arabic(text) {
+        for (form, c) in arabic::joined(text).into_iter().zip(text.chars()) {
+            units += resolve_form_with_table(form, c, table).1;
+        }
+    } else {
+        for c in text.chars() {
+            units += resolve_glyph_with_table(c, table).1;
+        }
     }
     pixels_from_units(units, font_size, table.units_per_em)
 }

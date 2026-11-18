@@ -148,6 +148,22 @@ pub(super) fn resolve_glyph(ch: char) -> (FontGlyph, f32) {
     resolve_glyph_with_table(ch, font_table())
 }
 
+/// The glyph of a character in the form `arabic::joined` chose; when no face has that
+/// presentation form, the letter's own glyph.
+pub(super) fn resolve_form_with_table(form: char, ch: char, table: &FontTable) -> (FontGlyph, f32) {
+    if form != ch {
+        for index in [6, table.primary] {
+            let face = glyph_face(index);
+            if let Some(id) = face.glyph_index(form) {
+                let units =
+                    advance(face, id) * table.units_per_em as f32 / face.units_per_em() as f32;
+                return (FontGlyph { face: index, id }, units);
+            }
+        }
+    }
+    resolve_glyph_with_table(ch, table)
+}
+
 pub(super) fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
     let code = ch as usize;
     if code < 1104 && table.present[code] {

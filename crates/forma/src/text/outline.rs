@@ -200,10 +200,18 @@ pub(super) fn glyph_ids(family: FontFamily, text: &str, ids: &mut Vec<(FontGlyph
     ids.clear();
     let mut units = 0.;
     let table = font_table_for(family);
-    for ch in text.chars() {
-        let resolved = resolve_glyph_with_table(ch, table);
-        units += resolved.1;
-        ids.push(resolved);
+    if arabic::has_arabic(text) {
+        for (form, ch) in arabic::joined(text).into_iter().zip(text.chars()) {
+            let resolved = resolve_form_with_table(form, ch, table);
+            units += resolved.1;
+            ids.push(resolved);
+        }
+    } else {
+        for ch in text.chars() {
+            let resolved = resolve_glyph_with_table(ch, table);
+            units += resolved.1;
+            ids.push(resolved);
+        }
     }
     if bidi::has_rtl(text) {
         bidi::reorder_glyphs(family, text, ids, |ch| {

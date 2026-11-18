@@ -30,13 +30,20 @@ pub(crate) struct VisualCluster {
 /// The clusters of `line` in logical order, each with its place on the line.
 pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec<VisualCluster> {
     let table = font_table_for(family);
+    // Arabic letters measure in the form their neighbours give them, as they are drawn.
+    let forms = arabic::has_arabic(line).then(|| arabic::joined(line));
+    let mut position = 0;
     let mut clusters: Vec<(Range<usize>, bool, bool, f32)> = line
         .grapheme_indices(true)
         .map(|(start, cluster)| {
             let first = cluster.chars().next().unwrap_or(' ');
             let units: f32 = cluster
                 .chars()
-                .map(|ch| resolve_glyph_with_table(ch, table).1)
+                .map(|ch| {
+                    let form = forms.as_ref().map_or(ch, |forms| forms[position]);
+                    position += 1;
+                    resolve_form_with_table(form, ch, table).1
+                })
                 .sum();
             let rtl = is_rtl_char(first);
             let strong = rtl || is_strong_ltr_char(first) || first.is_ascii_digit();

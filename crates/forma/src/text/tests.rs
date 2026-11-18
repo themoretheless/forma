@@ -1334,3 +1334,55 @@ impl OutlineBuilder for NoOutline {
     fn curve_to(&mut self, _: f32, _: f32, _: f32, _: f32, _: f32, _: f32) {}
     fn close(&mut self) {}
 }
+
+#[test]
+fn arabic_letters_take_the_form_their_neighbours_ask_for() {
+    let forms = |text: &str| {
+        arabic::joined(text)
+            .into_iter()
+            .map(|ch| ch as u32)
+            .collect::<Vec<_>>()
+    };
+    // سلام: seen initial, lam medial, alef final, meem isolated (alef joins to nothing after it).
+    assert_eq!(forms("سلام"), [0xFEB3, 0xFEE0, 0xFE8E, 0xFEE1]);
+    // A lone letter and a letter after a space are isolated; a pair is initial then final.
+    assert_eq!(forms("ب"), [0xFE8F]);
+    assert_eq!(forms("بب ب"), [0xFE91, 0xFE90, 0x20, 0xFE8F]);
+    // A mark does not interrupt joining; hamza joins to nothing; tatweel joins both ways.
+    assert_eq!(forms("بَب"), [0xFE91, 0x64E, 0xFE90]);
+    assert_eq!(forms("بءب"), [0xFE8F, 0xFE80, 0xFE8F]);
+    assert_eq!(forms("بـب"), [0xFE91, 0x640, 0xFE90]);
+    // Other scripts and digits pass through, one character for one.
+    assert_eq!(
+        forms("ab ١٢ אב"),
+        "ab ١٢ אב".chars().map(|ch| ch as u32).collect::<Vec<_>>()
+    );
+    assert!(!arabic::has_arabic("plain Привет שלום 日本"));
+
+    // The bundled face has every form, and drawing, measuring and the caret use the same ones.
+    let table = font_table();
+    for code in 0xFE80..=0xFEF4u32 {
+        let form = char::from_u32(code).unwrap();
+        let (glyph, advance) = resolve_form_with_table(form, 'ب', table);
+        assert_eq!(glyph.face, 6, "U+{code:04X}");
+        assert!(advance > 0.);
+    }
+    let word = "سلام";
+    let mut ids = Vec::new();
+    let units = glyph_ids(FontFamily::Sans, word, &mut ids);
+    let isolated: f32 = word.chars().map(|ch| resolve_glyph(ch).1).sum();
+    assert_ne!(units, isolated, "joined forms have their own widths");
+    let size = 20.;
+    let width = measure_text(word, size);
+    assert_eq!(width, pixels_from_units(units, size, table.units_per_em));
+    let clusters = bidi::visual_line(FontFamily::Sans, word, size);
+    let total: f32 = clusters.iter().map(|cluster| cluster.width).sum();
+    assert!((total - width).abs() < 0.01);
+    assert!((bidi::caret_x(&clusters, 0) - width).abs() < 0.01);
+    // Drawn right to left: the final meem first, the initial seen last.
+    let glyph = |code: u32| resolve_form_with_table(char::from_u32(code).unwrap(), 'ب', table).0;
+    assert_eq!(
+        ids.iter().map(|(glyph, _)| *glyph).collect::<Vec<_>>(),
+        [glyph(0xFEE1), glyph(0xFE8E), glyph(0xFEE0), glyph(0xFEB3)]
+    );
+}

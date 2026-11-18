@@ -8,6 +8,7 @@
 use std::sync::OnceLock;
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
+mod arabic;
 mod bidi;
 mod fonts;
 mod metrics;
