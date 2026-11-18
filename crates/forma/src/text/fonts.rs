@@ -97,7 +97,7 @@ pub(super) struct FontGlyph {
 /// Return an immutable bundled face corresponding to [`ShapedGlyph::font_index`].
 /// Fallback variable fonts are fixed at weight400, matching shaping/rendering.
 pub fn font_face(index: u8) -> Option<&'static Face<'static>> {
-    (index <= 4).then(|| glyph_face(index))
+    (index <= 6).then(|| glyph_face(index))
 }
 
 pub(super) fn glyph_face(index: u8) -> &'static Face<'static> {
@@ -122,6 +122,16 @@ pub(super) fn glyph_face(index: u8) -> &'static Face<'static> {
         3 => {
             static MONO_FACE: OnceLock<Face<'static>> = OnceLock::new();
             MONO_FACE.get_or_init(|| Face::parse(MONO, 0).expect("embedded monospace font"))
+        }
+        5 => {
+            static HEBREW: OnceLock<Face<'static>> = OnceLock::new();
+            HEBREW
+                .get_or_init(|| parsed(include_bytes!("../../assets/fallback/NotoSansHebrew.ttf")))
+        }
+        6 => {
+            static ARABIC: OnceLock<Face<'static>> = OnceLock::new();
+            ARABIC
+                .get_or_init(|| parsed(include_bytes!("../../assets/fallback/NotoSansArabic.ttf")))
         }
         4 => {
             static BOLD_FACE: OnceLock<Face<'static>> = OnceLock::new();
@@ -150,8 +160,11 @@ pub(super) fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyp
         );
     }
     // The family's own face first, then the shared chain. For the default family this is
-    // the historical 0, 1, 2 order.
-    for index in std::iter::once(table.primary).chain((0..=2).filter(|&i| i != table.primary)) {
+    // the historical 0, 1, 2 order; the Hebrew and Arabic faces come last, so nothing that
+    // resolved before resolves differently.
+    for index in std::iter::once(table.primary)
+        .chain([0, 1, 2, 5, 6].into_iter().filter(|&i| i != table.primary))
+    {
         let face = glyph_face(index);
         if let Some(id) = face.glyph_index(ch) {
             let units = advance(face, id) * table.units_per_em as f32 / face.units_per_em() as f32;

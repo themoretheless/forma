@@ -182,7 +182,7 @@ fn shaping_uses_real_fallback_faces_and_does_not_kern_across_fonts() {
     // Index 3 is the monospace primary face, 4 the bold face; nothing lies beyond them.
     assert!(font_face(3).is_some());
     assert!(font_face(4).is_some());
-    assert!(font_face(5).is_none());
+    assert!(font_face(7).is_none());
 }
 
 #[test]
@@ -927,7 +927,7 @@ fn monospace_falls_back_to_shared_faces_for_missing_scalars() {
     assert_eq!(cjk.face, 1);
     assert!(advance > 0.);
     assert_eq!(font_face(3).unwrap().units_per_em(), table.units_per_em);
-    assert!(font_face(5).is_none());
+    assert!(font_face(7).is_none());
 }
 
 #[test]
@@ -1292,4 +1292,45 @@ fn brackets_inside_a_right_to_left_run_are_drawn_mirrored() {
         &order[2..],
         [glyph("("), glyph("a"), glyph("b"), glyph(")")]
     );
+}
+
+#[test]
+fn hebrew_and_arabic_letters_have_their_own_glyphs() {
+    let missing = resolve_glyph('?').0;
+    for (face, range) in [(5, 0x5d0..=0x5eau32), (6, 0x621..=0x64a)] {
+        let mut seen = std::collections::BTreeSet::new();
+        for code in range {
+            let ch = char::from_u32(code).unwrap();
+            // U+063B..=063F are rarely used extensions; the letters proper must all be there.
+            let (glyph, advance) = resolve_glyph(ch);
+            if matches!(code, 0x63b..=0x63f) && glyph == missing {
+                continue;
+            }
+            assert_ne!(glyph, missing, "U+{code:04X}");
+            assert_eq!(glyph.face, face, "U+{code:04X}");
+            assert!(advance > 0., "U+{code:04X}");
+            assert!(
+                font_face(face)
+                    .unwrap()
+                    .outline_glyph(glyph.id, &mut NoOutline)
+                    .is_some()
+            );
+            seen.insert(glyph.id.0);
+        }
+        assert!(seen.len() > 20, "distinct glyphs, not one placeholder");
+    }
+    // What resolved before these faces were added still resolves to the same faces.
+    for (ch, face) in [('a', 0), ('Я', 0), ('中', 1), ('😀', 2)] {
+        assert_eq!(resolve_glyph(ch).0.face, face, "{ch}");
+    }
+    assert!(font_face(7).is_none());
+}
+
+struct NoOutline;
+impl OutlineBuilder for NoOutline {
+    fn move_to(&mut self, _: f32, _: f32) {}
+    fn line_to(&mut self, _: f32, _: f32) {}
+    fn quad_to(&mut self, _: f32, _: f32, _: f32, _: f32) {}
+    fn curve_to(&mut self, _: f32, _: f32, _: f32, _: f32, _: f32, _: f32) {}
+    fn close(&mut self) {}
 }

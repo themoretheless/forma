@@ -7,9 +7,10 @@ use super::*;
 pub struct ShapedGlyph {
     /// Resolved font glyph identifier (`GlyphId(0)` when synthesized by the fallback chain).
     pub glyph_id: u16,
-    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji, 3=IBM Plex Mono, 4=Ubuntu Bold;
+    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji, 3=IBM Plex Mono, 4=Ubuntu Bold,
+    /// 5=Noto Sans Hebrew, 6=Noto Sans Arabic;
     /// see [`font_face`].
-    /// Shaping itself only produces 0..=2: the monospace face is not shaped.
+    /// Shaping itself only produces 0..=2, 5 and 6: the monospace face is not shaped.
     pub font_index: u8,
     /// Logical UTF-8 byte offset of the cluster start in the source string.
     pub cluster: usize,
