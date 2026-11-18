@@ -913,7 +913,12 @@ export function createVectorPreview({
         if (!container?.replaceChildren) throw new Error('Не найден контейнер предпросмотра');
         designMode = Boolean(designMode);
         // Clips come from containers the markup does not carry, so they decide a reload too.
-        const clips = JSON.stringify([controlClips, controlScrolls]);
+        // The same arrays as last time say the same thing: a render that did not recompile
+        // skips writing them out.
+        const clips =
+          current?.controlClips === controlClips && current.controlScrolls === controlScrolls
+            ? current.clips
+            : JSON.stringify([controlClips, controlScrolls]);
         const changed =
           !button ||
           current.source !== source ||
@@ -977,6 +982,8 @@ export function createVectorPreview({
           source,
           template,
           clips,
+          controlClips,
+          controlScrolls,
           designMode,
           nodes,
           previewControls,
