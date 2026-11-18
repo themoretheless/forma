@@ -592,3 +592,46 @@ fn arrows_move_the_caret_the_way_it_looks_on_a_right_to_left_line() {
     e.key("ArrowLeft", false, false);
     assert_eq!(e.model.caret(), value.len() - 1);
 }
+
+#[test]
+fn a_click_in_a_wrapped_hebrew_field_lands_where_the_caret_is_drawn() {
+    let value = "שלום עולם שלום עולם שלום עולם";
+    let mut e = Editor::new(
+        Input {
+            value: value.into(),
+            multiline: true,
+            wrap: true,
+            bounds: [0., 0., 120., 120.],
+            ..Input::default()
+        },
+        vec![],
+    )
+    .unwrap();
+    e.reduced_motion(true);
+    let rows = crate::text::wrap_text_ranges(value, e.spec.font_size, 120.);
+    assert!(rows.len() > 1, "the text wraps");
+    // Every caret stop is found again by a click at the place it is drawn.
+    let mut checked = 0;
+    for (offset, _) in value.char_indices() {
+        e.model.set_selection(offset, offset).unwrap();
+        let caret = e.caret_rect();
+        e.hit(caret[0], caret[1] + caret[3] * 0.5, false);
+        // The end of one row and the start of the next are one offset drawn on the later row.
+        let drawn = e.caret_rect();
+        assert_eq!(
+            [drawn[0], drawn[1]],
+            [caret[0], caret[1]],
+            "offset {offset}"
+        );
+        checked += 1;
+    }
+    assert!(checked > 20);
+    // The start of the first row is at the right edge of its letters; the space the row ends
+    // with stays to the right of them, as trailing space does.
+    e.model.set_selection(0, 0).unwrap();
+    let first = e.caret_rect();
+    assert!(first[0] > 60., "{first:?}");
+    e.model.set_selection(value.len(), value.len()).unwrap();
+    e.hit(first[0] + 1., first[1] + first[3] * 0.5, false);
+    assert_eq!(e.model.caret(), 0);
+}

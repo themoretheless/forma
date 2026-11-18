@@ -164,5 +164,10 @@ pub fn hit_wrapped_text(
     let row = (y / lh).floor().max(0.) as usize;
     let (range, _) = &lines[row.min(lines.len() - 1)];
     let slice = &text[range.clone()];
-    range.start + hit_grapheme(slice, font_size, x)
+    let offset = if bidi::has_rtl(slice) {
+        bidi::hit(&bidi::visual_line(FontFamily::Sans, slice, font_size), x)
+    } else {
+        hit_grapheme(slice, font_size, x)
+    };
+    range.start + offset
 }
