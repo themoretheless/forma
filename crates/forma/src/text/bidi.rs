@@ -168,9 +168,36 @@ pub(crate) fn selection_spans(clusters: &[VisualCluster], range: Range<usize>) -
     merged
 }
 
+/// The character drawn in place of a bracket inside a right-to-left run, where "opening" faces
+/// the other way.
+pub(crate) fn mirrored(ch: char) -> Option<char> {
+    Some(match ch {
+        '(' => ')',
+        ')' => '(',
+        '[' => ']',
+        ']' => '[',
+        '{' => '}',
+        '}' => '{',
+        '<' => '>',
+        '>' => '<',
+        '«' => '»',
+        '»' => '«',
+        '‹' => '›',
+        '›' => '‹',
+        _ => return None,
+    })
+}
+
 /// Reorders the per-character glyphs of `text` from logical to visual order. Characters of one
-/// cluster stay together and in their own order, so a mark still follows its base.
-pub(super) fn reorder_glyphs<T: Copy>(family: FontFamily, text: &str, glyphs: &mut Vec<T>) {
+/// cluster stay together and in their own order, so a mark still follows its base. A bracket in
+/// a right-to-left run is drawn mirrored (`mirror` resolves the glyph) and keeps its own advance,
+/// so the line measures the same.
+pub(super) fn reorder_glyphs<G: Copy>(
+    family: FontFamily,
+    text: &str,
+    glyphs: &mut Vec<(G, f32)>,
+    mirror: impl Fn(char) -> G,
+) {
     let clusters = visual_line(family, text, 1.);
     // Byte offset of every character, to turn a cluster's byte range into glyph indices.
     let offsets: Vec<usize> = text.char_indices().map(|(offset, _)| offset).collect();
@@ -181,7 +208,14 @@ pub(super) fn reorder_glyphs<T: Copy>(family: FontFamily, text: &str, glyphs: &m
     let mut take = |cluster: &VisualCluster| {
         let from = offsets.partition_point(|&offset| offset < cluster.range.start);
         let to = offsets.partition_point(|&offset| offset < cluster.range.end);
-        glyphs.extend_from_slice(&logical[from..to]);
+        for index in from..to {
+            let (glyph, advance) = logical[index];
+            let swapped = cluster
+                .rtl
+                .then(|| text[offsets[index]..].chars().next().and_then(mirrored))
+                .flatten();
+            glyphs.push((swapped.map_or(glyph, &mirror), advance));
+        }
     };
     for run in clusters.chunk_by(|a, b| a.rtl == b.rtl) {
         if run[0].rtl {

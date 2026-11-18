@@ -1260,3 +1260,36 @@ fn drawn_glyphs_follow_the_visual_order() {
     let mark = ids("\u{5b8}").0[0];
     assert_eq!(marked, [single[0], base, mark]);
 }
+
+#[test]
+fn brackets_inside_a_right_to_left_run_are_drawn_mirrored() {
+    let ids = |text: &str| {
+        let mut ids = Vec::new();
+        let units = glyph_ids(FontFamily::Sans, text, &mut ids);
+        (ids, units)
+    };
+    let glyph = |ch: &str| ids(ch).0[0].0;
+    // Logical א ( ב ) ג is drawn ג ( ב ) א: each bracket moved to the other side and flipped,
+    // so the pair still encloses ב.
+    let (drawn, units) = ids("א(ב)ג");
+    let order: Vec<_> = drawn.iter().map(|(glyph, _)| *glyph).collect();
+    assert_eq!(
+        order,
+        [glyph("ג"), glyph("("), glyph("ב"), glyph(")"), glyph("א")]
+    );
+    assert_eq!(
+        drawn[1].1,
+        ids(")").0[0].1,
+        "a bracket keeps its own advance"
+    );
+    let mut plain = Vec::new();
+    assert_eq!(units, glyph_ids(FontFamily::Sans, "א(ב)ג", &mut plain));
+
+    // Brackets around a left-to-right word are untouched, even on a line that has Hebrew.
+    let (latin, _) = ids("א (ab)");
+    let order: Vec<_> = latin.iter().map(|(glyph, _)| *glyph).collect();
+    assert_eq!(
+        &order[2..],
+        [glyph("("), glyph("a"), glyph("b"), glyph(")")]
+    );
+}

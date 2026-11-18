@@ -206,7 +206,9 @@ pub(super) fn glyph_ids(family: FontFamily, text: &str, ids: &mut Vec<(FontGlyph
         ids.push(resolved);
     }
     if bidi::has_rtl(text) {
-        bidi::reorder_glyphs(family, text, ids);
+        bidi::reorder_glyphs(family, text, ids, |ch| {
+            resolve_glyph_with_table(ch, table).0
+        });
     }
     units
 }
