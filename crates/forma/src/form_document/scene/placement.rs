@@ -80,7 +80,7 @@ impl Document {
             }
             if let Some(clip) = target.clip {
                 node.props
-                    .insert("__clip".into(), Value::List(clip.map(number).to_vec()));
+                    .insert(CLIP_PROPERTY.into(), Value::List(clip.map(number).to_vec()));
             }
             if !target.scroll_chain.is_empty() {
                 let chain = target
@@ -90,7 +90,8 @@ impl Document {
                         Value::List([*area as f64, *x, *y, *w, *h].map(number).to_vec())
                     })
                     .collect();
-                node.props.insert("__scroll".into(), Value::List(chain));
+                node.props
+                    .insert(SCROLL_PROPERTY.into(), Value::List(chain));
             }
             target.instances.push((node, Some(visual)));
             return Ok(());
@@ -125,7 +126,7 @@ impl Document {
                 }
             }
             let area = Node {
-                kind: "ContainerArea".into(),
+                kind: CONTAINER_AREA.into(),
                 props,
                 children: Vec::new(),
                 action: Some(action.clone()),

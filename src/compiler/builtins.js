@@ -40,6 +40,10 @@ export const builtinSources = {
     Rectangle { background: #00000000; PointerArea { clicked -> events.clicked(); } }
   }`,
 };
+/** The component a container with a `clicked` handler lays down as its pressable area. */
+export const containerArea = 'ContainerArea';
+/** Built-in components the compiler places itself; a designer never inserts them by hand. */
+export const internalComponents = new Set([containerArea]);
 export const fallback = {
   width: 260,
   height: 70,

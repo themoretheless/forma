@@ -11,6 +11,7 @@ import {
 import { cell, gap, insets, natural, sizes } from './content-layout.js';
 import { own } from '../shared/object.js';
 import { clone } from './data.js';
+import { containerArea } from './builtins.js';
 
 /**
  * @param {{ root: object, instantiate: Function, metrics: object,
@@ -95,7 +96,7 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
       // children; children without a handler of their own answer with the container's.
       const area = {
         ...node,
-        type: 'ContainerArea',
+        type: containerArea,
         props: node.props.key === undefined ? {} : { key: node.props.key },
         bindings: {},
         children: [],

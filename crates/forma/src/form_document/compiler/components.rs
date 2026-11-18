@@ -408,7 +408,7 @@ pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 4] 
                 ),
                 // The pressable area a container with a `clicked` handler lays under its children.
                 (
-                    "ContainerArea",
+                    crate::form_document::scene::CONTAINER_AREA,
                     "component ContainerArea { width: 0; height: 0; Rectangle { background: #00000000; PointerArea { clicked -> events.clicked(); } } }",
                 ),
                 (

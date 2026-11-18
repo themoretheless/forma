@@ -495,7 +495,7 @@ impl SceneEmitter {
             Some(Value::Object(state)) => state,
             _ => Properties::new(),
         };
-        let clip = match instance.props.remove("__clip") {
+        let clip = match instance.props.remove(scene::CLIP_PROPERTY) {
             Some(Value::List(values)) => match values.as_slice() {
                 [
                     Value::Number(x),
@@ -507,7 +507,7 @@ impl SceneEmitter {
             },
             _ => None,
         };
-        let scroll = match instance.props.remove("__scroll") {
+        let scroll = match instance.props.remove(scene::SCROLL_PROPERTY) {
             Some(Value::List(chain)) => chain
                 .iter()
                 .map(|entry| match entry {

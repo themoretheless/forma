@@ -39,6 +39,13 @@ struct SceneAt<'a> {
     depth: usize,
 }
 
+/// Properties a positioned control carries from the layout to the scene mapping: its clip
+/// rectangle and the scroll areas around it. Written by placement, read once by the emitter.
+pub(in crate::form_document) const CLIP_PROPERTY: &str = "__clip";
+pub(in crate::form_document) const SCROLL_PROPERTY: &str = "__scroll";
+/// The built-in component a container with a `clicked` handler lays down as its pressable area.
+pub(in crate::form_document) const CONTAINER_AREA: &str = "ContainerArea";
+
 pub(super) struct ScenePositionTarget<'a> {
     pub(super) instances: &'a mut Vec<(Node, Option<Node>)>,
     pub(super) logical_end: &'a mut [f64; 2],

@@ -1,4 +1,5 @@
 import { linkComponentDefinitions } from './components.js';
+import { internalComponents } from './compiler/builtins.js';
 
 // The designer adds controls to a page, so an entry has to be a type the page compiler takes
 // as a top-level control. That is exactly what instantiation requires: the name links through
@@ -18,7 +19,7 @@ export function insertableControls(files) {
   for (const [name, definition] of Object.entries(definitions)) {
     if (definition?.nodes?.length !== 1 || definition.nodes[0].type !== 'Rectangle') continue;
     // The area a container's `clicked` handler lays under its children is not placed by hand.
-    if (name === 'ContainerArea') continue;
+    if (internalComponents.has(name)) continue;
     // A control whose own label default is empty would land on the canvas invisible.
     const props = definition.defaults?.text === '' ? ["text: 'Текст';"] : [];
     items.push({
