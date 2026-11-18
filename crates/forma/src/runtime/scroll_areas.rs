@@ -124,8 +124,8 @@ impl Runtime {
     ) {
         (self.scroll_areas, self.scroll_chains) = areas_of(chains);
         self.attach_area_nodes();
-        let clips = std::mem::take(&mut self.clips);
-        self.set_clips(clips);
+        self.sync_control_scroll();
+        self.clips_changed();
     }
 
     /// How far the areas around control `index` have moved it, on top of the root scroll.

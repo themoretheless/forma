@@ -42,11 +42,10 @@ impl Runtime {
         if i >= self.controls.len() {
             return false;
         }
-        let mut clips = std::mem::take(&mut self.clips);
-        clips.resize(self.controls.len(), None);
-        clips[i] = (width >= 0. && [x, y, width, height].iter().all(|v| v.is_finite()))
+        self.clips.resize(self.controls.len(), None);
+        self.clips[i] = (width >= 0. && [x, y, width, height].iter().all(|v| v.is_finite()))
             .then_some([x, y, width, height.max(0.)]);
-        self.set_clips(clips);
+        self.clips_changed();
         true
     }
 

@@ -357,18 +357,24 @@ impl Runtime {
                 .map(|control| control.clip.map(|rect| rect.map(|v| v as f32)))
                 .collect(),
         );
+        self.sync_control_scroll();
     }
 
     /// Replace every control's clip rectangle and drop what was painted under the old ones.
     pub(super) fn set_clips(&mut self, clips: Vec<Option<[f32; 4]>>) {
         self.clips = clips;
-        if self.clips.iter().any(Option::is_some) {
-            for control in &mut self.controls {
-                control.scene.clip = false;
-                control.scene.scroll = false;
-            }
+        self.clips_changed();
+    }
+
+    /// A clip was set or removed: what was painted under the old ones is stale. Constant time,
+    /// so setting clips one control at a time stays linear in the controls.
+    pub(super) fn clips_changed(&mut self) {
+        // Beside siblings a control already leaves the root frame's clipping and scrolling to
+        // the runtime; a lone clipped control hands them over here.
+        if self.controls.len() == 1 && self.clip(0).is_some() {
+            self.controls[0].scene.clip = false;
+            self.controls[0].scene.scroll = false;
         }
-        self.sync_control_scroll();
         *self.geometry.borrow_mut() = None;
         self.revision = self.revision.wrapping_add(1);
         self.geometry_revision = self.geometry_revision.wrapping_add(1);
