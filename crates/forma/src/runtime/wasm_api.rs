@@ -126,6 +126,8 @@ impl Runtime {
 
     pub fn preserve_interaction(&mut self, previous: &Runtime) {
         self.preserve_interaction_matches(previous);
+        // Scroll areas set on this runtime stay where the previous scene had them.
+        self.keep_area_scroll(previous);
     }
 
     pub(super) fn preserve_interaction_matches(

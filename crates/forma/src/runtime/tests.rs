@@ -2346,3 +2346,20 @@ fn scroll_areas_from_outside_are_checked_before_they_size_anything() {
     artifact.controls[1].scroll[0].area = usize::MAX;
     assert!(Runtime::from_scene_artifact(&artifact).is_err());
 }
+
+#[test]
+fn a_reloaded_preview_keeps_where_a_scroll_area_was() {
+    // The Studio preview loads a new runtime on every change and hands it the old one.
+    let mut old = scroll_area_runtime();
+    let viewport = old.scroll_areas[0].viewport;
+    old.pointer(viewport[0] + 5., viewport[1] + 5., 0);
+    old.scroll(0., 50.);
+    let mut new = scroll_area_runtime();
+    new.preserve_interaction(&old);
+    assert_eq!(new.area_scroll(0), Some([0., 50.]));
+    assert_eq!(
+        new.control_bounds(1),
+        old.control_bounds(1),
+        "and its controls with it"
+    );
+}
