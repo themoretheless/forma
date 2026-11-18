@@ -101,7 +101,8 @@ impl Document {
         }
         // A container's `clicked` handler takes clicks on its empty space through an invisible
         // pressable area under its children, and clicks on children without a handler of their own.
-        let enclosing_bubble = target.bubble.clone();
+        // Set only by a container with a handler, so the others neither copy nor restore it.
+        let mut enclosing_bubble = None;
         let capture = boolean(&node.props, "capture", false)?;
         if capture && node.action.is_none() {
             return Err("capture requires a clicked handler on the same container".into());
@@ -136,7 +137,7 @@ impl Document {
             } else {
                 self.position_scene(area, None, bounds, false, target)?;
             }
-            target.bubble = Some((action, args));
+            enclosing_bubble = Some(target.bubble.replace((action, args)));
         }
         let enclosing_clip = target.clip;
         if !root_legacy && boolean(&node.props, "clip", false)? {
@@ -197,7 +198,9 @@ impl Document {
             }
         }
         target.clip = enclosing_clip;
-        target.bubble = enclosing_bubble;
+        if let Some(enclosing) = enclosing_bubble {
+            target.bubble = enclosing;
+        }
         if let Some(area) = captured_area {
             self.position_scene(area, None, bounds, false, target)?;
         }
