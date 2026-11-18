@@ -142,9 +142,9 @@
   проверен 2026-11-13 в векторном предпросмотре Studio (Chromium, macOS): Option+Backspace,
   Option+стрелка, Option+Shift+стрелка, Option+Delete по выделению и Cmd+Z работают. Не
   проверены IME-композиция, AltGr и не-Apple раскладка Ctrl.
-- [ ] Образец `ui/SearchWindow.ui` не открывается в векторном предпросмотре Studio: рантайм
-  отвергает `clicked -> state.search()` («'clicked' requires actions.<name>()»), хотя
-  HTML-предпросмотр и сгенерированная форма такие действия принимают.
+- [x] Образец `ui/SearchWindow.ui` открывается в векторном предпросмотре Studio (S-14, 2026-11-18):
+  `clicked -> state.search()` уходит в сцену как `actions.search`, цвет строкой пишется без
+  кавычек. Проверено тестом на wasm-рантайме, не глазами в браузере.
 - [ ] Интеграции: transport и realms, async capture после await, SSR/Edge carriers, router
   bursts, другие browser engines; объяснить исторический отказ HTTP external memory.
 - [ ] Продуктовые замеры на реальных приложениях: startup, p95, frame time, память.

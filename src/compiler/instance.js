@@ -47,12 +47,20 @@ export function createInstanceCompiler({
         });
       }
     }
-    const { roots, resolved, origins } = instantiate(instance, true);
+    const written = {
+      ...instance,
+      props: Object.fromEntries(
+        Object.entries(instance.props).map(([k, v]) => [k, runtimeColor(k, v)]),
+      ),
+    };
+    const { roots, resolved, origins } = instantiate(written, true);
+    // `instantiate` notes a Slider's scale on the node it is given; the control's own node keeps it.
+    if (written.rangeBounds) instance.rangeBounds = written.rangeBounds;
     let rangeMetadata = '';
     if (instance.type === 'Slider') {
       const endpoint = value => {
         const result = instantiate(
-          { ...instance, props: { ...instance.props, value: { expr: value + '%' } } },
+          { ...written, props: { ...written.props, value: { expr: value + '%' } } },
           true,
         );
         const content = [];
@@ -91,7 +99,7 @@ export function createInstanceCompiler({
       ...instance,
       type: 'Button',
       bindings: {},
-      events: instance.events.clicked ? { clicked: instance.events.clicked } : {},
+      events: instance.events.clicked ? { clicked: runtimeAction(instance.events.clicked) } : {},
       props: Object.fromEntries(
         Object.entries(resolved).filter(
           ([k]) => standard.has(k) && k !== 'font.size' && k !== 'transition',
@@ -118,4 +126,28 @@ export function createInstanceCompiler({
     );
     return { template, treeRoots: roots, sourceNode };
   };
+}
+
+/**
+ * The name a `clicked` handler has in the runtime scene, which only knows `actions.<name>()`.
+ * A state method (`state.search`, `state.vm.search`) goes by its method name, as it does in a
+ * generated form; the control's own node keeps the handler as written.
+ * @param {string} handler
+ */
+export function runtimeAction(handler) {
+  return handler.startsWith('state.') ? 'actions.' + handler.split('.').at(-1) : handler;
+}
+
+/**
+ * A color written as a string (`color: '#98a4ba'`) the way the runtime scene takes it: unquoted.
+ * The runtime in Rust writes its own scenes the same way.
+ * @param {string} name the property
+ * @param {unknown} value
+ */
+function runtimeColor(name, value) {
+  return typeof value === 'string' &&
+    /color|background/i.test(name) &&
+    /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value)
+    ? { expr: value }
+    : value;
 }

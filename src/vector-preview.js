@@ -344,7 +344,9 @@ export function createVectorPreview({
       if (!current.designMode) {
         const activated = button.clicks() !== count,
           eventNode = activated ? buttonNode(button.event_index()) : null,
-          action = activated ? button.action() : null;
+          // A state method reaches the runtime under its method name alone; report it as written.
+          written = eventNode?.events?.clicked,
+          action = !activated ? null : written?.startsWith('state.') ? written : button.action();
         const submitted = (button.submissions?.() ?? 0) !== submissions,
           submittedNode = submitted ? buttonNode(button.submitted_index?.() ?? -1) : null,
           submittedAction = submittedNode?.events?.submitted;
