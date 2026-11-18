@@ -227,3 +227,59 @@ fn oversized_scroll_control_preserves_reachable_leading_edge() {
     runtime.scroll(-10000., -10000.);
     assert_eq!(runtime.control_bounds(0), vec![20., 50., 512., 600.]);
 }
+
+#[test]
+fn scene_json_roundtrip_keeps_every_control_state_of_a_real_form() {
+    use forma::form_document::{SceneArtifact, Value};
+    let files = BTreeMap::from([(
+        "App.ui".into(),
+        "component App { state query: String = 'seed'; state rows: List = []; state payload: List = []; \
+         Column { TextInput { key:'q'; width:100; height:30; value <-> state.query; } \
+         for row in state.rows key row.id { TextInput { width:100; height:30; value <-> row.name; } } \
+         TextInput { key:'tail'; width:100; height:30; value <-> state.query; } } }"
+            .into(),
+    )]);
+    let row = |id: &str| {
+        Value::Object(Properties::from([
+            ("id".into(), Value::Text(id.into())),
+            ("name".into(), Value::Text(format!("name of {id}"))),
+        ]))
+    };
+    let state = Properties::from([
+        (
+            "rows".into(),
+            Value::List(vec![row("a"), row("b"), row("c")]),
+        ),
+        (
+            "payload".into(),
+            Value::List(
+                (0..64)
+                    .map(|i| Value::Text(format!("unrelated-{i}")))
+                    .collect(),
+            ),
+        ),
+    ]);
+    let doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+    let artifact = doc.render_scene_artifact().unwrap();
+    assert_eq!(artifact.controls.len(), 5);
+    let json = artifact.to_json().unwrap();
+    let restored = SceneArtifact::from_json(&json).unwrap();
+    assert_eq!(restored.controls.len(), artifact.controls.len());
+    for (actual, expected) in restored.controls.iter().zip(&artifact.controls) {
+        assert_eq!(actual.node, expected.node);
+        assert_eq!(actual.key, expected.key);
+        assert_eq!(actual.state, expected.state);
+        assert_eq!(actual.event_args, expected.event_args);
+        assert_eq!(actual.clip, expected.clip);
+        assert_eq!(actual.scroll, expected.scroll);
+        assert_eq!(actual.group, expected.group);
+    }
+    assert_eq!(restored.source, artifact.source);
+    assert_eq!(restored.templates, artifact.templates);
+    assert_eq!(restored.logical_content_end, artifact.logical_content_end);
+    assert!(restored.controls[1].state != restored.controls[0].state);
+    let mut runtime = Runtime::from_scene_artifact(&restored).unwrap();
+    assert_eq!(runtime.control_count(), 5);
+    runtime.load_scene_artifact_native(&json).unwrap();
+    assert_eq!(runtime.control_count(), 5);
+}

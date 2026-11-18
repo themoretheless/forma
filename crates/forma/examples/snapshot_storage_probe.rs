@@ -47,10 +47,26 @@ fn main() {
             })
             .sum();
         let json = artifact.to_json().unwrap();
+        let best = |run: &dyn Fn()| {
+            (0..7)
+                .map(|_| {
+                    let start = std::time::Instant::now();
+                    run();
+                    start.elapsed().as_micros()
+                })
+                .min()
+                .unwrap()
+        };
+        let write_us = best(&|| drop(std::hint::black_box(artifact.to_json().unwrap())));
+        let read_us = best(&|| {
+            drop(std::hint::black_box(
+                forma::form_document::SceneArtifact::from_json(&json).unwrap(),
+            ))
+        });
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         let control_bytes = serde_json::to_vec(&parsed["controls"]).unwrap().len();
         assert_eq!(doc.state_json().unwrap(), root_before);
-        rows.push(serde_json::json!({"controls":count,"root_json_bytes":root_before.len(),"artifact_json_bytes":json.len(),"controls_json_bytes":control_bytes,"payload_records_per_root":256,"retained_payload_records":repeated_records}));
+        rows.push(serde_json::json!({"controls":count,"root_json_bytes":root_before.len(),"artifact_json_bytes":json.len(),"controls_json_bytes":control_bytes,"payload_records_per_root":256,"retained_payload_records":repeated_records,"to_json_us":write_us,"from_json_us":read_us}));
     }
     println!(
         "{}",
