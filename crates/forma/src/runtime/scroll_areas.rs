@@ -135,18 +135,27 @@ impl Runtime {
     /// Put a `Scroll` node in the tree for every area, under its parent area or where its controls
     /// were, and move each control under its innermost area. Existing node ids stay as they are.
     pub(super) fn attach_area_nodes(&mut self) {
-        let control_node = |nodes: &[super::Node], index: usize| {
-            nodes.iter().position(|node| node.control == Some(index))
-        };
+        // Most scenes have no areas and never had: nothing to undo, nothing to attach.
+        if self.scroll_areas.is_empty() && self.area_nodes.is_empty() {
+            self.control_homes.clear();
+            return;
+        }
+        // The tree node of each control, found once instead of searched per control.
+        let mut node_of = vec![None; self.controls.len()];
+        for node in &self.nodes {
+            if let Some(slot) = node.control.and_then(|index| node_of.get_mut(index)) {
+                *slot = Some(node.id);
+            }
+        }
         // Undo a previous attachment: controls go home, area nodes go away.
-        if !self.area_nodes.is_empty() {
-            let first = self.area_nodes[0];
+        if let Some(&first) = self.area_nodes.first() {
             for (index, &home) in self.control_homes.iter().enumerate() {
-                if let Some(node) = control_node(&self.nodes, index) {
+                let Some(node) = node_of.get(index).copied().flatten() else {
+                    continue;
+                };
+                if self.nodes[node].parent != Some(home) {
                     self.nodes[node].parent = Some(home);
-                    if !self.nodes[home].children.contains(&node) {
-                        self.nodes[home].children.push(node);
-                    }
+                    self.nodes[home].children.push(node);
                 }
             }
             self.nodes.truncate(first);
@@ -155,27 +164,26 @@ impl Runtime {
             }
             self.area_nodes.clear();
         }
-        self.control_homes = (0..self.controls.len())
-            .map(|index| {
-                control_node(&self.nodes, index)
-                    .and_then(|node| self.nodes[node].parent)
-                    .unwrap_or(0)
-            })
+        self.control_homes = node_of
+            .iter()
+            .map(|node| node.and_then(|node| self.nodes[node].parent).unwrap_or(0))
             .collect();
         if self.scroll_areas.is_empty() {
             return;
         }
+        // Where the first control inside each outermost area lived: that area goes there.
+        let mut area_home = vec![0; self.scroll_areas.len()];
+        for (index, chain) in self.scroll_chains.iter().enumerate().rev() {
+            if let Some(&outermost) = chain.first() {
+                area_home[outermost] = self.control_homes[index];
+            }
+        }
         let first = self.nodes.len();
         self.area_nodes = (first..first + self.scroll_areas.len()).collect();
-        for area in 0..self.scroll_areas.len() {
+        for (area, &home) in area_home.iter().enumerate() {
             let parent = match self.scroll_areas[area].parent {
                 Some(outer) => self.area_nodes[outer],
-                // Where the first control inside it lived.
-                None => self
-                    .scroll_chains
-                    .iter()
-                    .position(|chain| chain.first() == Some(&area))
-                    .map_or(0, |index| self.control_homes[index]),
+                None => home,
             };
             let id = first + area;
             self.nodes.push(super::Node {
@@ -188,15 +196,27 @@ impl Runtime {
             });
             self.nodes[parent].children.push(id);
         }
-        for index in 0..self.controls.len() {
-            let Some(&inner) = self.scroll_chains[index].last() else {
+        // Take the controls of areas out of their homes in one pass per home, then hand each to
+        // its innermost area.
+        let moved: Vec<bool> = self.scroll_chains.iter().map(|c| !c.is_empty()).collect();
+        let nodes_moved: std::collections::HashSet<usize> = node_of
+            .iter()
+            .zip(&moved)
+            .filter_map(|(node, moved)| node.filter(|_| *moved))
+            .collect();
+        for node in &mut self.nodes[..first] {
+            if node
+                .children
+                .iter()
+                .any(|child| nodes_moved.contains(child))
+            {
+                node.children.retain(|child| !nodes_moved.contains(child));
+            }
+        }
+        for (index, chain) in self.scroll_chains.iter().enumerate() {
+            let (Some(&inner), Some(node)) = (chain.last(), node_of[index]) else {
                 continue;
             };
-            let Some(node) = control_node(&self.nodes, index) else {
-                continue;
-            };
-            let home = self.control_homes[index];
-            self.nodes[home].children.retain(|&child| child != node);
             let area_node = self.area_nodes[inner];
             self.nodes[node].parent = Some(area_node);
             self.nodes[area_node].children.push(node);
