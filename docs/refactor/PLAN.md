@@ -41,7 +41,7 @@
 - ABI генераторов не ломается: `forma::Runtime`, `forma::binding::*`, `forma::form_document::*`,
   `forma::native_window::{run, NativeWindowConfig, NativeApp}`, `forma::mcp::*`, включая `Result<_, String>` на границе.
 - Не меняются: имена MCP-инструментов, ключи хранилища, события `forma:*`, `FORMA-TEMPLATES-1`,
-  `forma-scene-artifact/1`, имена wasm-экспортов `Runtime`, JNI-символы, тексты ошибок, путь `vector.wgsl` внутри крейта.
+  `forma-scene-artifact/1` (с 2026-11-18 пишется `/2`, см. MIGRATIONS 27), имена wasm-экспортов `Runtime`, JNI-символы, тексты ошибок, путь `vector.wgsl` внутри крейта.
 - Псевдонимы `wgpu`/`naga` сохраняются: на Linux `forma` собирается с настоящим `wgpu 29`, поверхность API общая.
 - Ошибки: типизированные enum с ручным `Display` и `source()` (у листовых крейтов ноль зависимостей), без `thiserror`.
 - `native-app` исключается из workspace (нужен `FORMA_ACTIONS` и GTK); `svet-wasm` входит с именованным профилем.

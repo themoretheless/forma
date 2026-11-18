@@ -169,16 +169,42 @@ mod finite_number {
         Ok(value)
     }
 }
-const SCENE_ARTIFACT_PROTOCOL: &str = "forma-scene-artifact/1";
+const SCENE_ARTIFACT_PROTOCOL: &str = "forma-scene-artifact/2";
+/// The previous format, still read: every control carries its whole state.
+const SCENE_ARTIFACT_PROTOCOL_1: &str = "forma-scene-artifact/1";
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SceneArtifactWire {
     protocol: String,
     source: String,
     templates: String,
-    controls: Vec<SceneControl>,
+    /// Format 2: the state every control starts from.
+    #[serde(default)]
+    state: Option<Properties>,
+    controls: Vec<SceneControlWire>,
     #[serde(deserialize_with = "deserialize_content_end")]
     logical_content_end: Option<[f64; 2]>,
+}
+/// One control of either format: format 1 writes `state`, format 2 writes how the control's
+/// state differs from the artifact's shared one.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SceneControlWire {
+    node: usize,
+    key: String,
+    #[serde(default)]
+    state: Option<Properties>,
+    #[serde(default)]
+    set: Option<BTreeMap<String, Value>>,
+    #[serde(default)]
+    unset: Option<Vec<String>>,
+    event_args: BTreeMap<String, Vec<Value>>,
+    #[serde(default)]
+    clip: Option<[f64; 4]>,
+    #[serde(default)]
+    scroll: Vec<SceneScroll>,
+    #[serde(default)]
+    group: Option<String>,
 }
 fn deserialize_content_end<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -186,6 +212,8 @@ fn deserialize_content_end<'de, D: serde::Deserializer<'de>>(
     serde::Deserialize::deserialize(deserializer)
 }
 impl SceneArtifact {
+    /// Writes the artifact with the controls' state stored once: the first control's state is
+    /// shared, and every control lists only the entries it sets differently or lacks.
     pub fn to_json(&self) -> Result<String, String> {
         if self
             .logical_content_end
@@ -194,37 +222,143 @@ impl SceneArtifact {
             return Err("Invalid logical content extent".into());
         }
         #[derive(serde::Serialize)]
+        struct Control<'a> {
+            node: usize,
+            key: &'a str,
+            #[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "entries")]
+            set: Vec<(&'a String, &'a Value)>,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            unset: Vec<&'a String>,
+            event_args: &'a BTreeMap<String, Vec<Value>>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            clip: Option<[f64; 4]>,
+            #[serde(skip_serializing_if = "<[SceneScroll]>::is_empty")]
+            scroll: &'a [SceneScroll],
+            #[serde(skip_serializing_if = "Option::is_none")]
+            group: Option<&'a str>,
+        }
+        fn entries<S: serde::Serializer>(
+            entries: &[(&String, &Value)],
+            serializer: S,
+        ) -> Result<S::Ok, S::Error> {
+            serializer.collect_map(entries.iter().copied())
+        }
+        #[derive(serde::Serialize)]
         struct Wire<'a> {
             protocol: &'a str,
             source: &'a str,
             templates: &'a str,
-            controls: &'a [SceneControl],
+            state: &'a Properties,
+            controls: Vec<Control<'a>>,
             logical_content_end: Option<[f64; 2]>,
         }
+        let empty = Properties::new();
+        let shared = self
+            .controls
+            .first()
+            .map_or(&empty, |control| &control.state);
+        let controls = self
+            .controls
+            .iter()
+            .map(|control| {
+                let same = control.state.shares_storage(shared);
+                Control {
+                    node: control.node,
+                    key: &control.key,
+                    set: if same {
+                        Vec::new()
+                    } else {
+                        control
+                            .state
+                            .iter()
+                            .filter(|(name, value)| shared.get(name.as_str()) != Some(value))
+                            .collect()
+                    },
+                    unset: if same {
+                        Vec::new()
+                    } else {
+                        shared
+                            .keys()
+                            .filter(|name| !control.state.contains_key(name.as_str()))
+                            .collect()
+                    },
+                    event_args: &control.event_args,
+                    clip: control.clip,
+                    scroll: &control.scroll,
+                    group: control.group.as_deref(),
+                }
+            })
+            .collect();
         serde_json::to_string(&Wire {
             protocol: SCENE_ARTIFACT_PROTOCOL,
             source: &self.source,
             templates: &self.templates,
-            controls: &self.controls,
+            state: shared,
+            controls,
             logical_content_end: self.logical_content_end,
         })
         .map_err(|e| e.to_string())
     }
+    /// Reads format 2 and the older format 1. Controls read from format 2 share the storage of
+    /// the artifact's state and hold only their own differences.
     pub fn from_json(json: &str) -> Result<Self, String> {
         let wire: SceneArtifactWire = serde_json::from_str(json).map_err(|e| e.to_string())?;
-        if wire.protocol != SCENE_ARTIFACT_PROTOCOL {
-            return Err("Unsupported scene artifact protocol".into());
-        }
+        let shared = match (wire.protocol.as_str(), wire.state) {
+            (SCENE_ARTIFACT_PROTOCOL, Some(shared)) => Some(shared),
+            (SCENE_ARTIFACT_PROTOCOL_1, None) => None,
+            (SCENE_ARTIFACT_PROTOCOL | SCENE_ARTIFACT_PROTOCOL_1, _) => {
+                return Err("Scene artifact state does not match its protocol".into());
+            }
+            _ => return Err("Unsupported scene artifact protocol".into()),
+        };
         if wire
             .logical_content_end
             .is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.))
         {
             return Err("Invalid logical content extent".into());
         }
+        let controls =
+            wire.controls
+                .into_iter()
+                .map(|control| {
+                    let state = match (&shared, control.state, control.set, control.unset) {
+                        (None, Some(state), None, None) => state,
+                        (Some(shared), None, set, unset) => {
+                            let (set, unset) = (set.unwrap_or_default(), unset.unwrap_or_default());
+                            if set.is_empty() && unset.is_empty() {
+                                shared.clone()
+                            } else {
+                                let mut state = shared.scoped_clone();
+                                for name in unset {
+                                    if set.contains_key(&name) || !shared.contains_key(&name) {
+                                        return Err("Scene control unsets a state entry it cannot"
+                                            .to_string());
+                                    }
+                                    state.unset(&name);
+                                }
+                                for (name, value) in set {
+                                    state.set(name, value);
+                                }
+                                state
+                            }
+                        }
+                        _ => return Err("Scene control state does not match the protocol".into()),
+                    };
+                    Ok(SceneControl {
+                        node: control.node,
+                        key: control.key,
+                        state,
+                        event_args: control.event_args,
+                        clip: control.clip,
+                        scroll: control.scroll,
+                        group: control.group,
+                    })
+                })
+                .collect::<Result<_, String>>()?;
         Ok(Self {
             source: wire.source,
             templates: wire.templates,
-            controls: wire.controls,
+            controls,
             logical_content_end: wire.logical_content_end,
         })
     }

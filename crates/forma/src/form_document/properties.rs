@@ -367,7 +367,7 @@ impl Properties {
             },
         }
     }
-    #[cfg(test)]
+    /// Whether both maps are the same allocation, so they are equal without comparing entries.
     pub(super) fn shares_storage(&self, other: &Self) -> bool {
         match (&self.0, &other.0) {
             (Storage::Flat(a), Storage::Flat(b)) => Arc::ptr_eq(a, b),

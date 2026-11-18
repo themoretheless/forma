@@ -120,7 +120,8 @@ fn scene_json_refuses_unsupported_version_and_corrupt_metadata() {
     let original: serde_json::Value =
         serde_json::from_str(&doc.render_scene_artifact().unwrap().to_json().unwrap()).unwrap();
     for (key, invalid) in [
-        ("protocol", serde_json::json!("forma-scene-artifact/2")),
+        ("protocol", serde_json::json!("forma-scene-artifact/3")),
+        ("protocol", serde_json::json!("forma-scene-artifact/1")),
         ("logical_content_end", serde_json::json!([-1, 100])),
         ("logical_content_end", serde_json::json!([100])),
         ("logical_content_end", serde_json::json!(["100", 200])),
@@ -157,7 +158,7 @@ fn scene_json_load_is_atomic_and_revises_cached_geometry() {
     let revision = runtime.layout_revision();
     for invalid in [
         "{",
-        &json.replace("forma-scene-artifact/1", "forma-scene-artifact/99"),
+        &json.replace("forma-scene-artifact/2", "forma-scene-artifact/99"),
     ] {
         assert!(runtime.load_scene_artifact_native(invalid).is_err());
         assert_eq!(runtime.layout_revision(), revision);
@@ -282,4 +283,53 @@ fn scene_json_roundtrip_keeps_every_control_state_of_a_real_form() {
     assert_eq!(runtime.control_count(), 5);
     runtime.load_scene_artifact_native(&json).unwrap();
     assert_eq!(runtime.control_count(), 5);
+
+    // The state is written once: the payload appears a single time, not once per control.
+    assert_eq!(json.matches("unrelated-63").count(), 1);
+    let wire: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(wire["protocol"], "forma-scene-artifact/2");
+    assert_eq!(wire["state"]["query"]["value"], "seed");
+    assert!(wire["controls"][0].get("set").is_none());
+    assert!(wire["controls"][4].get("set").is_none());
+    assert!(wire["controls"][1]["set"].get("row").is_some());
+    assert!(wire["controls"][1]["set"].get("payload").is_none());
+
+    // The previous format, with the whole state in every control, is still read.
+    let mut old = wire.clone();
+    old["protocol"] = "forma-scene-artifact/1".into();
+    old.as_object_mut().unwrap().remove("state");
+    for (index, control) in old["controls"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        let control = control.as_object_mut().unwrap();
+        control.remove("set");
+        control.remove("unset");
+        control.insert(
+            "state".into(),
+            serde_json::to_value(&artifact.controls[index].state).unwrap(),
+        );
+    }
+    let from_old = SceneArtifact::from_json(&old.to_string()).unwrap();
+    for (actual, expected) in from_old.controls.iter().zip(&artifact.controls) {
+        assert_eq!(actual.state, expected.state);
+    }
+
+    // A control cannot mix the formats or unset what the shared state lacks.
+    for corrupt in [
+        |wire: &mut serde_json::Value| wire["controls"][0]["state"] = serde_json::json!({}),
+        |wire: &mut serde_json::Value| wire["controls"][0]["unset"] = serde_json::json!(["absent"]),
+        |wire: &mut serde_json::Value| {
+            wire.as_object_mut().unwrap().remove("state");
+        },
+    ] {
+        let mut bad = wire.clone();
+        corrupt(&mut bad);
+        assert!(SceneArtifact::from_json(&bad.to_string()).is_err());
+    }
+    let mut mixed = old.clone();
+    mixed["controls"][0]["set"] = serde_json::json!({});
+    assert!(SceneArtifact::from_json(&mixed.to_string()).is_err());
 }

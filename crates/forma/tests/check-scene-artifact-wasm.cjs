@@ -8,7 +8,7 @@ const { Runtime } = require(resolve(directory, 'forma.js'));
 const source = 'component App { Column { width:360; height:400; Scroll { width:320; height:300; Column { width:100; height:512; } } } }';
 const json = Runtime.compile_ui_scene_artifact(JSON.stringify({ 'App.ui': source }), 'App.ui', '{}');
 const artifact = JSON.parse(json);
-assert.equal(artifact.protocol, 'forma-scene-artifact/1');
+assert.equal(artifact.protocol, 'forma-scene-artifact/2');
 assert.equal(artifact.controls.length, 0);
 const runtime = new Runtime();
 try {
@@ -17,7 +17,7 @@ try {
   assert.deepEqual(Array.from(runtime.scroll_offset()), [0, 212]);
   assert.deepEqual(Array.from(runtime.viewport()), [20, 50, 320, 300]);
   const revision = runtime.layout_revision();
-  for (const invalid of ['{', json.replace('forma-scene-artifact/1', 'forma-scene-artifact/99'),
+  for (const invalid of ['{', json.replace('forma-scene-artifact/2', 'forma-scene-artifact/99'),
     JSON.stringify({ ...artifact, logical_content_end: [-1, 500] }),
     JSON.stringify({ ...artifact, controls: [{ node: 0, key: 'ghost', state: {}, event_args: {} }] })]) {
     assert.throws(() => runtime.load_scene_artifact(invalid));

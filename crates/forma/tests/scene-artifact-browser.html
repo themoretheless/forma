@@ -11,7 +11,7 @@ try{
  await init();runtime=new Runtime();
  const compile=height=>Runtime.compile_ui_scene_artifact(JSON.stringify({'App.ui':`component App { Column { width:360; height:400; Scroll { width:320; height:300; Column { width:100; height:${height}; } } } }`}), 'App.ui','{}');
  const json=compile(512),artifact=JSON.parse(json);
- await check('browser Rust compile and complete JSON load',()=>{equal(artifact.protocol,'forma-scene-artifact/1');runtime.load_scene_artifact(json);equal(Array.from(runtime.viewport()),[20,50,320,300]);equal(runtime.control_count(),0);});
+ await check('browser Rust compile and complete JSON load',()=>{equal(artifact.protocol,'forma-scene-artifact/2');runtime.load_scene_artifact(json);equal(Array.from(runtime.viewport()),[20,50,320,300]);equal(runtime.control_count(),0);});
  const before=runtime.pixels(360,400,1).slice();
  await check('empty layout extent and scrollbar pixels remain clipped',()=>{
   runtime.scroll(0,10000);equal(Array.from(runtime.scroll_offset()),[0,212]);
@@ -20,7 +20,7 @@ try{
   if(!changed)throw Error('Scrollbar pixels did not change');equal(outside,0);report.changedBytes=changed;
  });
  await check('refused malformed/version/extent loads preserve live scene',()=>{
-  const revision=runtime.layout_revision();for(const bad of ['{',json.replace('forma-scene-artifact/1','forma-scene-artifact/99'),JSON.stringify({...artifact,logical_content_end:[-1,500]})]){
+  const revision=runtime.layout_revision();for(const bad of ['{',json.replace('forma-scene-artifact/2','forma-scene-artifact/99'),JSON.stringify({...artifact,logical_content_end:[-1,500]})]){
    let refused=false;try{runtime.load_scene_artifact(bad);}catch{refused=true;}if(!refused)throw Error('Invalid artifact accepted');equal(runtime.layout_revision(),revision);equal(Array.from(runtime.scroll_offset()),[0,212]);
   }
  });
