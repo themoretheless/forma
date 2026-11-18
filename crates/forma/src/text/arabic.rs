@@ -2,8 +2,8 @@
 //!
 //! Each letter of the basic alphabet is replaced by its presentation form (isolated, final,
 //! initial or medial, U+FE80..=U+FEF4), one character for one, so byte offsets and clusters of
-//! the text are untouched. The lam-alef ligature is not formed: the pair is drawn as a joined
-//! lam and a final alef.
+//! the text are untouched. Lam followed directly by alef is the lam-alef ligature: the lam
+//! becomes the ligature and the alef [`ABSORBED`], which takes no room and draws nothing.
 
 /// First presentation form (the isolated one) and whether the letter also joins to the letter
 /// after it. Indexed from U+0621; zero for characters that take no form.
@@ -52,6 +52,20 @@ const FORMS: [(u16, bool); 42] = [
     (0xFEF1, true),
 ];
 const TATWEEL: char = '\u{640}';
+const LAM: char = '\u{644}';
+/// Stands for an alef drawn as part of the lam-alef ligature before it.
+pub(super) const ABSORBED: char = '\0';
+
+/// The isolated lam-alef ligature for an alef; its final form is the next code point.
+fn lam_alef(alef: char) -> Option<u16> {
+    Some(match alef {
+        '\u{622}' => 0xFEF5,
+        '\u{623}' => 0xFEF7,
+        '\u{625}' => 0xFEF9,
+        '\u{627}' => 0xFEFB,
+        _ => return None,
+    })
+}
 
 fn entry(ch: char) -> Option<(u16, bool)> {
     let index = (ch as u32).checked_sub(0x621)? as usize;
@@ -95,6 +109,18 @@ pub(super) fn joined(text: &str) -> Vec<char> {
                 .find(|ch| !transparent(**ch))
                 .is_some_and(|ch| joins_back(*ch));
         let before = before && joins_back(ch);
+        if index > 0 && chars[index - 1] == LAM && lam_alef(ch).is_some() {
+            out[index] = ABSORBED;
+            continue;
+        }
+        if let Some(ligature) = (ch == LAM)
+            .then(|| chars.get(index + 1).copied().and_then(lam_alef))
+            .flatten()
+        {
+            let form = ligature + u16::from(before);
+            out[index] = char::from_u32(u32::from(form)).unwrap_or(ch);
+            continue;
+        }
         // Forms are stored isolated, final, initial, medial.
         let form = first + u16::from(before) + 2 * u16::from(after);
         out[index] = char::from_u32(u32::from(form)).unwrap_or(ch);

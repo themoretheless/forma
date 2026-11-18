@@ -151,6 +151,10 @@ pub(super) fn resolve_glyph(ch: char) -> (FontGlyph, f32) {
 /// The glyph of a character in the form `arabic::joined` chose; when no face has that
 /// presentation form, the letter's own glyph.
 pub(super) fn resolve_form_with_table(form: char, ch: char, table: &FontTable) -> (FontGlyph, f32) {
+    if form == arabic::ABSORBED && ch != form {
+        // Part of the ligature before it: the empty outline of a space, and no advance.
+        return (resolve_glyph_with_table(' ', table).0, 0.);
+    }
     if form != ch {
         for index in [6, table.primary] {
             let face = glyph_face(index);

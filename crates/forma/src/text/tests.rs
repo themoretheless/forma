@@ -1343,8 +1343,8 @@ fn arabic_letters_take_the_form_their_neighbours_ask_for() {
             .map(|ch| ch as u32)
             .collect::<Vec<_>>()
     };
-    // سلام: seen initial, lam medial, alef final, meem isolated (alef joins to nothing after it).
-    assert_eq!(forms("سلام"), [0xFEB3, 0xFEE0, 0xFE8E, 0xFEE1]);
+    // سبام: seen initial, beh medial, alef final, meem isolated (alef joins to nothing after it).
+    assert_eq!(forms("سبام"), [0xFEB3, 0xFE92, 0xFE8E, 0xFEE1]);
     // A lone letter and a letter after a space are isolated; a pair is initial then final.
     assert_eq!(forms("ب"), [0xFE8F]);
     assert_eq!(forms("بب ب"), [0xFE91, 0xFE90, 0x20, 0xFE8F]);
@@ -1367,7 +1367,7 @@ fn arabic_letters_take_the_form_their_neighbours_ask_for() {
         assert_eq!(glyph.face, 6, "U+{code:04X}");
         assert!(advance > 0.);
     }
-    let word = "سلام";
+    let word = "سبام";
     let mut ids = Vec::new();
     let units = glyph_ids(FontFamily::Sans, word, &mut ids);
     let isolated: f32 = word.chars().map(|ch| resolve_glyph(ch).1).sum();
@@ -1383,6 +1383,44 @@ fn arabic_letters_take_the_form_their_neighbours_ask_for() {
     let glyph = |code: u32| resolve_form_with_table(char::from_u32(code).unwrap(), 'ب', table).0;
     assert_eq!(
         ids.iter().map(|(glyph, _)| *glyph).collect::<Vec<_>>(),
-        [glyph(0xFEE1), glyph(0xFE8E), glyph(0xFEE0), glyph(0xFEB3)]
+        [glyph(0xFEE1), glyph(0xFE8E), glyph(0xFE92), glyph(0xFEB3)]
     );
+}
+
+#[test]
+fn lam_and_alef_are_drawn_as_one_ligature() {
+    let forms = |text: &str| {
+        arabic::joined(text)
+            .into_iter()
+            .map(|ch| ch as u32)
+            .collect::<Vec<_>>()
+    };
+    // لا alone: the isolated ligature. سلام: seen initial, the final ligature, meem isolated.
+    assert_eq!(forms("لا"), [0xFEFB, 0]);
+    assert_eq!(forms("سلام"), [0xFEB3, 0xFEFC, 0, 0xFEE1]);
+    assert_eq!(
+        forms("لأ لإ لآ"),
+        [0xFEF7, 0, 0x20, 0xFEF9, 0, 0x20, 0xFEF5, 0]
+    );
+    // A mark between them keeps them apart; a lam before another letter is an ordinary lam.
+    assert_eq!(forms("لَا"), [0xFEDF, 0x64E, 0xFE8E]);
+    assert_eq!(forms("لب"), [0xFEDF, 0xFE90]);
+
+    let table = font_table();
+    let mut ids = Vec::new();
+    let units = glyph_ids(FontFamily::Sans, "لا", &mut ids);
+    let ligature = resolve_form_with_table('\u{FEFB}', 'ل', table);
+    assert_eq!(ligature.0.face, 6);
+    assert_eq!(
+        units, ligature.1,
+        "the pair is as wide as the ligature alone"
+    );
+    assert_eq!(ids.len(), 2, "still one glyph per character");
+    assert!(ids.contains(&ligature));
+    assert!(ids.iter().any(|(_, advance)| *advance == 0.));
+    // The caret has one place for both sides of the absorbed alef.
+    let clusters = bidi::visual_line(FontFamily::Sans, "لا", 20.);
+    assert_eq!(clusters.len(), 2);
+    assert_eq!(bidi::caret_x(&clusters, 2), bidi::caret_x(&clusters, 4));
+    assert!(bidi::caret_x(&clusters, 0) > bidi::caret_x(&clusters, 2));
 }
