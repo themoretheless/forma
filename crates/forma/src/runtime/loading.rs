@@ -113,6 +113,7 @@ impl Runtime {
             return Err("Logical content extent requires a Scroll scene".into());
         }
         runtime.apply_logical_content_end(artifact.logical_content_end);
+        super::scroll_areas::validate_areas(artifact.controls.iter().map(|c| c.scroll.as_slice()))?;
         runtime.install_clips(&artifact.controls);
         Ok(runtime)
     }

@@ -48,6 +48,32 @@ impl ScrollArea {
     }
 }
 
+/// The most scroll areas one scene may number: a scene has at most 16384 nodes.
+const MAX_AREAS: usize = 16384;
+
+/// Refuses scroll areas that did not come from a layout: a number no scene can reach, which
+/// would size the area table, or a rectangle that is not one.
+pub(super) fn validate_areas<'a>(
+    controls: impl IntoIterator<Item = &'a [SceneScroll]>,
+) -> Result<(), String> {
+    for scroll in controls.into_iter().flatten() {
+        if scroll.area >= MAX_AREAS {
+            return Err(format!("Scroll area {} is out of range", scroll.area));
+        }
+        let numbers = scroll.viewport.iter().chain(&scroll.content);
+        if numbers.clone().any(|v| !v.is_finite())
+            || scroll.viewport[2] < 0.
+            || scroll.viewport[3] < 0.
+        {
+            return Err(format!(
+                "Scroll area {} has an invalid rectangle",
+                scroll.area
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// The areas of a scene and, per control, the areas that contain it, outermost first.
 pub(super) fn areas_of<'a>(
     controls: impl IntoIterator<Item = &'a [SceneScroll]>,

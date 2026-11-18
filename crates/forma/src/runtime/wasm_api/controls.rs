@@ -30,6 +30,7 @@ impl Runtime {
         if chains.len() != self.controls.len() {
             return Err("Scroll areas must list every control".into());
         }
+        crate::runtime::scroll_areas::validate_areas(chains.iter().map(Vec::as_slice))?;
         self.set_scroll_areas(chains.iter().map(Vec::as_slice));
         Ok(())
     }

@@ -2310,3 +2310,39 @@ fn a_clipped_raster_is_the_open_raster_cut_to_the_clip() {
         }
     }
 }
+
+#[test]
+fn scroll_areas_from_outside_are_checked_before_they_size_anything() {
+    let mut runtime = scroll_area_runtime();
+    let chains = |area: &str, viewport: &str| {
+        let one = format!(r#"[{{"area":{area},"viewport":{viewport},"content":[100,200]}}]"#);
+        format!("[[],{}]", vec![one; 5].join(","))
+    };
+    let before = runtime.scroll_areas.clone();
+    for (area, viewport) in [
+        ("4000000000", "[50,30,100,60]"),
+        ("0", "[50,30,-1,60]"),
+        ("0", "[50,30,1e999,60]"),
+    ] {
+        assert!(
+            runtime
+                .set_control_scroll_areas(&chains(area, viewport))
+                .is_err()
+        );
+        assert_eq!(runtime.scroll_areas, before, "a refusal changes nothing");
+    }
+    assert!(
+        runtime
+            .set_control_scroll_areas(&chains("0", "[50,30,100,60]"))
+            .is_ok()
+    );
+    // The same check guards a scene artifact.
+    let mut artifact = runtime
+        .ui_document
+        .as_ref()
+        .unwrap()
+        .render_scene_artifact()
+        .unwrap();
+    artifact.controls[1].scroll[0].area = usize::MAX;
+    assert!(Runtime::from_scene_artifact(&artifact).is_err());
+}
