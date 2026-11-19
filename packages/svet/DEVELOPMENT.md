@@ -3579,7 +3579,7 @@ Current verification passed: 48 native Rust tests, release SIMD WASM rebuilt to
 installed-package checks and four real HTTP action tests. These bounded tests do
 not qualify actual near-limit allocation, process RSS, transient allocator peaks,
 WASM linear-memory reclamation or physical GPU memory pressure. Performance
-measurement and broader work remain tracked in PLAN.md.
+measurement and broader work remain tracked in docs/ROADMAP.md.
 
 ### Fragmented arena churn (2026-11-01)
 

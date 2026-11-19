@@ -2091,7 +2091,7 @@ A/B tool, not a whole-application benchmark or a comparison against other framew
 
 Browser qualification scenarios, reproducible commands and remaining coverage
 are listed in [BROWSER_MATRIX.md](BROWSER_MATRIX.md). Recorded passes apply to
-those scenarios and environments; [PLAN.md](PLAN.md) tracks the remaining work.
+those scenarios and environments; `docs/ROADMAP.md` in the repository root tracks the remaining work.
 For two independent copies of the current engine in one document, run
 `node scripts/prepare-event-instances.mjs --serve` from this package and open
 the printed URL. The fixture checks shared event dispatch and graph isolation;
