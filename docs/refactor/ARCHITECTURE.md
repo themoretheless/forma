@@ -19,7 +19,7 @@
   - Rust workspace Clippy ratchet (`scripts/clippy-ratchet.mjs`): **0 предупреждений во всём workspace** (`docs/refactor/lint-baseline.json = {}`).
 - Серверная часть Studio вынесена из `vite.config.js` в модульный слой `dev-server/` (`wasm-middleware.js`, `mcp-bridge.js`, `runner-ws.js`, `index.js`), а `vite.config.js` содержит только декларативную конфигурацию сборки и dev-сервера.
 - В `crates/forma/src/form_document` выделен быстрый контур синхронизации биндингов (`Document::sync_runtime_bindings`, -74% аллокаций на горячем пути) и атомарная транзакционная запись батчей в `binding.rs`.
-- Протокольный слой `protocol/` (`enums.js`, `mcp-tools.js`) объединяет 45 MCP-инструментов для `mcp/server.js`, `mcp/smoke.js` и доменных обработчиков `src/mcp-commands-{project,design,runtime}.js`.
+- Протокольный слой `protocol/` (`enums.js`, `mcp-tools.json`, `mcp-tools.js`) и встроенный `forma::mcp` объединяются в едином Rust MCP-сервере `crates/forma-mcp` (57 инструментов: 45 Studio IDE bridge + 12 Forma Runtime UI, и 3 ресурса `forma://language`, `forma://ui/source`, `forma://ui/status`) вместе с `mcp/smoke.js` и доменными обработчиками `src/mcp-commands-{project,design,runtime}.js`.
 - Один релизный тег `vX.Y.Z` на библиотеку и Studio; единый стиль rustfmt (style edition 2024, ширина 100) и Prettier (ширина 100).
 
 ## Не сделано

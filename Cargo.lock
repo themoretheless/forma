@@ -1028,6 +1028,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "forma-mcp"
+version = "0.1.0"
+dependencies = [
+ "forma",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2645,7 +2654,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 dependencies = [
  "rustix 1.1.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

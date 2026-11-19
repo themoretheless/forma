@@ -41,6 +41,7 @@ export const ALLOWED = {
   'forma-binding-example': ['forma'],
   'forma-language-example': ['forma'],
   'forma-native': [],
+  'forma-mcp': ['forma'],
 };
 
 export function findCycles(graph) {

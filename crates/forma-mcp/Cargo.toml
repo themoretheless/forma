@@ -1,0 +1,17 @@
+[package]
+name = "forma-mcp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+description = "Model Context Protocol stdio server bridging MCP hosts to Forma Studio and Forma Runtime"
+license = "MIT OR Apache-2.0"
+
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[dependencies]
+forma = { path = "../forma" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

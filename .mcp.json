@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "forma-app": {
+    "forma": {
       "command": "cargo",
       "args": [
         "run",
@@ -8,17 +8,7 @@
         "--release",
         "--offline",
         "--manifest-path",
-        "/Users/themoretheless/Documents/Sources/forma/crates/forma/Cargo.toml",
-        "--features",
-        "native",
-        "--",
-        "--mcp"
-      ]
-    },
-    "forma-studio": {
-      "command": "node",
-      "args": [
-        "/Users/themoretheless/Documents/Sources/forma/mcp/server.js"
+        "/Users/themoretheless/Documents/Sources/forma/crates/forma-mcp/Cargo.toml"
       ]
     }
   }

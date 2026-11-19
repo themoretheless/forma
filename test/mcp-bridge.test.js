@@ -2,10 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { registerMcpBridge } from '../dev-server/mcp-bridge.js';
 import { bridgeEndpoint, isBridgeUrl } from '../protocol/bridge.js';
+import { ALL_MCP_TOOL_NAMES } from '../protocol/mcp-tools.js';
 
 test('the bridge is announced at the address the server actually listens on', () => {
   assert.deepEqual(bridgeEndpoint({ address: '127.0.0.1', family: 'IPv4', port: 5173 }), {
@@ -238,4 +243,106 @@ test('a tab that never replies fails the command and a late reply is dropped', a
   assert.match(body.error, /IDE did not reply\. Outcome may be unknown/);
   // The late result finds no pending command and is ignored.
   sockets.emit('forma:result', { id: ide.sent[0][1].id, value: 'late' }, ide);
+});
+
+test('forma-mcp binary works end-to-end over stdio with the official MCP SDK and HTTP bridge', async () => {
+  const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+  const directory = mkdtempSync(join(tmpdir(), 'forma-mcp-sdk-e2e-'));
+  const descriptorPath = join(directory, 'bridge.json');
+  const sockets = new EventEmitter();
+  let handler = null;
+  const httpServer = createServer((req, res) => {
+    if (req.url === '/__forma_mcp' && handler) {
+      return handler(req, res);
+    }
+    res.statusCode = 404;
+    res.end();
+  });
+
+  registerMcpBridge(
+    {
+      httpServer,
+      ws: { on: (name, listener) => sockets.on(name, listener) },
+      middlewares: { use: (_, registered) => (handler = registered) },
+    },
+    directory,
+  );
+
+  await new Promise(resolve => httpServer.listen(0, '127.0.0.1', resolve));
+
+  const client = new Client({ name: 'forma-sdk-test', version: '1.0.0' });
+  try {
+    await client.connect(
+      new StdioClientTransport({
+        command: 'cargo',
+        args: [
+          'run',
+          '--quiet',
+          '--locked',
+          '--manifest-path',
+          join(repoRoot, 'crates/forma-mcp/Cargo.toml'),
+        ],
+        cwd: repoRoot,
+        env: { ...process.env, FORMA_MCP_BRIDGE: descriptorPath },
+      }),
+    );
+
+    await client.ping();
+
+    const listed = await client.listTools();
+    assert.equal(listed.tools.length, ALL_MCP_TOOL_NAMES.length);
+    assert.deepEqual(listed.tools.map(tool => tool.name).sort(), [...ALL_MCP_TOOL_NAMES].sort());
+
+    const resource = await client.readResource({ uri: 'forma://language' });
+    assert.match(resource.contents[0].text, /Forma/);
+    const uiSource = await client.readResource({ uri: 'forma://ui/source' });
+    assert.match(uiSource.contents[0].text, /component/);
+    const uiStatusRes = await client.readResource({ uri: 'forma://ui/status' });
+    assert.equal(JSON.parse(uiStatusRes.contents[0].text).controlCount, 2);
+
+    const uiStatus = await client.callTool({ name: 'ui_status', arguments: {} });
+    assert.equal(Boolean(uiStatus.isError), false);
+    assert.equal(JSON.parse(uiStatus.content[0].text).controlCount, 2);
+
+    const uiClick = await client.callTool({ name: 'ui_click', arguments: { key: 'first' } });
+    assert.equal(Boolean(uiClick.isError), false);
+    assert.equal(JSON.parse(uiClick.content[0].text).clicksAfter, 1);
+
+    const missingTab = await client.callTool({ name: 'ide_status', arguments: {} });
+    assert.equal(missingTab.isError, true);
+    assert.match(missingTab.content[0].text, /Open the IDE browser tab first/);
+
+    const ide = {
+      socket: { readyState: 1 },
+      send: (name, payload) => {
+        if (name === 'forma:command') {
+          queueMicrotask(() => {
+            sockets.emit(
+              'forma:result',
+              {
+                id: payload.id,
+                result: { entry: 'ui/App.ui', active: 'ui/App.ui', command: payload.command },
+                error: '',
+              },
+              ide,
+            );
+          });
+        }
+      },
+    };
+    sockets.emit('forma:hello', null, ide);
+
+    const ok = await client.callTool({ name: 'ide_status', arguments: {} });
+    assert.equal(Boolean(ok.isError), false);
+    assert.deepEqual(JSON.parse(ok.content[0].text), {
+      entry: 'ui/App.ui',
+      active: 'ui/App.ui',
+      command: 'ide_status',
+    });
+  } finally {
+    await client.close().catch(() => {});
+    httpServer.closeAllConnections?.();
+    await new Promise(resolve => httpServer.close(resolve));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

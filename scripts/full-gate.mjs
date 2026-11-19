@@ -42,6 +42,7 @@ export const WORKSPACE_CRATES = [
   'svet-graph',
   'svet-reconcile',
   'svet-gpu-arena',
+  'forma-mcp',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {

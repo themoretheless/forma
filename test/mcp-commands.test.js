@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MCP_TOOLS, MCP_TOOL_NAMES } from '../protocol/mcp-tools.js';
+import { BACKENDS, PLATFORMS } from '../protocol/enums.js';
+import {
+  ALL_MCP_TOOL_NAMES,
+  MCP_RUNTIME_TOOL_NAMES,
+  MCP_TOOLS,
+  MCP_TOOL_NAMES,
+} from '../protocol/mcp-tools.js';
 import { createIdeCommands } from '../src/mcp-commands.js';
 import { squash } from './support/source-text.js';
 
@@ -31,12 +37,23 @@ test('the shared protocol table, MCP server, and IDE bridge name the exact same 
       `unexpected domain ${tool.domain} on ${tool.name}`,
     );
   }
-  const serverSource = read('mcp/server.js');
-  assert.match(
-    serverSource,
-    /import\s*\{\s*MCP_TOOLS\s*\}\s*from\s*'\.\.\/protocol\/mcp-tools\.js'/,
+  const rustProtocol = read('crates/forma-mcp/src/protocol.rs');
+  assert.match(rustProtocol, /include_str!\("\.\.\/\.\.\/\.\.\/protocol\/mcp-tools\.json"\)/);
+  assert.equal(
+    new Set(ALL_MCP_TOOL_NAMES).size,
+    ALL_MCP_TOOL_NAMES.length,
+    'Studio and Runtime MCP tools must not overlap',
   );
-  assert.match(serverSource, /for\s*\(\s*const\s+tool\s+of\s+MCP_TOOLS\s*\)/);
+  const runtimeMcpSource = read('crates/forma/src/mcp.rs');
+  const runtimeBlock = /pub const RUNTIME_TOOL_NAMES:[^=]*=\s*&\[([^\]]+)\]/.exec(
+    runtimeMcpSource,
+  )?.[1];
+  assert.ok(runtimeBlock, 'missing RUNTIME_TOOL_NAMES in crates/forma/src/mcp.rs');
+  const rustRuntimeNames = [...runtimeBlock.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(rustRuntimeNames, MCP_RUNTIME_TOOL_NAMES);
+  const appRun = MCP_TOOLS.find(tool => tool.name === 'app_run');
+  assert.deepEqual(appRun.schema.backend.values, BACKENDS);
+  assert.deepEqual(appRun.schema.platform.values, PLATFORMS);
 });
 
 test('every design state an agent can reach has a tool of its own', () => {

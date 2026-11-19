@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { fileURLToPath } from 'node:url';
-import { MCP_TOOL_NAMES } from '../protocol/mcp-tools.js';
+import { ALL_MCP_TOOL_NAMES } from '../protocol/mcp-tools.js';
+
+const config = JSON.parse(await readFile(new URL('../.mcp.json', import.meta.url), 'utf8'))
+  .mcpServers.forma;
 const client = new Client({ name: 'forma-smoke', version: '1.0.0' });
 await client.connect(
   new StdioClientTransport({
-    command: process.execPath,
-    args: [fileURLToPath(new URL('./server.js', import.meta.url))],
+    command: config.command,
+    args: config.args,
+    env: { ...process.env, ...config.env },
   }),
 );
 async function call(name, args = {}) {
@@ -18,7 +22,13 @@ async function call(name, args = {}) {
 try {
   const tools = await client.listTools();
   // Compare with the shared protocol registry instead of a number that goes stale with every new tool.
-  assert.deepEqual(tools.tools.map(tool => tool.name).sort(), [...MCP_TOOL_NAMES].sort());
+  assert.deepEqual(tools.tools.map(tool => tool.name).sort(), [...ALL_MCP_TOOL_NAMES].sort());
+  const uiStatus = await call('ui_status');
+  assert.ok(uiStatus.controlCount >= 1);
+  const clicked = await call('ui_click', { key: uiStatus.controls[0].key });
+  assert.equal(clicked.clicksAfter, clicked.clicksBefore + 1);
+  const uiStatusResource = await client.readResource({ uri: 'forma://ui/status' });
+  assert.equal(JSON.parse(uiStatusResource.contents[0].text).totalClicks, 1);
   const status = await call('ide_status');
   const file = await call('file_read', { path: status.entry });
   const write = await call('file_write', {
@@ -46,7 +56,7 @@ try {
   const spacing = await call('component_spacing');
   assert.equal(spacing.type, tree.nodes[0].type);
   console.log(
-    'PASS: 24 MCP tools, live IDE reads/writes, stale-write guard, component selection and spacing, debugger configuration, resource.',
+    `PASS: ${ALL_MCP_TOOL_NAMES.length} MCP tools, runtime UI + live IDE reads/writes, stale-write guard, component selection and spacing, debugger configuration, resources.`,
   );
 } finally {
   await client.close();

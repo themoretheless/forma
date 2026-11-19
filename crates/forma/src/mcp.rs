@@ -6,7 +6,30 @@
 //! render pixel snapshots, and launch desktop or Android Emulator windows.
 
 use serde_json::{Value, json};
+use std::fmt;
 use std::io::{self, BufRead, Write};
+use std::path::{Path, PathBuf};
+
+/// All tool names exposed by [`McpApp`].
+pub const RUNTIME_TOOL_NAMES: &[&str] = &[
+    "ui_status",
+    "ui_controls",
+    "ui_accessibility_tree",
+    "ui_click",
+    "ui_pointer",
+    "ui_set_backend",
+    "ui_set_platform",
+    "ui_source_read",
+    "ui_source_write",
+    "ui_render_snapshot",
+    "ui_events",
+    "app_launch",
+];
+
+/// Returns `true` when `name` is handled by the embedded Forma runtime MCP server.
+pub fn is_runtime_tool(name: &str) -> bool {
+    RUNTIME_TOOL_NAMES.contains(&name)
+}
 
 /// Runtime state managed by an interactive Forma MCP session.
 pub struct McpApp {
@@ -16,6 +39,18 @@ pub struct McpApp {
     pub backend: String,
     pub platform: String,
     pub events: Vec<Value>,
+    native_manifest: Option<PathBuf>,
+}
+
+impl fmt::Debug for McpApp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("McpApp")
+            .field("backend", &self.backend)
+            .field("platform", &self.platform)
+            .field("control_count", &self.runtime.control_count())
+            .field("event_count", &self.events.len())
+            .finish()
+    }
 }
 
 impl Default for McpApp {
@@ -37,6 +72,7 @@ impl McpApp {
             backend: std::env::var("FORMA_BACKEND").unwrap_or_else(|_| "egui".into()),
             platform: std::env::var("FORMA_PLATFORM").unwrap_or_else(|_| "desktop".into()),
             events: Vec::new(),
+            native_manifest: None,
         }
     }
 
@@ -52,7 +88,13 @@ impl McpApp {
             backend: std::env::var("FORMA_BACKEND").unwrap_or_else(|_| "egui".into()),
             platform: std::env::var("FORMA_PLATFORM").unwrap_or_else(|_| "desktop".into()),
             events: Vec::new(),
+            native_manifest: None,
         }
+    }
+
+    /// Configures a Cargo manifest used by `app_launch` when hosted in `forma-mcp`.
+    pub fn set_native_manifest(&mut self, manifest_path: impl Into<PathBuf>) {
+        self.native_manifest = Some(manifest_path.into());
     }
 
     pub fn controls_json(&self) -> Vec<Value> {
@@ -207,19 +249,52 @@ impl McpApp {
         })
     }
 
-    pub fn handle_request(&mut self, req: &Value) -> Option<Value> {
-        let method = req.get("method").and_then(Value::as_str).unwrap_or("");
-        // JSON-RPC notifications have no "id" and expect no response.
-        let id = req.get("id").cloned();
-        if method.starts_with("notifications/") || id.is_none() {
-            return None;
+    /// Reads a Forma Runtime MCP resource (`forma://ui/source` or `forma://ui/status`).
+    pub fn read_resource(&self, uri: &str) -> Option<Value> {
+        match uri {
+            "forma://ui/source" => Some(json!({
+                "contents": [{
+                    "uri": uri,
+                    "mimeType": "text/plain",
+                    "text": self.source
+                }]
+            })),
+            "forma://ui/status" => Some(json!({
+                "contents": [{
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": serde_json::to_string_pretty(&self.status_json()).unwrap_or_default()
+                }]
+            })),
+            _ => None,
         }
-        let id = id.unwrap_or(Value::Null);
-        let params = req.get("params").cloned().unwrap_or_else(|| json!({}));
+    }
 
-        let response = match method {
+    pub fn handle_request(&mut self, req: &Value) -> Option<Value> {
+        let Some(obj) = req.as_object() else {
+            return Some(jsonrpc_error(None, -32600, "Invalid Request"));
+        };
+        let valid_id = match obj.get("id") {
+            Some(id) if is_valid_request_id(id) => Some(id.clone()),
+            Some(_) => return Some(jsonrpc_error(None, -32600, "Invalid Request")),
+            None => None,
+        };
+        if obj.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+            return Some(jsonrpc_error(valid_id, -32600, "Invalid Request"));
+        }
+        let Some(method) = obj.get("method").and_then(Value::as_str) else {
+            return Some(jsonrpc_error(valid_id, -32600, "Invalid Request"));
+        };
+        // JSON-RPC notifications have no "id" and expect no response.
+        let id = valid_id?;
+        let params = obj.get("params").cloned().unwrap_or_else(|| json!({}));
+
+        let response: Result<Value, (i32, String)> = match method {
             "initialize" => Ok(json!({
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": params
+                    .get("protocolVersion")
+                    .and_then(Value::as_str)
+                    .unwrap_or("2025-06-18"),
                 "capabilities": {
                     "tools": {},
                     "resources": {}
@@ -229,48 +304,29 @@ impl McpApp {
                     "version": env!("CARGO_PKG_VERSION")
                 }
             })),
-            "ping" => Ok(json!({})),
+            "ping" | "shutdown" => Ok(json!({})),
             "tools/list" => Ok(json!({
-                "tools": tool_definitions()
+                "tools": runtime_tool_definitions()
             })),
             "resources/list" => Ok(json!({
-                "resources": [
-                    {
-                        "uri": "forma://ui/source",
-                        "name": "Active .ui markup",
-                        "description": "Current .ui markup loaded in the Forma Runtime",
-                        "mimeType": "text/plain"
-                    },
-                    {
-                        "uri": "forma://ui/status",
-                        "name": "Runtime status & controls",
-                        "description": "JSON snapshot of backend, platform, and interactive controls",
-                        "mimeType": "application/json"
-                    }
-                ]
+                "resources": runtime_resources_json()
             })),
             "resources/read" => {
                 let uri = params.get("uri").and_then(Value::as_str).unwrap_or("");
-                match uri {
-                    "forma://ui/source" => Ok(json!({
-                        "contents": [{
-                            "uri": uri,
-                            "mimeType": "text/plain",
-                            "text": self.source
-                        }]
-                    })),
-                    "forma://ui/status" => Ok(json!({
-                        "contents": [{
-                            "uri": uri,
-                            "mimeType": "application/json",
-                            "text": serde_json::to_string_pretty(&self.status_json()).unwrap_or_default()
-                        }]
-                    })),
-                    _ => Err(format!("Unknown resource URI: {uri}")),
-                }
+                self.read_resource(uri)
+                    .ok_or_else(|| (-32602, format!("Unknown resource URI: {uri}")))
             }
             "tools/call" => {
-                let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+                let Some(name) = params.get("name").and_then(Value::as_str) else {
+                    return Some(jsonrpc_error(Some(id), -32602, "Missing tool name"));
+                };
+                if !is_runtime_tool(name) {
+                    return Some(jsonrpc_error(
+                        Some(id),
+                        -32602,
+                        &format!("Unknown tool: {name}"),
+                    ));
+                }
                 let args = params
                     .get("arguments")
                     .cloned()
@@ -280,7 +336,8 @@ impl McpApp {
                         "content": [{
                             "type": "text",
                             "text": serde_json::to_string_pretty(&val).unwrap_or_else(|_| val.to_string())
-                        }]
+                        }],
+                        "isError": false
                     })),
                     Err(err) => Ok(json!({
                         "isError": true,
@@ -291,7 +348,7 @@ impl McpApp {
                     })),
                 }
             }
-            _ => Err(format!("Method not found: {method}")),
+            _ => Err((-32601, format!("Method not found: {method}"))),
         };
 
         Some(match response {
@@ -300,14 +357,7 @@ impl McpApp {
                 "id": id,
                 "result": result
             }),
-            Err(message) => json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "error": {
-                    "code": -32601,
-                    "message": message
-                }
-            }),
+            Err((code, message)) => jsonrpc_error(Some(id), code, &message),
         })
     }
 
@@ -403,22 +453,44 @@ impl McpApp {
                     .to_string();
                 self.backend = backend.clone();
                 self.platform = platform.clone();
-                launch_target(&backend, &platform)
+                launch_target(&backend, &platform, self.native_manifest.as_deref())
             }
             _ => Err(format!("Unknown tool: {name}")),
         }
     }
 }
 
-fn launch_target(backend: &str, platform: &str) -> Result<Value, String> {
+fn is_valid_request_id(value: &Value) -> bool {
+    value.is_string() || value.is_i64() || value.is_u64()
+}
+
+fn jsonrpc_error(id: Option<Value>, code: i32, message: &str) -> Value {
+    match id {
+        Some(id) => json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": { "code": code, "message": message },
+        }),
+        None => json!({
+            "jsonrpc": "2.0",
+            "error": { "code": code, "message": message },
+        }),
+    }
+}
+
+fn launch_target(
+    backend: &str,
+    platform: &str,
+    native_manifest: Option<&Path>,
+) -> Result<Value, String> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use std::process::{Command, Stdio};
         if platform == "android" {
-            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
-                .and_then(std::path::Path::parent)
-                .unwrap_or_else(|| std::path::Path::new("."));
+                .and_then(Path::parent)
+                .unwrap_or_else(|| Path::new("."));
             let script = root.join("scripts/run-android-emulator.sh");
             if script.exists() {
                 let flag = match backend {
@@ -442,8 +514,20 @@ fn launch_target(backend: &str, platform: &str) -> Result<Value, String> {
                 }));
             }
         }
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let mut cmd = Command::new(exe);
+        let mut cmd = if let Some(manifest) = native_manifest {
+            let mut cmd = Command::new("cargo");
+            cmd.arg("run")
+                .arg("--quiet")
+                .arg("--manifest-path")
+                .arg(manifest)
+                .arg("--features")
+                .arg("native")
+                .arg("--");
+            cmd
+        } else {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            Command::new(exe)
+        };
         cmd.arg("--platform").arg(platform);
         if matches!(backend, "egui" | "svet") {
             cmd.arg("--backend").arg(backend);
@@ -465,12 +549,39 @@ fn launch_target(backend: &str, platform: &str) -> Result<Value, String> {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        let _ = (backend, platform);
+        let _ = (backend, platform, native_manifest);
         Err("app_launch is only available on native targets".into())
     }
 }
 
-fn tool_definitions() -> Vec<Value> {
+/// Returns the MCP resource descriptors for the embedded Forma Runtime.
+pub fn runtime_resources_json() -> Vec<Value> {
+    vec![
+        json!({
+            "uri": "forma://ui/source",
+            "name": "Active .ui markup",
+            "description": "Current .ui markup loaded in the Forma Runtime",
+            "mimeType": "text/plain"
+        }),
+        json!({
+            "uri": "forma://ui/status",
+            "name": "Runtime status & controls",
+            "description": "JSON snapshot of backend, platform, and interactive controls",
+            "mimeType": "application/json"
+        }),
+    ]
+}
+
+fn annotations(read_only: bool) -> Value {
+    json!({
+        "readOnlyHint": read_only,
+        "destructiveHint": false,
+        "openWorldHint": false,
+    })
+}
+
+/// Returns the MCP tool descriptors for the embedded Forma Runtime.
+pub fn runtime_tool_definitions() -> Vec<Value> {
     vec![
         json!({
             "name": "ui_status",
@@ -478,7 +589,8 @@ fn tool_definitions() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
-            }
+            },
+            "annotations": annotations(true)
         }),
         json!({
             "name": "ui_controls",
@@ -486,7 +598,8 @@ fn tool_definitions() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
-            }
+            },
+            "annotations": annotations(true)
         }),
         json!({
             "name": "ui_accessibility_tree",
@@ -494,7 +607,8 @@ fn tool_definitions() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
-            }
+            },
+            "annotations": annotations(true)
         }),
         json!({
             "name": "ui_click",
@@ -505,7 +619,8 @@ fn tool_definitions() -> Vec<Value> {
                     "key": { "type": "string", "description": "Control key (e.g. 'first', 'second') or label" },
                     "index": { "type": "integer", "description": "Zero-based control index" }
                 }
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "ui_pointer",
@@ -518,7 +633,8 @@ fn tool_definitions() -> Vec<Value> {
                     "kind": { "type": "string", "enum": ["move", "down", "up", "cancel", "click"] }
                 },
                 "required": ["x", "y"]
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "ui_set_backend",
@@ -529,7 +645,8 @@ fn tool_definitions() -> Vec<Value> {
                     "backend": { "type": "string", "enum": ["egui", "svet", "ask"] }
                 },
                 "required": ["backend"]
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "ui_set_platform",
@@ -540,7 +657,8 @@ fn tool_definitions() -> Vec<Value> {
                     "platform": { "type": "string", "enum": ["desktop", "ios", "android"] }
                 },
                 "required": ["platform"]
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "ui_source_read",
@@ -548,7 +666,8 @@ fn tool_definitions() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {}
-            }
+            },
+            "annotations": annotations(true)
         }),
         json!({
             "name": "ui_source_write",
@@ -560,7 +679,8 @@ fn tool_definitions() -> Vec<Value> {
                     "template": { "type": "string", "description": "Optional component template .ui source" }
                 },
                 "required": ["source"]
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "ui_render_snapshot",
@@ -572,7 +692,8 @@ fn tool_definitions() -> Vec<Value> {
                     "height": { "type": "integer" },
                     "scale": { "type": "number" }
                 }
-            }
+            },
+            "annotations": annotations(true)
         }),
         json!({
             "name": "ui_events",
@@ -582,7 +703,8 @@ fn tool_definitions() -> Vec<Value> {
                 "properties": {
                     "clear": { "type": "boolean" }
                 }
-            }
+            },
+            "annotations": annotations(false)
         }),
         json!({
             "name": "app_launch",
@@ -593,7 +715,8 @@ fn tool_definitions() -> Vec<Value> {
                     "backend": { "type": "string", "enum": ["egui", "svet", "ask"] },
                     "platform": { "type": "string", "enum": ["desktop", "ios", "android"] }
                 }
-            }
+            },
+            "annotations": annotations(false)
         }),
     ]
 }
@@ -611,11 +734,7 @@ pub fn serve_stdio(mut app: McpApp) -> Result<(), String> {
         let req: Value = match serde_json::from_str(trimmed) {
             Ok(v) => v,
             Err(e) => {
-                let err = json!({
-                    "jsonrpc": "2.0",
-                    "id": Value::Null,
-                    "error": { "code": -32700, "message": format!("Parse error: {e}") }
-                });
+                let err = jsonrpc_error(None, -32700, &format!("Parse error: {e}"));
                 writeln!(stdout, "{err}").map_err(|e| e.to_string())?;
                 stdout.flush().ok();
                 continue;
