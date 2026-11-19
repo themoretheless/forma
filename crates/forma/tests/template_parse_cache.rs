@@ -32,6 +32,18 @@ fn a_different_spec_under_the_same_text_is_parsed_again() {
 }
 
 #[test]
+fn equal_hints_still_require_the_whole_spec_to_match() {
+    let first = spec("Одинаковый текст");
+    let mut resized = first.clone();
+    resized.width += 40.;
+    let plain = template::parse_cached(SOURCE, &first).unwrap();
+    let wide = template::parse_cached(SOURCE, &resized).unwrap();
+    assert_eq!(wide.props.width, resized.width);
+    assert_eq!(*plain, template::parse(SOURCE, &first).unwrap());
+    assert_eq!(*wide, template::parse(SOURCE, &resized).unwrap());
+}
+
+#[test]
 fn a_different_text_under_the_same_spec_is_parsed_again() {
     let props = spec("Найти");
     let plain = template::parse_cached(SOURCE, &props).unwrap();

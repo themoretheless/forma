@@ -12,9 +12,17 @@ pub const MAX_PARSED_BYTES: usize = 16 * 1024 * 1024;
 
 pub(super) struct ParsedTemplate {
     pub(super) id: u64,
+    /// Cheap discriminator, never a substitute for the full key comparison.
+    pub(super) props_hint: u64,
     pub(super) source: String,
     pub(super) props: ButtonSpec,
     pub(super) template: Arc<Template>,
+}
+
+/// Most controls of one document share their source but differ in key or label. Filtering
+/// those common differences first avoids comparing the whole source for every cached entry.
+fn props_hint(props: &ButtonSpec) -> u64 {
+    key_hash(&props.key) ^ key_hash(&props.text).rotate_left(32)
 }
 
 /// Thread-local and process-wide rather than owned by `Runtime`, because the preview
@@ -52,11 +60,10 @@ impl TemplateCache {
         source: &str,
         props: &ButtonSpec,
     ) -> Option<Arc<Template>> {
-        let entry = self
-            .by_hash
-            .get(&hash)?
-            .iter()
-            .find(|entry| entry.source == source && &entry.props == props)?;
+        let hint = props_hint(props);
+        let entry = self.by_hash.get(&hash)?.iter().find(|entry| {
+            entry.props_hint == hint && &entry.props == props && entry.source == source
+        })?;
         self.lru.get(&entry.id);
         Some(Arc::clone(&entry.template))
     }
@@ -85,6 +92,7 @@ impl TemplateCache {
         if admitted {
             self.by_hash.entry(hash).or_default().push(ParsedTemplate {
                 id,
+                props_hint: props_hint(props),
                 source: source.to_owned(),
                 props: props.clone(),
                 template: Arc::clone(template),
