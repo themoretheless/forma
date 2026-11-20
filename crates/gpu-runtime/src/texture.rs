@@ -159,16 +159,63 @@ pub struct TextureDescriptor<'a> {
 pub struct Texture {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) raw: ObjCObject,
+    pub(crate) portable: Option<upstream_wgpu::Texture>,
     pub(crate) size: Extent3d,
     pub(crate) mip_level_count: u32,
     pub(crate) sample_count: u32,
     pub(crate) dimension: TextureDimension,
     pub(crate) format: TextureFormat,
     pub(crate) usage: TextureUsages,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) storage_mode: u64,
 }
 
 impl Texture {
+    pub(crate) fn from_portable(raw: upstream_wgpu::Texture, desc: &TextureDescriptor<'_>) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            raw: ObjCObject(std::ptr::null_mut()),
+            portable: Some(raw),
+            size: desc.size,
+            mip_level_count: desc.mip_level_count.max(1),
+            sample_count: desc.sample_count.max(1),
+            dimension: desc.dimension,
+            format: desc.format,
+            usage: desc.usage,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            storage_mode: 0,
+        }
+    }
+
+    pub(crate) fn from_raw_portable(
+        raw: upstream_wgpu::Texture,
+        cfg: &crate::SurfaceConfiguration,
+    ) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            raw: ObjCObject(std::ptr::null_mut()),
+            portable: Some(raw),
+            size: Extent3d {
+                width: cfg.width.max(1),
+                height: cfg.height.max(1),
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: cfg.format,
+            usage: cfg.usage,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            storage_mode: 0,
+        }
+    }
+
+    pub(crate) fn from_surface_portable(
+        raw: &upstream_wgpu::Texture,
+        cfg: &crate::SurfaceConfiguration,
+    ) -> Self {
+        crate::portable::surface::from_portable_texture_ref(raw, cfg)
+    }
     /// Why a copy region is not inside mip `mip_level` of this texture, if it is not.
     pub(crate) fn region_error(
         &self,
@@ -237,12 +284,25 @@ impl Texture {
     }
 
     pub fn create_view(&self, desc: &TextureViewDescriptor<'_>) -> TextureView {
+        if self.portable.is_some() {
+            let portable = crate::portable::pipeline::create_texture_view(self, desc);
+            return TextureView {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                texture: self.clone(),
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                base_mip_level: desc.base_mip_level,
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                base_array_layer: desc.base_array_layer,
+                portable,
+            };
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
             TextureView {
                 texture: self.reinterpreted_as(desc.dimension),
                 base_mip_level: desc.base_mip_level,
                 base_array_layer: desc.base_array_layer,
+                portable: None,
             }
         }
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
@@ -252,7 +312,7 @@ impl Texture {
                 desc.base_mip_level,
                 desc.base_array_layer,
             );
-            TextureView {}
+            TextureView { portable: None }
         }
     }
 
@@ -351,7 +411,11 @@ impl Texture {
         self.usage
     }
 
-    pub fn destroy(&self) {}
+    pub fn destroy(&self) {
+        if let Some(portable) = &self.portable {
+            portable.destroy();
+        }
+    }
 
     pub fn as_image_copy(&self) -> TexelCopyTextureInfo<'_> {
         TexelCopyTextureInfo {
@@ -384,6 +448,7 @@ pub struct TextureView {
     pub(crate) base_mip_level: u32,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) base_array_layer: u32,
+    pub(crate) portable: Option<upstream_wgpu::TextureView>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -470,6 +535,17 @@ impl Default for SamplerDescriptor<'_> {
 pub struct Sampler {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) raw: Arc<ObjCObject>,
+    pub(crate) portable: Option<upstream_wgpu::Sampler>,
+}
+
+impl Sampler {
+    pub(crate) fn from_portable(raw: upstream_wgpu::Sampler) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            raw: Arc::new(ObjCObject(std::ptr::null_mut())),
+            portable: Some(raw),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -562,6 +638,17 @@ pub struct QuerySetDescriptor<'a> {
 pub struct QuerySet {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) timestamps_ns: Arc<Mutex<Vec<u64>>>,
+    pub(crate) portable: Option<upstream_wgpu::QuerySet>,
+}
+
+impl QuerySet {
+    pub(crate) fn from_portable(raw: upstream_wgpu::QuerySet, _count: u32) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            timestamps_ns: Arc::new(Mutex::new(vec![0u64; _count as usize])),
+            portable: Some(raw),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -177,17 +177,7 @@ fn check_gpu_fault(fault: &std::sync::Mutex<Option<String>>) -> Result<(), Strin
 
 #[cfg(any(feature = "native", test))]
 pub(crate) fn device_queue_idle(device: &wgpu::Device) -> bool {
-    #[cfg(not(target_os = "linux"))]
-    {
-        device.is_queue_idle()
-    }
-    #[cfg(target_os = "linux")]
-    {
-        matches!(
-            device.poll(wgpu::PollType::Poll),
-            Ok(wgpu::PollStatus::QueueEmpty)
-        )
-    }
+    device.is_queue_idle()
 }
 
 #[cfg(test)]
@@ -507,8 +497,9 @@ impl Renderer {
         encoder.resolve_query_set(&timing.queries, 0..2, &timing.resolve, 0);
         encoder.copy_buffer_to_buffer(&timing.resolve, 0, &timing.readback, 0, 16);
         self.queue.submit(Some(encoder.finish()));
-        #[cfg(not(target_os = "linux"))]
-        let (begin, end) = {
+        let (begin, end) = if self.device.adapter_info().backend == wgpu::Backend::Metal
+            && self.memory_architecture.is_unified()
+        {
             self.device
                 .poll(wgpu::PollType::wait_indefinitely())
                 .map_err(|e| e.to_string())?;
@@ -517,9 +508,7 @@ impl Renderer {
                 u64::from_ne_bytes(values[..8].try_into().unwrap()),
                 u64::from_ne_bytes(values[8..16].try_into().unwrap()),
             )
-        };
-        #[cfg(target_os = "linux")]
-        let (begin, end) = {
+        } else {
             let (send, recv) = std::sync::mpsc::channel();
             timing
                 .readback
@@ -561,10 +550,7 @@ impl Renderer {
 
     #[cfg(feature = "native-test-hooks")]
     pub(crate) fn inject_device_loss_for_testing(&self, message: String) {
-        #[cfg(not(target_os = "linux"))]
         self.device.inject_backend_device_loss_for_testing(message);
-        #[cfg(target_os = "linux")]
-        record_gpu_fault(&self.fault, message);
     }
 
     pub fn draw(

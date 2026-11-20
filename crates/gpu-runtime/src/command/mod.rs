@@ -21,7 +21,6 @@ use gpu_shader::back::msl::{
 };
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeBounds};
-#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
@@ -313,55 +312,138 @@ pub(crate) enum RecordedOp {
     },
 }
 
+pub(crate) type SubmitCallback = Box<dyn FnOnce() + Send>;
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) enum EncoderBackend {
+    Metal {
+        device: MetalDevice,
+        ops: Vec<RecordedOp>,
+        on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
+    },
+    Portable {
+        encoder: upstream_wgpu::CommandEncoder,
+        on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
+    },
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub(crate) enum EncoderBackend {
+    Portable {
+        encoder: upstream_wgpu::CommandEncoder,
+        on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
+    },
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub(crate) enum CommandBufferBackend {
+    Metal {
+        ops: Vec<RecordedOp>,
+        on_submit_callbacks: Vec<SubmitCallback>,
+    },
+    Portable {
+        buffer: Option<upstream_wgpu::CommandBuffer>,
+        on_submit_callbacks: Vec<SubmitCallback>,
+    },
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+pub(crate) enum CommandBufferBackend {
+    Portable {
+        buffer: Option<upstream_wgpu::CommandBuffer>,
+        on_submit_callbacks: Vec<SubmitCallback>,
+    },
+}
+
 pub struct CommandEncoder {
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(crate) device: MetalDevice,
+    pub(crate) backend: EncoderBackend,
     pub(crate) error_stack: Arc<Mutex<Vec<crate::types::ErrorScopeEntry>>>,
     pub(crate) uncaptured_error_handler: Arc<Mutex<Option<crate::UncapturedErrorHandler>>>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(crate) ops: Vec<RecordedOp>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(crate) on_submit_callbacks: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
 }
 
 pub struct CommandBuffer {
+    pub(crate) backend: CommandBufferBackend,
+}
+
+impl CommandBuffer {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(crate) ops: Vec<RecordedOp>,
+    pub(crate) fn from_metal(
+        ops: Vec<RecordedOp>,
+        on_submit_callbacks: Vec<SubmitCallback>,
+    ) -> Self {
+        Self {
+            backend: CommandBufferBackend::Metal {
+                ops,
+                on_submit_callbacks,
+            },
+        }
+    }
+
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(crate) on_submit_callbacks: Vec<Box<dyn FnOnce() + Send>>,
+    pub(crate) fn metal_parts_mut(
+        &mut self,
+    ) -> Option<(&mut Vec<RecordedOp>, &mut Vec<SubmitCallback>)> {
+        match &mut self.backend {
+            CommandBufferBackend::Metal {
+                ops,
+                on_submit_callbacks,
+            } => Some((ops, on_submit_callbacks)),
+            CommandBufferBackend::Portable { .. } => None,
+        }
+    }
+
+    pub(crate) fn take_portable(
+        mut self,
+    ) -> Option<(upstream_wgpu::CommandBuffer, Vec<SubmitCallback>)> {
+        match &mut self.backend {
+            CommandBufferBackend::Portable {
+                buffer,
+                on_submit_callbacks,
+            } => {
+                let buf = buffer.take()?;
+                let cbs = std::mem::take(on_submit_callbacks);
+                Some((buf, cbs))
+            }
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            CommandBufferBackend::Metal { .. } => None,
+        }
+    }
+}
+
+pub(crate) enum ComputePassBackend<'a> {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    Metal {
+        device: &'a MetalDevice,
+        ops: &'a mut Vec<RecordedOp>,
+        current_pipeline: Option<ComputePipeline>,
+        bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
+        immediates: Vec<u8>,
+        dispatches: Vec<ComputeDispatchOp>,
+        start_timestamp: Option<(QuerySet, u32)>,
+        end_timestamp: Option<(QuerySet, u32)>,
+        has_pipeline_error: &'a Arc<Mutex<Vec<crate::types::ErrorScopeEntry>>>,
+        uncaptured: &'a Arc<Mutex<Option<crate::UncapturedErrorHandler>>>,
+    },
+    Portable(Box<crate::portable::command::PortableComputePass<'a>>),
 }
 
 pub struct ComputePass<'a> {
-    encoder: &'a mut CommandEncoder,
+    pub(crate) backend: ComputePassBackend<'a>,
+}
+
+pub(crate) enum RenderPassBackend<'a> {
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    current_pipeline: Option<ComputePipeline>,
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    has_pipeline: bool,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    immediates: Vec<u8>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    dispatches: Vec<ComputeDispatchOp>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    start_timestamp: Option<(QuerySet, u32)>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    end_timestamp: Option<(QuerySet, u32)>,
+    Metal {
+        ops: &'a mut Vec<RecordedOp>,
+        color_attachments: Vec<Option<OwnedColorAttachment>>,
+        depth_stencil_attachment: Option<Box<OwnedDepthAttachment>>,
+        commands: Vec<RenderCommand>,
+        start_timestamp: Option<(QuerySet, u32)>,
+        end_timestamp: Option<(QuerySet, u32)>,
+    },
+    Portable(Box<crate::portable::command::PortableRenderPass<'a>>),
 }
 
 pub struct RenderPass<'a> {
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    encoder: &'a mut CommandEncoder,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    color_attachments: Vec<Option<OwnedColorAttachment>>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    depth_stencil_attachment: Option<OwnedDepthAttachment>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    commands: Vec<RenderCommand>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    start_timestamp: Option<(QuerySet, u32)>,
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    end_timestamp: Option<(QuerySet, u32)>,
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    _encoder: &'a mut CommandEncoder,
+    pub(crate) backend: RenderPassBackend<'a>,
 }

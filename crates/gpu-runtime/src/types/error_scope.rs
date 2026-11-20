@@ -126,6 +126,7 @@ pub(super) struct ScopeServiceState {
     pub(super) starts: usize,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum ScopePark {
     GenerationChanged,
@@ -137,6 +138,7 @@ pub(super) enum ScopePark {
 pub(crate) struct ScopeCompletionService(pub(super) Mutex<ScopeServiceState>, std::sync::Condvar);
 
 impl ScopeCompletionService {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn park_if_unchanged(
         &self,
         state: std::sync::MutexGuard<'_, ScopeServiceState>,
@@ -206,6 +208,9 @@ impl ScopeCompletionService {
             }
         };
         self.1.notify_all();
+        #[cfg(target_arch = "wasm32")]
+        let _ = (backend, start);
+        #[cfg(not(target_arch = "wasm32"))]
         if start {
             std::thread::spawn(move || {
                 loop {
@@ -343,15 +348,22 @@ impl Future for ErrorScopePop {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         let next_waker = cx.waker().clone();
-        let old_waker = {
+        let (pending, local_error, old_waker) = {
             let mut value = self.entry.value.lock().unwrap_or_else(|e| e.into_inner());
             if value.pending == 0 {
-                return std::task::Poll::Ready(value.error.take());
+                (0, value.error.take(), None)
+            } else {
+                value.pop_waiting = true;
+                (value.pending, None, value.waker.replace(next_waker))
             }
-            value.pop_waiting = true;
-            value.waker.replace(next_waker)
         };
         drop(old_waker);
+        if pending == 0 {
+            if let Some(err) = local_error {
+                return std::task::Poll::Ready(Some(err));
+            }
+            return std::task::Poll::Ready(None);
+        }
         if !self.started {
             self.started = true;
             if let Some(backend) = self.completion.take() {

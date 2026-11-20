@@ -91,7 +91,7 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
     queue_a.submit([encoder.finish()]);
     assert!(
         device_a
-            .metal
+            .expect_metal()
             .last_command_owned_by_for_test(&queue_a.error_sink)
     );
     let shader = device_a.create_shader_module(ShaderModuleDescriptor {
@@ -116,21 +116,21 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
         queue.submit([encoder.finish()]);
         assert!(
             device
-                .metal
+                .expect_metal()
                 .last_command_owned_by_for_test(&queue.error_sink),
             "pure compute lost logical owner"
         );
     }
     // A different logical device can reap shared backend completions.
     device_a
-        .metal
+        .expect_metal()
         .inject_command_failure_for_test(queue_a.error_sink.clone(), "owner a failure");
     device_b.poll(PollType::Poll).unwrap();
     device_b.poll(PollType::Poll).unwrap();
     assert_eq!(seen.load(Ordering::Relaxed), 1);
     let guard = device_a.push_error_scope(ErrorFilter::Internal);
     device_a
-        .metal
+        .expect_metal()
         .inject_command_failure_for_test(queue_a.error_sink.clone(), "captured completion");
     device_b.poll(PollType::Poll).unwrap();
     assert_eq!(seen.load(Ordering::Relaxed), 1);
@@ -154,7 +154,7 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
     ));
     let oom_guard = device_a.push_error_scope(ErrorFilter::OutOfMemory);
     device_a
-        .metal
+        .expect_metal()
         .inject_classified_command_failure_for_test(queue_a.error_sink.clone(), true, 8);
     device_b.poll(PollType::Poll).unwrap();
     assert!(matches!(
@@ -164,7 +164,7 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
     assert_eq!(seen.load(Ordering::Relaxed), 1);
     // Another NSError domain's code8 must bypass the OOM scope.
     device_a
-        .metal
+        .expect_metal()
         .inject_classified_command_failure_for_test(queue_a.error_sink.clone(), false, 8);
     device_b.poll(PollType::Poll).unwrap();
     assert_eq!(seen.load(Ordering::Relaxed), 2);
@@ -180,7 +180,7 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
     encoder.clear_buffer(&buffer, 0, None);
     queue_a.submit([encoder.finish()]);
     device_a
-        .metal
+        .expect_metal()
         .inject_command_failure_for_test(queue_a.error_sink.clone(), "async captured error");
     let mut pending = std::pin::pin!(guard.pop());
     let newer = device_a.push_error_scope(ErrorFilter::Internal);
@@ -233,7 +233,7 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
         std::thread::park_timeout(std::time::Duration::from_millis(100));
     }
     while device_a
-        .metal
+        .expect_metal()
         .scope_completion_service
         .native_notifications()
         == 0
@@ -245,7 +245,10 @@ fn command_completion_routes_to_submit_owner_with_scope_and_reentry() {
         std::thread::park_timeout(std::time::Duration::from_millis(1));
     }
     assert_eq!(
-        device_a.metal.blocking_wait_calls.load(Ordering::Relaxed),
+        device_a
+            .expect_metal()
+            .blocking_wait_calls
+            .load(Ordering::Relaxed),
         0,
         "async completion entered a blocking backend wait"
     );
@@ -302,7 +305,7 @@ fn scope_completion_service_coalesces_bursts_and_retires_cancelled_requests() {
             );
         }
         assert_eq!(
-            device.metal.scope_completion_service.stats().1,
+            device.expect_metal().scope_completion_service.stats().1,
             round + 1,
             "burst spawned more than one worker"
         );
@@ -330,7 +333,7 @@ fn scope_completion_service_coalesces_bursts_and_retires_cancelled_requests() {
                 }
             }
             let (running, starts, waiting, capacity) =
-                device.metal.scope_completion_service.stats();
+                device.expect_metal().scope_completion_service.stats();
             if futures.iter().all(Option::is_none) && !running {
                 assert_eq!(waiting, 0);
                 assert_eq!(capacity, 0, "idle service retained registration storage");
@@ -356,7 +359,8 @@ fn scope_completion_service_coalesces_bursts_and_retires_cancelled_requests() {
     drop(cancelled);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
-        let (running, _, waiting, capacity) = device.metal.scope_completion_service.stats();
+        let (running, _, waiting, capacity) =
+            device.expect_metal().scope_completion_service.stats();
         if !running {
             assert_eq!(waiting, 0);
             assert_eq!(capacity, 0);
@@ -370,10 +374,13 @@ fn scope_completion_service_coalesces_bursts_and_retires_cancelled_requests() {
     }
     assert_eq!(leases.len(), 64);
     drop(leases);
-    let retired = device.metal.scope_completion_service.stats();
-    device.metal.scope_completion_service.native_completed();
+    let retired = device.expect_metal().scope_completion_service.stats();
+    device
+        .expect_metal()
+        .scope_completion_service
+        .native_completed();
     assert_eq!(
-        device.metal.scope_completion_service.stats(),
+        device.expect_metal().scope_completion_service.stats(),
         retired,
         "late completion restarted an idle service"
     );
@@ -739,12 +746,19 @@ fn signal_completion_sustains_2000_submissions_with_zero_blocking_waits() {
 
     let rss_end = sample_rss_kb().unwrap_or(rss_mid);
     assert_eq!(
-        device.metal.blocking_wait_calls.load(Ordering::Relaxed),
+        device
+            .expect_metal()
+            .blocking_wait_calls
+            .load(Ordering::Relaxed),
         0,
         "2,000 submissions entered blocking waitUntilCompleted"
     );
     assert!(
-        device.metal.scope_completion_service.native_notifications() >= 2000,
+        device
+            .expect_metal()
+            .scope_completion_service
+            .native_notifications()
+            >= 2000,
         "expected native signal notifications for all 2,000 submissions"
     );
     assert!(

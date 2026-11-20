@@ -1,18 +1,18 @@
-//! Compute and render passes: recorded while open, handed to the encoder when dropped.
+//! Compute and render passes: recorded on Metal or forwarded on portable backends.
 
 use super::*;
 
-impl<'a> ComputePass<'a> {
+impl ComputePass<'_> {
     #[inline]
     pub fn set_pipeline(&mut self, pipeline: &ComputePipeline) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            self.current_pipeline = Some(pipeline.clone());
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            let _ = pipeline;
-            self.has_pipeline = true;
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            ComputePassBackend::Metal {
+                current_pipeline, ..
+            } => {
+                *current_pipeline = Some(pipeline.clone());
+            }
+            ComputePassBackend::Portable(p) => p.set_pipeline(pipeline),
         }
     }
 
@@ -24,95 +24,118 @@ impl<'a> ComputePass<'a> {
         offsets: &[DynamicOffset],
     ) {
         let bind_group = bind_group.into();
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let Some(entry) = self.bind_groups.iter_mut().find(|(i, _, _)| *i == index) {
-            entry.1 = bind_group.cloned();
-            entry.2 = DynamicOffsets::from_slice(offsets);
-        } else {
-            self.bind_groups.push((
-                index,
-                bind_group.cloned(),
-                DynamicOffsets::from_slice(offsets),
-            ));
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            ComputePassBackend::Metal { bind_groups, .. } => {
+                if let Some(entry) = bind_groups.iter_mut().find(|(i, _, _)| *i == index) {
+                    entry.1 = bind_group.cloned();
+                    entry.2 = DynamicOffsets::from_slice(offsets);
+                } else {
+                    bind_groups.push((
+                        index,
+                        bind_group.cloned(),
+                        DynamicOffsets::from_slice(offsets),
+                    ));
+                }
+            }
+            ComputePassBackend::Portable(p) => p.set_bind_group(index, bind_group, offsets),
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (index, bind_group, offsets);
     }
 
     #[inline]
     pub fn set_immediates(&mut self, offset: u32, data: &[u8]) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let end = offset as usize + data.len();
-            if self.immediates.len() < end {
-                self.immediates.resize(end, 0);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            ComputePassBackend::Metal { immediates, .. } => {
+                let end = offset as usize + data.len();
+                if immediates.len() < end {
+                    immediates.resize(end, 0);
+                }
+                immediates[offset as usize..end].copy_from_slice(data);
             }
-            self.immediates[offset as usize..end].copy_from_slice(data);
+            ComputePassBackend::Portable(p) => p.set_immediates(offset, data),
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (offset, data);
     }
 
     #[inline]
     pub fn dispatch_workgroups(&mut self, x: u32, y: u32, z: u32) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let has_pipeline = if let Some(pipe) = &self.current_pipeline {
-            self.dispatches.push(ComputeDispatchOp {
-                pipeline: pipe.clone(),
-                bind_groups: self.bind_groups.clone(),
-                immediates: self.immediates.clone(),
-                groups: [x, y, z],
-            });
-            true
-        } else {
-            false
-        };
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let has_pipeline = {
-            let _ = (x, y, z);
-            self.has_pipeline
-        };
-        if !has_pipeline {
-            let msg = "dispatch_workgroups called without an active ComputePipeline".to_string();
-            self.encoder.record_error(Error::Validation {
-                source: Arc::new(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    msg.clone(),
-                )),
-                description: msg,
-            });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            ComputePassBackend::Metal {
+                current_pipeline,
+                bind_groups,
+                immediates,
+                dispatches,
+                has_pipeline_error,
+                uncaptured,
+                ..
+            } => {
+                if let Some(pipe) = current_pipeline {
+                    dispatches.push(ComputeDispatchOp {
+                        pipeline: pipe.clone(),
+                        bind_groups: bind_groups.clone(),
+                        immediates: immediates.clone(),
+                        groups: [x, y, z],
+                    });
+                } else {
+                    let msg =
+                        "dispatch_workgroups called without an active ComputePipeline".to_string();
+                    crate::dispatch_error(
+                        has_pipeline_error,
+                        uncaptured,
+                        Error::Validation {
+                            source: Arc::new(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                msg.clone(),
+                            )),
+                            description: msg,
+                        },
+                    );
+                }
+            }
+            ComputePassBackend::Portable(p) => p.dispatch_workgroups(x, y, z),
         }
     }
 }
 
-impl<'a> Drop for ComputePass<'a> {
+impl Drop for ComputePass<'_> {
     fn drop(&mut self) {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let ComputePassBackend::Metal {
+            device,
+            ops,
+            dispatches,
+            start_timestamp,
+            end_timestamp,
+            ..
+        } = &mut self.backend
         {
-            let dispatches = std::mem::take(&mut self.dispatches);
-            let start_ts = self.start_timestamp.take();
-            let end_ts = self.end_timestamp.take();
+            let dispatches = std::mem::take(dispatches);
+            let start_ts = start_timestamp.take();
+            let end_ts = end_timestamp.take();
             if !dispatches.is_empty() || start_ts.is_some() || end_ts.is_some() {
-                self.encoder.ops.push(RecordedOp::ComputePass {
+                ops.push(RecordedOp::ComputePass {
                     dispatches,
                     start_ts,
                     end_ts,
                 });
             } else {
-                self.encoder.device.recycle_compute_dispatches(dispatches);
+                device.recycle_compute_dispatches(dispatches);
             }
         }
     }
 }
 
-impl<'a> RenderPass<'a> {
+impl RenderPass<'_> {
     #[inline]
     pub fn set_pipeline(&mut self, pipeline: &RenderPipeline) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands
-            .push(RenderCommand::SetPipeline(pipeline.clone()));
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = pipeline;
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetPipeline(pipeline.clone()));
+            }
+            RenderPassBackend::Portable(p) => p.set_pipeline(pipeline),
+        }
     }
 
     #[inline]
@@ -123,120 +146,151 @@ impl<'a> RenderPass<'a> {
         offsets: &[DynamicOffset],
     ) {
         let bind_group = bind_group.into();
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let Some(bg) = bind_group {
-            self.commands.push(RenderCommand::SetBindGroup {
-                index,
-                bind_group: bg.clone(),
-                offsets: DynamicOffsets::from_slice(offsets),
-            });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                if let Some(bg) = bind_group {
+                    commands.push(RenderCommand::SetBindGroup {
+                        index,
+                        bind_group: bg.clone(),
+                        offsets: DynamicOffsets::from_slice(offsets),
+                    });
+                }
+            }
+            RenderPassBackend::Portable(p) => p.set_bind_group(index, bind_group, offsets),
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (index, bind_group, offsets);
     }
 
     #[inline]
     pub fn set_vertex_buffer(&mut self, slot: u32, buffer_slice: BufferSlice<'_>) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::SetVertexBuffer {
-            slot,
-            buffer: buffer_slice.buffer.clone(),
-            offset: buffer_slice.offset,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (slot, buffer_slice);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetVertexBuffer {
+                    slot,
+                    buffer: buffer_slice.buffer.clone(),
+                    offset: buffer_slice.offset,
+                });
+            }
+            RenderPassBackend::Portable(p) => {
+                p.set_vertex_buffer(slot, buffer_slice.buffer, buffer_slice.offset);
+            }
+        }
     }
 
     #[inline]
     pub fn set_index_buffer(&mut self, buffer_slice: BufferSlice<'_>, index_format: IndexFormat) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::SetIndexBuffer {
-            buffer: buffer_slice.buffer.clone(),
-            format: index_format,
-            offset: buffer_slice.offset,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (buffer_slice, index_format);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetIndexBuffer {
+                    buffer: buffer_slice.buffer.clone(),
+                    format: index_format,
+                    offset: buffer_slice.offset,
+                });
+            }
+            RenderPassBackend::Portable(p) => {
+                p.set_index_buffer(buffer_slice.buffer, buffer_slice.offset, index_format);
+            }
+        }
     }
 
     #[inline]
     pub fn set_immediates(&mut self, offset: u32, data: &[u8]) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::SetImmediates {
-            offset,
-            data: data.to_vec(),
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (offset, data);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetImmediates {
+                    offset,
+                    data: data.to_vec(),
+                });
+            }
+            RenderPassBackend::Portable(p) => p.set_immediates(offset, data),
+        }
     }
 
     #[inline]
     pub fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::SetViewport {
-            x,
-            y,
-            w,
-            h,
-            min_depth,
-            max_depth,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (x, y, w, h, min_depth, max_depth);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetViewport {
+                    x,
+                    y,
+                    w,
+                    h,
+                    min_depth,
+                    max_depth,
+                });
+            }
+            RenderPassBackend::Portable(p) => p.set_viewport(x, y, w, h, min_depth, max_depth),
+        }
     }
 
     #[inline]
     pub fn set_scissor_rect(&mut self, x: u32, y: u32, width: u32, height: u32) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::SetScissorRect {
-            x,
-            y,
-            w: width,
-            h: height,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (x, y, width, height);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::SetScissorRect {
+                    x,
+                    y,
+                    w: width,
+                    h: height,
+                });
+            }
+            RenderPassBackend::Portable(p) => p.set_scissor_rect(x, y, width, height),
+        }
     }
 
     #[inline]
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::Draw {
-            vertices,
-            instances,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (vertices, instances);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::Draw {
+                    vertices,
+                    instances,
+                });
+            }
+            RenderPassBackend::Portable(p) => p.draw(vertices, instances),
+        }
     }
 
     #[inline]
     pub fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.commands.push(RenderCommand::DrawIndexed {
-            indices,
-            base_vertex,
-            instances,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (indices, base_vertex, instances);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            RenderPassBackend::Metal { commands, .. } => {
+                commands.push(RenderCommand::DrawIndexed {
+                    indices,
+                    base_vertex,
+                    instances,
+                });
+            }
+            RenderPassBackend::Portable(p) => p.draw_indexed(indices, base_vertex, instances),
+        }
     }
 }
 
-impl<'a> Drop for RenderPass<'a> {
+impl Drop for RenderPass<'_> {
     fn drop(&mut self) {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let RenderPassBackend::Metal {
+            ops,
+            color_attachments,
+            depth_stencil_attachment,
+            commands,
+            start_timestamp,
+            end_timestamp,
+        } = &mut self.backend
         {
-            let color_attachments = std::mem::take(&mut self.color_attachments);
-            let depth_stencil_attachment = self.depth_stencil_attachment.take();
-            let commands = std::mem::take(&mut self.commands);
-            let start_ts = self.start_timestamp.take();
-            let end_ts = self.end_timestamp.take();
-            self.encoder.ops.push(RecordedOp::RenderPass(RenderPassOp {
-                color_attachments,
-                depth_stencil_attachment,
-                commands,
-                start_ts,
-                end_ts,
+            ops.push(RecordedOp::RenderPass(RenderPassOp {
+                color_attachments: std::mem::take(color_attachments),
+                depth_stencil_attachment: depth_stencil_attachment.take().map(|d| *d),
+                commands: std::mem::take(commands),
+                start_ts: start_timestamp.take(),
+                end_ts: end_timestamp.take(),
             }));
         }
     }

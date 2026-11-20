@@ -91,6 +91,7 @@ impl MetalDevice {
             assert!(!tex_ptr.is_null(), "Failed to create MTLTexture");
             crate::Texture {
                 raw: ObjCObject(tex_ptr),
+                portable: None,
                 size: desc.size,
                 mip_level_count: desc.mip_level_count,
                 sample_count: desc.sample_count,
@@ -148,6 +149,7 @@ impl MetalDevice {
             let samp_ptr = f_new_samp(self.raw.as_ptr(), s.new_sampler_state, sd.as_ptr());
             crate::Sampler {
                 raw: Arc::new(ObjCObject(samp_ptr)),
+                portable: None,
             }
         }
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]

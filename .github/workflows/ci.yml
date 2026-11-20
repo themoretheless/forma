@@ -26,13 +26,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        os: [ubuntu-24.04, macos-15, windows-2022]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Linux software Vulkan and OpenGL ES drivers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers libegl1 libgles2
       - name: Install pinned Rust toolchain
         shell: bash
         run: rustup show active-toolchain
@@ -46,6 +49,38 @@ jobs:
           restore-keys: crates-${{ runner.os }}-${{ runner.arch }}-
       - name: Workspace crates
         run: cargo test --locked -p gpu-shader -p gpu-runtime -p raster-core -p math-core -p tensor-core -p compute-core -p compute-cuda -p memory-budget -p swap-store -p svet-graph -p svet-reconcile -p svet-gpu-arena -p forma-build -p forma-mcp --features tensor-core/conformance
+      - name: wasm32 shader and portable runtime check
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check --locked -p gpu-shader -p gpu-runtime --target wasm32-unknown-unknown
+      - name: Portable GPU runtime on Vulkan (lavapipe)
+        if: runner.os == 'Linux'
+        env:
+          WGPU_BACKEND: vulkan
+        run: cargo test --locked -p gpu-runtime --test portable_backends
+      - name: Portable GPU runtime on OpenGL ES (Mesa EGL)
+        if: runner.os == 'Linux'
+        env:
+          WGPU_BACKEND: gl
+        run: cargo test --locked -p gpu-runtime --test portable_backends
+      - name: gpu-compute on Vulkan (lavapipe)
+        if: runner.os == 'Linux'
+        env:
+          COMPUTE_REQUIRE_GPU: 1
+          WGPU_BACKEND: vulkan
+        run: cargo test --locked -p gpu-compute
+      - name: Portable GPU runtime on DirectX 12 (Windows)
+        if: runner.os == 'Windows'
+        env:
+          WGPU_BACKEND: dx12
+        run: cargo test --locked -p gpu-runtime --test portable_backends
+      - name: gpu-compute on DirectX 12 (Windows)
+        if: runner.os == 'Windows'
+        env:
+          WGPU_BACKEND: dx12
+        run: cargo test --locked -p gpu-compute
       - name: math-compute adapters
         run: cargo test --locked -p math-compute --features gpu,tensor,tensor-wgsl
       - name: compute-mlx

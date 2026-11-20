@@ -21,6 +21,7 @@ webgpu = []
 [dependencies]
 gpu-shader = { path = "../gpu-shader", version = "0.1.0" }
 raw-window-handle = "0.6"
+upstream-wgpu = { package = "wgpu", version = "=30.0.1", default-features = false, features = ["std", "parking_lot", "dx12", "metal", "gles", "vulkan", "wgsl", "webgpu", "noop", "fragile-send-sync-non-atomic-wasm"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 block2 = "=0.6.2"

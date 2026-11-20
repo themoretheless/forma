@@ -107,7 +107,7 @@ impl AdapterInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Limits {
     pub max_texture_dimension_1d: u32,
     pub max_texture_dimension_2d: u32,
@@ -146,18 +146,18 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_texture_dimension_1d: 16384,
-            max_texture_dimension_2d: 16384,
+            max_texture_dimension_1d: 8192,
+            max_texture_dimension_2d: 8192,
             max_texture_dimension_3d: 2048,
-            max_texture_array_layers: 2048,
+            max_texture_array_layers: 256,
             max_bind_groups: 4,
             max_bindings_per_bind_group: 1000,
             max_dynamic_uniform_buffers_per_pipeline_layout: 8,
             max_dynamic_storage_buffers_per_pipeline_layout: 4,
             max_sampled_textures_per_shader_stage: 16,
             max_samplers_per_shader_stage: 16,
-            max_storage_buffers_per_shader_stage: 16,
-            max_storage_textures_per_shader_stage: 8,
+            max_storage_buffers_per_shader_stage: 8,
+            max_storage_textures_per_shader_stage: 4,
             max_uniform_buffers_per_shader_stage: 12,
             max_uniform_buffer_binding_size: 65536,
             // WebGPU defaults; request `Adapter::limits()` for what the hardware allows.
@@ -168,16 +168,16 @@ impl Default for Limits {
             max_vertex_buffer_array_stride: 2048,
             min_uniform_buffer_offset_alignment: 256,
             min_storage_buffer_offset_alignment: 256,
-            max_inter_stage_shader_components: 60,
+            max_inter_stage_shader_components: 64,
             max_color_attachments: 8,
-            max_color_attachment_bytes_per_sample: 64,
-            max_compute_workgroup_storage_size: 32768,
-            max_compute_invocations_per_workgroup: 1024,
-            max_compute_workgroup_size_x: 1024,
-            max_compute_workgroup_size_y: 1024,
+            max_color_attachment_bytes_per_sample: 32,
+            max_compute_workgroup_storage_size: 16384,
+            max_compute_invocations_per_workgroup: 256,
+            max_compute_workgroup_size_x: 256,
+            max_compute_workgroup_size_y: 256,
             max_compute_workgroup_size_z: 64,
             max_compute_workgroups_per_dimension: 65535,
-            max_immediate_size: 256,
+            max_immediate_size: 0,
             max_non_sampler_bindings: 1_000_000,
         }
     }

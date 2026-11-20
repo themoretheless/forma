@@ -356,12 +356,16 @@ impl MetalDevice {
         let mut iter = command_buffers.into_iter();
         let mut first_cb = iter.next()?;
         for mut extra in iter {
-            let mut ops = std::mem::take(&mut extra.ops);
-            first_cb.ops.append(&mut ops);
-            self.recycle_cmd_ops(ops);
-            first_cb
-                .on_submit_callbacks
-                .append(&mut extra.on_submit_callbacks);
+            let Some((extra_ops, extra_cbs)) = extra.metal_parts_mut() else {
+                continue;
+            };
+            let mut ops = std::mem::take(extra_ops);
+            let mut cbs = std::mem::take(extra_cbs);
+            if let Some((first_ops, first_cbs)) = first_cb.metal_parts_mut() {
+                first_ops.append(&mut ops);
+                self.recycle_cmd_ops(ops);
+                first_cbs.append(&mut cbs);
+            }
         }
         Some(first_cb)
     }
@@ -376,18 +380,20 @@ impl MetalDevice {
         idx: u64,
     ) -> Result<(), crate::CommandBuffer> {
         use crate::RecordedOp;
-        let is_pure_untimed_compute = cb.on_submit_callbacks.is_empty()
-            && !cb.ops.is_empty()
-            && cb.ops.iter().all(|op| {
-                matches!(
-                    op,
-                    RecordedOp::ComputePass {
-                        dispatches,
-                        start_ts: None,
-                        end_ts: None,
-                    } if !dispatches.is_empty()
-                )
-            });
+        let is_pure_untimed_compute = cb.metal_parts_mut().is_some_and(|(ops, cbs)| {
+            cbs.is_empty()
+                && !ops.is_empty()
+                && ops.iter().all(|op| {
+                    matches!(
+                        op,
+                        RecordedOp::ComputePass {
+                            dispatches,
+                            start_ts: None,
+                            end_ts: None,
+                        } if !dispatches.is_empty()
+                    )
+                })
+        });
         if !is_pure_untimed_compute {
             return Err(cb);
         }
@@ -396,14 +402,16 @@ impl MetalDevice {
             if let Some(sink) = error_sink.clone() {
                 add_error_sink(&mut pending.sinks, sink);
             }
-            let mut ops = std::mem::take(&mut cb.ops);
-            for op in ops.drain(..) {
-                if let RecordedOp::ComputePass { mut dispatches, .. } = op {
-                    pending.ops.append(&mut dispatches);
-                    self.recycle_compute_dispatches(dispatches);
+            if let Some((cb_ops, _)) = cb.metal_parts_mut() {
+                let mut ops = std::mem::take(cb_ops);
+                for op in ops.drain(..) {
+                    if let RecordedOp::ComputePass { mut dispatches, .. } = op {
+                        pending.ops.append(&mut dispatches);
+                        self.recycle_compute_dispatches(dispatches);
+                    }
                 }
+                self.recycle_cmd_ops(ops);
             }
-            self.recycle_cmd_ops(ops);
             pending.last_idx = idx;
             should_flush = !pending.ops.is_empty();
         }
@@ -421,11 +429,14 @@ impl MetalDevice {
         mut cb: crate::CommandBuffer,
         idx: u64,
     ) -> Result<(), crate::CommandBuffer> {
-        if !cb.ops.is_empty() {
+        let Some((ops, on_submit_callbacks)) = cb.metal_parts_mut() else {
+            return Err(cb);
+        };
+        if !ops.is_empty() {
             return Err(cb);
         }
-        self.recycle_cmd_ops(std::mem::take(&mut cb.ops));
-        let callbacks = std::mem::take(&mut cb.on_submit_callbacks);
+        self.recycle_cmd_ops(std::mem::take(ops));
+        let callbacks = std::mem::take(on_submit_callbacks);
         if callbacks.is_empty() {
             return Ok(());
         }
@@ -450,22 +461,27 @@ impl MetalDevice {
         mut cb: crate::CommandBuffer,
     ) -> Result<(), crate::CommandBuffer> {
         use crate::RecordedOp;
-        let is_small_uma_copy = matches!(
-            cb.ops.as_slice(),
-            [RecordedOp::CopyBufferToBuffer { src, dst, size, .. }]
-                if *size <= 65536 && !src.inner.ptr.is_null() && !dst.inner.ptr.is_null()
-        );
+        let is_small_uma_copy = cb.metal_parts_mut().is_some_and(|(ops, _)| {
+            matches!(
+                ops.as_slice(),
+                [RecordedOp::CopyBufferToBuffer { src, dst, size, .. }]
+                    if *size <= 65536 && !src.inner.ptr.is_null() && !dst.inner.ptr.is_null()
+            )
+        });
         if !is_small_uma_copy {
             return Err(cb);
         }
         self.wait_idle();
+        let Some((ops, on_submit_callbacks)) = cb.metal_parts_mut() else {
+            return Err(cb);
+        };
         if let Some(RecordedOp::CopyBufferToBuffer {
             src,
             src_offset,
             dst,
             dst_offset,
             size,
-        }) = cb.ops.pop()
+        }) = ops.pop()
         {
             if size > 0 {
                 // SAFETY: `copy_buffer_to_buffer` refuses a range outside either buffer and a
@@ -479,8 +495,9 @@ impl MetalDevice {
                 }
             }
         }
-        self.recycle_cmd_ops(std::mem::take(&mut cb.ops));
-        for callback in cb.on_submit_callbacks {
+        self.recycle_cmd_ops(std::mem::take(ops));
+        let callbacks = std::mem::take(on_submit_callbacks);
+        for callback in callbacks {
             callback();
         }
         Ok(())
@@ -742,6 +759,11 @@ impl MetalDevice {
 
         // SAFETY: Allocates an autorelease pool and command buffer from `self.queue`; ends the
         // compute encoder before committing or draining the pool.
+        let Some((cb_ops, cb_callbacks)) = cb.metal_parts_mut() else {
+            return;
+        };
+        let callbacks = std::mem::take(cb_callbacks);
+        let mut ops = std::mem::take(cb_ops);
         unsafe {
             let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
@@ -755,8 +777,6 @@ impl MetalDevice {
                 encode_compute_dispatches(active_compute_enc, &pending);
                 pending.clear();
             }
-            let callbacks = std::mem::take(&mut cb.on_submit_callbacks);
-            let mut ops = std::mem::take(&mut cb.ops);
             for op in ops.drain(..) {
                 self.encode_recorded_op(
                     cmd_buf.as_ptr(),

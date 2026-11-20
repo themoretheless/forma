@@ -28,6 +28,7 @@ fn finished_pipeline(
             .as_ref()
             .map(|d| d.bias)
             .unwrap_or_default(),
+        portable: None,
     }
 }
 

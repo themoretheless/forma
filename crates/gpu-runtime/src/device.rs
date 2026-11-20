@@ -14,15 +14,19 @@ use crate::{
     dispatch_error, validation_error,
 };
 use gpu_shader as naga;
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-use gpu_shader::back::msl::BindingMap;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
+pub(crate) enum BackendDevice {
+    Metal(MetalDevice),
+    Portable(Arc<crate::portable::PortableDevice>),
+}
+
+#[derive(Clone)]
 pub struct Device {
-    pub(crate) metal: MetalDevice,
+    pub(crate) backend: BackendDevice,
     pub(crate) info: Arc<AdapterInfo>,
     pub(crate) features: Features,
     pub(crate) limits: Limits,
@@ -42,13 +46,33 @@ impl Eq for Device {}
 
 impl std::fmt::Debug for Device {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Device")
-            .field("name", &self.metal.name)
-            .finish()
+        let name = match &self.backend {
+            BackendDevice::Metal(metal) => &metal.name,
+            BackendDevice::Portable(portable) => &portable.name,
+        };
+        f.debug_struct("Device").field("name", name).finish()
     }
 }
 
 impl Device {
+    #[cfg(test)]
+    pub(crate) fn expect_metal(&self) -> &MetalDevice {
+        match &self.backend {
+            BackendDevice::Metal(metal) => metal,
+            BackendDevice::Portable(_) => panic!("expected Metal device"),
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn portable_shader_compilation_count_for_testing(&self) -> usize {
+        match &self.backend {
+            BackendDevice::Metal(_) => 0,
+            BackendDevice::Portable(portable) => portable
+                .portable_shader_compilations
+                .load(Ordering::Relaxed),
+        }
+    }
+
     pub fn adapter_info(&self) -> AdapterInfo {
         (*self.info).clone()
     }
@@ -62,7 +86,11 @@ impl Device {
     }
 
     pub fn push_error_scope(&self, filter: ErrorFilter) -> ErrorScopeGuard {
-        ErrorScopeGuard::push(self.error_stack.clone(), filter).with_completion(self.metal.clone())
+        let guard = ErrorScopeGuard::push(self.error_stack.clone(), filter);
+        match &self.backend {
+            BackendDevice::Metal(metal) => guard.with_completion(metal.clone()),
+            BackendDevice::Portable(_) => guard,
+        }
     }
 
     pub fn on_uncaptured_error(&self, handler: Arc<dyn Fn(Error) + Send + Sync + 'static>) {
@@ -90,17 +118,27 @@ impl Device {
                 DeviceLostReason::Destroyed,
                 "Device was destroyed".to_string(),
             );
+            if let BackendDevice::Portable(portable) = &self.backend {
+                portable.destroy();
+            }
         }
     }
 
     #[cfg(feature = "test-hooks")]
     #[doc(hidden)]
     pub fn inject_backend_device_loss_for_testing(&self, message: String) {
-        self.metal.inject_device_loss_for_test(message);
+        match &self.backend {
+            BackendDevice::Metal(metal) => metal.inject_device_loss_for_test(message),
+            BackendDevice::Portable(portable) => portable.inject_loss_for_test(message),
+        }
     }
 
     fn refresh_device_loss(&self) {
-        if let Some(message) = self.metal.device_loss_message() {
+        let message = match &self.backend {
+            BackendDevice::Metal(metal) => metal.device_loss_message(),
+            BackendDevice::Portable(portable) => portable.check_loss_message(),
+        };
+        if let Some(message) = message {
             self.device_loss.notify(DeviceLostReason::Unknown, message);
         }
     }
@@ -108,13 +146,12 @@ impl Device {
     /// Whether the backend queue has no outstanding work. This does not wait
     /// or deliver error callbacks; callers should poll before inspecting it.
     pub fn is_queue_idle(&self) -> bool {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            self.metal.is_last_cmd_completed()
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            true
+        match &self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            BackendDevice::Metal(metal) => metal.is_last_cmd_completed(),
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            BackendDevice::Metal(_) => true,
+            BackendDevice::Portable(portable) => portable.is_queue_idle(),
         }
     }
 
@@ -141,25 +178,43 @@ impl Device {
 
     pub fn poll(&self, poll_type: PollType) -> Result<PollStatus, PollError> {
         self.refresh_device_loss();
-        match poll_type {
-            PollType::Poll => {
-                self.metal.fire_work_done_callbacks();
-                Ok(PollStatus::Poll)
-            }
-            PollType::Wait {
-                submission_index,
-                timeout,
-            } => {
-                self.metal
-                    .wait_for_submission(submission_index.map(|s| s.0), timeout)?;
+        match &self.backend {
+            BackendDevice::Metal(metal) => match poll_type {
+                PollType::Poll => {
+                    metal.fire_work_done_callbacks();
+                    Ok(PollStatus::Poll)
+                }
+                PollType::Wait {
+                    submission_index,
+                    timeout,
+                } => {
+                    metal.wait_for_submission(submission_index.map(|s| s.0), timeout)?;
+                    self.refresh_device_loss();
+                    metal.fire_work_done_callbacks();
+                    Ok(PollStatus::WaitSucceeded)
+                }
+            },
+            BackendDevice::Portable(portable) => {
+                let status = portable.poll(poll_type)?;
                 self.refresh_device_loss();
-                self.metal.fire_work_done_callbacks();
-                Ok(PollStatus::WaitSucceeded)
+                Ok(status)
             }
         }
     }
 
     pub fn create_buffer(&self, desc: &BufferDescriptor<'_>) -> Buffer {
+        if let BackendDevice::Portable(portable) = &self.backend {
+            return crate::portable::buffer::create_buffer(
+                portable,
+                self.features,
+                &self.limits,
+                &|err| self.record_error(err),
+                desc,
+            );
+        }
+        let BackendDevice::Metal(metal) = &self.backend else {
+            unreachable!()
+        };
         let missing_ray_query = desc
             .usage
             .intersects(BufferUsages::BLAS_INPUT | BufferUsages::TLAS_INPUT)
@@ -188,7 +243,7 @@ impl Device {
             });
         }
         if !invalid_descriptor && (desc.mapped_at_creation || desc.size >= 1_048_576) {
-            let _ = self.metal.wait_for_submission(None, None);
+            let _ = metal.wait_for_submission(None, None);
         }
         let options = 0u64; // MTLResourceStorageModeShared: zero-copy UMA
         let allocated = if desc.size > self.limits.max_buffer_size {
@@ -196,7 +251,7 @@ impl Device {
         } else {
             usize::try_from(desc.size)
                 .ok()
-                .and_then(|size| self.metal.alloc_buffer(size, options))
+                .and_then(|size| metal.alloc_buffer(size, options))
         };
         let (raw, ptr, stored_options) = match allocated {
             Some((raw, ptr)) => (raw, ptr, options),
@@ -216,7 +271,8 @@ impl Device {
         };
         Buffer {
             inner: Arc::new(BufferInner {
-                device: self.metal.clone(),
+                device: Some(metal.clone()),
+                portable: None,
                 raw,
                 ptr,
                 size: desc.size,
@@ -241,18 +297,18 @@ impl Device {
         logical_size: u64,
         usage: BufferUsages,
     ) -> Option<Buffer> {
+        let BackendDevice::Metal(metal) = &self.backend else {
+            return None;
+        };
         let options = 0u64; // MTLResourceStorageModeShared
         // SAFETY: Caller upholds alignment, size, and lifetime invariants for `page_aligned_ptr`.
         let (raw, ptr) = unsafe {
-            self.metal.alloc_buffer_no_copy(
-                page_aligned_ptr as *mut c_void,
-                page_aligned_size,
-                options,
-            )
+            metal.alloc_buffer_no_copy(page_aligned_ptr as *mut c_void, page_aligned_size, options)
         }?;
         Some(Buffer {
             inner: Arc::new(BufferInner {
-                device: self.metal.clone(),
+                device: Some(metal.clone()),
+                portable: None,
                 raw,
                 ptr,
                 size: logical_size,
@@ -265,27 +321,6 @@ impl Device {
     }
 
     pub fn create_shader_module(&self, desc: ShaderModuleDescriptor<'_>) -> ShaderModule {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        fn empty_binding_map() -> BindingMap {
-            BindingMap {
-                buffers: Default::default(),
-                textures: Default::default(),
-                samplers: Default::default(),
-                immediate_slot: None,
-                array_length_slots: Default::default(),
-            }
-        }
-
-        let invalid_module = |_module: naga::Module, reason: String| ShaderModule {
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            module: Arc::new(_module),
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            msl_source: Arc::new(String::new()),
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            bindings: Arc::new(empty_binding_map()),
-            invalid_reason: Some(Arc::from(reason)),
-        };
-
         let wgsl_src = match &desc.source {
             ShaderSource::Wgsl(s) => s.as_ref(),
         };
@@ -297,7 +332,10 @@ impl Device {
                     source: Arc::new(e),
                     description: description.clone(),
                 });
-                return invalid_module(naga::Module::default(), description);
+                return ShaderModule::invalid_with_module(
+                    Arc::new(naga::Module::default()),
+                    description,
+                );
             }
         };
         let mut validator = naga::valid::Validator::new(
@@ -309,9 +347,19 @@ impl Device {
             Err(error) => {
                 let description = format!("shader validation failed: {error}");
                 self.record_error(validation_error(description.clone()));
-                return invalid_module(module, description);
+                return ShaderModule::invalid_with_module(Arc::new(module), description);
             }
         };
+        if let BackendDevice::Portable(portable) = &self.backend {
+            return crate::portable::pipeline::create_shader_module(
+                portable,
+                desc.label,
+                wgsl_src,
+                Arc::new(module),
+                &info,
+                &|err| self.record_error(err),
+            );
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         let (msl_source, bindings) = match naga::back::msl::write_string(
             &module,
@@ -323,31 +371,39 @@ impl Device {
             Err(error) => {
                 let description = format!("MSL generation failed: {error}");
                 self.record_error(validation_error(description.clone()));
-                return invalid_module(module, description);
+                return ShaderModule::invalid_with_module(Arc::new(module), description);
             }
         };
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (module, info);
+        let _ = info;
 
         ShaderModule {
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
             module: Arc::new(module),
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             msl_source: Arc::new(msl_source),
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             bindings: Arc::new(bindings),
+            portable: None,
             invalid_reason: None,
         }
     }
 
     pub fn create_bind_group_layout(
         &self,
-        _desc: &BindGroupLayoutDescriptor<'_>,
+        desc: &BindGroupLayoutDescriptor<'_>,
     ) -> BindGroupLayout {
-        BindGroupLayout
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_bind_group_layout(portable, desc)
+            }
+            BackendDevice::Metal(_) => BindGroupLayout { portable: None },
+        }
     }
 
     pub fn create_bind_group(&self, desc: &BindGroupDescriptor<'_>) -> BindGroup {
+        if let BackendDevice::Portable(portable) = &self.backend {
+            return crate::portable::pipeline::create_bind_group(portable, desc);
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
             use crate::BindingResource;
@@ -377,17 +433,23 @@ impl Device {
                 buffers: buffers.into(),
                 textures: textures.into(),
                 samplers: samplers.into(),
+                portable: None,
             }
         }
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         {
             let _ = desc;
-            BindGroup {}
+            BindGroup::empty()
         }
     }
 
-    pub fn create_pipeline_layout(&self, _desc: &PipelineLayoutDescriptor<'_>) -> PipelineLayout {
-        PipelineLayout
+    pub fn create_pipeline_layout(&self, desc: &PipelineLayoutDescriptor<'_>) -> PipelineLayout {
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_pipeline_layout(portable, desc)
+            }
+            BackendDevice::Metal(_) => PipelineLayout { portable: None },
+        }
     }
 
     pub fn create_compute_pipeline(&self, desc: &ComputePipelineDescriptor<'_>) -> ComputePipeline {
@@ -395,66 +457,72 @@ impl Device {
             self.report_invalid_pipeline(format!(
                 "compute pipeline uses invalid shader module: {reason}"
             ));
-            return ComputePipeline {
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                pso: None,
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                workgroup_size: [64, 1, 1],
-                #[cfg(any(target_os = "macos", target_os = "ios"))]
-                bindings: desc.module.bindings.clone(),
-            };
+            return ComputePipeline::invalid(desc.module);
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let ep_name = desc
-                .entry_point
-                .or_else(|| {
-                    desc.module
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_compute_pipeline(portable, desc, &|msg| {
+                    self.report_invalid_pipeline(msg);
+                })
+            }
+            BackendDevice::Metal(metal) => {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                {
+                    let ep_name = desc
+                        .entry_point
+                        .or_else(|| {
+                            desc.module
+                                .module
+                                .entry_points
+                                .iter()
+                                .find(|ep| ep.stage == naga::ShaderStage::Compute)
+                                .map(|ep| ep.name.as_str())
+                        })
+                        .unwrap_or("main");
+
+                    let wg_size = desc
+                        .module
                         .module
                         .entry_points
                         .iter()
-                        .find(|ep| ep.stage == naga::ShaderStage::Compute)
-                        .map(|ep| ep.name.as_str())
-                })
-                .unwrap_or("main");
+                        .find(|ep| ep.name == ep_name)
+                        .map(|ep| ep.workgroup_size)
+                        .unwrap_or([64, 1, 1]);
 
-            let wg_size = desc
-                .module
-                .module
-                .entry_points
-                .iter()
-                .find(|ep| ep.name == ep_name)
-                .map(|ep| ep.workgroup_size)
-                .unwrap_or([64, 1, 1]);
+                    let msl_ep_name = if ep_name == "main" {
+                        "_wgpu_entry_main"
+                    } else {
+                        ep_name
+                    };
 
-            let msl_ep_name = if ep_name == "main" {
-                "_wgpu_entry_main"
-            } else {
-                ep_name
-            };
+                    let wg_total = wg_size[0].max(1) * wg_size[1].max(1) * wg_size[2].max(1);
+                    let pso = metal::msl_for_pipeline(
+                        &desc.module.msl_source,
+                        desc.compilation_options.constants,
+                    )
+                    .and_then(|msl| {
+                        metal
+                            .compile_compute_pipeline(&msl, msl_ep_name, wg_total)
+                            .map_err(|error| {
+                                format!("Metal compute pipeline compilation failed: {error}")
+                            })
+                    })
+                    .map_err(|description| self.report_invalid_pipeline(description))
+                    .ok();
 
-            let wg_total = wg_size[0].max(1) * wg_size[1].max(1) * wg_size[2].max(1);
-            let pso = metal::msl_for_pipeline(
-                &desc.module.msl_source,
-                desc.compilation_options.constants,
-            )
-            .and_then(|msl| {
-                self.metal
-                    .compile_compute_pipeline(&msl, msl_ep_name, wg_total)
-                    .map_err(|error| format!("Metal compute pipeline compilation failed: {error}"))
-            })
-            .map_err(|description| self.report_invalid_pipeline(description))
-            .ok();
-
-            ComputePipeline {
-                pso,
-                workgroup_size: wg_size,
-                bindings: desc.module.bindings.clone(),
+                    ComputePipeline {
+                        pso,
+                        workgroup_size: wg_size,
+                        bindings: desc.module.bindings.clone(),
+                        portable: None,
+                    }
+                }
+                #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+                {
+                    let _ = metal;
+                    ComputePipeline { portable: None }
+                }
             }
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            ComputePipeline {}
         }
     }
 
@@ -476,50 +544,88 @@ impl Device {
             ));
             return RenderPipeline::invalid(desc);
         }
-        self.metal
-            .create_render_pipeline(desc)
-            .unwrap_or_else(|description| {
-                self.report_invalid_pipeline(description);
-                RenderPipeline::invalid(desc)
-            })
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_render_pipeline(portable, desc, &|msg| {
+                    self.report_invalid_pipeline(msg);
+                })
+            }
+            BackendDevice::Metal(metal) => {
+                metal
+                    .create_render_pipeline(desc)
+                    .unwrap_or_else(|description| {
+                        self.report_invalid_pipeline(description);
+                        RenderPipeline::invalid(desc)
+                    })
+            }
+        }
     }
 
     #[inline]
     pub fn create_texture(&self, desc: &TextureDescriptor<'_>) -> Texture {
-        self.metal.create_texture(desc)
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_texture(portable, desc)
+            }
+            BackendDevice::Metal(metal) => metal.create_texture(desc),
+        }
     }
 
     #[inline]
     pub fn create_sampler(&self, desc: &SamplerDescriptor<'_>) -> Sampler {
-        self.metal.create_sampler(desc)
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_sampler(portable, desc)
+            }
+            BackendDevice::Metal(metal) => metal.create_sampler(desc),
+        }
     }
 
     pub fn create_query_set(&self, desc: &QuerySetDescriptor<'_>) -> QuerySet {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            QuerySet {
-                timestamps_ns: Arc::new(Mutex::new(vec![0u64; desc.count as usize])),
+        match &self.backend {
+            BackendDevice::Portable(portable) => {
+                crate::portable::pipeline::create_query_set(portable, desc)
             }
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            let _ = desc;
-            QuerySet {}
+            BackendDevice::Metal(_) => QuerySet {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                timestamps_ns: Arc::new(Mutex::new(vec![0u64; desc.count as usize])),
+                portable: None,
+            },
         }
     }
 
-    pub fn create_command_encoder(&self, _desc: &CommandEncoderDescriptor<'_>) -> CommandEncoder {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let ops = self.metal.take_cmd_ops();
+    pub fn create_command_encoder(&self, desc: &CommandEncoderDescriptor<'_>) -> CommandEncoder {
+        let backend = match &self.backend {
+            BackendDevice::Portable(portable) => {
+                let encoder = portable.device.create_command_encoder(
+                    &upstream_wgpu::CommandEncoderDescriptor { label: desc.label },
+                );
+                crate::EncoderBackend::Portable {
+                    encoder,
+                    on_submit_callbacks: Mutex::new(Vec::new()),
+                }
+            }
+            BackendDevice::Metal(metal) => {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                {
+                    let ops = metal.take_cmd_ops();
+                    crate::EncoderBackend::Metal {
+                        device: metal.clone(),
+                        ops,
+                        on_submit_callbacks: Mutex::new(Vec::new()),
+                    }
+                }
+                #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+                {
+                    let _ = metal;
+                    unreachable!("Metal backend cannot create command encoder on non-Apple target")
+                }
+            }
+        };
         CommandEncoder {
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            device: self.metal.clone(),
+            backend,
             error_stack: self.error_stack.clone(),
             uncaptured_error_handler: self.uncaptured_error_handler.clone(),
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            ops,
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
-            on_submit_callbacks: Mutex::new(Vec::new()),
         }
     }
 }

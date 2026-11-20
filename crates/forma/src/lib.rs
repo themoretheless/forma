@@ -31,12 +31,8 @@ mod text_input;
 pub use gpu_compute;
 #[cfg(feature = "gpu")]
 pub use gpu_shader;
-#[cfg(all(feature = "gpu", target_os = "linux"))]
-extern crate wgpu_linux as wgpu;
-#[cfg(all(feature = "gpu", not(target_os = "linux")))]
+#[cfg(feature = "gpu")]
 pub use wgpu as gpu_runtime;
-#[cfg(all(feature = "gpu", target_os = "linux"))]
-pub use wgpu_linux as gpu_runtime;
 #[cfg(feature = "native")]
 pub mod native_accessibility;
 #[cfg(feature = "native")]

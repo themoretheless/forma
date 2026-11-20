@@ -14,11 +14,8 @@ cuda = ["dep:cudarc"]
 [dependencies]
 wgpu-native = { package = "wgpu", version = "=30.0.1", optional = true, default-features = false, features = ["std", "parking_lot", "metal"] }
 gpu-shader = { path = "../gpu-shader", version = "0.1.0" }
-wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", features = ["metal", "vulkan"] }
+wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", features = ["metal", "vulkan", "dx12", "opengl", "webgpu"] }
 cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cublas", "dynamic-loading", "cuda-12080"], optional = true }
-
-[target.'cfg(windows)'.dependencies]
-wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", features = ["dx12"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6.4", optional = true }

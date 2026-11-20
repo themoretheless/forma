@@ -253,6 +253,7 @@ impl MetalDevice {
         };
         let tex = crate::Texture {
             raw: tex_raw,
+            portable: None,
             size: crate::Extent3d {
                 width: w,
                 height: h,

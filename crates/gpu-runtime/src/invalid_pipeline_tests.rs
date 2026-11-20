@@ -229,7 +229,7 @@ fn ill_typed_wgsl_fails_in_create_shader_module_without_reaching_metal() {
         return;
     };
     let before = device
-        .metal
+        .expect_metal()
         .metal_shader_compilations
         .load(std::sync::atomic::Ordering::Relaxed);
 
@@ -310,7 +310,7 @@ fn ill_typed_wgsl_fails_in_create_shader_module_without_reaching_metal() {
     );
 
     let after = device
-        .metal
+        .expect_metal()
         .metal_shader_compilations
         .load(std::sync::atomic::Ordering::Relaxed);
     assert_eq!(after, before, "ill-typed WGSL reached Metal compiler");

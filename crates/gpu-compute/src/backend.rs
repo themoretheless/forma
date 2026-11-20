@@ -254,18 +254,17 @@ mod tests {
         let wgsl = generate_wgsl_parallel_reduction_shader(128);
         let msl = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::MetalMsl).unwrap();
         assert!(msl.contains("kernel void"));
+        let spv = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::VulkanSpirv).unwrap();
+        assert!(spv.contains("OpEntryPoint"));
+        let hlsl = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::Dx12Hlsl).unwrap();
+        assert!(hlsl.contains("[numthreads("));
+        let glsl = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::OpenGlGlsl).unwrap();
+        assert!(glsl.contains("#version 310 es"));
         let browser = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::BrowserWgsl).unwrap();
         assert!(browser.contains("@compute @workgroup_size(128, 1, 1)"));
-        for target in [
-            ComputeShaderTarget::VulkanSpirv,
-            ComputeShaderTarget::Dx12Hlsl,
-            ComputeShaderTarget::CudaPtx,
-            ComputeShaderTarget::OpenGlGlsl,
-        ] {
-            assert!(!target.is_implemented());
-            let error = compile_wgsl_for_target(&wgsl, target).unwrap_err();
-            assert!(error.contains("is implemented"), "{error}");
-        }
+        assert!(!ComputeShaderTarget::CudaPtx.is_implemented());
+        let error = compile_wgsl_for_target(&wgsl, ComputeShaderTarget::CudaPtx).unwrap_err();
+        assert!(error.contains("is implemented"), "{error}");
         assert!(compile_wgsl_for_target("fn (", ComputeShaderTarget::MetalMsl).is_err());
     }
 

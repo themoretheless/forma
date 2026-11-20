@@ -44,11 +44,11 @@
   `MTLCopyAllDevicesWithObserver` idle-уведомления и signal-driven завершение (`2000` отправок:
   `p50=136 µs, p95=245 µs, p99=380 µs`, плато RSS `14 752 → 14 752 КБ`, `blocking_wait_calls=0`,
   подробности — в [BASELINE.md](refactor/BASELINE.md)).
-- [ ] Дополнительные GPU-бэкенды (по проверяемости в CI, каждый с ADR и тестовой матрицей):
-  1. SPIR-V + Vulkan (Linux CI на lavapipe).
-  2. HLSL + DX12 (Windows CI раннер).
-  3. GLSL + OpenGL, затем WebGPU (`wasm`).
-  4. CUDA и RTX (только при наличии NVIDIA-хоста).
+- [x] Дополнительные GPU-бэкенды ([ADR 0002](adr/0002-spirv-vulkan-backend.md)–[0005](adr/0005-cuda-and-rtx-host-gated-policy.md), CI-матрица в `.github/workflows/ci.yml` и интеграционный набор `crates/gpu-runtime/tests/portable_backends.rs`):
+  1. SPIR-V + Vulkan (`gpu-shader::back::spv`, `gpu-runtime::vulkan` / `portable`, снятие `wgpu-linux` в `forma`; Linux CI на `lavapipe`).
+  2. HLSL + DX12 (`gpu-shader::back::hlsl`, `gpu-runtime::dx12`; Windows CI раннер `windows-2022`).
+  3. GLSL + OpenGL и WebGPU (`gpu-shader::back::glsl`, `gpu-runtime::{opengl,webgpu}`, async `wasm32`, downlevel GLES-лимиты).
+  4. CUDA и RTX остаются хост-изолированными за динамической проверкой драйвера NVIDIA (`gpu_runtime::cuda::probe_driver_available`, `gpu-compute::cuda`, `compute-cuda`); выполнение на аппаратуре CUDA без NVIDIA-хоста не запускается и поддельные адаптеры не создаются.
 
 ## 3. Svet (`packages/svet`)
 

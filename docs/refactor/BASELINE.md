@@ -290,3 +290,20 @@ v0.3.8 (692 / 2704 / 8548 без правки, 2004 / 7846 / 23896 на ренд
     (2000) = 14 752` (рост на второй тысяче `0 КБ`).
   - Тест `signal_completion_sustains_2000_submissions_with_zero_blocking_waits`: `blocking_wait_calls == 0`,
     `gpu-runtime`: `61/61` (`--include-ignored`), `gpu-compute`: `27/27`, `clippy-ratchet`: `0` находок.
+
+## GPU-стек: SPIR-V/Vulkan, HLSL/DX12, GLSL/OpenGL и WebGPU (Wave 4B, 2026-11-20)
+
+- **`gpu-shader` (`33/33` теста):** добавлены `spv` (`SPIR-V 1.3` + проверка инструкций через `spirv`),
+  `hlsl` (`SM 5.1 / 6.0`) и `glsl` (`450 / ES 310`), обработка `override`-констант и проверка `@builtin` по
+  стадии и направлению ввода-вывода; `ComputeShaderTarget::CudaPtx` возвращает явный отказ (`G-11`).
+- **`gpu-runtime` (`61/61` unit `--include-ignored` + `7/7` `portable_backends`):** подключён переносимый
+  слой `portable/*` поверх `upstream-wgpu =30.0.1` при сохранении нативного `MetalDevice` на `macOS`/`iOS`
+  (нулевые предупреждения компилятора на `macOS`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` и
+  `wasm32-unknown-unknown`, MSRV `+1.92.0`); из `crates/forma` удалена зависимость `wgpu-linux` и развилки
+  `#[cfg(target_os = "linux")]` в `gpu.rs`.
+- **`gpu-compute` (`--features native-wgpu,cuda`, `COMPUTE_REQUIRE_GPU=1`):** `42` теста пройдены (`1`
+  `#[ignore]`d Metal-тест памяти; `cuda`-хост-проба и графы без физического GPU NVIDIA); `clippy-ratchet`:
+  `0` находок.
+- **Оговорка по оборудованию:** на локальной машине без GPU NVIDIA (`macOS M4 Max`) пути `CUDA`/`RTX`
+  остаются хост-изолированными за динамической проверкой драйвера; исполнение ядер CUDA/RTX не выполнялось,
+  прогоны Vulkan (`lavapipe`), GLES и DX12 заведены в матрицу `.github/workflows/ci.yml`.

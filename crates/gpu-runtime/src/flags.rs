@@ -107,6 +107,10 @@ impl Backends {
 
     pub fn from_env() -> Option<Self> {
         let val = std::env::var("WGPU_BACKEND").ok()?;
+        Self::from_env_str(&val)
+    }
+
+    pub fn from_env_str(val: &str) -> Option<Self> {
         let mut out = Self::empty();
         for part in val.split(',') {
             match part.trim().to_ascii_lowercase().as_str() {

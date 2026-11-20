@@ -112,7 +112,7 @@ fn oversized_buffer_and_overflowing_write_offsets_fail_safely() {
     assert!(invalid_buf.slice(..).get_mapped_range_mut().is_empty());
 
     // Direct MetalDevice::alloc_buffer overflow check returns None cleanly.
-    assert!(device.metal.alloc_buffer(usize::MAX, 0).is_none());
+    assert!(device.expect_metal().alloc_buffer(usize::MAX, 0).is_none());
 
     // G-5: Overflowing write offsets on a valid buffer are rejected instead of wrapping.
     let valid_buf = device.create_buffer(&BufferDescriptor {

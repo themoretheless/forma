@@ -11,3 +11,5 @@ default = ["wgsl-in"]
 wgsl-in = []
 
 [dependencies]
+naga = { version = "=30.0.2", default-features = false, features = ["wgsl-in", "spv-out", "hlsl-out", "glsl-out", "wgsl-out"] }
+spirv = "0.4"

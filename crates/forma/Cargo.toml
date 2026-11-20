@@ -16,7 +16,7 @@ required-features = ["native"]
 [features]
 native-test-hooks = ["native", "wgpu/test-hooks"]
 native = ["dep:accesskit_winit", "dep:accesskit", "dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
-gpu = ["dep:wgpu", "dep:wgpu-linux", "dep:gpu-shader", "dep:gpu-compute", "dep:pollster", "dep:bytemuck"]
+gpu = ["dep:wgpu", "dep:gpu-shader", "dep:gpu-compute", "dep:pollster", "dep:bytemuck"]
 
 [dependencies]
 unicode-segmentation = "=1.13.3"
@@ -34,18 +34,12 @@ gpu-shader = { path = "../gpu-shader", version = "0.1.0", optional = true }
 gpu-compute = { path = "../gpu-compute", version = "0.1.0", optional = true }
 pollster = { version = "0.4", optional = true }
 bytemuck = { version = "1", optional = true }
+wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", optional = true }
 
 [dev-dependencies]
 libc = "0.2"
 # Worker protocol for `cargo airbug-bench`: perf_bench and window_bench hand it their raw series.
 airbug-bench = { git = "https://github.com/themoretheless/airbug", rev = "f0bbffee1cf44eaf386e059565734b0044eb8f3e", default-features = false }
-
-# The in-tree runtime currently implements Metal only; Linux uses upstream wgpu's Vulkan backend.
-[target.'cfg(target_os = "linux")'.dependencies]
-wgpu-linux = { package = "wgpu", version = "=30.0.1", optional = true }
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = { version = "0.2", optional = true }

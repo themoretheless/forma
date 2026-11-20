@@ -14,7 +14,7 @@ fn poll_delivers_backend_loss_to_late_callback_once_with_reentry() {
     };
     let device = Arc::new(device);
     device
-        .metal
+        .expect_metal()
         .inject_device_loss_for_test("injected Metal backend removal".into());
     device.poll(PollType::Poll).unwrap();
     let seen = Arc::new(Mutex::new(Vec::new()));
@@ -159,7 +159,7 @@ fn idle_device_receives_removal_notification_without_poll() {
     device.set_device_lost_callback(move |reason, msg| out.lock().unwrap().push((reason, msg)));
 
     device
-        .metal
+        .expect_metal()
         .handle_device_removal("MTLDeviceWasRemovedNotification");
     let captured = seen.lock().unwrap();
     assert_eq!(captured.len(), 1);
@@ -197,5 +197,5 @@ fn enumerate_all_shares_single_observer_across_clones_and_filters_lost_adapters(
         },
     )
     .expect("healthy adapter must be selected when first candidate is lost");
-    assert!(!selected.metal.is_lost());
+    assert!(!selected.expect_metal().is_lost());
 }

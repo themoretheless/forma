@@ -83,92 +83,116 @@ impl CommandEncoder {
         S: RangeBounds<BufferAddress>,
         F: FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let buf = buffer.clone();
-            if let Ok(mut cbs) = self.on_submit_callbacks.lock() {
-                cbs.push(Box::new(move || {
-                    buf.inner.mapped_ready.store(true, Ordering::Release);
-                    callback(Ok(()));
-                }));
+        let buf = buffer.clone();
+        let cb: Box<dyn FnOnce() + Send> = Box::new(move || {
+            buf.inner.mapped_ready.store(true, Ordering::Release);
+            callback(Ok(()));
+        });
+        match &self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal {
+                on_submit_callbacks,
+                ..
+            } => {
+                if let Ok(mut cbs) = on_submit_callbacks.lock() {
+                    cbs.push(cb);
+                }
+            }
+            EncoderBackend::Portable {
+                on_submit_callbacks,
+                ..
+            } => {
+                if let Ok(mut cbs) = on_submit_callbacks.lock() {
+                    cbs.push(cb);
+                }
             }
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (buffer, callback);
     }
 
     pub fn begin_compute_pass(&mut self, desc: &ComputePassDescriptor<'_>) -> ComputePass<'_> {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let start_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
-                tw.beginning_of_pass_write_index
-                    .map(|i| (tw.query_set.clone(), i))
-            });
-            let end_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
-                tw.end_of_pass_write_index
-                    .map(|i| (tw.query_set.clone(), i))
-            });
-            let dispatches = self.device.take_compute_dispatches();
-            ComputePass {
-                encoder: self,
-                current_pipeline: None,
-                bind_groups: Vec::new(),
-                immediates: Vec::new(),
-                dispatches,
-                start_timestamp: start_ts,
-                end_timestamp: end_ts,
+        let error_stack = &self.error_stack;
+        let uncaptured = &self.uncaptured_error_handler;
+        let backend = match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { device, ops, .. } => {
+                let start_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
+                    tw.beginning_of_pass_write_index
+                        .map(|i| (tw.query_set.clone(), i))
+                });
+                let end_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
+                    tw.end_of_pass_write_index
+                        .map(|i| (tw.query_set.clone(), i))
+                });
+                let dispatches = device.take_compute_dispatches();
+                ComputePassBackend::Metal {
+                    device,
+                    ops,
+                    current_pipeline: None,
+                    bind_groups: Vec::new(),
+                    immediates: Vec::new(),
+                    dispatches,
+                    start_timestamp: start_ts,
+                    end_timestamp: end_ts,
+                    has_pipeline_error: error_stack,
+                    uncaptured,
+                }
             }
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            let _ = desc;
-            ComputePass {
-                encoder: self,
-                has_pipeline: false,
-            }
-        }
+            EncoderBackend::Portable { encoder, .. } => ComputePassBackend::Portable(Box::new(
+                crate::portable::command::PortableComputePass {
+                    pass: crate::portable::command::begin_compute_pass(encoder, desc),
+                    has_pipeline: false,
+                    invalid_pipeline: false,
+                    error_stack,
+                    uncaptured_error_handler: uncaptured,
+                },
+            )),
+        };
+        ComputePass { backend }
     }
 
-    pub fn begin_render_pass(&mut self, desc: &RenderPassDescriptor<'_>) -> RenderPass<'_> {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let mut color_attachments = self.device.take_color_atts();
-            color_attachments.extend(desc.color_attachments.iter().map(|ca| {
-                ca.as_ref().map(|c| OwnedColorAttachment {
-                    view: c.view.clone(),
-                    ops: c.ops,
-                })
-            }));
-            let depth_stencil_attachment =
-                desc.depth_stencil_attachment
-                    .as_ref()
-                    .map(|d| OwnedDepthAttachment {
+    pub fn begin_render_pass<'a>(&'a mut self, desc: &RenderPassDescriptor<'_>) -> RenderPass<'a> {
+        let backend = match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { device, ops, .. } => {
+                let mut color_attachments = device.take_color_atts();
+                color_attachments.extend(desc.color_attachments.iter().map(|ca| {
+                    ca.as_ref().map(|c| OwnedColorAttachment {
+                        view: c.view.clone(),
+                        ops: c.ops,
+                    })
+                }));
+                let depth_stencil_attachment = desc.depth_stencil_attachment.as_ref().map(|d| {
+                    Box::new(OwnedDepthAttachment {
                         view: d.view.clone(),
                         depth_ops: d.depth_ops,
-                    });
-            let start_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
-                tw.beginning_of_pass_write_index
-                    .map(|i| (tw.query_set.clone(), i))
-            });
-            let end_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
-                tw.end_of_pass_write_index
-                    .map(|i| (tw.query_set.clone(), i))
-            });
-            let commands = self.device.take_render_cmds();
-            RenderPass {
-                encoder: self,
-                color_attachments,
-                depth_stencil_attachment,
-                commands,
-                start_timestamp,
-                end_timestamp,
+                    })
+                });
+                let start_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
+                    tw.beginning_of_pass_write_index
+                        .map(|i| (tw.query_set.clone(), i))
+                });
+                let end_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
+                    tw.end_of_pass_write_index
+                        .map(|i| (tw.query_set.clone(), i))
+                });
+                let commands = device.take_render_cmds();
+                RenderPassBackend::Metal {
+                    ops,
+                    color_attachments,
+                    depth_stencil_attachment,
+                    commands,
+                    start_timestamp,
+                    end_timestamp,
+                }
             }
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        {
-            let _ = desc;
-            RenderPass { _encoder: self }
-        }
+            EncoderBackend::Portable { encoder, .. } => RenderPassBackend::Portable(Box::new(
+                crate::portable::command::PortableRenderPass {
+                    pass: crate::portable::command::begin_render_pass(encoder, desc),
+                    invalid_pipeline: false,
+                },
+            )),
+        };
+        RenderPass { backend }
     }
 
     pub fn copy_buffer_to_buffer(
@@ -196,14 +220,26 @@ impl CommandEncoder {
         ) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::CopyBufferToBuffer {
-            src: source.clone(),
-            src_offset: source_offset,
-            dst: destination.clone(),
-            dst_offset: destination_offset,
-            size: copy_size,
-        });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::CopyBufferToBuffer {
+                src: source.clone(),
+                src_offset: source_offset,
+                dst: destination.clone(),
+                dst_offset: destination_offset,
+                size: copy_size,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::copy_buffer_to_buffer(
+                    encoder,
+                    source,
+                    source_offset,
+                    destination,
+                    destination_offset,
+                    copy_size,
+                );
+            }
+        }
     }
 
     pub fn clear_buffer(
@@ -221,12 +257,17 @@ impl CommandEncoder {
         if !self.range_fits("clear_buffer", buffer, offset, sz) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::ClearBuffer {
-            dst: buffer.clone(),
-            offset,
-            size: sz,
-        });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::ClearBuffer {
+                dst: buffer.clone(),
+                offset,
+                size: sz,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::clear_buffer(encoder, buffer, offset, size);
+            }
+        }
     }
 
     pub fn copy_texture_to_buffer(
@@ -262,17 +303,27 @@ impl CommandEncoder {
         ) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::CopyTextureToBuffer {
-            src_tex: source.texture.clone(),
-            mip_level: source.mip_level,
-            origin: source.origin,
-            dst_buf: destination.buffer.clone(),
-            dst_offset: destination.layout.offset,
-            bytes_per_row,
-            rows_per_image: destination.layout.rows_per_image,
-            size: copy_size,
-        });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::CopyTextureToBuffer {
+                src_tex: source.texture.clone(),
+                mip_level: source.mip_level,
+                origin: source.origin,
+                dst_buf: destination.buffer.clone(),
+                dst_offset: destination.layout.offset,
+                bytes_per_row,
+                rows_per_image: destination.layout.rows_per_image,
+                size: copy_size,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::copy_texture_to_buffer(
+                    encoder,
+                    source,
+                    destination,
+                    copy_size,
+                );
+            }
+        }
     }
 
     pub fn copy_buffer_to_texture(
@@ -312,17 +363,27 @@ impl CommandEncoder {
         ) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::CopyBufferToTexture {
-            src_buf: source.buffer.clone(),
-            src_offset: source.layout.offset,
-            bytes_per_row,
-            rows_per_image: source.layout.rows_per_image,
-            dst_tex: destination.texture.clone(),
-            dst_mip: destination.mip_level,
-            dst_origin: destination.origin,
-            size: copy_size,
-        });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::CopyBufferToTexture {
+                src_buf: source.buffer.clone(),
+                src_offset: source.layout.offset,
+                bytes_per_row,
+                rows_per_image: source.layout.rows_per_image,
+                dst_tex: destination.texture.clone(),
+                dst_mip: destination.mip_level,
+                dst_origin: destination.origin,
+                size: copy_size,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::copy_buffer_to_texture(
+                    encoder,
+                    source,
+                    destination,
+                    copy_size,
+                );
+            }
+        }
     }
 
     pub fn copy_texture_to_texture(
@@ -346,26 +407,39 @@ impl CommandEncoder {
         ) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::CopyTextureToTexture {
-            src_tex: source.texture.clone(),
-            src_mip: source.mip_level,
-            src_origin: source.origin,
-            dst_tex: destination.texture.clone(),
-            dst_mip: destination.mip_level,
-            dst_origin: destination.origin,
-            size: copy_size,
-        });
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::CopyTextureToTexture {
+                src_tex: source.texture.clone(),
+                src_mip: source.mip_level,
+                src_origin: source.origin,
+                dst_tex: destination.texture.clone(),
+                dst_mip: destination.mip_level,
+                dst_origin: destination.origin,
+                size: copy_size,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::copy_texture_to_texture(
+                    encoder,
+                    source,
+                    destination,
+                    copy_size,
+                );
+            }
+        }
     }
 
     pub fn write_timestamp(&mut self, query_set: &QuerySet, query_index: u32) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::WriteTimestamp {
-            query_set: query_set.clone(),
-            index: query_index,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = (query_set, query_index);
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::WriteTimestamp {
+                query_set: query_set.clone(),
+                index: query_index,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::write_timestamp(encoder, query_set, query_index);
+            }
+        }
     }
 
     pub fn resolve_query_set(
@@ -381,28 +455,49 @@ impl CommandEncoder {
         if !self.range_fits("resolve_query_set", destination, destination_offset, bytes) {
             return;
         }
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        self.ops.push(RecordedOp::ResolveQuerySet {
-            query_set: query_set.clone(),
-            first_query: query_range.start,
-            query_count,
-            destination: destination.clone(),
-            destination_offset,
-        });
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = query_set;
+        match &mut self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal { ops, .. } => ops.push(RecordedOp::ResolveQuerySet {
+                query_set: query_set.clone(),
+                first_query: query_range.start,
+                query_count,
+                destination: destination.clone(),
+                destination_offset,
+            }),
+            EncoderBackend::Portable { encoder, .. } => {
+                crate::portable::command::resolve_query_set(
+                    encoder,
+                    query_set,
+                    query_range,
+                    destination,
+                    destination_offset,
+                );
+            }
+        }
     }
 
     pub fn finish(self) -> CommandBuffer {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            let on_submit_callbacks = self.on_submit_callbacks.into_inner().unwrap_or_default();
-            CommandBuffer {
-                ops: self.ops,
+        match self.backend {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            EncoderBackend::Metal {
+                ops,
                 on_submit_callbacks,
-            }
+                ..
+            } => CommandBuffer {
+                backend: CommandBufferBackend::Metal {
+                    ops,
+                    on_submit_callbacks: on_submit_callbacks.into_inner().unwrap_or_default(),
+                },
+            },
+            EncoderBackend::Portable {
+                encoder,
+                on_submit_callbacks,
+            } => CommandBuffer {
+                backend: CommandBufferBackend::Portable {
+                    buffer: Some(encoder.finish()),
+                    on_submit_callbacks: on_submit_callbacks.into_inner().unwrap_or_default(),
+                },
+            },
         }
-        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        CommandBuffer {}
     }
 }

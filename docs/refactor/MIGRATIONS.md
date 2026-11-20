@@ -651,3 +651,19 @@
   `ScopeCompletionService` для `ErrorScope`, `map_buffer_on_submit`, `map_async`,
   `on_submitted_work_done` и `Device::poll(PollType::Wait { .. })` без вызова `waitUntilCompleted`
   (`blocking_wait_calls == 0`).
+
+## 34. Мультибэкендный GPU-стек: SPIR-V/Vulkan, HLSL/DX12, GLSL/OpenGL, WebGPU и удаление `wgpu-linux`
+
+- **`gpu-shader`:** добавлены полноценные бэкенды понижения через `naga =30.0.2` и валидация `spirv`:
+  - `back::spv`: генерация и проверка бинарных слов SPIR-V 1.3 (`compile_wgsl_to_spirv`, `disassemble_words`),
+  - `back::hlsl`: генерация HLSL (`ShaderModel::{V5_1, V6_0}`),
+  - `back::glsl`: генерация GLSL 450 / GLES 310 (`Version::{Desktop, Embedded}`) с детерминированным распределением слотов привязок,
+  - `back::wgsl` / `compiler`: обобщённая точка входа `compile_wgsl(&str, &CompileOptions)` и `ComputeShaderTarget::{VulkanSpirv, Dx12Hlsl, OpenGlGlsl}` (`is_implemented() == true`),
+  - `valid`: проверка допустимости `@builtin` по стадии и направлению ввода-вывода,
+  - `ComputeShaderTarget::CudaPtx` осознанно оставлен нереализованным (`G-11`, `docs/adr/0005`).
+- **`gpu-runtime` и `forma`:**
+  - Переносимые бэкенды (`Vulkan`, `DX12`, `OpenGL/GLES`, `BrowserWebGPU`) работают напрямую через `gpu_runtime::portable` (поверх `upstream-wgpu =30.0.1`), без отдельной зависимости `wgpu-linux` в `crates/forma/Cargo.toml` и без веток `#[cfg(target_os = "linux")]` в `crates/forma/src/gpu.rs`.
+  - Прямой нативный `MetalDevice` остаётся путём по умолчанию на `macOS`/`iOS` с zero-copy UMA/ASD и без дублирования Metal-адаптеров; переносимые тесты доступны через `Instance::new_portable_for_testing`.
+  - Контракт `gpu_runtime::Instance::create_surface<'a, W>` теперь требует `W: raw_window_handle::HasWindowHandle + raw_window_handle::HasDisplayHandle + Send + Sync + 'a` (внутрирепозиторные вызовы `winit::window::Window` уже удовлетворяют этому ограничению; внешним потребителям нужно передать окно с `HasDisplayHandle + Send + Sync`).
+  - `Backends::CUDA` не порождает ложных `wgpu`-адаптеров; нативный CUDA-путь остаётся в `gpu-compute`/`compute-cuda` за динамической проверкой драйвера (`gpu_runtime::cuda::probe_driver_available`).
+  - Подробности и матрица CI: [ADR 0002](../adr/0002-spirv-vulkan-backend.md)–[0005](../adr/0005-cuda-and-rtx-host-gated-policy.md).

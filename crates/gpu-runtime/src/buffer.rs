@@ -24,7 +24,13 @@ struct MappedRange {
 impl MappedRanges {
     /// Registers `start..end`, or returns `None` when it overlaps a range that excludes it.
     /// An empty range never conflicts and holds nothing.
-    fn acquire(&self, start: usize, end: usize, write: bool) -> Option<Option<Lease<'_>>> {
+    fn acquire<'a>(
+        &self,
+        inner: &'a BufferInner,
+        start: usize,
+        end: usize,
+        write: bool,
+    ) -> Option<Option<Lease<'a>>> {
         if start >= end {
             return Some(None);
         }
@@ -47,24 +53,25 @@ impl MappedRanges {
                 views: 1,
             }),
         }
-        Some(Some(Lease {
-            ranges: self,
-            start,
-            end,
-        }))
+        Some(Some(Lease { inner, start, end }))
     }
 }
 
 /// Keeps one range registered in [`MappedRanges`] for as long as a view of it is alive.
 struct Lease<'a> {
-    ranges: &'a MappedRanges,
+    inner: &'a BufferInner,
     start: usize,
     end: usize,
 }
 
 impl Clone for Lease<'_> {
     fn clone(&self) -> Self {
-        let mut ranges = self.ranges.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut ranges = self
+            .inner
+            .mapped_ranges
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         if let Some(held) = ranges
             .iter_mut()
             .find(|held| held.start == self.start && held.end == self.end)
@@ -72,7 +79,7 @@ impl Clone for Lease<'_> {
             held.views += 1;
         }
         Self {
-            ranges: self.ranges,
+            inner: self.inner,
             start: self.start,
             end: self.end,
         }
@@ -81,19 +88,34 @@ impl Clone for Lease<'_> {
 
 impl Drop for Lease<'_> {
     fn drop(&mut self) {
-        let mut ranges = self.ranges.0.lock().unwrap_or_else(PoisonError::into_inner);
-        let Some(index) = ranges
-            .iter()
-            .position(|held| held.start == self.start && held.end == self.end)
-        else {
-            return;
+        let should_flush_write = {
+            let mut ranges = self
+                .inner
+                .mapped_ranges
+                .0
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            let Some(index) = ranges
+                .iter()
+                .position(|held| held.start == self.start && held.end == self.end)
+            else {
+                return;
+            };
+            let Some(held) = ranges.get_mut(index) else {
+                return;
+            };
+            held.views -= 1;
+            if held.views == 0 {
+                let removed = ranges.swap_remove(index);
+                removed.write
+            } else {
+                false
+            }
         };
-        let Some(held) = ranges.get_mut(index) else {
-            return;
-        };
-        held.views -= 1;
-        if held.views == 0 {
-            ranges.swap_remove(index);
+        if should_flush_write {
+            if let Some(portable) = &self.inner.portable {
+                portable.flush_written_range(self.start, self.end);
+            }
         }
     }
 }
@@ -256,7 +278,8 @@ pub struct BufferDescriptor<'a> {
 }
 
 pub(crate) struct BufferInner {
-    pub(crate) device: MetalDevice,
+    pub(crate) device: Option<MetalDevice>,
+    pub(crate) portable: Option<Arc<crate::portable::buffer::PortableBuffer>>,
     pub(crate) raw: Arc<ObjCObject>,
     pub(crate) ptr: *mut u8,
     pub(crate) size: BufferAddress,
@@ -271,13 +294,10 @@ unsafe impl Sync for BufferInner {}
 
 impl Drop for BufferInner {
     fn drop(&mut self) {
-        if self.options != 0xFF {
-            self.device.recycle_buffer(
-                self.size as usize,
-                self.options,
-                self.raw.clone(),
-                self.ptr,
-            );
+        if self.portable.is_none() && self.options != 0xFF {
+            if let Some(device) = &self.device {
+                device.recycle_buffer(self.size as usize, self.options, self.raw.clone(), self.ptr);
+            }
         }
     }
 }
@@ -306,6 +326,44 @@ impl std::fmt::Debug for Buffer {
 }
 
 impl Buffer {
+    pub(crate) fn from_portable(
+        portable: Arc<crate::portable::buffer::PortableBuffer>,
+        backing_ptr: *mut u8,
+        size: BufferAddress,
+        usage: BufferUsages,
+        mapped_at_creation: bool,
+    ) -> Self {
+        Self {
+            inner: Arc::new(BufferInner {
+                device: None,
+                portable: Some(portable),
+                raw: Arc::new(ObjCObject(std::ptr::null_mut())),
+                ptr: backing_ptr,
+                size,
+                usage,
+                options: 0xFF,
+                mapped_ready: AtomicBool::new(mapped_at_creation),
+                mapped_ranges: Default::default(),
+            }),
+        }
+    }
+
+    pub(crate) fn inert(size: BufferAddress, usage: BufferUsages) -> Self {
+        Self {
+            inner: Arc::new(BufferInner {
+                device: None,
+                portable: None,
+                raw: Arc::new(ObjCObject(std::ptr::null_mut())),
+                ptr: std::ptr::null_mut(),
+                size,
+                usage,
+                options: 0xFF,
+                mapped_ready: AtomicBool::new(false),
+                mapped_ranges: Default::default(),
+            }),
+        }
+    }
+
     #[inline]
     pub fn size(&self) -> BufferAddress {
         self.inner.size
@@ -397,10 +455,17 @@ impl Buffer {
     #[inline]
     pub fn unmap(&self) {
         self.inner.mapped_ready.store(false, Ordering::Release);
+        if let Some(portable) = &self.inner.portable {
+            portable.unmap();
+        }
     }
 
     #[inline]
-    pub fn destroy(&self) {}
+    pub fn destroy(&self) {
+        if let Some(portable) = &self.inner.portable {
+            portable.raw.destroy();
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -436,24 +501,38 @@ pub struct BufferSlice<'a> {
 
 impl<'a> BufferSlice<'a> {
     #[inline]
-    pub fn map_async<F>(&self, _mode: MapMode, callback: F)
+    pub fn map_async<F>(&self, mode: MapMode, callback: F)
     where
         F: FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     {
+        let inner = self.buffer.inner.clone();
+        if let Some(portable) = &inner.portable {
+            crate::portable::buffer::map_async(
+                &inner,
+                portable,
+                self.offset,
+                self.size,
+                mode,
+                callback,
+            );
+            return;
+        }
+        let Some(device) = inner.device.clone() else {
+            callback(Err(BufferAsyncError));
+            return;
+        };
         // On Apple Silicon UMA, shared memory is already mapped; defer the completion callback
         // until the preceding submissions finish when GPU work is still in flight.
-        let inner = self.buffer.inner.clone();
-        if inner.device.is_last_cmd_completed() {
+        if device.is_last_cmd_completed() {
             inner.mapped_ready.store(true, Ordering::Release);
             callback(Ok(()));
         } else {
-            let target_idx = inner
-                .device
+            let target_idx = device
                 .next_submission_index
                 .load(Ordering::Acquire)
                 .saturating_sub(1);
             let inner_for_cb = inner.clone();
-            inner.device.enqueue_work_done(
+            device.enqueue_work_done(
                 target_idx,
                 Box::new(move || {
                     inner_for_cb.mapped_ready.store(true, Ordering::Release);
@@ -514,8 +593,28 @@ impl<'a> BufferSlice<'a> {
         if inner.ptr.is_null() {
             return Ok(None);
         }
-        if !inner.device.is_last_cmd_completed() {
-            let _ = inner.device.wait_for_submission(None, None);
+        if let Some(portable) = &inner.portable {
+            if !write
+                && !inner.mapped_ready.load(Ordering::Acquire)
+                && inner.usage.contains(BufferUsages::MAP_READ)
+            {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    portable.sync_read_range(self.offset, self.size)?;
+                    inner.mapped_ready.store(true, Ordering::Release);
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let _ = portable;
+                    return Err(BufferAccessError(
+                        "map_async(MapMode::Read) must complete before reading on wasm32".into(),
+                    ));
+                }
+            }
+        } else if let Some(device) = &inner.device {
+            if !device.is_last_cmd_completed() {
+                let _ = device.wait_for_submission(None, None);
+            }
         }
         inner.leased_range(self.offset, self.size, write)
     }
@@ -551,7 +650,7 @@ impl BufferInner {
             return Ok(None);
         };
         let _ = end;
-        let Some(lease) = self.mapped_ranges.acquire(start, start + len, write) else {
+        let Some(lease) = self.mapped_ranges.acquire(self, start, start + len, write) else {
             return Err(BufferAccessError(format!(
                 "buffer range {start}..{} is already mapped",
                 start + len

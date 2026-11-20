@@ -123,18 +123,48 @@ pub struct SurfaceTexture {
     pub(crate) layer: Option<Arc<crate::metal::ObjCObject>>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) device: Option<crate::Device>,
+    pub(crate) portable: Option<upstream_wgpu::SurfaceTexture>,
+    pub(crate) portable_device: Option<Arc<crate::portable::PortableDevice>>,
 }
 
 impl SurfaceTexture {
+    pub(crate) fn from_portable(
+        texture: crate::Texture,
+        portable: upstream_wgpu::SurfaceTexture,
+        suboptimal: bool,
+        portable_device: Arc<crate::portable::PortableDevice>,
+    ) -> Self {
+        Self {
+            texture,
+            suboptimal,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            drawable: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            layer: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            device: None,
+            portable: Some(portable),
+            portable_device: Some(portable_device),
+        }
+    }
+
     pub fn present(self) {
+        if let Some(portable) = self.portable {
+            if let Some(p_dev) = self.portable_device {
+                p_dev.queue.present(portable);
+            }
+            return;
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         if let (Some(device), Some(drawable)) = (&self.device, &self.drawable) {
-            let layer_ptr = self
-                .layer
-                .as_ref()
-                .map_or(std::ptr::null_mut(), |l| l.as_ptr());
-            unsafe {
-                device.metal.present_drawable(layer_ptr, drawable.as_ptr());
+            if let crate::device::BackendDevice::Metal(metal) = &device.backend {
+                let layer_ptr = self
+                    .layer
+                    .as_ref()
+                    .map_or(std::ptr::null_mut(), |l| l.as_ptr());
+                unsafe {
+                    metal.present_drawable(layer_ptr, drawable.as_ptr());
+                }
             }
         }
     }
@@ -170,11 +200,17 @@ pub struct Surface<'a> {
     pub(crate) metal_layer: Option<Arc<crate::metal::ObjCObject>>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) metal_view: Option<Arc<crate::metal::ObjCObject>>,
+    pub(crate) portable: Option<Arc<upstream_wgpu::Surface<'a>>>,
     pub(crate) _marker: std::marker::PhantomData<&'a ()>,
 }
 
 impl<'a> Surface<'a> {
-    pub fn get_capabilities(&self, _adapter: &crate::Adapter) -> SurfaceCapabilities {
+    pub fn get_capabilities(&self, adapter: &crate::Adapter) -> SurfaceCapabilities {
+        if let (Some(portable), crate::AdapterInner::Portable(raw_adapter)) =
+            (&self.portable, &adapter.inner)
+        {
+            return crate::portable::surface::get_capabilities(portable, raw_adapter);
+        }
         use crate::SurfaceColorSpaces as S;
         let formats = vec![
             crate::TextureFormat::Bgra8Unorm,
@@ -232,10 +268,20 @@ impl<'a> Surface<'a> {
 
     pub fn get_default_config(
         &self,
-        _adapter: &crate::Adapter,
+        adapter: &crate::Adapter,
         width: u32,
         height: u32,
     ) -> Option<SurfaceConfiguration> {
+        if let (Some(portable), crate::AdapterInner::Portable(raw_adapter)) =
+            (&self.portable, &adapter.inner)
+        {
+            return crate::portable::surface::get_default_config(
+                portable,
+                raw_adapter,
+                width,
+                height,
+            );
+        }
         Some(SurfaceConfiguration {
             usage: crate::TextureUsages::RENDER_ATTACHMENT,
             format: crate::TextureFormat::Bgra8Unorm,
@@ -250,17 +296,25 @@ impl<'a> Surface<'a> {
     }
 
     pub fn configure(&self, device: &crate::Device, config: &SurfaceConfiguration) {
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let Some(layer) = &self.metal_layer {
-            let view_ptr = self
-                .metal_view
-                .as_ref()
-                .map_or(std::ptr::null_mut(), |v| v.as_ptr());
-            unsafe {
-                device
-                    .metal
-                    .configure_metal_layer(layer.as_ptr(), view_ptr, config);
+        match (&self.portable, &device.backend) {
+            (Some(portable), crate::device::BackendDevice::Portable(p_dev)) => {
+                crate::portable::surface::configure(portable, &p_dev.device, config);
             }
+            (_, crate::device::BackendDevice::Metal(metal)) => {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                if let Some(layer) = &self.metal_layer {
+                    let view_ptr = self
+                        .metal_view
+                        .as_ref()
+                        .map_or(std::ptr::null_mut(), |v| v.as_ptr());
+                    unsafe {
+                        metal.configure_metal_layer(layer.as_ptr(), view_ptr, config);
+                    }
+                }
+                #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+                let _ = metal;
+            }
+            _ => {}
         }
         if let Ok(mut guard) = self.config.lock() {
             *guard = Some((device.clone(), config.clone()));
@@ -271,9 +325,16 @@ impl<'a> Surface<'a> {
         let Some((device, cfg)) = self.config.lock().ok().and_then(|g| g.clone()) else {
             return CurrentSurfaceTexture::Outdated;
         };
+        if let (Some(portable), crate::device::BackendDevice::Portable(p_dev)) =
+            (&self.portable, &device.backend)
+        {
+            return crate::portable::surface::get_current_texture(portable, p_dev, &cfg);
+        }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let Some(layer) = &self.metal_layer {
-            let acquired = unsafe { device.metal.acquire_drawable(layer.as_ptr(), &cfg) };
+        if let (Some(layer), crate::device::BackendDevice::Metal(metal)) =
+            (&self.metal_layer, &device.backend)
+        {
+            let acquired = unsafe { metal.acquire_drawable(layer.as_ptr(), &cfg) };
             match acquired {
                 Some((drawable, texture)) => {
                     let suboptimal = texture.size.width != cfg.width.max(1)
@@ -284,6 +345,8 @@ impl<'a> Surface<'a> {
                         drawable: Some(drawable),
                         layer: Some(layer.clone()),
                         device: Some(device),
+                        portable: None,
+                        portable_device: None,
                     };
                     return if suboptimal {
                         CurrentSurfaceTexture::Suboptimal(surface_tex)
@@ -319,6 +382,8 @@ impl<'a> Surface<'a> {
             layer: None,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             device: Some(device),
+            portable: None,
+            portable_device: None,
         })
     }
 }

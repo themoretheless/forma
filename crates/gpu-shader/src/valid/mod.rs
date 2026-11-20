@@ -403,10 +403,7 @@ fn validate_entry_point(
     }
 
     for arg in &ep.function.arguments {
-        if let Some(Binding::BuiltIn(b)) = arg.binding {
-            let ty = ValType::from_ir(env.module, arg.ty);
-            validate_builtin_io_type(env.module, b, &ty)?;
-        }
+        validate_binding_for_stage(env.module, arg.ty, arg.binding, ep.stage, false)?;
     }
 
     if ep.stage == ShaderStage::Vertex {
@@ -418,15 +415,37 @@ fn validate_entry_point(
             )));
         }
     }
-    if ep.stage == ShaderStage::Fragment {
-        if let Some(res) = &ep.function.result {
-            if let Some(Binding::BuiltIn(b)) = res.binding {
-                validate_builtin_io_type(env.module, b, &ValType::from_ir(env.module, res.ty))?;
-            }
-        }
+    if let Some(res) = &ep.function.result {
+        validate_binding_for_stage(env.module, res.ty, res.binding, ep.stage, true)?;
     }
 
     validate_function_body(env, &ep.function)
+}
+
+fn validate_binding_for_stage(
+    module: &Module,
+    ty_handle: Handle<Type>,
+    binding: Option<Binding>,
+    stage: ShaderStage,
+    is_output: bool,
+) -> Result<(), ValidationError> {
+    if let Some(Binding::BuiltIn(b)) = binding {
+        validate_builtin_io(
+            module,
+            b,
+            &ValType::from_ir(module, ty_handle),
+            stage,
+            is_output,
+        )?;
+    }
+    if let TypeInner::Struct { members, .. } = &module.types[ty_handle].inner {
+        for m in members {
+            if let Some(Binding::BuiltIn(b)) = m.binding {
+                validate_builtin_io(module, b, &ValType::from_ir(module, m.ty), stage, is_output)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn entry_point_outputs_position(
@@ -437,29 +456,52 @@ fn entry_point_outputs_position(
         return Ok(false);
     };
     if let Some(Binding::BuiltIn(b)) = res.binding {
-        validate_builtin_io_type(module, b, &ValType::from_ir(module, res.ty))?;
         return Ok(b == BuiltIn::Position);
     }
     if let TypeInner::Struct { members, .. } = &module.types[res.ty].inner {
-        let mut found = false;
-        for m in members {
-            if let Some(Binding::BuiltIn(b)) = m.binding {
-                validate_builtin_io_type(module, b, &ValType::from_ir(module, m.ty))?;
-                if b == BuiltIn::Position {
-                    found = true;
-                }
-            }
-        }
-        return Ok(found);
+        return Ok(members
+            .iter()
+            .any(|m| matches!(m.binding, Some(Binding::BuiltIn(BuiltIn::Position)))));
     }
     Ok(false)
 }
 
-fn validate_builtin_io_type(
+fn validate_builtin_io(
     module: &Module,
     builtin: BuiltIn,
     ty: &ValType,
+    stage: ShaderStage,
+    is_output: bool,
 ) -> Result<(), ValidationError> {
+    let stage_ok = matches!(
+        (builtin, stage, is_output),
+        (
+            BuiltIn::VertexIndex | BuiltIn::InstanceIndex,
+            ShaderStage::Vertex,
+            false
+        ) | (BuiltIn::Position, ShaderStage::Vertex, true)
+            | (
+                BuiltIn::Position | BuiltIn::FrontFacing,
+                ShaderStage::Fragment,
+                false
+            )
+            | (BuiltIn::FragDepth, ShaderStage::Fragment, true)
+            | (
+                BuiltIn::GlobalInvocationId
+                    | BuiltIn::LocalInvocationId
+                    | BuiltIn::LocalInvocationIndex
+                    | BuiltIn::WorkGroupId
+                    | BuiltIn::NumWorkGroups,
+                ShaderStage::Compute,
+                false,
+            )
+    );
+    if !stage_ok {
+        let dir = if is_output { "output" } else { "input" };
+        return Err(err(format!(
+            "@builtin({builtin:?}) is not valid on {stage} {dir}"
+        )));
+    }
     let expected = match builtin {
         BuiltIn::Position => ValType::Vector(VectorSize::Quad, ElemScalar::F32),
         BuiltIn::VertexIndex | BuiltIn::InstanceIndex | BuiltIn::LocalInvocationIndex => {

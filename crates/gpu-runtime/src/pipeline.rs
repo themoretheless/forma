@@ -8,7 +8,6 @@ use crate::{
     Buffer, BufferAddress, BufferSize, ColorWrites, Label, Sampler, ShaderStages, TextureFormat,
     TextureView,
 };
-#[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader as naga;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::BindingMap;
@@ -29,13 +28,54 @@ pub struct ShaderModuleDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct ShaderModule {
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) module: Arc<naga::Module>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) msl_source: Arc<String>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) bindings: Arc<BindingMap>,
+    pub(crate) portable: Option<Arc<upstream_wgpu::ShaderModule>>,
     pub(crate) invalid_reason: Option<Arc<str>>,
+}
+
+impl ShaderModule {
+    pub(crate) fn invalid_with_module(module: Arc<naga::Module>, reason: String) -> Self {
+        Self {
+            module,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            msl_source: Arc::new(String::new()),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            bindings: Arc::new(BindingMap {
+                buffers: Default::default(),
+                textures: Default::default(),
+                samplers: Default::default(),
+                immediate_slot: None,
+                array_length_slots: Default::default(),
+            }),
+            portable: None,
+            invalid_reason: Some(Arc::from(reason)),
+        }
+    }
+
+    pub(crate) fn from_portable(
+        module: Arc<naga::Module>,
+        raw: upstream_wgpu::ShaderModule,
+    ) -> Self {
+        Self {
+            module,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            msl_source: Arc::new(String::new()),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            bindings: Arc::new(BindingMap {
+                buffers: Default::default(),
+                textures: Default::default(),
+                samplers: Default::default(),
+                immediate_slot: None,
+                array_length_slots: Default::default(),
+            }),
+            portable: Some(Arc::new(raw)),
+            invalid_reason: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,8 +152,10 @@ pub struct BindGroupLayoutDescriptor<'a> {
 }
 
 #[derive(Clone, Debug)]
-/// Bindings are resolved from the shader, so a layout carries nothing.
-pub struct BindGroupLayout;
+/// Bindings are resolved from the shader on Metal, or forwarded on portable backends.
+pub struct BindGroupLayout {
+    pub(crate) portable: Option<upstream_wgpu::BindGroupLayout>,
+}
 
 #[derive(Clone)]
 pub struct BufferBinding<'a> {
@@ -150,6 +192,33 @@ pub struct BindGroup {
     pub(crate) textures: Arc<[(u32, Texture)]>,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) samplers: Arc<[(u32, Sampler)]>,
+    pub(crate) portable: Option<upstream_wgpu::BindGroup>,
+}
+
+impl BindGroup {
+    pub(crate) fn empty() -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            buffers: Arc::from([]),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            textures: Arc::from([]),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            samplers: Arc::from([]),
+            portable: None,
+        }
+    }
+
+    pub(crate) fn from_portable(raw: upstream_wgpu::BindGroup) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            buffers: Arc::from([]),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            textures: Arc::from([]),
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            samplers: Arc::from([]),
+            portable: Some(raw),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -160,8 +229,10 @@ pub struct PipelineLayoutDescriptor<'a> {
 }
 
 #[derive(Clone, Debug)]
-/// Bindings are resolved from the shader, so a layout carries nothing.
-pub struct PipelineLayout;
+/// Bindings are resolved from the shader on Metal, or forwarded on portable backends.
+pub struct PipelineLayout {
+    pub(crate) portable: Option<upstream_wgpu::PipelineLayout>,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct PipelineCompilationOptions<'a> {
@@ -188,11 +259,45 @@ pub struct ComputePipeline {
     pub(crate) workgroup_size: [u32; 3],
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) bindings: Arc<BindingMap>,
+    pub(crate) portable: Option<upstream_wgpu::ComputePipeline>,
 }
 
 impl ComputePipeline {
-    pub fn get_bind_group_layout(&self, _index: u32) -> BindGroupLayout {
-        BindGroupLayout
+    pub(crate) fn invalid(_module: &ShaderModule) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            pso: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            workgroup_size: [64, 1, 1],
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            bindings: _module.bindings.clone(),
+            portable: None,
+        }
+    }
+
+    pub(crate) fn from_portable(
+        _module: &ShaderModule,
+        raw: upstream_wgpu::ComputePipeline,
+        _workgroup_size: [u32; 3],
+    ) -> Self {
+        Self {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            pso: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            workgroup_size: _workgroup_size,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            bindings: _module.bindings.clone(),
+            portable: Some(raw),
+        }
+    }
+
+    pub fn get_bind_group_layout(&self, index: u32) -> BindGroupLayout {
+        BindGroupLayout {
+            portable: self
+                .portable
+                .as_ref()
+                .map(|pipeline| pipeline.get_bind_group_layout(index)),
+        }
     }
 }
 
@@ -571,6 +676,7 @@ pub struct RenderPipeline {
     pub(crate) primitive: PrimitiveState,
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) depth_bias: DepthBiasState,
+    pub(crate) portable: Option<upstream_wgpu::RenderPipeline>,
 }
 
 impl RenderPipeline {
@@ -589,16 +695,31 @@ impl RenderPipeline {
                     .as_ref()
                     .map(|d| d.bias)
                     .unwrap_or_default(),
+                portable: None,
             }
         }
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         {
             let _ = desc;
-            Self {}
+            Self { portable: None }
         }
     }
 
-    pub fn get_bind_group_layout(&self, _index: u32) -> BindGroupLayout {
-        BindGroupLayout
+    pub(crate) fn from_portable(
+        desc: &RenderPipelineDescriptor<'_>,
+        raw: upstream_wgpu::RenderPipeline,
+    ) -> Self {
+        let mut out = Self::invalid(desc);
+        out.portable = Some(raw);
+        out
+    }
+
+    pub fn get_bind_group_layout(&self, index: u32) -> BindGroupLayout {
+        BindGroupLayout {
+            portable: self
+                .portable
+                .as_ref()
+                .map(|pipeline| pipeline.get_bind_group_layout(index)),
+        }
     }
 }

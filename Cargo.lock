@@ -1001,7 +1001,6 @@ dependencies = [
  "ttf-parser",
  "unicode-segmentation",
  "wasm-bindgen",
- "wgpu",
  "winit",
 ]
 
@@ -1208,11 +1207,16 @@ dependencies = [
  "block2 0.6.2",
  "gpu-shader",
  "raw-window-handle",
+ "wgpu",
 ]
 
 [[package]]
 name = "gpu-shader"
 version = "0.1.0"
+dependencies = [
+ "naga",
+ "spirv",
+]
 
 [[package]]
 name = "half"

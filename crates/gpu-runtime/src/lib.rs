@@ -18,19 +18,25 @@
 pub mod asd;
 pub mod buffer;
 pub mod command;
+pub mod cuda;
 pub mod device;
 pub mod duma;
+pub mod dx12;
 mod error_sink;
 pub mod flags;
 pub mod metal;
+pub mod opengl;
 pub mod pipeline;
 pub mod platform;
+pub(crate) mod portable;
 pub mod queue;
 pub mod texture;
 pub mod transfer;
 pub mod types;
 pub mod uma;
 pub mod util;
+pub mod vulkan;
+pub mod webgpu;
 
 pub use device::Device;
 pub(crate) use error_sink::*;
@@ -73,6 +79,7 @@ pub use transfer::*;
 pub use types::*;
 pub use uma::*;
 
+use device::BackendDevice;
 use metal::MetalDevice;
 use std::future::Future;
 use std::num::NonZeroU64;
@@ -87,10 +94,15 @@ pub const COPY_BUFFER_ALIGNMENT: u64 = 4;
 pub const COPY_BYTES_PER_ROW_ALIGNMENT: u32 = 256;
 pub const MAP_ALIGNMENT: u64 = 8;
 
-/// The entry point for finding adapters. The descriptor selects nothing in this runtime: there
-/// is one backend.
+/// Entry point for enumerating GPUs across Metal (Apple native), Vulkan, DirectX 12,
+/// OpenGL/GLES, and WebGPU, while keeping CUDA host-gated outside `wgpu` adapters.
 #[derive(Clone)]
-pub struct Instance {}
+pub struct Instance {
+    backends: Backends,
+    portable: upstream_wgpu::Instance,
+    portable_backends: upstream_wgpu::Backends,
+    include_metal: bool,
+}
 
 impl Default for Instance {
     fn default() -> Self {
@@ -99,68 +111,242 @@ impl Default for Instance {
 }
 
 impl Instance {
-    pub fn new(_desc: InstanceDescriptor) -> Self {
-        Self {}
-    }
-
-    /// Backends this build can drive. Only Metal has an implementation in this runtime.
-    pub fn enabled_backend_features() -> Backends {
-        if cfg!(any(target_os = "macos", target_os = "ios")) {
-            Backends::METAL
+    pub fn new(mut desc: InstanceDescriptor) -> Self {
+        if desc.backends == Backends::PRIMARY || desc.backends == Backends::all() {
+            if let Some(env_backends) = Backends::from_env() {
+                desc.backends = env_backends;
+            }
+        }
+        let include_metal = cfg!(all(
+            feature = "metal",
+            any(target_os = "macos", target_os = "ios")
+        )) && desc.backends.contains(Backends::METAL);
+        let portable_effective = if include_metal {
+            desc.backends - Backends::METAL
         } else {
-            Backends::empty()
+            desc.backends
+        };
+        let portable = portable::create_wgpu_instance(&desc, portable_effective, false);
+        let portable_backends = portable::convert::to_wgpu_backends(portable_effective);
+        Self {
+            backends: desc.backends,
+            portable,
+            portable_backends,
+            include_metal,
         }
     }
 
+    #[doc(hidden)]
+    pub fn new_portable_for_testing(enable_noop: bool) -> Self {
+        let backends = if enable_noop {
+            Backends::empty()
+        } else {
+            Backends::from_env().unwrap_or(Backends::PRIMARY)
+        };
+        let desc = InstanceDescriptor {
+            backends,
+            ..Default::default()
+        };
+        let portable = portable::create_wgpu_instance(&desc, backends, enable_noop);
+        let portable_backends = if enable_noop {
+            upstream_wgpu::Backends::NOOP
+        } else {
+            portable::convert::to_wgpu_backends(backends)
+        };
+        Self {
+            backends,
+            portable,
+            portable_backends,
+            include_metal: false,
+        }
+    }
+
+    /// Backends compiled into this build (`Metal` on Apple + compiled portable backends).
+    pub fn enabled_backend_features() -> Backends {
+        let metal = if cfg!(all(
+            feature = "metal",
+            any(target_os = "macos", target_os = "ios")
+        )) {
+            Backends::METAL
+        } else {
+            Backends::empty()
+        };
+        metal | portable::enabled_backend_features()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn enumerate_adapters(&self, backends: Backends) -> impl Future<Output = Vec<Adapter>> {
         let mut list = Vec::new();
-        if backends.contains(Backends::METAL) {
+        let requested = backends & self.backends;
+        if self.include_metal && requested.contains(Backends::METAL) {
             for metal in MetalDevice::enumerate_all() {
                 if !metal.is_lost() {
                     list.push(Adapter::from_metal(metal));
                 }
             }
         }
+        let mut portable_mask =
+            portable::convert::to_wgpu_backends(backends) & self.portable_backends;
+        if self.include_metal {
+            portable_mask.remove(upstream_wgpu::Backends::METAL);
+        }
+        if !portable_mask.is_empty() {
+            for adapter in portable::enumerate_portable_adapters_sync(&self.portable, portable_mask)
+            {
+                list.push(Adapter::from_portable(adapter));
+            }
+        }
         std::future::ready(list)
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn enumerate_adapters(&self, backends: Backends) -> impl Future<Output = Vec<Adapter>> {
+        let mut prefix = Vec::new();
+        let requested = backends & self.backends;
+        if self.include_metal && requested.contains(Backends::METAL) {
+            for metal in MetalDevice::enumerate_all() {
+                if !metal.is_lost() {
+                    prefix.push(Adapter::from_metal(metal));
+                }
+            }
+        }
+        let portable = self.portable.clone();
+        let portable_mask = portable::convert::to_wgpu_backends(requested) & self.portable_backends;
+        async move {
+            if !portable_mask.is_empty() {
+                for adapter in portable.enumerate_adapters(portable_mask).await {
+                    prefix.push(Adapter::from_portable(adapter));
+                }
+            }
+            prefix
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn request_adapter(
         &self,
         options: &RequestAdapterOptions<'_, '_>,
     ) -> impl Future<Output = Result<Adapter, RequestAdapterError>> {
-        let candidates = MetalDevice::enumerate_all()
-            .into_iter()
-            .map(Adapter::from_metal)
-            .collect();
-        std::future::ready(select_adapter(candidates, options))
+        let surface_allows_metal = options
+            .compatible_surface
+            .is_none_or(|surface| surface.metal_layer.is_some());
+        if self.include_metal && surface_allows_metal && !options.force_fallback_adapter {
+            let candidates: Vec<Adapter> = MetalDevice::enumerate_all()
+                .into_iter()
+                .map(Adapter::from_metal)
+                .collect();
+            if let Ok(adapter) = select_adapter(candidates, options) {
+                return std::future::ready(Ok(adapter));
+            }
+        }
+
+        if !self.portable_backends.is_empty() {
+            let compatible_surface = options
+                .compatible_surface
+                .and_then(|surface| surface.portable.as_deref());
+            if options.compatible_surface.is_some() && compatible_surface.is_none() {
+                return std::future::ready(Err(RequestAdapterError(
+                    "Compatible surface belongs to another backend".to_string(),
+                )));
+            }
+            return std::future::ready(
+                portable::request_portable_adapter_sync(
+                    &self.portable,
+                    options,
+                    compatible_surface,
+                )
+                .map(Adapter::from_portable)
+                .map_err(RequestAdapterError),
+            );
+        }
+
+        std::future::ready(Err(RequestAdapterError(
+            "No supported GPU adapter found".to_string(),
+        )))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn request_adapter(
+        &self,
+        options: &RequestAdapterOptions<'_, '_>,
+    ) -> impl Future<Output = Result<Adapter, RequestAdapterError>> {
+        let metal_candidate = if self.include_metal
+            && options
+                .compatible_surface
+                .is_none_or(|surface| surface.metal_layer.is_some())
+            && !options.force_fallback_adapter
+        {
+            let candidates: Vec<Adapter> = MetalDevice::enumerate_all()
+                .into_iter()
+                .map(Adapter::from_metal)
+                .collect();
+            select_adapter(candidates, options).ok()
+        } else {
+            None
+        };
+        let wgpu_opts = upstream_wgpu::RequestAdapterOptions {
+            power_preference: portable::convert::to_wgpu_power_preference(options.power_preference),
+            force_fallback_adapter: options.force_fallback_adapter,
+            compatible_surface: options
+                .compatible_surface
+                .and_then(|surface| surface.portable.as_deref()),
+            apply_limit_buckets: false,
+        };
+        let fut = self.portable.request_adapter(&wgpu_opts);
+        async move {
+            if let Some(adapter) = metal_candidate {
+                return Ok(adapter);
+            }
+            fut.await
+                .map(Adapter::from_portable)
+                .map_err(|err| RequestAdapterError(err.to_string()))
+        }
     }
 
     pub fn create_surface<'a, W>(&self, target: W) -> Result<Surface<'a>, RequestDeviceError>
     where
-        W: raw_window_handle::HasWindowHandle,
+        W: raw_window_handle::HasWindowHandle
+            + raw_window_handle::HasDisplayHandle
+            + Send
+            + Sync
+            + 'a,
     {
         // Only AppKit and UIKit views carry a Metal layer; any other window has none.
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        let (metal_layer, metal_view) = match target.window_handle().map(|handle| handle.as_raw()) {
-            Ok(raw_window_handle::RawWindowHandle::AppKit(appkit)) => {
-                let view_ptr = appkit.ns_view.as_ptr();
-                (
-                    unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) },
-                    unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }.map(Arc::new),
-                )
+        let (metal_layer, metal_view) = if self.include_metal {
+            match target.window_handle().map(|handle| handle.as_raw()) {
+                Ok(raw_window_handle::RawWindowHandle::AppKit(appkit)) => {
+                    let view_ptr = appkit.ns_view.as_ptr();
+                    (
+                        unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) },
+                        unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
+                            .map(Arc::new),
+                    )
+                }
+                Ok(raw_window_handle::RawWindowHandle::UiKit(uikit)) => {
+                    let view_ptr = uikit.ui_view.as_ptr();
+                    (
+                        unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) },
+                        unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }
+                            .map(Arc::new),
+                    )
+                }
+                _ => (None, None),
             }
-            Ok(raw_window_handle::RawWindowHandle::UiKit(uikit)) => {
-                let view_ptr = uikit.ui_view.as_ptr();
-                (
-                    unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) },
-                    unsafe { crate::metal::ObjCObject::from_unretained(view_ptr) }.map(Arc::new),
-                )
-            }
-            _ => (None, None),
+        } else {
+            (None, None)
         };
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         let metal_layer = {
             let _ = target.window_handle();
+            None
+        };
+        let portable = if !self.include_metal {
+            Some(Arc::new(portable::surface::create_surface(
+                &self.portable,
+                target,
+            )?))
+        } else {
             None
         };
         Ok(Surface {
@@ -168,20 +354,35 @@ impl Instance {
             metal_layer,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             metal_view,
+            portable,
             _marker: std::marker::PhantomData,
         })
     }
 }
 
 #[derive(Clone)]
+pub(crate) enum AdapterInner {
+    Metal(MetalDevice),
+    Portable(upstream_wgpu::Adapter),
+}
+
+#[derive(Clone)]
 pub struct Adapter {
-    pub(crate) metal: MetalDevice,
+    pub(crate) inner: AdapterInner,
     pub(crate) info: AdapterInfo,
     pub(crate) features: Features,
     pub(crate) limits: Limits,
 }
 
 impl Adapter {
+    #[cfg(test)]
+    pub(crate) fn expect_metal(&self) -> &MetalDevice {
+        match &self.inner {
+            AdapterInner::Metal(metal) => metal,
+            AdapterInner::Portable(_) => panic!("expected Metal adapter"),
+        }
+    }
+
     pub(crate) fn from_metal(metal: MetalDevice) -> Self {
         let device_type = if metal.has_unified_memory {
             DeviceType::IntegratedGpu
@@ -212,15 +413,60 @@ impl Adapter {
             features |= Features::MAPPABLE_PRIMARY_BUFFERS;
         }
         let limits = Limits {
+            max_texture_dimension_1d: 16384,
+            max_texture_dimension_2d: 16384,
+            max_texture_array_layers: 2048,
+            max_storage_buffers_per_shader_stage: 16,
+            max_storage_textures_per_shader_stage: 8,
+            max_inter_stage_shader_components: 124,
+            max_color_attachment_bytes_per_sample: 64,
+            max_compute_workgroup_storage_size: 32768,
+            max_compute_invocations_per_workgroup: 1024,
+            max_compute_workgroup_size_x: 1024,
+            max_compute_workgroup_size_y: 1024,
+            max_immediate_size: 4096,
             max_buffer_size: metal.max_buffer_length,
             max_storage_buffer_binding_size: metal.max_buffer_length,
             ..Limits::default()
         };
         Self {
-            metal,
+            inner: AdapterInner::Metal(metal),
             info,
             features,
             limits,
+        }
+    }
+
+    pub(crate) fn from_portable(adapter: upstream_wgpu::Adapter) -> Self {
+        let info = portable::adapter_info(&adapter);
+        let features = portable::adapter_features(&adapter);
+        let limits = portable::adapter_limits(&adapter);
+        Self {
+            inner: AdapterInner::Portable(adapter),
+            info,
+            features,
+            limits,
+        }
+    }
+
+    pub(crate) fn is_lost(&self) -> bool {
+        match &self.inner {
+            AdapterInner::Metal(metal) => metal.is_lost(),
+            AdapterInner::Portable(_) => false,
+        }
+    }
+
+    pub(crate) fn is_low_power(&self) -> bool {
+        match &self.inner {
+            AdapterInner::Metal(metal) => metal.is_low_power,
+            AdapterInner::Portable(_) => self.info.device_type == DeviceType::IntegratedGpu,
+        }
+    }
+
+    pub(crate) fn is_removable(&self) -> bool {
+        match &self.inner {
+            AdapterInner::Metal(metal) => metal.is_removable,
+            AdapterInner::Portable(_) => false,
         }
     }
 
@@ -228,9 +474,15 @@ impl Adapter {
         self.info.clone()
     }
 
-    /// A surface is presentable when it is backed by a Metal layer.
+    /// A surface is presentable when backed by a Metal layer or portable surface supported by the adapter.
     pub fn is_surface_supported(&self, surface: &Surface<'_>) -> bool {
-        surface.metal_layer.is_some()
+        match &self.inner {
+            AdapterInner::Metal(_) => surface.metal_layer.is_some(),
+            AdapterInner::Portable(raw) => surface
+                .portable
+                .as_ref()
+                .is_some_and(|s| raw.is_surface_supported(s)),
+        }
     }
 
     pub fn features(&self) -> Features {
@@ -241,34 +493,121 @@ impl Adapter {
         self.limits.clone()
     }
 
-    pub fn request_device(
+    #[cfg(not(target_arch = "wasm32"))]
+    fn request_device_sync(
         &self,
         desc: &DeviceDescriptor<'_>,
-    ) -> impl Future<Output = Result<(Device, Queue), RequestDeviceError>> {
+    ) -> Result<(Device, Queue), RequestDeviceError> {
         let destroyed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let error_stack = Arc::new(Mutex::new(Vec::new()));
+        let uncaptured_error_handler = Arc::new(Mutex::new(None));
+        let device_loss = Arc::new(DeviceLossState::default());
+        let granted_features = desc.required_features & self.features;
+
+        let backend = match &self.inner {
+            AdapterInner::Metal(metal) => {
+                metal.register_loss_observer(&device_loss);
+                BackendDevice::Metal(metal.clone())
+            }
+            AdapterInner::Portable(raw) => BackendDevice::Portable(portable::PortableDevice::new(
+                raw,
+                &self.info,
+                desc,
+                error_stack.clone(),
+                uncaptured_error_handler.clone(),
+                device_loss.clone(),
+            )?),
+        };
+
         let dev = Device {
-            metal: self.metal.clone(),
+            backend: backend.clone(),
             info: Arc::new(self.info.clone()),
-            features: desc.required_features & self.features,
+            features: granted_features,
             limits: desc.required_limits.clone(),
-            error_stack: Arc::new(Mutex::new(Vec::new())),
-            uncaptured_error_handler: Arc::new(Mutex::new(None)),
-            device_loss: Arc::new(DeviceLossState::default()),
+            error_stack: error_stack.clone(),
+            uncaptured_error_handler: uncaptured_error_handler.clone(),
+            device_loss,
             destroyed: destroyed.clone(),
         };
-        self.metal.register_loss_observer(&dev.device_loss);
         let queue = Queue {
-            metal: self.metal.clone(),
+            backend,
             identity: Arc::new(()),
             error_sink: CommandErrorSink {
-                stack: dev.error_stack.clone(),
-                handler: dev.uncaptured_error_handler.clone(),
+                stack: error_stack,
+                handler: uncaptured_error_handler,
                 scopes: None,
                 captured: false,
             },
             device_destroyed: destroyed,
         };
-        std::future::ready(Ok((dev, queue)))
+        Ok((dev, queue))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn request_device(
+        &self,
+        desc: &DeviceDescriptor<'_>,
+    ) -> impl Future<Output = Result<(Device, Queue), RequestDeviceError>> {
+        std::future::ready(self.request_device_sync(desc))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn request_device(
+        &self,
+        desc: &DeviceDescriptor<'_>,
+    ) -> impl Future<Output = Result<(Device, Queue), RequestDeviceError>> {
+        let inner = self.inner.clone();
+        let info = self.info.clone();
+        let granted_features = desc.required_features & self.features;
+        let required_limits = desc.required_limits.clone();
+        let label = desc.label.map(str::to_owned);
+        async move {
+            let error_stack = Arc::new(Mutex::new(Vec::new()));
+            let uncaptured_error_handler = Arc::new(Mutex::new(None));
+            let device_loss = Arc::new(DeviceLossState::default());
+            let destroyed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let backend = match inner {
+                AdapterInner::Metal(metal) => {
+                    metal.register_loss_observer(&device_loss);
+                    BackendDevice::Metal(metal)
+                }
+                AdapterInner::Portable(adapter) => BackendDevice::Portable(
+                    portable::PortableDevice::new_async(
+                        adapter,
+                        info.clone(),
+                        granted_features,
+                        required_limits.clone(),
+                        label,
+                        error_stack.clone(),
+                        uncaptured_error_handler.clone(),
+                        device_loss.clone(),
+                    )
+                    .await?,
+                ),
+            };
+            let dev = Device {
+                backend: backend.clone(),
+                info: Arc::new(info),
+                features: granted_features,
+                limits: required_limits,
+                error_stack: error_stack.clone(),
+                uncaptured_error_handler: uncaptured_error_handler.clone(),
+                device_loss,
+                destroyed: destroyed.clone(),
+            };
+            let queue = Queue {
+                backend,
+                identity: Arc::new(()),
+                error_sink: CommandErrorSink {
+                    stack: error_stack,
+                    handler: uncaptured_error_handler,
+                    scopes: None,
+                    captured: false,
+                },
+                device_destroyed: destroyed,
+            };
+            Ok((dev, queue))
+        }
     }
 }
 
@@ -279,7 +618,7 @@ pub(crate) fn select_adapter(
     let mut healthy: Vec<Adapter> = candidates
         .into_iter()
         .filter(|adapter| {
-            !adapter.metal.is_lost()
+            !adapter.is_lost()
                 && options
                     .compatible_surface
                     .is_none_or(|surface| adapter.is_surface_supported(surface))
@@ -293,10 +632,10 @@ pub(crate) fn select_adapter(
     let preferred = match options.power_preference {
         PowerPreference::HighPerformance => healthy
             .iter()
-            .position(|a| !a.metal.is_low_power && !a.metal.is_removable)
-            .or_else(|| healthy.iter().position(|a| !a.metal.is_low_power)),
-        PowerPreference::LowPower => healthy.iter().position(|a| a.metal.is_low_power),
-        PowerPreference::None => healthy.iter().position(|a| !a.metal.is_removable),
+            .position(|a| !a.is_low_power() && !a.is_removable())
+            .or_else(|| healthy.iter().position(|a| !a.is_low_power())),
+        PowerPreference::LowPower => healthy.iter().position(|a| a.is_low_power()),
+        PowerPreference::None => healthy.iter().position(|a| !a.is_removable()),
     };
     Ok(healthy.swap_remove(preferred.unwrap_or(0)))
 }
