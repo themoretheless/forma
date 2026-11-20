@@ -20,7 +20,7 @@ pub(super) struct ScrollArea {
 }
 
 impl ScrollArea {
-    fn limit(&self) -> [f32; 2] {
+    pub(super) fn limit(&self) -> [f32; 2] {
         [
             (self.content[0] - self.viewport[2]).max(0.),
             (self.content[1] - self.viewport[3]).max(0.),
@@ -128,6 +128,19 @@ impl Runtime {
         self.clips_changed();
     }
 
+    /// Cumulative scroll offset of area `index` including all enclosing ancestor areas.
+    pub(super) fn area_cumulative_offset(&self, index: usize) -> [f32; 2] {
+        let mut sum = [0.; 2];
+        let mut cur = Some(index);
+        while let Some(i) = cur {
+            let area = &self.scroll_areas[i];
+            sum[0] += area.offset[0];
+            sum[1] += area.offset[1];
+            cur = area.parent;
+        }
+        sum
+    }
+
     /// How far the areas around control `index` have moved it, on top of the root scroll.
     pub(super) fn area_offset(&self, index: usize) -> [f32; 2] {
         self.scroll_chains.get(index).map_or([0.; 2], |chain| {
@@ -219,6 +232,7 @@ impl Runtime {
                 kind: super::NodeKind::Scroll,
                 control: None,
                 modal: None,
+                dirty: super::DirtyFlags::ALL,
             });
             self.nodes[parent].children.push(id);
         }
@@ -311,14 +325,21 @@ impl Runtime {
         true
     }
 
-    /// An area's offset changed: controls take their new places and everything painted or laid
-    /// out from the old ones is stale.
+    /// An area's offset changed: controls take their new places and composition/paint
+    /// state updates dynamically without rebuilding or re-uploading display geometry.
     fn areas_moved(&mut self) {
         self.sync_control_scroll();
-        *self.geometry.borrow_mut() = None;
         self.revision = self.revision.wrapping_add(1);
-        self.geometry_revision = self.geometry_revision.wrapping_add(1);
         self.layout_revision = self.layout_revision.wrapping_add(1);
+        self.composition_revision = self.composition_revision.wrapping_add(1);
+        self.scene_dirty
+            .insert(super::DirtyFlags::COMPOSITION | super::DirtyFlags::PAINT);
+        for &node_id in &self.area_nodes {
+            if let Some(node) = self.nodes.get_mut(node_id) {
+                node.dirty
+                    .insert(super::DirtyFlags::COMPOSITION | super::DirtyFlags::PAINT);
+            }
+        }
     }
 
     /// After a rebuild, give each area the offset the same area had before: same number, same

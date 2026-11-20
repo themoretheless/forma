@@ -582,3 +582,51 @@
   - Правила UAX #14 и японского кинсоку (`crates/forma/src/text/linebreak.rs`) объединены для
     `text::wrap` и `text::runs`, закреплены тестом `crates/forma/tests/typography_scripts.rs` и
     эталоном `crates/forma/tests/golden/typography_scripts.txt`.
+
+## 32. Пайплайн удерживаемого рендера, общие кэши ресурсов и квалификация больших форм
+
+- **Этап 1 — Постоянное дерево UI и инкрементальная реконсиляция (`Runtime::reconcile_scene_ir`):**
+  введены `DirtyFlags` (`NONE`, `PAINT`, `LAYOUT`, `COMPOSITION`, `ALL`), флаговое поле
+  `Node.dirty`, `Template::{same_layout_bounds, same_geometry_except_paint_slots_ext}`,
+  `Button::apply_template_in_place` и `Runtime::{reconcile_scene_ir, reconcile_sources,
+  reuse_caches_from_runtime}` (включая WASM-экспорты `from_component`, `reuse_caches_from`,
+  `composition_revision`, `dirty_flags_bits`, `node_dirty_flags`, `acknowledge_dirty_flags`).
+  Смена цвета/paint-слотов больше не сбрасывает раскладку (`layout_revision`) и дерево узлов;
+  `sync_ui_bindings_native` и Studio-превью (`src/vector-preview.js`) переведены на
+  инкрементальное обновление сохраняя фокус, активный IME-ввод и буферы редактирования.
+- **Этап 2 — Единый backend-независимый список рисования и диагностика Studio:** выделены типы IR
+  `crates/forma/src/display_list/ir.rs` (`Transform2D`, `ClipId`, `ClipNode`, `DisplayItemKind`,
+  `DisplayItem`, `RasterizeOpts`, `DisplayList::rasterize_rgba`, `DisplayList::diagnostics_json`),
+  идентификаторы ресурсов `ResourceKind`/`ResourceId` (`PaintSlot`, `GlyphAtlas`, `SvgShape`,
+  `CanvasSlot`), WASM-метод `Runtime::display_list_diagnostics_json` и сводка диагностики
+  [display-list-diagnostics.js](../../src/display-list-diagnostics.js) (подключено в
+  `src/vector-preview.js`, покрыто [display-list-diagnostics.test.js](../../test/display-list-diagnostics.test.js)).
+- **Этап 3 — Поэлементный сдвиг кэша, dirty rectangles, границы вложенного `clip` и прокрутка `ScrollArea`:**
+  - `F-15`: в `crates/forma/src/raster_cache.rs` вложенный `Content::Clip` ограничен
+    пересечением с пиксельной областью узла `[lx, ly, lw, lh]` вместо `content_len * 4`.
+  - `Cache::try_translate` (`crates/forma/src/raster_cache.rs`) переносит кэш незарезанного
+    разрежённого контрола при целочисленном сдвиге без перестройки покрытия.
+  - `runtime/raster.rs` отслеживает `32×32` грязные тайлы по `ControlStamp` и областям прокрутки,
+    перекомпозируя только повреждённые прямоугольники (`last_dirty_rects`, `last_dirty_rects_flat`)
+    с побайтовым совпадением с холодным растром.
+  - `F-16`: вложенные `ScrollArea` переведены на динамические paint-слоты
+    (`SCROLL_AREA_CONTENT`, `SCROLL_AREA_THUMB_Y`, `SCROLL_AREA_THUMB_X` в `display_list.rs`,
+    `runtime/vector.rs`, `vector.wgsl`, `gpu.rs`) без сброса `DisplayList` и перезагрузок
+    геометрии на GPU.
+- **Этап 4 — Общий `GlyphAtlas` и `SvgCache` под `memory-budget`:** `crates/forma/src/resource_cache.rs`
+  объединяет `GlyphAtlas` (квантованные по физическому размеру шрифта контуры в единицах шрифта
+  для `emit_colored_glyph_outlines` в `text/outline.rs`) и коллизионно-безопасный `SvgCache`
+  (`form_document/svg.rs`) под общим `MemoryBudget` (по умолчанию 16 МБ) и `WeightedLru` без TTL
+  (безопасно для WASM, `0` аллокаций на прогретом попадании) с экспортом
+  `DEFAULT_RESOURCE_BUDGET_BYTES`, `ResourceCacheStats`, `resource_cache_stats`,
+  `set_resource_budget_bytes`, `clear_resource_caches` и WASM `Runtime::resource_cache_stats_json`.
+- **Этап 5 — Расширение GPU-бэкенда и автоматический CPU-fallback:** в `crates/forma/src/gpu.rs` и
+  `native_gpu.rs` добавлены `GpuOffscreenTarget`, `Renderer::draw_damaged` (`LoadOp::Load` +
+  scissor-прямоугольники), `Renderer::render_rgba` (переносимое чтение на Metal и Vulkan/Linux),
+  `render_rgba_with_cpu_fallback` поверх `DisplayList::rasterize_rgba` и обобщённый
+  `GpuWindow::draw(&impl RenderScene)` + `resource_stats()`.
+- **Квалификация (`tests/retained_pipeline.rs` и бенчмарки `8/32/96/256`):** замер правки на 256
+  контролах ускорился с `1 188,2` до `57,7` мкс (20,6×; трафик `16,65 МБ → 789 КБ`),
+  анимированные кадры `multicontrol_perf` ускорились в ~2,2× (`0,425` мс, 0 аллокаций), а
+  20-секундное живое Metal-окно на 256 контролах удержало 119,15 present/s (`p50/p95/p99 = 8,29/9,90/10,54` мс)
+  и плоское плато RSS/Rust/GPU/кэша (точные цифры и оговорка по нагрузке хоста — в [BASELINE.md](BASELINE.md)).

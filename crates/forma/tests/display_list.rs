@@ -200,6 +200,7 @@ fn scroll_modes_mark_content_and_thumbs_and_tiles_follow_the_offset() {
     let fixed = DisplayList {
         commands: commands[..STRIDE].to_vec(),
         edges: Vec::new(),
+        ..Default::default()
     };
     assert_eq!(
         fixed.tiles(64, 64, 1., [0.; 2]),
@@ -261,10 +262,7 @@ fn legacy_tiles(list: &DisplayList, width: u32, height: u32, scale: f32) -> Vec<
 }
 
 fn boundary_scene() -> DisplayList {
-    let mut list = DisplayList {
-        commands: Vec::new(),
-        edges: Vec::new(),
-    };
+    let mut list = DisplayList::default();
     let mut add = |kind: f32, bounds: [f32; 4]| {
         let mut command = [0.; STRIDE];
         command[0] = kind;
@@ -299,6 +297,7 @@ fn without_clips(list: DisplayList) -> DisplayList {
             .copied()
             .collect(),
         edges: list.edges,
+        ..Default::default()
     }
 }
 
@@ -311,6 +310,7 @@ fn unclipped_flat_binner_is_byte_identical_to_legacy_at_tile_and_dpi_boundaries(
         without_clips(DisplayList {
             commands: generated.commands.clone(),
             edges: generated.edges.clone(),
+            ..Default::default()
         }),
     ];
     let mut scratch = TileScratch::default();
@@ -385,10 +385,7 @@ fn add_command(list: &mut DisplayList, kind: f32, bounds: [f32; 4], color: [f32;
 }
 
 fn empty_list() -> DisplayList {
-    DisplayList {
-        commands: Vec::new(),
-        edges: Vec::new(),
-    }
+    DisplayList::default()
 }
 
 fn tile_commands(tiles: &[u32], width: u32, x: u32, y: u32) -> &[u32] {

@@ -2027,6 +2027,7 @@ fn a_scroll_below_the_root_scrolls_only_its_own_controls() {
 fn a_scroll_area_is_drawn_where_it_is_hit() {
     let mut runtime = scroll_area_runtime();
     let viewport = runtime.scroll_areas[0].viewport;
+    let before_list = runtime.vector_snapshot(1., false);
     let (x, y) = (viewport[0] + 10., viewport[1] + 10.);
     runtime.pointer(x, y, 0);
     runtime.scroll(0., 50.);
@@ -2044,12 +2045,21 @@ fn a_scroll_area_is_drawn_where_it_is_hit() {
         &pixels[((viewport[1] as usize + 20) * 200 + thumb_x as usize) * 4..][..4],
         &super::scroll_areas::AREA_THUMB
     );
-    // The vector list moves the area's commands by its offset on top of the root scroll.
+    // The vector list stays identical across nested scroll and moves dynamically via area paint slots.
     let list = runtime.vector_snapshot(1., false);
+    assert!(
+        std::sync::Arc::ptr_eq(&before_list, &list),
+        "scrolling a nested area must not invalidate the DisplayList geometry"
+    );
+    let paints = runtime.gpu_paints();
     let moved = list
         .commands
         .chunks_exact(STRIDE)
-        .filter(|c| c[crate::display_list::SCROLL_EXTRA + 1] == 50.)
+        .filter(|c| {
+            c[crate::display_list::SCROLL_MODE] == crate::display_list::SCROLL_AREA_CONTENT
+                && crate::display_list::scrolled_bounds_with_areas(c, [0., 0.], &paints)[1]
+                    == c[5] - 50.
+        })
         .count();
     assert!(moved > 0);
 }

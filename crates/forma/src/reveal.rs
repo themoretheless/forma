@@ -37,6 +37,15 @@ impl Default for Reveal {
 }
 
 impl Reveal {
+    pub(crate) fn same_geometry(&self, other: &Self) -> bool {
+        self.target_x == other.target_x
+            && self.target_y == other.target_y
+            && self.target_width == other.target_width
+            && self.target_height == other.target_height
+            && self.target_radius == other.target_radius
+            && self.width == other.width
+    }
+
     pub(crate) fn bounds(&self, bounds: [f32; 4]) -> [f32; 4] {
         let [x, y, width, height] = bounds;
         let w = self.target_width.unwrap_or(width).min(width);

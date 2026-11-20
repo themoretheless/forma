@@ -1,6 +1,7 @@
 //! The pixel region a control covers and the sizes a raster may have.
 
 use super::*;
+use crate::template::Content;
 
 // Conservative support of geometry plus content, or content alone. Clip
 // markers only remove support; overflowing text/shapes must remain visible.
@@ -99,6 +100,128 @@ pub(super) fn raster_region(
         return full;
     }
     support.map_or([0; 4], |[x0, y0, x1, y1]| [x0, y0, x1 - x0, y1 - y0])
+}
+
+pub(crate) fn control_support_unclamped(
+    model: ControlView<'_>,
+    scale: f32,
+    include_geometry: bool,
+) -> Option<[i32; 4]> {
+    if !scale.is_finite() || scale <= 0. {
+        return None;
+    }
+    let b = &model.scene.button;
+    let x = b.x - model.scroll_x;
+    let y = b.y - model.scroll_y;
+    let mut support: Option<[i32; 4]> = None;
+    let mut invalid = false;
+    let mut add = |bounds: [f32; 4]| {
+        if !bounds.iter().all(|n| n.is_finite()) || bounds[2] < 0. || bounds[3] < 0. {
+            invalid = true;
+            return;
+        }
+        let physical = [
+            bounds[0] * scale,
+            bounds[1] * scale,
+            (bounds[0] + bounds[2]) * scale,
+            (bounds[1] + bounds[3]) * scale,
+        ];
+        if !physical.iter().all(|n| n.is_finite()) {
+            invalid = true;
+            return;
+        }
+        let x0 = (physical[0] - 1.).floor() as i32;
+        let y0 = (physical[1] - 1.).floor() as i32;
+        let x1 = (physical[2] + 1.).ceil() as i32;
+        let y1 = (physical[3] + 1.).ceil() as i32;
+        if x0 >= x1 || y0 >= y1 {
+            return;
+        }
+        support = Some(match support {
+            None => [x0, y0, x1, y1],
+            Some(old) => [
+                old[0].min(x0),
+                old[1].min(y0),
+                old[2].max(x1),
+                old[3].max(y1),
+            ],
+        });
+    };
+    if include_geometry {
+        add([x, y, b.width, b.height]);
+        if model.template.reveal.is_some() {
+            add(model.reveal_bounds());
+        }
+    }
+    if model.template.text.is_some() {
+        let r = b.radius.min(b.width / 2.).min(b.height / 2.);
+        add([
+            x + r * 0.3,
+            y + r * 0.3,
+            b.width - r * 0.6,
+            b.height - r * 0.6,
+        ]);
+    }
+    for content in &model.template.content {
+        match content {
+            Content::Text { bounds, .. } => {
+                add([x + bounds[0], y + bounds[1], bounds[2], bounds[3]])
+            }
+            Content::Shape { points, .. } => {
+                if points.is_empty() {
+                    continue;
+                }
+                let mut bounds = [
+                    f32::INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::NEG_INFINITY,
+                ];
+                for point in points {
+                    if !point.iter().all(|n| n.is_finite()) {
+                        return None;
+                    }
+                    bounds[0] = bounds[0].min(point[0]);
+                    bounds[1] = bounds[1].min(point[1]);
+                    bounds[2] = bounds[2].max(point[0]);
+                    bounds[3] = bounds[3].max(point[1]);
+                }
+                add([
+                    x + bounds[0],
+                    y + bounds[1],
+                    bounds[2] - bounds[0],
+                    bounds[3] - bounds[1],
+                ]);
+            }
+            Content::Clip { .. } | Content::ClipEnd => {}
+        }
+    }
+    if invalid {
+        None
+    } else {
+        Some(support.unwrap_or([0; 4]))
+    }
+}
+
+/// Physical `[x0, y0, x1, y1]` pixel bounds a control can touch inside `[0..width, 0..height]`.
+pub(crate) fn control_pixel_bounds(
+    model: ControlView<'_>,
+    width: u32,
+    height: u32,
+    scale: f32,
+) -> [u32; 4] {
+    let Some([x0, y0, x1, y1]) = control_support_unclamped(model, scale, true) else {
+        return [0, 0, width, height];
+    };
+    let cx0 = x0.clamp(0, width as i32) as u32;
+    let cy0 = y0.clamp(0, height as i32) as u32;
+    let cx1 = x1.clamp(0, width as i32) as u32;
+    let cy1 = y1.clamp(0, height as i32) as u32;
+    if cx0 >= cx1 || cy0 >= cy1 {
+        [0; 4]
+    } else {
+        [cx0, cy0, cx1, cy1]
+    }
 }
 
 pub(crate) fn valid_raster_size(width: u32, height: u32) -> bool {

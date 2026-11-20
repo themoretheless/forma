@@ -2,7 +2,9 @@
 //! Geometry/content depend on viewport, DPI and scroll, not animated colors.
 
 use crate::{
-    display_list::ControlView, geometry::round_coverage, markup, shape, template::Content, text,
+    display_list::{ControlPrimitive, ControlView},
+    geometry::round_coverage,
+    markup, shape, text,
 };
 
 mod frame;
@@ -43,6 +45,7 @@ pub(crate) struct Cache {
     content: Vec<u8>,
     // One span per nonempty row; content is compacted to these spans after build.
     content_spans: Vec<std::ops::Range<usize>>,
+    unclipped_support: Option<[i32; 4]>,
     pub(crate) paint: Option<PaintKey>,
     pub(crate) pixels: Vec<u8>,
     // Packed pixels retain their original canvas indices, so fractional DPI
@@ -55,6 +58,85 @@ pub(crate) struct Cache {
 pub(crate) use crate::blend::over;
 
 impl Cache {
+    pub(crate) fn try_translate(&mut self, model: ControlView<'_>, next: GeometryKey) -> bool {
+        if !self.key.sparse
+            || !next.sparse
+            || self.key.scale != next.scale
+            || model.scene.clip
+            || model.scene.scroll
+        {
+            return false;
+        }
+        let Some(support) = self.unclipped_support else {
+            return false;
+        };
+        let dx_f = (self.key.scroll[0] - next.scroll[0]) * next.scale;
+        let dy_f = (self.key.scroll[1] - next.scroll[1]) * next.scale;
+        if !dx_f.is_finite() || !dy_f.is_finite() {
+            return false;
+        }
+        let dx = dx_f.round() as i32;
+        let dy = dy_f.round() as i32;
+        if (dx_f - dx as f32).abs() != 0. || (dy_f - dy as f32).abs() != 0. {
+            return false;
+        }
+        let b = &model.scene.button;
+        let old_px = (b.x - self.key.scroll[0]) * next.scale;
+        let new_px = (b.x - next.scroll[0]) * next.scale;
+        let old_py = (b.y - self.key.scroll[1]) * next.scale;
+        let new_py = (b.y - next.scroll[1]) * next.scale;
+        if new_px != old_px + dx as f32 || new_py != old_py + dy as f32 {
+            return false;
+        }
+        let shifted = [
+            support[0] + dx,
+            support[1] + dy,
+            support[2] + dx,
+            support[3] + dy,
+        ];
+        if shifted[0] < 0
+            || shifted[1] < 0
+            || shifted[2] > next.width as i32
+            || shifted[3] > next.height as i32
+        {
+            return false;
+        }
+        if dx == 0 && dy == 0 && self.key.width == next.width && self.key.height == next.height {
+            self.key = next;
+            return true;
+        }
+        let old_w = self.key.width as usize;
+        let new_w = next.width as usize;
+        let remap = |idx: usize| -> usize {
+            let x = (idx % old_w) as i32 + dx;
+            let y = (idx / old_w) as i32 + dy;
+            y as usize * new_w + x as usize
+        };
+        for span in &mut self.spans {
+            let len = span.len();
+            let start = remap(span.start);
+            *span = start..start + len;
+        }
+        for span in &mut self.content_spans {
+            let len = span.len();
+            let start = remap(span.start);
+            *span = start..start + len;
+        }
+        for (idx, _, _) in &mut self.rect_edges {
+            *idx = remap(*idx);
+        }
+        for (idx, _) in &mut self.reveal_pixels {
+            *idx = remap(*idx);
+        }
+        self.unclipped_support = Some(shifted);
+        self.key = next;
+        if !self.reveal_pixels.is_empty() {
+            self.paint = None;
+        }
+        self.native_pixels.clear();
+        true
+    }
+
     pub(crate) fn build(model: ControlView<'_>, key: GeometryKey) -> Self {
         Self::build_with_content_region(model, key, raster_region(model, key, false))
     }
@@ -80,7 +162,13 @@ impl Cache {
         let [cx, cy, cw, ch] = content_region;
         let content_len = (cw * ch) as usize;
         let has_content = content_len > 0;
-        let content_index = |x: u32, y: u32| ((y - cy) * cw + x - cx) as usize;
+        let unclipped_support = if key.sparse && !model.scene.clip && !model.scene.scroll {
+            control_support_unclamped(model, scale, true).filter(|[sx0, sy0, sx1, sy1]| {
+                *sx0 >= 0 && *sy0 >= 0 && *sx1 <= width as i32 && *sy1 <= height as i32
+            })
+        } else {
+            None
+        };
         let mut cache = Self {
             key,
             coverage: vec![0; len],
@@ -89,6 +177,7 @@ impl Cache {
             frame: Vec::new(),
             content: vec![0; content_len * 4],
             content_spans: Vec::new(),
+            unclipped_support,
             paint: None,
             pixels: Vec::new(),
             spans: Vec::new(),
@@ -214,36 +303,20 @@ impl Cache {
                 }
             }
         }
-        cache.frame = frame_runs(model, key);
-        if let Some(t) = &model.template.text {
-            text::draw_text_dir_region(
-                t.family,
-                t.direction,
-                &mut text::RasterCanvas::subregion(
-                    &mut cache.content,
-                    width,
-                    height,
-                    scale,
-                    content_region,
-                ),
-                &t.text,
-                t.font_size,
-                [
-                    bx + r * 0.3,
-                    by + r * 0.3,
-                    b.width - r * 0.6,
-                    b.height - r * 0.6,
-                ],
-                t.color,
-            );
+        struct ClipLayer {
+            parent: Vec<u8>,
+            region: [u32; 4],
+            bounds: [f32; 4],
+            radius: f32,
         }
-        let mut groups = Vec::new();
-        // Sibling clip groups reuse the same layer. Only nesting depth, rather
-        // than total group count, determines region scratch allocations.
+        cache.frame = frame_runs(model, key);
+        let mut groups: Vec<ClipLayer> = Vec::new();
+        // Sibling clip groups reuse the same layer, sized to the intersected node clip bounds.
         let mut layers: Vec<Vec<u8>> = Vec::new();
-        for c in model.template.content.iter().filter(|_| has_content) {
-            match c {
-                Content::Text { bounds, text: t } => text::draw_text_dir_region(
+        let mut active_region = content_region;
+        model.visit_primitives([bx, by], |primitive| match primitive {
+            ControlPrimitive::Label { bounds, text: t } => {
+                text::draw_text_dir_region(
                     t.family,
                     t.direction,
                     &mut text::RasterCanvas::subregion(
@@ -251,65 +324,104 @@ impl Cache {
                         width,
                         height,
                         scale,
-                        content_region,
+                        active_region,
                     ),
                     &t.text,
                     t.font_size,
-                    [bx + bounds[0], by + bounds[1], bounds[2], bounds[3]],
+                    bounds,
                     t.color,
-                ),
-                Content::Shape { points, color } => shape::draw_region(
+                );
+            }
+            ControlPrimitive::Text { bounds, text: t } if has_content => {
+                text::draw_text_dir_region(
+                    t.family,
+                    t.direction,
                     &mut text::RasterCanvas::subregion(
                         &mut cache.content,
                         width,
                         height,
                         scale,
-                        content_region,
+                        active_region,
                     ),
-                    points,
-                    [bx, by],
-                    *color,
+                    &t.text,
+                    t.font_size,
+                    bounds,
+                    t.color,
+                );
+            }
+            ControlPrimitive::Shape {
+                origin,
+                points,
+                color,
+            } if has_content => shape::draw_region(
+                &mut text::RasterCanvas::subregion(
+                    &mut cache.content,
+                    width,
+                    height,
+                    scale,
+                    active_region,
                 ),
-                Content::Clip { bounds, radius } => {
-                    let layer = match layers.pop() {
-                        Some(mut layer) => {
-                            layer.fill(0);
-                            layer
-                        }
-                        None => vec![0; content_len * 4],
-                    };
-                    groups.push((
-                        std::mem::replace(&mut cache.content, layer),
-                        [bounds[0] + bx, bounds[1] + by, bounds[2], bounds[3]],
-                        *radius,
-                    ));
-                }
-                Content::ClipEnd => {
-                    if let Some((mut parent, bounds, radius)) = groups.pop() {
-                        // round_coverage has no support outside these bounds;
-                        // one physical pixel conservatively includes every AA sample.
-                        let [x0, y0, x1, y1] = clip_pixels(bounds, scale, width, height);
-                        let (x0, y0, x1, y1) =
-                            (x0.max(cx), y0.max(cy), x1.min(cx + cw), y1.min(cy + ch));
-                        for y in y0..y1 {
-                            for x in x0..x1 {
-                                let i = content_index(x, y) * 4;
-                                if cache.content[i + 3] == 0 {
-                                    continue;
-                                }
-                                let mut pixel: [u8; 4] =
-                                    cache.content[i..i + 4].try_into().unwrap();
-                                pixel[3] = (pixel[3] as f32
-                                    * round_coverage(x, y, scale, bounds, radius))
-                                .round() as u8;
-                                over(&mut parent[i..i + 4], &pixel);
+                points,
+                origin,
+                color,
+            ),
+            ControlPrimitive::Clip { bounds, radius } if has_content => {
+                let [cx0, cy0, cx1, cy1] = clip_pixels(bounds, scale, width, height);
+                let [px, py, pw, ph] = active_region;
+                let lx0 = cx0.max(px);
+                let ly0 = cy0.max(py);
+                let lx1 = cx1.min(px + pw);
+                let ly1 = cy1.min(py + ph);
+                let next_region = if lx0 < lx1 && ly0 < ly1 {
+                    [lx0, ly0, lx1 - lx0, ly1 - ly0]
+                } else {
+                    [0; 4]
+                };
+                let next_len = (next_region[2] as usize) * (next_region[3] as usize) * 4;
+                let mut layer = layers.pop().unwrap_or_default();
+                layer.clear();
+                layer.resize(next_len, 0);
+                groups.push(ClipLayer {
+                    parent: std::mem::replace(&mut cache.content, layer),
+                    region: active_region,
+                    bounds,
+                    radius,
+                });
+                active_region = next_region;
+            }
+            ControlPrimitive::ClipEnd if has_content => {
+                if let Some(ClipLayer {
+                    mut parent,
+                    region: parent_region,
+                    bounds,
+                    radius,
+                }) = groups.pop()
+                {
+                    let [lx, ly, lw, lh] = active_region;
+                    let [px, py, pw, _ph] = parent_region;
+                    for y in ly..ly + lh {
+                        for x in lx..lx + lw {
+                            let i = ((y - ly) * lw + (x - lx)) as usize * 4;
+                            if cache.content[i + 3] == 0 {
+                                continue;
                             }
+                            let mut pixel: [u8; 4] = cache.content[i..i + 4].try_into().unwrap();
+                            pixel[3] = (pixel[3] as f32
+                                * round_coverage(x, y, scale, bounds, radius))
+                            .round() as u8;
+                            let dst_i = ((y - py) * pw + (x - px)) as usize * 4;
+                            over(&mut parent[dst_i..dst_i + 4], &pixel);
                         }
-                        layers.push(std::mem::replace(&mut cache.content, parent));
                     }
+                    let finished = std::mem::replace(&mut cache.content, parent);
+                    if finished.capacity() > 0 {
+                        layers.push(finished);
+                    }
+                    active_region = parent_region;
                 }
             }
-        }
+            _ => {}
+        });
         drop(layers);
         drop(groups);
         // Most canvases contain only a few rows of text/shapes. Keep their exact

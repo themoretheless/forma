@@ -4,9 +4,14 @@ mod blend;
 #[cfg(feature = "native")]
 mod frame_stats;
 mod geometry;
+pub mod resource_cache;
+pub use resource_cache::{
+    DEFAULT_RESOURCE_BUDGET_BYTES, ResourceCacheStats, ResourceId, ResourceKind,
+    clear_resource_caches, resource_cache_stats, set_resource_budget_bytes,
+};
 pub mod markup;
 pub mod runtime;
-pub use runtime::Runtime;
+pub use runtime::{DirtyFlags, Runtime};
 pub mod binding;
 pub mod canvas;
 mod control_models_wasm;

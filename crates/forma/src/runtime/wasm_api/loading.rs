@@ -9,6 +9,14 @@ impl Runtime {
         Self::from_source(crate::EXAMPLE).expect("valid built-in scene")
     }
 
+    pub fn from_component(source: &str, component: &str) -> Result<Runtime, JsValue> {
+        Self::from_sources(source, component).map_err(|e| JsValue::from_str(&e))
+    }
+
+    pub fn reuse_caches_from(&mut self, previous: &Runtime) {
+        Runtime::reuse_caches_from_runtime(self, previous);
+    }
+
     pub fn load_component(&mut self, source: &str, component: &str) -> Result<(), JsValue> {
         self.load_component_native(source, component)
             .map_err(|e| JsValue::from_str(&e))

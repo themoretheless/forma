@@ -455,33 +455,67 @@ pub(crate) fn place(content: &CanvasContent, origin: [f32; 2], view: CanvasView)
         pt[0] = pt[0] * z + tx;
         pt[1] = pt[1] * z + ty;
     }
-    DisplayList { commands, edges }
+    let items = commands
+        .chunks_exact(STRIDE)
+        .filter(|c| c[0] == 1.)
+        .map(|c| crate::display_list::DisplayItem {
+            kind: crate::display_list::DisplayItemKind::VectorPath,
+            bounds: [c[4], c[5], c[6], c[7]],
+            transform: crate::display_list::Transform2D::IDENTITY,
+            clip_id: None,
+            resource_id: None,
+            color: [c[8], c[9], c[10], c[11]].map(|v| (v.clamp(0., 1.) * 255.).round() as u8),
+            radius: 0.,
+            stroke: 0.,
+            edge_range: [c[2] as u32, c[3] as u32],
+            nonzero: c[1] == 1.,
+            paint_slots: [0, 0],
+            scroll_mode: crate::display_list::SCROLL_FIXED,
+            scroll_factor: 0.,
+            scroll_extra: [0.; 2],
+            area_slot: None,
+            control_index: None,
+        })
+        .collect();
+    DisplayList {
+        commands,
+        edges,
+        items,
+        clips: Vec::new(),
+    }
 }
 
 /// Rasterize placed canvas geometry into a straight-alpha RGBA buffer of
-/// `width × height` physical pixels. `offset` shifts scene coordinates (the
-/// negated scroll offset) and `clip` is the canvas rectangle in shifted scene
-/// coordinates. Coverage uses the same exact-area edge integration as scene
-/// text and shapes, restricted per row to the columns the edges can touch, so
-/// long thin lines cost their length rather than their bounding box.
-pub(crate) fn rasterize(
+/// `width × height` physical pixels, optionally restricted to `window_px`
+/// `[x0, y0, x1, y1)`. `offset` shifts scene coordinates (the negated scroll
+/// offset) and `clip` is the canvas rectangle in shifted scene coordinates.
+/// Coverage uses the same exact-area edge integration as scene text and shapes,
+/// restricted per row to the columns the edges can touch.
+pub(crate) fn rasterize_in_window(
     list: &DisplayList,
     pixels: &mut [u8],
-    width: u32,
-    height: u32,
+    size: [u32; 2],
     scale: f32,
     offset: [f32; 2],
     clip: [f32; 4],
+    window_px: Option<[u32; 4]>,
 ) {
+    let [width, height] = size;
     if pixels.len() != width as usize * height as usize * 4 {
         return;
     }
-    let clip = [
+    let mut clip = [
         (clip[0] * scale).max(0.),
         (clip[1] * scale).max(0.),
         ((clip[0] + clip[2]) * scale).min(width as f32),
         ((clip[1] + clip[3]) * scale).min(height as f32),
     ];
+    if let Some([wx0, wy0, wx1, wy1]) = window_px {
+        clip[0] = clip[0].max(wx0 as f32);
+        clip[1] = clip[1].max(wy0 as f32);
+        clip[2] = clip[2].min(wx1 as f32);
+        clip[3] = clip[3].min(wy1 as f32);
+    }
     if clip[0] >= clip[2] || clip[1] >= clip[3] {
         return;
     }

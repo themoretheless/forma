@@ -23,8 +23,13 @@ const withDiagnostics = replaceOnce(
   /from\s*'\.\/diagnostics\.js';/,
   `from '${new URL('../src/diagnostics.js', import.meta.url).href}';`,
 );
-const source = replaceOnce(
+const withDisplayDiagnostics = replaceOnce(
   withDiagnostics,
+  /from\s*'\.\/display-list-diagnostics\.js';/,
+  `from '${new URL('../src/display-list-diagnostics.js', import.meta.url).href}';`,
+);
+const source = replaceOnce(
+  withDisplayDiagnostics,
   /from\s*'\.\/shared\/range\.js';/,
   `from '${new URL('../src/shared/range.js', import.meta.url).href}';`,
 );

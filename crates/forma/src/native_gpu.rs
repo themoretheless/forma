@@ -96,9 +96,14 @@ impl GpuWindow {
         Ok(crate::gpu::device_queue_idle(&self.renderer.device))
     }
 
+    /// Non-allocating snapshot of live GPU renderer resources.
+    pub fn resource_stats(&self) -> crate::gpu::GpuResourceStats {
+        self.renderer.resource_stats()
+    }
+
     pub fn draw(
         &mut self,
-        button: &crate::Runtime,
+        scene: &impl crate::display_list::RenderScene,
         window: &Window,
     ) -> Result<Presentation, String> {
         let size = window.inner_size();
@@ -134,7 +139,7 @@ impl GpuWindow {
         // address the actual target, not an earlier Window::inner_size snapshot.
         let target_size = frame.texture.size();
         self.renderer.draw(
-            button,
+            scene,
             &frame.texture.create_view(&Default::default()),
             crate::gpu::Viewport::new(
                 target_size.width,

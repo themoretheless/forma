@@ -1,7 +1,9 @@
 //! Shared native/WASM scene runtime. Node IDs are local to one loaded snapshot.
 //! Controls own interaction; the renderer sees only geometry and paint slots.
 use crate::canvas::CanvasEventKind;
-use crate::display_list::{DisplayList, ListHints, RenderScene, STRIDE};
+#[cfg(test)]
+use crate::display_list::STRIDE;
+use crate::display_list::{DisplayList, ListHints, RenderScene};
 use crate::{Button, geometry::round_inside, markup};
 use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
@@ -26,6 +28,64 @@ pub use links::{MAX_TEXT_LINK_EVENTS, TextLinkEvent};
 pub use popup::{Placement, PopupKind, PopupSpec};
 use raster::RasterCache;
 
+/// Granular invalidation flags for retained UI nodes and frames.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DirtyFlags(u8);
+
+impl DirtyFlags {
+    pub const NONE: Self = Self(0);
+    pub const PAINT: Self = Self(1 << 0);
+    pub const LAYOUT: Self = Self(1 << 1);
+    pub const COMPOSITION: Self = Self(1 << 2);
+    pub const ALL: Self = Self(Self::PAINT.0 | Self::LAYOUT.0 | Self::COMPOSITION.0);
+
+    #[inline]
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+
+    #[inline]
+    pub const fn from_bits_truncate(bits: u8) -> Self {
+        Self(bits & Self::ALL.0)
+    }
+
+    #[inline]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    #[inline]
+    pub const fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+
+    #[inline]
+    pub const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    #[inline]
+    pub fn insert(&mut self, other: Self) {
+        self.0 |= other.0;
+    }
+}
+
+impl std::ops::BitOr for DirtyFlags {
+    type Output = Self;
+
+    #[inline]
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+impl std::ops::BitOrAssign for DirtyFlags {
+    #[inline]
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NodeKind {
     Frame,
@@ -42,6 +102,7 @@ pub struct Node {
     pub kind: NodeKind,
     pub control: Option<usize>,
     pub modal: Option<usize>,
+    pub dirty: DirtyFlags,
 }
 struct GeometryCache {
     scale: f32,
@@ -105,6 +166,10 @@ pub struct Runtime {
     revision: u32,
     geometry_revision: u32,
     layout_revision: u32,
+    composition_revision: u32,
+    scene_dirty: DirtyFlags,
+    control_nodes: Vec<usize>,
+    control_visual_revisions: Vec<u32>,
     geometry: RefCell<Option<GeometryCache>>,
     raster_cache: RefCell<Option<RasterCache>>,
     ui_document: Option<crate::form_document::Document>,
@@ -182,13 +247,46 @@ impl Runtime {
             .then(|| (self.native_instance_id, self.focused_index()))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn next_native_instance_id() -> u64 {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn dirty_flags(&self) -> DirtyFlags {
+        self.scene_dirty
+    }
+
+    pub fn mark_node_dirty(&mut self, node_id: usize, flags: DirtyFlags) {
+        if let Some(node) = self.nodes.get_mut(node_id) {
+            node.dirty.insert(flags);
+            self.scene_dirty.insert(flags);
+        }
+    }
+
+    pub fn clear_dirty_flags(&mut self) {
+        self.scene_dirty = DirtyFlags::NONE;
+        for node in &mut self.nodes {
+            node.dirty = DirtyFlags::NONE;
+        }
+    }
+
+    pub(super) fn mark_control_dirty(&mut self, control_index: usize, flags: DirtyFlags) {
+        self.scene_dirty.insert(flags);
+        if let Some(&node_id) = self.control_nodes.get(control_index) {
+            if let Some(node) = self.nodes.get_mut(node_id) {
+                node.dirty.insert(flags);
+            }
+        }
+    }
+
     pub fn nodes(&self) -> &[Node] {
         &self.nodes
     }
 
     fn refresh_editors(&mut self) {
-        for (i, editor) in self.editors.iter_mut().enumerate() {
-            let content = if let Some(editor) = editor {
+        for i in 0..self.editors.len() {
+            let content = if let Some(editor) = &mut self.editors[i] {
                 let focused = self.focused == Some(i) && !self.controls[i].disabled();
                 if !focused {
                     editor.set_preedit("");
@@ -215,6 +313,10 @@ impl Runtime {
                 self.geometry_revision = self.geometry_revision.wrapping_add(1);
                 control.visual_revision = control.visual_revision.wrapping_add(1);
                 self.revision = self.revision.wrapping_add(1);
+                if let Some(rev) = self.control_visual_revisions.get_mut(i) {
+                    *rev = control.visual_revision;
+                }
+                self.mark_control_dirty(i, DirtyFlags::PAINT);
             }
         }
     }
@@ -257,6 +359,20 @@ impl Runtime {
             != previous
         {
             self.revision = self.revision.wrapping_add(1);
+            self.scene_dirty.insert(DirtyFlags::PAINT);
+            for (i, control) in self.controls.iter().enumerate() {
+                let rev = control.visual_revision();
+                if self.control_visual_revisions.get(i).copied() != Some(rev) {
+                    if let Some(slot) = self.control_visual_revisions.get_mut(i) {
+                        *slot = rev;
+                    }
+                    if let Some(&node_id) = self.control_nodes.get(i) {
+                        if let Some(node) = self.nodes.get_mut(node_id) {
+                            node.dirty.insert(DirtyFlags::PAINT);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -267,11 +383,12 @@ impl Runtime {
             .fold(0, u32::wrapping_add)
     }
 
-    /// One control without layers or canvas geometry uses the control's own
+    /// One control without layers, scroll areas, or canvas geometry uses the control's own
     /// caches directly.
     pub(super) fn single_leaf(&self) -> bool {
         self.controls.len() == 1
             && self.scene.modals.is_empty()
+            && self.scroll_areas.is_empty()
             && self.canvas_scene_rect(0).is_none()
             && self.clip(0).is_none()
     }
@@ -319,6 +436,17 @@ impl RenderScene for Runtime {
     fn gpu_paints(&self) -> Vec<f32> {
         Runtime::gpu_paints(self)
     }
+    fn gpu_area_paints_start(&self) -> Option<usize> {
+        if self.scroll_areas.is_empty() {
+            return None;
+        }
+        let reveal_count = self
+            .controls
+            .iter()
+            .filter(|c| c.template.reveal.is_some())
+            .count();
+        Some((self.controls.len() * 2 + reveal_count * 2) * 4)
+    }
     fn gpu_paints_into(&self, out: &mut Vec<f32>) {
         out.clear();
         let reveal_count = self
@@ -326,7 +454,7 @@ impl RenderScene for Runtime {
             .iter()
             .filter(|c| c.template.reveal.is_some())
             .count();
-        out.reserve(self.controls.len() * 8 + reveal_count * 8);
+        out.reserve(self.controls.len() * 8 + reveal_count * 8 + self.scroll_areas.len() * 4);
         for c in &self.controls {
             out.extend(
                 c.fill
@@ -340,6 +468,11 @@ impl RenderScene for Runtime {
             if c.template.reveal.is_some() {
                 out.extend(c.reveal_paint().gpu());
             }
+        }
+        for area_idx in 0..self.scroll_areas.len() {
+            let cum = self.area_cumulative_offset(area_idx);
+            let own = self.scroll_areas[area_idx].offset;
+            out.extend_from_slice(&[cum[0], cum[1], own[0], own[1]]);
         }
     }
     fn gpu_params_into(&self, w: u32, h: u32, s: f32, o: bool, out: &mut Vec<f32>) {

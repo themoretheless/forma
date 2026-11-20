@@ -1,6 +1,7 @@
 import { createEventScope } from './event-scope.js';
 import { createGpuPainter } from './vector-gpu.js';
 import { mapRuntimeErrorToUiDiagnostic } from './diagnostics.js';
+import { summarizeDisplayListDiagnostics } from './display-list-diagnostics.js';
 import { rangeBounds, rangeValue } from './shared/range.js';
 let runtimePromise;
 // Same order as components.js sceneControlNodes: base controls (optionally in
@@ -931,8 +932,12 @@ export function createVectorPreview({
           current.clips !== clips;
         const modeChanged = !changed && current.designMode !== designMode;
         if (changed) {
-          candidate = new runtime.Runtime();
-          candidate.load_component(source, template);
+          if (typeof runtime.Runtime.from_component === 'function') {
+            candidate = runtime.Runtime.from_component(source, template);
+          } else {
+            candidate = new runtime.Runtime();
+            candidate.load_component(source, template);
+          }
           controlClips.forEach((clip, index) => {
             if (clip) candidate.set_control_clip(index, ...clip);
           });
@@ -944,7 +949,10 @@ export function createVectorPreview({
           });
           if (controlOrigins.length)
             candidate.set_control_origins_json?.(JSON.stringify(controlOrigins));
-          if (button) candidate.preserve_interaction(button);
+          if (button) {
+            candidate.reuse_caches_from?.(button);
+            candidate.preserve_interaction(button);
+          }
         }
         if (changed || current.reducedMotion !== reducedMotion)
           (candidate ?? button).set_reduced_motion?.(reducedMotion);
@@ -1135,6 +1143,9 @@ export function createVectorPreview({
             gpuStats: gpu?.snapshot() ?? null,
             gpuFallbackReason: gpuFailure || null,
             rasterStats: Array.from(button.raster_stats()),
+            displayListSummary: button.display_list_diagnostics_json
+              ? summarizeDisplayListDiagnostics(button.display_list_diagnostics_json(1, true))
+              : null,
             selectedStart,
             focusedIndex: button.focused_index(),
             controls: Array.from({ length: button.control_count() }, (_, i) => ({

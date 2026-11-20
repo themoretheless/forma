@@ -229,7 +229,7 @@ pub struct Renderer {
     uniform: wgpu::Buffer,
     bindings: Option<wgpu::BindGroup>,
     geometry: Option<Arc<DisplayList>>,
-    tile_key: Option<(u32, u32, f32, [f32; 2])>,
+    tile_key: Option<(u32, u32, f32, [f32; 2], u64)>,
     tile_scratch: TileScratch,
     buffers: Vec<wgpu::Buffer>,
     params: Vec<f32>,
@@ -575,6 +575,20 @@ impl Renderer {
         background: bool,
         opaque: bool,
     ) -> Result<(), String> {
+        self.draw_damaged(model, target, viewport, background, opaque, None)
+    }
+
+    /// Render the scene to `target`, optionally restricting rasterization to clamped pixel
+    /// `dirty_rects` (`[x0, y0, x1, y1]`) while preserving prior target pixels (`LoadOp::Load`).
+    pub fn draw_damaged(
+        &mut self,
+        model: &impl RenderScene,
+        target: &wgpu::TextureView,
+        viewport: Viewport,
+        background: bool,
+        opaque: bool,
+        dirty_rects: Option<&[[u32; 4]]>,
+    ) -> Result<(), String> {
         let Viewport {
             width,
             height,
@@ -595,18 +609,39 @@ impl Renderer {
             .geometry
             .as_ref()
             .is_none_or(|cached| !Arc::ptr_eq(cached, &list));
-        // The binner depends on the number of tiles and the scroll offset, not
-        // exact viewport pixels. Sub-tile resize changes only uniforms; scrolling
-        // re-bins the retained geometry without any command/edge upload.
-        let scroll = model.gpu_scroll();
-        let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale, scroll);
-        let tiles_changed = changed || self.tile_key != Some(tile_key);
+        // The binner depends on the tile grid dimensions, root scroll, and dynamic scroll-area
+        // paint offsets. Sub-tile resize changes only uniforms; scrolling re-bins retained geometry
+        // without rebuilding or re-uploading commands/edges.
         model.gpu_paints_into(&mut self.paints);
         let paint_range = changed_paint_range(&self.uploaded_paints, &self.paints);
         let paints_changed = self.buffers.len() < 4 || paint_range.is_some();
+        let area_hash = model.gpu_area_paints_start().map_or(0u64, |start| {
+            let mut h = 0xcbf29ce484222325u64;
+            for &v in self.paints.get(start..).unwrap_or(&[]) {
+                h ^= u64::from(v.to_bits());
+                h = h.wrapping_mul(0x100000001b3);
+            }
+            h
+        });
+        let scroll = model.gpu_scroll();
+        let tile_key = (
+            width.div_ceil(TILE),
+            height.div_ceil(TILE),
+            scale,
+            scroll,
+            area_hash,
+        );
+        let tiles_changed = changed || self.tile_key != Some(tile_key);
         {
             let tiles = if tiles_changed {
-                list.tiles_into(width, height, scale, scroll, &mut self.tile_scratch)
+                list.tiles_with_areas_into(
+                    width,
+                    height,
+                    scale,
+                    scroll,
+                    &self.paints,
+                    &mut self.tile_scratch,
+                )
             } else {
                 &[]
             };
@@ -726,6 +761,23 @@ impl Renderer {
             self.uploaded_bytes += std::mem::size_of_val(self.params.as_slice()) as u64;
             self.uploaded_params.clone_from(&self.params);
         }
+        let load = match dirty_rects {
+            None => wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+            Some(rects) => {
+                let any_non_empty = rects.iter().any(|&[x0, y0, x1, y1]| {
+                    let cx0 = x0.min(width);
+                    let cy0 = y0.min(height);
+                    let cx1 = x1.min(width);
+                    let cy1 = y1.min(height);
+                    cx0 < cx1 && cy0 < cy1
+                });
+                if !any_non_empty {
+                    model.release_cpu_cache();
+                    return Ok(());
+                }
+                wgpu::LoadOp::Load
+            }
+        };
         let mut encoder = self.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -735,7 +787,7 @@ impl Renderer {
                     view: target,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        load,
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -753,7 +805,21 @@ impl Renderer {
             });
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, self.bindings.as_ref().unwrap(), &[]);
-            pass.draw(0..3, 0..1);
+            match dirty_rects {
+                None => pass.draw(0..3, 0..1),
+                Some(rects) => {
+                    for &[x0, y0, x1, y1] in rects {
+                        let cx0 = x0.min(width);
+                        let cy0 = y0.min(height);
+                        let cx1 = x1.min(width);
+                        let cy1 = y1.min(height);
+                        if cx0 < cx1 && cy0 < cy1 {
+                            pass.set_scissor_rect(cx0, cy0, cx1 - cx0, cy1 - cy0);
+                            pass.draw(0..3, 0..1);
+                        }
+                    }
+                }
+            }
         }
         if let Some(timing) = &mut self.timing {
             timing.pending = true;
@@ -763,6 +829,276 @@ impl Renderer {
         model.release_cpu_cache();
         Ok(())
     }
+
+    /// Renders `model` on the GPU into a reusable offscreen target and reads RGBA bytes into `out`.
+    pub fn render_rgba(
+        &mut self,
+        model: &impl RenderScene,
+        target: &mut Option<GpuOffscreenTarget>,
+        out: &mut [u8],
+        opts: OffscreenRender<'_>,
+    ) -> Result<(), String> {
+        let Viewport {
+            width,
+            height,
+            scale,
+        } = opts.viewport;
+        if width == 0
+            || height == 0
+            || width > 8192
+            || height > 8192
+            || !scale.is_finite()
+            || scale <= 0.
+        {
+            return Err("Invalid GPU viewport/DPI".into());
+        }
+        let expected_len = (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|n| n.checked_mul(4))
+            .ok_or_else(|| "RGBA buffer size overflow".to_owned())?;
+        if out.len() != expected_len {
+            return Err("Invalid RGBA buffer size".into());
+        }
+        let swap_rb = match self.format {
+            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba8UnormSrgb => false,
+            wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb => true,
+            other => return Err(format!("Unsupported offscreen readback format {other:?}")),
+        };
+        let mut initialized_fresh = false;
+        let reusable = match target {
+            Some(existing)
+                if existing.width == width
+                    && existing.height == height
+                    && existing.format == self.format =>
+            {
+                existing
+            }
+            slot => {
+                initialized_fresh = true;
+                slot.insert(GpuOffscreenTarget::new(
+                    &self.device,
+                    width,
+                    height,
+                    self.format,
+                ))
+            }
+        };
+        let effective_dirty = if initialized_fresh {
+            None
+        } else {
+            opts.dirty_rects
+        };
+        self.draw_damaged(
+            model,
+            &reusable.view,
+            opts.viewport,
+            opts.background,
+            opts.opaque,
+            effective_dirty,
+        )?;
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Forma offscreen readback"),
+            });
+        encoder.copy_texture_to_buffer(
+            reusable.texture.as_image_copy(),
+            wgpu::TexelCopyBufferInfo {
+                buffer: &reusable.readback,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(reusable.padded_bytes_per_row),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit(Some(encoder.finish()));
+        let (tx, rx) = std::sync::mpsc::channel();
+        reusable
+            .readback
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |res| {
+                let _ = tx.send(res);
+            });
+        self.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|e| e.to_string())?;
+        rx.recv()
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
+        {
+            let mapped = reusable
+                .readback
+                .slice(..)
+                .get_mapped_range()
+                .map_err(|e| e.to_string())?;
+            let row_bytes = width as usize * 4;
+            for (dst_row, src_row) in out
+                .chunks_exact_mut(row_bytes)
+                .zip(mapped.chunks_exact(reusable.padded_bytes_per_row as usize))
+            {
+                dst_row.copy_from_slice(&src_row[..row_bytes]);
+                if swap_rb {
+                    for px in dst_row.chunks_exact_mut(4) {
+                        px.swap(0, 2);
+                    }
+                }
+            }
+        }
+        reusable.readback.unmap();
+        self.check_health()?;
+        Ok(())
+    }
+}
+
+/// Configuration for an offscreen GPU RGBA render + readback pass.
+#[derive(Clone, Copy, Debug)]
+pub struct OffscreenRender<'a> {
+    pub viewport: Viewport,
+    pub background: bool,
+    pub opaque: bool,
+    pub dirty_rects: Option<&'a [[u32; 4]]>,
+}
+
+impl<'a> OffscreenRender<'a> {
+    #[inline]
+    pub const fn new(viewport: Viewport, background: bool, opaque: bool) -> Self {
+        Self {
+            viewport,
+            background,
+            opaque,
+            dirty_rects: None,
+        }
+    }
+
+    #[inline]
+    pub const fn with_dirty_rects(mut self, dirty_rects: &'a [[u32; 4]]) -> Self {
+        self.dirty_rects = Some(dirty_rects);
+        self
+    }
+}
+
+/// Reusable offscreen GPU color target and row-aligned readback buffer.
+pub struct GpuOffscreenTarget {
+    texture: wgpu::Texture,
+    view: wgpu::TextureView,
+    readback: wgpu::Buffer,
+    width: u32,
+    height: u32,
+    padded_bytes_per_row: u32,
+    format: wgpu::TextureFormat,
+}
+
+impl GpuOffscreenTarget {
+    /// Allocates an offscreen GPU target matching `(width, height, format)`.
+    pub fn new(
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Forma offscreen RGBA target"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&Default::default());
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+        let padded_bytes_per_row = (width * 4).div_ceil(align) * align;
+        let readback = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Forma offscreen readback"),
+            size: padded_bytes_per_row as u64 * height as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        Self {
+            texture,
+            view,
+            readback,
+            width,
+            height,
+            padded_bytes_per_row,
+            format,
+        }
+    }
+}
+
+/// Renders RGBA into `out` via `renderer` when healthy, automatically falling back to the
+/// unified CPU `DisplayList` reference rasterizer if `renderer` is unavailable or faulted.
+/// Returns `Ok(true)` when rendered on GPU, or `Ok(false)` when rendered by CPU fallback.
+pub fn render_rgba_with_cpu_fallback(
+    renderer: Option<&mut Renderer>,
+    target: &mut Option<GpuOffscreenTarget>,
+    model: &impl RenderScene,
+    out: &mut [u8],
+    viewport: Viewport,
+    background: bool,
+    opaque: bool,
+) -> Result<bool, String> {
+    let Viewport {
+        width,
+        height,
+        scale,
+    } = viewport;
+    if width == 0
+        || height == 0
+        || width > 8192
+        || height > 8192
+        || !scale.is_finite()
+        || scale <= 0.
+    {
+        return Err("Invalid viewport/DPI".into());
+    }
+    let expected_len = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|n| n.checked_mul(4))
+        .ok_or_else(|| "RGBA buffer size overflow".to_owned())?;
+    if out.len() != expected_len {
+        return Err("Invalid RGBA buffer size".into());
+    }
+    if let Some(gpu) = renderer {
+        if gpu
+            .render_rgba(
+                model,
+                target,
+                out,
+                OffscreenRender::new(viewport, background, opaque),
+            )
+            .is_ok()
+        {
+            return Ok(true);
+        }
+    }
+    let list = model.vector_snapshot(scale, background);
+    let paints = model.gpu_paints();
+    let mut opts = crate::display_list::RasterizeOpts::new(width, height, scale);
+    opts.scroll = model.gpu_scroll();
+    opts.paints = &paints;
+    list.rasterize_rgba(&opts, out).map_err(|e| e.to_owned())?;
+    if opaque {
+        for pixel in out.chunks_exact_mut(4) {
+            if pixel[3] < 255 {
+                let mut bg = [17u8, 19, 25, 255];
+                crate::raster_cache::over(&mut bg, pixel);
+                pixel.copy_from_slice(&bg);
+            }
+        }
+    }
+    Ok(false)
 }
 
 #[cfg(test)]

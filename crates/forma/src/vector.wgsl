@@ -1,7 +1,8 @@
 // Same vector rasterizer in native wgpu and browser WebGPU. No input textures.
-// scroll.x: 0 fixed, 1 content (bounds - params.scroll.xy - scroll.zw, the offset of the
-// scroll areas below the root),
-// 2 vertical thumb (bounds.y + scroll.y * scroll.y factor), 3 horizontal thumb.
+// scroll.x: 0 fixed, 1 content (bounds - params.scroll.xy - scroll.zw),
+// 2 vertical thumb, 3 horizontal thumb,
+// 4 nested scroll area content (paints[u32(scroll.w)].xy is cumulative area offset; scroll.z is root scroll multiplier),
+// 5/6 nested scroll area vertical/horizontal thumb (scroll.z = own slot, scroll.w = parent slot or -1).
 struct Command { info:vec4f, bounds:vec4f, color:vec4f, extra:vec4f, scroll:vec4f }
 struct Params { viewport:vec4f, fill:vec4f, border:vec4f, scroll:vec4f }
 @group(0) @binding(0) var<uniform> params:Params;
@@ -18,6 +19,18 @@ fn scrolled_bounds(c:Command)->vec4f {
     if c.scroll.x==1.{return vec4f(c.bounds.xy-params.scroll.xy-c.scroll.zw,c.bounds.zw);}
     if c.scroll.x==2.{return vec4f(c.bounds.x,c.bounds.y+params.scroll.y*c.scroll.y,c.bounds.zw);}
     if c.scroll.x==3.{return vec4f(c.bounds.x+params.scroll.x*c.scroll.y,c.bounds.yzw);}
+    if c.scroll.x==4.{
+        let area=paints[u32(c.scroll.w)].xy;
+        return vec4f(c.bounds.xy-params.scroll.xy*c.scroll.z-area,c.bounds.zw);
+    }
+    if c.scroll.x==5.||c.scroll.x==6.{
+        let own=paints[u32(c.scroll.z)];
+        var parent=vec2f(0.);
+        if c.scroll.w>=0.{parent=paints[u32(c.scroll.w)].xy;}
+        var xy=c.bounds.xy-params.scroll.xy-parent;
+        if c.scroll.x==5.{xy.y+=own.w*c.scroll.y;}else{xy.x+=own.z*c.scroll.y;}
+        return vec4f(xy,c.bounds.zw);
+    }
     return c.bounds;
 }
 @vertex fn vs(@builtin(vertex_index) index:u32)->@builtin(position) vec4f {
@@ -127,7 +140,9 @@ fn coverage(pixel:vec2f,c:Command,b:vec4f)->vec4f {
         return premul(c.color)*outer;
     }
     // Edges are stored unscrolled; scrolled content shifts them into screen space.
-    let shift=select(vec2f(0.),params.scroll.xy+c.scroll.zw,c.scroll.x==1.);
+    var shift=vec2f(0.);
+    if c.scroll.x==1.{shift=params.scroll.xy+c.scroll.zw;}
+    else if c.scroll.x==4.{shift=params.scroll.xy*c.scroll.z+paints[u32(c.scroll.w)].xy;}
     return premul(c.color)*path_coverage(pixel,c,shift);
 }
 fn linear(c:vec3f)->vec3f {

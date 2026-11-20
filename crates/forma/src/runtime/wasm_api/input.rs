@@ -45,6 +45,9 @@ impl Runtime {
         if old != self.scroll {
             self.revision = self.revision.wrapping_add(1);
             self.layout_revision = self.layout_revision.wrapping_add(1);
+            self.composition_revision = self.composition_revision.wrapping_add(1);
+            self.scene_dirty
+                .insert(super::DirtyFlags::COMPOSITION | super::DirtyFlags::PAINT);
         }
         self.sync_control_scroll();
         if old != self.scroll {

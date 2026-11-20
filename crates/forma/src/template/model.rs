@@ -249,3 +249,42 @@ impl RangeInput {
             .collect()
     }
 }
+
+impl Template {
+    /// Whether layout box dimensions `[x, y, width, height]` and corner radius match.
+    pub(crate) fn same_layout_bounds(&self, other: &Self) -> bool {
+        self.props.x == other.props.x
+            && self.props.y == other.props.y
+            && self.props.width == other.props.width
+            && self.props.height == other.props.height
+            && self.radius == other.radius
+    }
+
+    /// Whether all display-list geometry and static textures match, differing at most in
+    /// dynamic paint-slot colors (`fill`, `border` brush colors, `reveal` paint/falloff, `disabled`).
+    pub(crate) fn same_geometry_except_paint_slots(&self, other: &Self) -> bool {
+        self.same_geometry_except_paint_slots_ext(other, false)
+    }
+
+    pub(crate) fn same_geometry_except_paint_slots_ext(
+        &self,
+        other: &Self,
+        ignore_content: bool,
+    ) -> bool {
+        self.same_layout_bounds(other)
+            && self.border.as_ref().map(|b| b.width) == other.border.as_ref().map(|b| b.width)
+            && match (&self.reveal, &other.reveal) {
+                (Some(a), Some(b)) => a.same_geometry(b),
+                (None, None) => true,
+                _ => false,
+            }
+            && self.text == other.text
+            && (ignore_content || self.content == other.content)
+            && self.clickable == other.clickable
+            && self.live == other.live
+            && self.inputs == other.inputs
+            && self.range == other.range
+            && self.canvas == other.canvas
+            && self.links == other.links
+    }
+}

@@ -115,9 +115,24 @@ fn svg_view_box(root: &BTreeMap<String, String>) -> Vec<f64> {
         .unwrap_or_default()
 }
 
+use crate::resource_cache::{CachedSvgShape, get_or_insert_svg};
+
 pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
+    let cached = get_or_insert_svg(svg, parse_svg_shapes_uncached)?;
+    Ok(Image {
+        width: cached.width,
+        height: cached.height,
+        shapes: cached
+            .shapes
+            .iter()
+            .map(|s| (s.points.clone(), s.color.clone()))
+            .collect(),
+    })
+}
+
+fn parse_svg_shapes_uncached(svg: &str) -> Result<(f64, f64, Vec<CachedSvgShape>), String> {
     let mut root_attrs: Option<BTreeMap<String, String>> = None;
-    let mut shapes: Vec<(Vec<[f64; 2]>, String)> = Vec::new();
+    let mut shapes: Vec<CachedSvgShape> = Vec::new();
     let mut pos = 0;
     while let Some(open) = svg[pos..].find('<') {
         let tag_start = pos + open + 1;
@@ -173,7 +188,10 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
                     return Err("SVG path contours overlap; holes are not supported yet".into());
                 }
                 for sub in subpaths.iter().filter(|sub| sub.points.len() > 2) {
-                    shapes.push((sub.points.clone(), fill.to_string()));
+                    shapes.push(CachedSvgShape {
+                        points: sub.points.clone(),
+                        color: fill.to_string(),
+                    });
                 }
             }
             if stroke != "none" && sw > 0.0 {
@@ -183,7 +201,10 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
                         if let Some(quad) =
                             svg_stroke_segment(sub.points[i], sub.points[(i + 1) % count], sw)
                         {
-                            shapes.push((quad, stroke.to_string()));
+                            shapes.push(CachedSvgShape {
+                                points: quad,
+                                color: stroke.to_string(),
+                            });
                         }
                     }
                 }
@@ -223,7 +244,10 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
             other => return Err(format!("Unsupported SVG element <{other}>")),
         };
         if tag != "line" && tag != "polyline" && fill != "none" {
-            shapes.push((points.clone(), fill.to_string()));
+            shapes.push(CachedSvgShape {
+                points: points.clone(),
+                color: fill.to_string(),
+            });
         }
         if stroke != "none" && sw > 0.0 {
             let limit = if tag == "line" || tag == "polyline" {
@@ -235,7 +259,10 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
                 if let Some(quad) =
                     svg_stroke_segment(points[i], points[(i + 1) % points.len()], sw)
                 {
-                    shapes.push((quad, stroke.to_string()));
+                    shapes.push(CachedSvgShape {
+                        points: quad,
+                        color: stroke.to_string(),
+                    });
                 }
             }
         }
@@ -255,11 +282,7 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
     if width <= 0.0 || height <= 0.0 || shapes.is_empty() {
         return Err("SVG image has no drawable shapes".into());
     }
-    Ok(Image {
-        width,
-        height,
-        shapes,
-    })
+    Ok((width, height, shapes))
 }
 
 #[cfg(test)]

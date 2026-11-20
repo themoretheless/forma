@@ -91,27 +91,18 @@ impl Runtime {
                     return Err(e);
                 }
             };
-            let mut next = match Self::from_scene_ir(&ir) {
-                Ok(rt) => rt,
-                Err(e) => {
-                    self.ui_document = Some(doc);
-                    return Err(e);
-                }
-            };
-            next.preserve_binding_interaction(self);
-            next.keep_area_scroll(self);
-            next.announcement = self.announcement.clone();
-            next.ui_binding_scene = ir.controls;
-            next.ui_binding_states = doc.states.clone();
-            next.ui_document = Some(doc);
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                if let Some(graph) = &mut self.svet_document {
-                    graph.complete();
-                }
-                next.svet_document = self.svet_document.take();
+            if let Err(e) = self.reconcile_scene_ir(&ir) {
+                self.ui_document = Some(doc);
+                return Err(e);
             }
-            *self = next;
+            self.ui_binding_scene = ir.controls;
+            self.ui_binding_states = doc.states.clone();
+            self.ui_document = Some(doc);
+            self.ui_render_pending = false;
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(graph) = &mut self.svet_document {
+                graph.complete();
+            }
             Ok(true)
         } else {
             self.ui_binding_idle_ready = true;

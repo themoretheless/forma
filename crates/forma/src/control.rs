@@ -20,6 +20,15 @@ mod vector;
 
 pub(crate) use animation::Animation;
 
+/// Classification of how an updated [`template::Template`] affects a control's retained state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TemplateChange {
+    None,
+    PaintSlotsOnly,
+    Visual,
+    Layout,
+}
+
 #[wasm_bindgen]
 pub struct Button {
     pub(crate) scene: markup::Scene,
@@ -86,6 +95,13 @@ impl Button {
         template: std::sync::Arc<template::Template>,
     ) -> Self {
         scene.button = template.props.clone();
+        Self::from_leaf_scene(scene, template)
+    }
+
+    pub(crate) fn from_leaf_scene(
+        mut scene: markup::Scene,
+        template: std::sync::Arc<template::Template>,
+    ) -> Self {
         scene.content_width = (scene.button.x + scene.button.width + scene.padding[1])
             .min(f32::MAX)
             .max(scene.width);
@@ -126,6 +142,123 @@ impl Button {
             raster_builds: std::cell::Cell::new(0),
             raster_paints: std::cell::Cell::new(0),
             display_cache: std::cell::RefCell::new(None),
+        }
+    }
+
+    /// Reconciles this control in place against an updated resolved scene button and template,
+    /// preserving retained display-list and raster coverage caches whenever geometry is unchanged.
+    /// When `preserve_generated_content` is `true` (an editor or slider whose `content` was
+    /// generated at runtime and whose base spec did not change), `template.content` is preserved.
+    pub(crate) fn apply_template_in_place(
+        &mut self,
+        mut next_button: markup::ButtonSpec,
+        next_template: std::sync::Arc<template::Template>,
+        preserve_generated_content: bool,
+    ) -> TemplateChange {
+        next_button.radius = next_template.radius;
+        let same_box = self.scene.button.x == next_button.x
+            && self.scene.button.y == next_button.y
+            && self.scene.button.width == next_button.width
+            && self.scene.button.height == next_button.height
+            && self.scene.button.radius == next_button.radius;
+        let exact_match = if preserve_generated_content {
+            self.scene.button == next_button
+                && self.template.props == next_template.props
+                && self.template.radius == next_template.radius
+                && self.template.fill == next_template.fill
+                && self.template.border == next_template.border
+                && self.template.reveal == next_template.reveal
+                && self.template.text == next_template.text
+                && self.template.clickable == next_template.clickable
+                && self.template.live == next_template.live
+                && self.template.inputs == next_template.inputs
+                && self.template.range == next_template.range
+                && self.template.canvas == next_template.canvas
+                && self.template.links == next_template.links
+        } else {
+            (std::sync::Arc::ptr_eq(&self.template, &next_template)
+                || *self.template == *next_template)
+                && self.scene.button == next_button
+        };
+        if exact_match {
+            return TemplateChange::None;
+        }
+        let paint_slots_only = same_box
+            && self
+                .template
+                .same_geometry_except_paint_slots_ext(&next_template, preserve_generated_content);
+        let layout_unchanged = same_box && self.template.same_layout_bounds(&next_template);
+
+        self.scene.button = next_button;
+        if preserve_generated_content {
+            let generated =
+                std::mem::take(&mut std::sync::Arc::make_mut(&mut self.template).content);
+            self.template = next_template;
+            std::sync::Arc::make_mut(&mut self.template).content = generated;
+        } else {
+            self.template = next_template;
+        }
+        self.scene.content_width =
+            (self.scene.button.x + self.scene.button.width + self.scene.padding[1])
+                .min(f32::MAX)
+                .max(self.scene.width);
+        self.scene.content_height =
+            (self.scene.button.y + self.scene.button.height + self.scene.padding[2])
+                .min(f32::MAX)
+                .max(self.scene.height);
+        if self.disabled() || !self.template.clickable {
+            self.down = false;
+            self.keyboard = None;
+            if self.disabled() {
+                self.focused = false;
+            }
+        }
+
+        if paint_slots_only {
+            let before = (self.fill.color(), self.border.color(), self.reveal_paint());
+            self.update_colors();
+            if self.template.fill.is_none() {
+                self.fill.target([0; 4], 0.);
+            }
+            if self.template.border.is_none() {
+                self.border.target([0; 4], 0.);
+            }
+            if let Some(spec) = &self.template.reveal {
+                if self.disabled() {
+                    self.reveal.pointer(None, self.reveal_bounds(), spec);
+                } else {
+                    self.reveal.rebase(self.reveal_bounds(), spec);
+                }
+            }
+            let after = (self.fill.color(), self.border.color(), self.reveal_paint());
+            if before != after {
+                if let Some(cache) = self.raster_cache.borrow_mut().as_mut() {
+                    cache.paint = None;
+                }
+                self.visual_revision = self.visual_revision.wrapping_add(1);
+                return TemplateChange::PaintSlotsOnly;
+            }
+            return if self.fill.active() || self.border.active() || self.reveal.active() {
+                TemplateChange::PaintSlotsOnly
+            } else {
+                TemplateChange::None
+            };
+        }
+
+        self.raster_cache.borrow_mut().take();
+        self.display_cache.borrow_mut().take();
+        self.update_colors();
+        if self.template.fill.is_none() {
+            self.fill.target([0; 4], 0.);
+        }
+        if self.template.border.is_none() {
+            self.border.target([0; 4], 0.);
+        }
+        self.visual_revision = self.visual_revision.wrapping_add(1);
+        if layout_unchanged {
+            TemplateChange::Visual
+        } else {
+            TemplateChange::Layout
         }
     }
     pub fn load_source(&mut self, source: &str) -> Result<(), String> {

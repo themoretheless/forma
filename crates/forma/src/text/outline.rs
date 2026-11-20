@@ -200,30 +200,6 @@ struct GlyphItem {
     emoji: Option<(bool, Option<char>)>,
 }
 
-struct SubpathCollector<'a> {
-    inner: &'a mut Contours,
-    breaks: Vec<usize>,
-}
-
-impl OutlineBuilder for SubpathCollector<'_> {
-    fn move_to(&mut self, x: f32, y: f32) {
-        self.breaks.push(self.inner.edges.len());
-        self.inner.move_to(x, y);
-    }
-    fn line_to(&mut self, x: f32, y: f32) {
-        self.inner.line_to(x, y);
-    }
-    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.inner.quad_to(x1, y1, x, y);
-    }
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.inner.curve_to(x1, y1, x2, y2, x, y);
-    }
-    fn close(&mut self) {
-        self.inner.close();
-    }
-}
-
 pub(super) fn origin_x_for(
     rect: [f32; 4],
     width: f32,
@@ -358,6 +334,158 @@ pub struct TextDraw<'a> {
     pub color: [u8; 4],
 }
 
+struct UnitContours {
+    tol_sq: f32,
+    edges: Vec<[f32; 4]>,
+    breaks: Vec<u32>,
+    current: [f32; 2],
+    start: [f32; 2],
+}
+
+impl UnitContours {
+    fn new(tol_units: f32) -> Self {
+        Self {
+            tol_sq: tol_units * tol_units,
+            edges: Vec::with_capacity(24),
+            breaks: Vec::with_capacity(4),
+            current: [0., 0.],
+            start: [0., 0.],
+        }
+    }
+
+    #[inline]
+    fn edge(&mut self, a: [f32; 2], b: [f32; 2]) {
+        if a[1] != b[1] {
+            self.edges.push([a[0], a[1], b[0], b[1]]);
+        }
+    }
+
+    #[inline]
+    fn mid(a: [f32; 2], b: [f32; 2]) -> [f32; 2] {
+        [(a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5]
+    }
+
+    #[inline]
+    fn dist_sq(p: [f32; 2], a: [f32; 2], b: [f32; 2]) -> f32 {
+        Point { x: p[0], y: p[1] }
+            .distance_sq_to_segment(Point { x: a[0], y: a[1] }, Point { x: b[0], y: b[1] })
+    }
+
+    fn quadratic(&mut self, a: [f32; 2], b: [f32; 2], c: [f32; 2], depth: u8) {
+        if depth >= 12 || Self::dist_sq(b, a, c) <= self.tol_sq {
+            self.edge(a, c);
+            return;
+        }
+        let ab = Self::mid(a, b);
+        let bc = Self::mid(b, c);
+        let middle = Self::mid(ab, bc);
+        self.quadratic(a, ab, middle, depth + 1);
+        self.quadratic(middle, bc, c, depth + 1);
+    }
+
+    fn cubic(&mut self, a: [f32; 2], b: [f32; 2], c: [f32; 2], d: [f32; 2], depth: u8) {
+        if depth >= 12 || Self::dist_sq(b, a, d).max(Self::dist_sq(c, a, d)) <= self.tol_sq {
+            self.edge(a, d);
+            return;
+        }
+        let ab = Self::mid(a, b);
+        let bc = Self::mid(b, c);
+        let cd = Self::mid(c, d);
+        let abc = Self::mid(ab, bc);
+        let bcd = Self::mid(bc, cd);
+        let middle = Self::mid(abc, bcd);
+        self.cubic(a, ab, abc, middle, depth + 1);
+        self.cubic(middle, bcd, cd, d, depth + 1);
+    }
+}
+
+impl OutlineBuilder for UnitContours {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.breaks.push(self.edges.len() as u32);
+        self.current = [x, -y];
+        self.start = self.current;
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        let next = [x, -y];
+        self.edge(self.current, next);
+        self.current = next;
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        let next = [x, -y];
+        self.quadratic(self.current, [x1, -y1], next, 0);
+        self.current = next;
+    }
+
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        let next = [x, -y];
+        self.cubic(self.current, [x1, -y1], [x2, -y2], next, 0);
+        self.current = next;
+    }
+
+    fn close(&mut self) {
+        self.edge(self.current, self.start);
+        self.current = self.start;
+    }
+}
+
+#[derive(Clone, Copy)]
+struct CachedGlyphPlacement {
+    scale_px_q64: u32,
+    origin: Point,
+    units_to_pixels: f32,
+}
+
+fn append_cached_glyph(
+    face_id: u8,
+    glyph_id: u16,
+    resolved_face: &Face<'_>,
+    placement: CachedGlyphPlacement,
+    out_edges: &mut Vec<(Point, Point)>,
+    out_breaks: Option<&mut Vec<usize>>,
+) {
+    let key = crate::resource_cache::GlyphAtlasKey {
+        face: face_id,
+        glyph_id,
+        scale_px_q64: placement.scale_px_q64,
+    };
+    crate::resource_cache::with_cached_glyph(
+        key,
+        || {
+            let eff_units =
+                (placement.scale_px_q64 as f32 / 64.0) / resolved_face.units_per_em() as f32;
+            let tol_units = (CURVE_TOLERANCE / eff_units.max(1e-6)).max(1e-4);
+            let mut unit = UnitContours::new(tol_units);
+            resolved_face.outline_glyph(GlyphId(glyph_id), &mut unit);
+            crate::resource_cache::CachedGlyphOutline {
+                unit_edges: unit.edges.into_boxed_slice(),
+                breaks: unit.breaks.into_boxed_slice(),
+            }
+        },
+        |cached| {
+            let base = out_edges.len();
+            out_edges.reserve(cached.unit_edges.len());
+            for &[ax, ay, bx, by] in &cached.unit_edges {
+                out_edges.push((
+                    Point {
+                        x: placement.origin.x + ax * placement.units_to_pixels,
+                        y: placement.origin.y + ay * placement.units_to_pixels,
+                    },
+                    Point {
+                        x: placement.origin.x + bx * placement.units_to_pixels,
+                        y: placement.origin.y + by * placement.units_to_pixels,
+                    },
+                ));
+            }
+            if let Some(breaks) = out_breaks {
+                breaks.clear();
+                breaks.extend(cached.breaks.iter().map(|&b| base + b as usize));
+            }
+        },
+    );
+}
+
 pub(super) fn emit_colored_glyph_outlines(
     draw: &TextDraw<'_>,
     edges: &mut Vec<(Point, Point)>,
@@ -376,6 +504,8 @@ pub(super) fn emit_colored_glyph_outlines(
         || rect[3] <= 0.
         || !font_size.is_finite()
         || font_size <= 0.
+        || !scale.is_finite()
+        || scale <= 0.
         || fg_color[3] == 0
     {
         return;
@@ -385,50 +515,50 @@ pub(super) fn emit_colored_glyph_outlines(
     let mut items = Vec::with_capacity(text.chars().count());
     let units = glyph_items_with_dir(family, text, dir, &mut items);
     let width = pixels_from_units(units, font_size, face.units_per_em());
-    let origin = Point {
+    let mut glyph_origin = Point {
         x: origin_x_for(rect, width, scale, text, dir),
         y: (rect[1] + rect[3] * 0.5) * scale
             + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
     };
-    if !units_to_pixels.is_finite() || !origin.x.is_finite() || !origin.y.is_finite() {
+    if !units_to_pixels.is_finite() || !glyph_origin.x.is_finite() || !glyph_origin.y.is_finite() {
         return;
     }
+    let scale_px_q64 = (font_size * scale * 64.0)
+        .round()
+        .clamp(1.0, u32::MAX as f32) as u32;
     edges.clear();
-    let mut contours = Contours {
-        #[cfg(test)]
-        tolerance: CURVE_TOLERANCE,
-        edges: std::mem::take(edges),
-        current: origin,
-        start: origin,
-        origin,
-        units_to_pixels,
-    };
+    let mut breaks_buf = Vec::with_capacity(8);
     let mut skip_prev_emoji_mod = false;
     for &(item, adv) in &items {
         let id = item.glyph;
         let is_skin_mod = super::color_emoji::skin_tone_fill(item.ch).is_some()
             || matches!(item.ch, '\u{FE0E}' | '\u{FE0F}');
         if skip_prev_emoji_mod && is_skin_mod {
-            contours.origin.x += adv * units_to_pixels;
+            glyph_origin.x += adv * units_to_pixels;
             continue;
         }
         skip_prev_emoji_mod = super::color_emoji::is_color_emoji_scalar(item.ch);
 
         let resolved_face = glyph_face(id.face);
-        contours.units_to_pixels = font_size * scale / resolved_face.units_per_em() as f32;
+        let glyph_scale = font_size * scale / resolved_face.units_per_em() as f32;
+        let placement = CachedGlyphPlacement {
+            scale_px_q64,
+            origin: glyph_origin,
+            units_to_pixels: glyph_scale,
+        };
 
         if let Some(layers) = super::fonts::font_bytes(id.face)
             .and_then(|bytes| super::color_emoji::colr_cpal_layers(bytes, id.id.0, 0, fg_color))
         {
-            if !contours.edges.is_empty() {
-                emit(&contours.edges, fg_color);
-                contours.edges.clear();
+            if !edges.is_empty() {
+                emit(edges, fg_color);
+                edges.clear();
             }
             for (layer_gid, rgba) in layers {
-                resolved_face.outline_glyph(GlyphId(layer_gid), &mut contours);
-                if !contours.edges.is_empty() {
-                    emit(&contours.edges, rgba);
-                    contours.edges.clear();
+                append_cached_glyph(id.face, layer_gid, resolved_face, placement, edges, None);
+                if !edges.is_empty() {
+                    emit(edges, rgba);
+                    edges.clear();
                 }
             }
         } else if id.face == 2 {
@@ -436,38 +566,39 @@ pub(super) fn emit_colored_glyph_outlines(
                 super::color_emoji::emoji_palette_for_cluster(item.ch, vs15, tone, fg_color[3])
             });
             if let Some((fill_rgba, detail_rgba)) = palette {
-                if !contours.edges.is_empty() {
-                    emit(&contours.edges, fg_color);
-                    contours.edges.clear();
+                if !edges.is_empty() {
+                    emit(edges, fg_color);
+                    edges.clear();
                 }
-                let mut collector = SubpathCollector {
-                    inner: &mut contours,
-                    breaks: Vec::with_capacity(8),
-                };
-                resolved_face.outline_glyph(id.id, &mut collector);
-                let breaks = collector.breaks;
+                append_cached_glyph(
+                    id.face,
+                    id.id.0,
+                    resolved_face,
+                    placement,
+                    edges,
+                    Some(&mut breaks_buf),
+                );
                 if let Some((start, end)) =
-                    super::color_emoji::largest_contour_range(&contours.edges, &breaks)
+                    super::color_emoji::largest_contour_range(edges, &breaks_buf)
                 {
-                    emit(&contours.edges[start..end], fill_rgba);
-                    emit(&contours.edges, detail_rgba);
-                } else if !contours.edges.is_empty() {
-                    emit(&contours.edges, fill_rgba);
+                    emit(&edges[start..end], fill_rgba);
+                    emit(edges, detail_rgba);
+                } else if !edges.is_empty() {
+                    emit(edges, fill_rgba);
                 }
-                contours.edges.clear();
+                edges.clear();
             } else {
-                resolved_face.outline_glyph(id.id, &mut contours);
+                append_cached_glyph(id.face, id.id.0, resolved_face, placement, edges, None);
             }
         } else {
-            resolved_face.outline_glyph(id.id, &mut contours);
+            append_cached_glyph(id.face, id.id.0, resolved_face, placement, edges, None);
         }
-        contours.origin.x += adv * units_to_pixels;
+        glyph_origin.x += adv * units_to_pixels;
     }
-    if !contours.edges.is_empty() {
-        emit(&contours.edges, fg_color);
-        contours.edges.clear();
+    if !edges.is_empty() {
+        emit(edges, fg_color);
+        edges.clear();
     }
-    *edges = contours.edges;
 }
 
 /// Color-aware vector contours (`COLR`/`CPAL` v0 and `FormaEmoji` multi-tone layers) for GPU

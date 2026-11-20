@@ -16,6 +16,7 @@ const LAYERS: &[(&str, u8)] = &[
     ("control_state", 0),
     ("reveal", 0),
     ("geometry", 1),
+    ("resource_cache", 1),
     ("text", 2),
     ("shape", 3),
     ("template", 3),

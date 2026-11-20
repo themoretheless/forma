@@ -3,7 +3,7 @@
 //! Inputs come from `node scripts/transport-fixture.mjs`; one JSON object per case.
 mod bench_support;
 use bench_support::CountingAllocator;
-use forma::{Runtime, markup, template};
+use forma::{DirtyFlags, Runtime, form_document::Document, markup, template};
 use std::{
     hint::black_box,
     time::{Duration, Instant},
@@ -54,6 +54,68 @@ fn framed(component: &str) -> Vec<&str> {
         rest = &body[length..];
     }
     out
+}
+
+fn reframe_first_template(component: &str, edited_first: &str) -> String {
+    let rest = component.strip_prefix("FORMA-TEMPLATES-1\n").unwrap();
+    let (length, body) = rest.split_once('\n').unwrap();
+    let length: usize = length.parse().unwrap();
+    let tail = &body[length..];
+    format!(
+        "FORMA-TEMPLATES-1\n{}\n{}{}",
+        edited_first.len(),
+        edited_first,
+        tail
+    )
+}
+
+fn build_edited_ir_pair(
+    count: usize,
+) -> (
+    forma::form_document::SceneIr,
+    forma::form_document::SceneIr,
+    forma::form_document::SceneIr,
+) {
+    use std::collections::BTreeMap;
+    let controls = (0..count)
+        .map(|i| {
+            format!(
+                "Button {{ key: 'b{i}'; width: 180; height: 50; text: {}; background: {}; }}",
+                if i == 0 { "state.firstLabel" } else { "'Item'" },
+                if i == 0 { "state.firstBg" } else { "#8ca5ff" }
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    let app_ui = format!(
+        "component App {{ state firstLabel: String = 'Item 0'; state firstBg: String = '#8ca5ff'; Frame {{ width: 900; height: 600; {controls} }} }}"
+    );
+    let files = BTreeMap::from([
+        (
+            "components/Button.ui".to_owned(),
+            forma::BUTTON_COMPONENT.to_owned(),
+        ),
+        ("App.ui".to_owned(), app_ui),
+    ]);
+    let mut doc = Document::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+    let base_ir = doc.render_scene_ir().unwrap();
+
+    doc.states[0].insert(
+        "firstBg".into(),
+        forma::form_document::Value::Text("#ff6688".into()),
+    );
+    let paint_ir = doc.render_scene_ir().unwrap();
+
+    doc.states[0].insert(
+        "firstLabel".into(),
+        forma::form_document::Value::Text("Edited 0".into()),
+    );
+    doc.states[0].insert(
+        "firstBg".into(),
+        forma::form_document::Value::Text("#8ca5ff".into()),
+    );
+    let text_ir = doc.render_scene_ir().unwrap();
+    (base_ir, paint_ir, text_ir)
 }
 
 fn main() {
@@ -165,6 +227,59 @@ fn main() {
             black_box(model.gpu_commands(1., false).len());
             black_box(model.gpu_edges(1., false).len());
             black_box(model.gpu_tiles(900, 600, 1., false).len());
+        });
+
+        // Retained Stage 1 incremental edit vs cold Runtime replacement:
+        let edited_first_tmpl = templates[0].replacen("Item 0", "Edited 0", 1);
+        let edited_source = source.replacen("Item 0", "Edited 0", 1);
+        let edited_component = reframe_first_template(component, &edited_first_tmpl);
+        let mut src_rt = Runtime::from_sources(source, component).unwrap();
+        let mut src_toggle = false;
+        measure("reconcile_sources_1_edit", count, 6, || {
+            src_toggle = !src_toggle;
+            let (s, c) = if src_toggle {
+                (edited_source.as_str(), edited_component.as_str())
+            } else {
+                (source, component)
+            };
+            let flags = src_rt
+                .reconcile_sources(black_box(s), black_box(c))
+                .unwrap();
+            debug_assert!(!flags.is_empty());
+        });
+
+        let (ir_base, ir_paint, ir_text) = build_edited_ir_pair(count);
+        measure("cold_from_scene_ir", count, 6, || {
+            drop(Runtime::from_scene_ir(black_box(&ir_base)).unwrap());
+        });
+        let mut ir_rt = Runtime::from_scene_ir(&ir_base).unwrap();
+        ir_rt.set_reduced_motion(true);
+        let mut paint_toggle = false;
+        measure("reconcile_scene_ir_paint_only", count, 6, || {
+            paint_toggle = !paint_toggle;
+            let target = if paint_toggle { &ir_paint } else { &ir_base };
+            let flags = ir_rt.reconcile_scene_ir(black_box(target)).unwrap();
+            assert_eq!(flags, DirtyFlags::PAINT);
+        });
+        let mut edit_toggle = false;
+        measure("reconcile_scene_ir_1_edit", count, 6, || {
+            edit_toggle = !edit_toggle;
+            let target = if edit_toggle { &ir_text } else { &ir_base };
+            let flags = ir_rt.reconcile_scene_ir(black_box(target)).unwrap();
+            assert!(!flags.is_empty());
+        });
+        let mut gpu_edit_rt = Runtime::from_scene_ir(&ir_base).unwrap();
+        let mut gpu_edit_toggle = false;
+        let mut gpu_paints_buf = Vec::new();
+        measure("gpu_transport_reconciled_1_edit", count, 6, || {
+            use forma::display_list::RenderScene;
+            gpu_edit_toggle = !gpu_edit_toggle;
+            let target = if gpu_edit_toggle { &ir_text } else { &ir_base };
+            gpu_edit_rt.reconcile_scene_ir(black_box(target)).unwrap();
+            black_box(gpu_edit_rt.vector_snapshot(1., false).commands.len());
+            gpu_edit_rt.gpu_paints_into(&mut gpu_paints_buf);
+            black_box(gpu_paints_buf.len());
+            black_box(gpu_edit_rt.gpu_tiles(900, 600, 1., false).len());
         });
         println!(
             "{{\"case\":\"input_sizes\",\"controls\":{count},\"document_bytes\":{},\"transport_bytes\":{}}}",

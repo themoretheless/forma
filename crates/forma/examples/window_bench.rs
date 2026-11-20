@@ -58,6 +58,16 @@ mod native {
     }
 
     #[derive(Clone, Copy, Debug)]
+    struct QuartileSample {
+        elapsed_s: f64,
+        rss_bytes: u64,
+        rust_live_bytes: u64,
+        owned_gpu_buffer_bytes: u64,
+        geometry_uploads: u64,
+        resource_cache_bytes: u64,
+    }
+
+    #[derive(Clone, Copy, Debug)]
     struct WindowState {
         visible: Option<bool>,
         focused: bool,
@@ -70,12 +80,14 @@ mod native {
         duration: Duration,
         initial_process: ProcessSnapshot,
         model: Button,
-        pointer_inside: [f32; 2],
+        pointer_targets: Vec<[f32; 2]>,
         window: Option<Arc<Window>>,
         gpu: Option<WindowGpu>,
         warmup_start: Option<Instant>,
         phase: Option<Phase>,
         finished: Option<Finished>,
+        quartiles: Vec<QuartileSample>,
+        next_quartile: usize,
         last_tick: Option<Instant>,
         last_present: Option<Instant>,
         retry_at: Option<Instant>,
@@ -108,6 +120,23 @@ mod native {
             )
         }
 
+        fn capture_quartile(&mut self, elapsed_s: f64, process: ProcessSnapshot) {
+            let allocations = ALLOCATOR.snapshot();
+            let (gpu_bytes, uploads) = self.gpu.as_ref().map_or((0, 0), |g| {
+                let stats = g.renderer.resource_stats();
+                let base_uploads = self.phase.as_ref().map_or(0, |p| p.uploads);
+                (stats.buffer_bytes, g.renderer.uploads - base_uploads)
+            });
+            self.quartiles.push(QuartileSample {
+                elapsed_s,
+                rss_bytes: process.resident_bytes,
+                rust_live_bytes: allocations.live_bytes,
+                owned_gpu_buffer_bytes: gpu_bytes,
+                geometry_uploads: uploads,
+                resource_cache_bytes: forma::resource_cache_stats().budget_in_use_bytes,
+            });
+        }
+
         fn stop(&mut self, event_loop: &ActiveEventLoop) {
             if self.finished.is_none() {
                 if let Some(phase) = &self.phase {
@@ -115,11 +144,12 @@ mod native {
                     let allocations = ALLOCATOR.snapshot();
                     match ProcessSnapshot::capture() {
                         Ok(process) => {
+                            self.capture_quartile(wall_seconds, process);
                             self.finished = Some(Finished {
                                 wall_seconds,
                                 process,
                                 allocations,
-                            })
+                            });
                         }
                         Err(error) => self.error = Some(error.to_string()),
                     }
@@ -185,12 +215,15 @@ mod native {
             // Reverse the hover target every 80 ms to maintain an active visual
             // workload; tick uses elapsed wall time, not a synthetic fixed delta.
             let begin = Instant::now();
-            let hover = ((now - warmup_start).as_millis() / 80).is_multiple_of(2);
-            self.model.pointer(
-                if hover { self.pointer_inside[0] } else { -1. },
-                self.pointer_inside[1],
-                0,
-            );
+            let cycle = ((now - warmup_start).as_millis() / 80) as usize;
+            let hover = cycle.is_multiple_of(2);
+            let target = self
+                .pointer_targets
+                .get((cycle / 2) % self.pointer_targets.len().max(1))
+                .copied()
+                .unwrap_or([0., 0.]);
+            self.model
+                .pointer(if hover { target[0] } else { -1. }, target[1], 0);
             let dt = self
                 .last_tick
                 .map_or(0., |last| (now - last).as_secs_f32() * 1000.);
@@ -207,7 +240,7 @@ mod native {
                     self.retry_at = None;
                     self.actual = size;
                     self.actual_scale = scale;
-                    if self.phase.is_some() {
+                    if let Some(phase_start) = self.phase.as_ref().map(|p| p.start) {
                         self.frames += 1;
                         self.draw_ms
                             .push((present_end - begin).as_secs_f64() * 1000.);
@@ -216,6 +249,16 @@ mod native {
                                 .push((present_end - last).as_secs_f64() * 1000.);
                         }
                         self.last_present = Some(present_end);
+                        let elapsed = present_end.duration_since(phase_start);
+                        let thresholds = [0.25, 0.50, 0.75];
+                        while self.next_quartile < thresholds.len()
+                            && elapsed >= self.duration.mul_f64(thresholds[self.next_quartile])
+                        {
+                            if let Ok(proc_snap) = ProcessSnapshot::capture() {
+                                self.capture_quartile(elapsed.as_secs_f64(), proc_snap);
+                            }
+                            self.next_quartile += 1;
+                        }
                     }
                 }
                 Ok(None) => {
@@ -476,9 +519,9 @@ mod native {
         if !(100..=8192).contains(&width)
             || !(100..=8192).contains(&height)
             || !seconds.is_finite()
-            || !(0.5..=30.).contains(&seconds)
+            || !(0.5..=120.).contains(&seconds)
         {
-            return Err("Dimensions must be 100..8192; seconds must be 0.5..30".into());
+            return Err("Dimensions must be 100..8192; seconds must be 0.5..120".into());
         }
         let initial_process = ProcessSnapshot::capture()?;
         let model = Button::from_sources(
@@ -486,19 +529,30 @@ mod native {
             &std::fs::read_to_string(&args[2])?,
         )
         .map_err(std::io::Error::other)?;
-        let bounds = model.bounds();
+        let count = model.control_count();
+        let mut pointer_targets = Vec::with_capacity(count.max(1));
+        for i in 0..count {
+            let b = model.control_bounds(i);
+            pointer_targets.push([b[0] + b[2] * 0.5, b[1] + b[3] * 0.5]);
+        }
+        if pointer_targets.is_empty() {
+            let bounds = model.bounds();
+            pointer_targets.push([bounds[0] + bounds[2] * 0.5, bounds[1] + bounds[3] * 0.5]);
+        }
         let capacity = (seconds * 2000.).ceil() as usize;
         let mut app = App {
             requested: PhysicalSize::new(width, height),
             duration: Duration::from_secs_f64(seconds),
             initial_process,
-            pointer_inside: [bounds[0] + bounds[2] * 0.5, bounds[1] + bounds[3] * 0.5],
+            pointer_targets,
             model,
             window: None,
             gpu: None,
             warmup_start: None,
             phase: None,
             finished: None,
+            quartiles: Vec::with_capacity(4),
+            next_quartile: 0,
             last_tick: None,
             last_present: None,
             retry_at: None,
@@ -589,18 +643,35 @@ mod native {
             Some(false) => "false",
             None => "null",
         };
+        let res_cache = forma::resource_cache_stats();
+        let quartiles_json = app
+            .quartiles
+            .iter()
+            .map(|q| {
+                format!(
+                    "{{\"elapsed_s\":{:.3},\"rss_bytes\":{},\"rust_live_bytes\":{},\"owned_gpu_buffer_bytes\":{},\"geometry_uploads\":{},\"resource_cache_bytes\":{}}}",
+                    q.elapsed_s,
+                    q.rss_bytes,
+                    q.rust_live_bytes,
+                    q.owned_gpu_buffer_bytes,
+                    q.geometry_uploads,
+                    q.resource_cache_bytes
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
         println!(
             concat!(
                 "{{\"benchmark\":\"native-window\",\"fps_metric\":\"successful present calls, not confirmed scanouts\",",
                 "\"adapter\":{:?},\"backend\":{:?},\"memory_architecture\":{:?},\"present_mode\":\"Fifo\",\"requested_width\":{},\"requested_height\":{},\"actual_width\":{},\"actual_height\":{},\"scale\":{},",
-                "\"warmup_seconds\":1,\"requested_seconds\":{},\"wall_seconds\":{},\"frames\":{},\"present_calls_per_second\":{},\"interval_samples\":{},",
-                "\"present_interval_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},\"acquire_draw_present_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},",
+                "\"controls\":{},\"warmup_seconds\":1,\"requested_seconds\":{},\"wall_seconds\":{},\"frames\":{},\"present_calls_per_second\":{},\"interval_samples\":{},",
+                "\"present_interval_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},\"acquire_draw_present_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},\"input_to_present_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},",
                 "\"nonpresent_attempts\":{},\"measured_resizes\":{},\"occlusion_event_observed\":{},\"cpu_seconds\":{},\"cpu_percent_one_core\":{},",
                 "\"surface_acquisition_totals_including_warmup\":{{\"success\":{},\"suboptimal\":{},\"occluded\":{},\"timeout\":{},\"outdated\":{},\"zero_size\":{}}},",
                 "\"window_visible_before_exit\":{},\"window_focused_before_exit\":{},",
                 "\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"process_lifetime_peak_rss_bytes\":{},",
                 "\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_deallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},",
-                "\"owned_gpu_buffer_bytes\":{},\"owned_gpu_buffer_count\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{},\"one_surface_target_payload_bytes_estimate\":{},\"unknown_swapchain_and_driver_bytes\":null,\"geometry_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{}}}"
+                "\"owned_gpu_buffer_bytes\":{},\"owned_gpu_buffer_count\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{},\"one_surface_target_payload_bytes_estimate\":{},\"unknown_swapchain_and_driver_bytes\":null,\"geometry_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"resource_cache_in_use_bytes\":{},\"resource_cache_peak_bytes\":{},\"quartile_samples\":[{}]}}"
             ),
             gpu.adapter_name,
             gpu.backend,
@@ -610,6 +681,7 @@ mod native {
             app.actual.width,
             app.actual.height,
             app.actual_scale,
+            app.model.control_count(),
             seconds,
             finish.wall_seconds,
             app.frames,
@@ -618,6 +690,9 @@ mod native {
             p50,
             p95,
             p99,
+            draw_p50,
+            draw_p95,
+            draw_p99,
             draw_p50,
             draw_p95,
             draw_p99,
@@ -655,7 +730,10 @@ mod native {
             target_bytes,
             gpu.renderer.uploads - phase.uploads,
             resources.cpu_geometry_cache_bytes,
-            resources.cpu_shared_geometry_bytes
+            resources.cpu_shared_geometry_bytes,
+            res_cache.budget_in_use_bytes,
+            res_cache.budget_peak_bytes,
+            quartiles_json
         );
         Ok(())
     }

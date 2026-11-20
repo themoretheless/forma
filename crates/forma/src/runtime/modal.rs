@@ -40,7 +40,10 @@ impl Runtime {
         *self.geometry.borrow_mut() = None;
         self.geometry_revision = self.geometry_revision.wrapping_add(1);
         self.layout_revision = self.layout_revision.wrapping_add(1);
+        self.composition_revision = self.composition_revision.wrapping_add(1);
         self.revision = self.revision.wrapping_add(1);
+        self.scene_dirty
+            .insert(super::DirtyFlags::COMPOSITION | super::DirtyFlags::PAINT);
     }
 
     pub(super) fn cancel_gestures(&mut self) {

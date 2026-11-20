@@ -84,7 +84,32 @@ impl Runtime {
         entry.placements.set(entry.placements.get().wrapping_add(1));
         Some(list)
     }
+    pub(super) fn canvas_stamp(&self, index: usize) -> (u32, u32) {
+        self.canvas_entry(index)
+            .map_or((0, 0), |entry| (entry.content_sets, entry.view_sets))
+    }
+
+    pub(super) fn canvas_screen_rect(&self, index: usize) -> Option<[f32; 4]> {
+        let entry = self.canvas_entry(index)?;
+        if entry.content.is_empty() {
+            return None;
+        }
+        Some(self.canvas_slot_rect(index)?.0)
+    }
+
     pub(super) fn raster_canvas(&self, index: usize, pixels: &mut [u8], w: u32, h: u32, s: f32) {
+        self.raster_canvas_window(index, pixels, w, h, s, None);
+    }
+
+    pub(super) fn raster_canvas_window(
+        &self,
+        index: usize,
+        pixels: &mut [u8],
+        w: u32,
+        h: u32,
+        s: f32,
+        window_px: Option<[u32; 4]>,
+    ) {
         let Some(list) = self.canvas_placed(index) else {
             return;
         };
@@ -96,12 +121,13 @@ impl Runtime {
             Some(clip) => crate::geometry::intersect_rect(screen, clip),
             None => screen,
         };
-        canvas::rasterize(&list, pixels, w, h, s, offset, screen);
+        canvas::rasterize_in_window(&list, pixels, [w, h], s, offset, screen, window_px);
     }
     fn canvas_changed(&mut self) {
         *self.geometry.borrow_mut() = None;
         self.geometry_revision = self.geometry_revision.wrapping_add(1);
         self.revision = self.revision.wrapping_add(1);
+        self.scene_dirty.insert(super::DirtyFlags::PAINT);
     }
     fn canvas_index(&self, key: &str) -> Option<usize> {
         if key.is_empty() {

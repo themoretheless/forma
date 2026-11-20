@@ -177,9 +177,11 @@ impl Runtime {
         *control.raster_cache.borrow_mut() = None;
         *control.display_cache.borrow_mut() = None;
         control.visual_revision = control.visual_revision.wrapping_add(1);
+        self.control_visual_revisions[index] = control.visual_revision;
         *self.geometry.borrow_mut() = None;
         self.geometry_revision = self.geometry_revision.wrapping_add(1);
         self.revision = self.revision.wrapping_add(1);
+        self.mark_control_dirty(index, DirtyFlags::PAINT);
         Ok(())
     }
 
@@ -198,6 +200,7 @@ impl Runtime {
             control.keyboard = None;
         }
         control.update_colors();
+        self.control_visual_revisions[index] = control.visual_revision;
         if disabled && self.captured == Some(index) {
             self.captured = None;
         }
@@ -205,6 +208,7 @@ impl Runtime {
             self.set_focus(None);
         }
         self.revision = self.revision.wrapping_add(1);
+        self.mark_control_dirty(index, DirtyFlags::PAINT);
         Ok(())
     }
 

@@ -76,7 +76,7 @@ struct Params {
     float4 scroll;
 };
 
-float4 scrolled_bounds(Command c, constant Params& params);
+float4 scrolled_bounds(Command c, constant Params& params, const device float4* paints);
 float4 over(float4 fg, float4 bg);
 float4 premul(float4 c);
 float _wgpu_ident_distance(float2 p, float4 b, float radius);
@@ -88,11 +88,23 @@ float path_coverage(float2 pixel, Command c, float2 shift, constant Params& para
 float4 coverage(float2 pixel, Command c, float4 b, constant Params& params, const device float4* edges, const device float4* paints);
 float3 linear(float3 c);
 
-float4 scrolled_bounds(Command c, constant Params& params) {
+float4 scrolled_bounds(Command c, constant Params& params, const device float4* paints) {
 
     if (c.scroll.x==1.) {return float4(c.bounds.xy-params.scroll.xy-c.scroll.zw, c.bounds.zw);}
     if (c.scroll.x==2.) {return float4(c.bounds.x, c.bounds.y+params.scroll.y*c.scroll.y, c.bounds.zw);}
     if (c.scroll.x==3.) {return float4(c.bounds.x+params.scroll.x*c.scroll.y, c.bounds.yzw);}
+    if (c.scroll.x==4.) {
+        const auto area = paints[uint(c.scroll.w)].xy;
+        return float4(c.bounds.xy-params.scroll.xy*c.scroll.z-area, c.bounds.zw);
+    }
+    if (c.scroll.x==5.||c.scroll.x==6.) {
+        const auto own = paints[uint(c.scroll.z)];
+        auto parent = float2(0.);
+        if (c.scroll.w>=0.) {parent=paints[uint(c.scroll.w)].xy;}
+        auto xy = c.bounds.xy-params.scroll.xy-parent;
+        if (c.scroll.x==5.) {xy.y+=own.w*c.scroll.y;}else {xy.x+=own.z*c.scroll.y;}
+        return float4(xy, c.bounds.zw);
+    }
     return c.bounds;
 }
 
@@ -209,7 +221,9 @@ float4 coverage(float2 pixel, Command c, float4 b, constant Params& params, cons
         return premul(c.color)*outer;
     }
                                                                                    
-    const auto shift = select(float2(0.), params.scroll.xy+c.scroll.zw, c.scroll.x==1.);
+    auto shift = float2(0.);
+    if (c.scroll.x==1.) {shift=params.scroll.xy+c.scroll.zw;}
+    else if (c.scroll.x==4.) {shift=params.scroll.xy*c.scroll.z+paints[uint(c.scroll.w)].xy;}
     return premul(c.color)*path_coverage(pixel, c, shift, params, edges);
 }
 
@@ -246,13 +260,13 @@ fragment _wgpu_fs_StageOut fs(float4 position [[position]], constant Params& par
     for (auto i = 0u; i<count; i++){
         const auto c = commands[tiles[start+i]];
         if (c.info.x==2.) {
-            parents[depth]=result;masks[depth]=clip_coverage(pixel, c, scrolled_bounds(c, params), params);depth+=1u;
+            parents[depth]=result;masks[depth]=clip_coverage(pixel, c, scrolled_bounds(c, params, paints), params);depth+=1u;
             result=float4(0.);visible*=masks[depth-1u];
         }else if (c.info.x==3.) {
             depth-=1u;result=over(result*masks[depth], parents[depth]);
             visible=1.;for (auto j = 0u; j<depth; j++){visible*=masks[j];}
         }else if (visible>0.) {
-            const auto b = scrolled_bounds(c, params);
+            const auto b = scrolled_bounds(c, params, paints);
             if (all(p_logical>=b.xy-aa)&&all(p_logical<=b.xy+b.zw+aa)) {
                 result=over(coverage(pixel, c, b, params, edges, paints), result);
             }

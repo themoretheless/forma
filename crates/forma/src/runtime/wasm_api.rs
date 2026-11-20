@@ -29,6 +29,23 @@ impl Runtime {
         self.layout_revision
     }
 
+    /// Structural tree topology, clip regions, modals, or scroll offsets changed.
+    pub fn composition_revision(&self) -> u32 {
+        self.composition_revision
+    }
+
+    pub fn dirty_flags_bits(&self) -> u8 {
+        self.scene_dirty.bits()
+    }
+
+    pub fn node_dirty_flags(&self, node_id: usize) -> u8 {
+        self.nodes.get(node_id).map_or(0, |node| node.dirty.bits())
+    }
+
+    pub fn acknowledge_dirty_flags(&mut self) {
+        self.clear_dirty_flags();
+    }
+
     pub fn width(&self) -> f32 {
         self.scene.width
     }
@@ -361,7 +378,16 @@ impl Runtime {
         if w == 0 || h == 0 || w > 8192 || h > 8192 || !s.is_finite() || s <= 0. {
             return vec![];
         }
-        self.vector_snapshot(s, b).tiles(w, h, s, self.scroll)
+        let list = self.vector_snapshot(s, b);
+        if self.scroll_areas.is_empty() {
+            list.tiles(w, h, s, self.scroll)
+        } else {
+            let mut paints = Vec::new();
+            self.gpu_paints_into(&mut paints);
+            let mut scratch = crate::display_list::TileScratch::default();
+            list.tiles_with_areas_into(w, h, s, self.scroll, &paints, &mut scratch)
+                .to_vec()
+        }
     }
 
     pub fn gpu_paints(&self) -> Vec<f32> {
@@ -374,5 +400,26 @@ impl Runtime {
         let mut params = Vec::new();
         self.gpu_params_into(w, h, s, o, &mut params);
         params
+    }
+
+    pub fn display_list_diagnostics_json(&self, s: f32, b: bool) -> String {
+        if !s.is_finite() || s <= 0. {
+            return "{}".into();
+        }
+        self.vector_snapshot(s, b).diagnostics_json()
+    }
+
+    pub fn resource_cache_stats_json(&self) -> String {
+        serde_json::to_string(&crate::resource_cache::resource_cache_stats())
+            .unwrap_or_else(|_| "{}".into())
+    }
+
+    pub fn last_dirty_rects_flat(&self) -> Vec<u32> {
+        let rects = self.last_dirty_rects();
+        let mut out = Vec::with_capacity(rects.len() * 4);
+        for [x0, y0, x1, y1] in rects {
+            out.extend([x0, y0, x1, y1]);
+        }
+        out
     }
 }

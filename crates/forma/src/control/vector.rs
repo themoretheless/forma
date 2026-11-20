@@ -103,7 +103,13 @@ impl Button {
             background,
         };
         let mut stored = self.raster_cache.borrow_mut();
-        if stored.as_ref().is_none_or(|cache| cache.key != geometry) {
+        let needs_rebuild = match stored.as_mut() {
+            Some(cache) => {
+                cache.key != geometry && !cache.try_translate(self.control_view(), geometry)
+            }
+            None => true,
+        };
+        if needs_rebuild {
             *stored = Some(raster_cache::Cache::build(self.control_view(), geometry));
             self.raster_builds
                 .set(self.raster_builds.get().wrapping_add(1));
@@ -170,15 +176,25 @@ impl Button {
         scale: f32,
         clip: Option<[f32; 4]>,
     ) {
-        debug_assert!(!self.scene.clip && !self.scene.scroll);
-        let Some(cache) = self.cached(width, height, scale, false, true) else {
-            return;
-        };
-        // Device pixels whose centres lie inside the clip: [x0, y0, x1, y1), half-open.
         let window = clip.map(|[x, y, w, h]| {
             let edge = |v: f32| (v * scale - 0.5).ceil().max(0.) as usize;
             [edge(x), edge(y), edge(x + w), edge(y + h)]
         });
+        self.composite_content_in_window(dst, width, height, scale, window);
+    }
+
+    pub(crate) fn composite_content_in_window(
+        &self,
+        dst: &mut [u8],
+        width: u32,
+        height: u32,
+        scale: f32,
+        window: Option<[usize; 4]>,
+    ) {
+        debug_assert!(!self.scene.clip && !self.scene.scroll);
+        let Some(cache) = self.cached(width, height, scale, false, true) else {
+            return;
+        };
         let row = width as usize;
         let mut pixels = cache.pixels.as_slice();
         for span in &cache.spans {
