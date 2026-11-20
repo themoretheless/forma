@@ -4,7 +4,7 @@ use super::*;
 
 impl Document {
     pub(in crate::form_document) fn scene_visual(&self, node: &mut Node) -> Result<Node, String> {
-        if is_layout(&node.kind) {
+        if node.kind.is_layout() {
             let visual = Node {
                 kind: node.kind.clone(),
                 props: node.props.clone(),
@@ -46,11 +46,11 @@ impl Document {
                 offset
             }
         };
-        if is_layout(&node.kind) {
+        if node.kind.is_layout() {
             target.logical_end[0] = target.logical_end[0].max(bounds[0] + bounds[2]);
             target.logical_end[1] = target.logical_end[1].max(bounds[1] + bounds[3]);
         }
-        if !is_layout(&node.kind) {
+        if !node.kind.is_layout() {
             let visual = match precomputed_visual {
                 Some(v) => v,
                 None => self.scene_visual(&mut node)?,
@@ -96,7 +96,7 @@ impl Document {
             target.instances.push((node, Some(visual)));
             return Ok(());
         }
-        if !root_legacy && node.kind == "Scroll" {
+        if !root_legacy && node.kind == BuiltinKind::Scroll {
             return self.position_scroll_area(node, bounds, target);
         }
         // A container's `clicked` handler takes clicks on its empty space through an invisible
@@ -147,11 +147,14 @@ impl Document {
             });
         }
         if root_legacy
-            && ["Frame", "Scroll"].contains(&node.kind.as_str())
+            && matches!(
+                node.kind.builtin(),
+                Some(BuiltinKind::Frame | BuiltinKind::Scroll)
+            )
             && !node.props.contains_key("columns")
             && !node.props.contains_key("rows")
         {
-            node.kind = "Column".into();
+            node.kind = BuiltinKind::Column.into();
         }
         let mut node = normalize_layout_owned(node)?;
         let visual = match precomputed_visual {
@@ -187,7 +190,7 @@ impl Document {
             let ch = ri.map_or(height, |i| rows[i]);
             let mut cx = x + ci.map_or(0., |i| col_offsets[i]);
             let mut cy = y + ri.map_or(0., |i| row_offsets[i]);
-            if is_layout(&child.kind) {
+            if child.kind.is_layout() {
                 let w = dimension(&child_visual, 0, cw)?;
                 let h = dimension(&child_visual, 1, ch)?;
                 cx += align(cw, w);
@@ -231,7 +234,7 @@ impl Document {
         target.scroll_content = true;
         *target.logical_end = [bounds[0] + bounds[2], bounds[1] + bounds[3]];
         target.scroll_chain.push((area, bounds));
-        node.kind = "Column".into();
+        node.kind = BuiltinKind::Column.into();
         node.props.remove("clip");
         let placed = self.position_scene(node, None, bounds, false, target);
         target.scroll_chain.pop();

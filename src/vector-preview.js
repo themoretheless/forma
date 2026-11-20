@@ -1,5 +1,6 @@
 import { createEventScope } from './event-scope.js';
 import { createGpuPainter } from './vector-gpu.js';
+import { mapRuntimeErrorToUiDiagnostic } from './diagnostics.js';
 import { rangeBounds, rangeValue } from './shared/range.js';
 let runtimePromise;
 // Same order as components.js sceneControlNodes: base controls (optionally in
@@ -904,6 +905,8 @@ export function createVectorPreview({
       previewControls,
       previewModals,
       previewContainers,
+      controlOrigins = [],
+      sourceMap = null,
       controlClips = [],
       controlScrolls = [],
       selectedStart: nextSelection = null,
@@ -939,6 +942,8 @@ export function createVectorPreview({
             const group = node.bindings?.group;
             if (typeof group === 'string') candidate.set_control_group?.(index, group);
           });
+          if (controlOrigins.length)
+            candidate.set_control_origins_json?.(JSON.stringify(controlOrigins));
           if (button) candidate.preserve_interaction(button);
         }
         if (changed || current.reducedMotion !== reducedMotion)
@@ -984,6 +989,8 @@ export function createVectorPreview({
           source,
           template,
           clips,
+          controlOrigins,
+          sourceMap,
           controlClips,
           controlScrolls,
           designMode,
@@ -1031,7 +1038,7 @@ export function createVectorPreview({
         return true;
       } catch (error) {
         candidate?.free();
-        report(error);
+        report(mapRuntimeErrorToUiDiagnostic(error, sourceMap));
         return false;
       }
     },
@@ -1133,6 +1140,7 @@ export function createVectorPreview({
             controls: Array.from({ length: button.control_count() }, (_, i) => ({
               index: i,
               key: button.control_key(i),
+              origin: button.control_origin?.(i) ?? current.controlOrigins?.[i] ?? '',
               label: button.control_label(i),
               bounds: Array.from(button.control_bounds(i)),
               disabled: button.control_disabled(i),

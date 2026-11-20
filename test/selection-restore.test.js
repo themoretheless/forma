@@ -170,3 +170,19 @@ test('a page that stopped compiling leaves nothing behind', () => {
     identities = selectionIdentities(root, [root.start, at(root, 'Column').start]);
   assert.deepEqual(restoreSelection(null, identities), { nodes: [], starts: [], dropped: 2 });
 });
+test('a keyless control survives an unrelated sibling insertion inside the same container via stableId', () => {
+  const root = tree(page),
+    text = at(root, 'Text');
+  const insertedAbove = page.replace(
+    "Text { text: 'Подпись'; }",
+    "Button { text: 'Вставка'; }\n            Text { text: 'Подпись'; }",
+  );
+  const next = tree(insertedAbove),
+    restored = restoreSelection(next, selectionIdentities(root, [text.start]));
+  assert.equal(restored.dropped, 0);
+  assert.deepEqual(
+    restored.nodes.map(n => n.props.text),
+    ['Подпись'],
+  );
+  assert.equal(restored.starts[0], at(next, 'Text').start);
+});

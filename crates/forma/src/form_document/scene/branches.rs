@@ -27,7 +27,7 @@ impl Document {
             let mut seq_state = std::borrow::Cow::Borrowed(state);
             let mut out = Vec::new();
             for child in &node.children {
-                if child.kind == "Else" {
+                if child.kind == BuiltinKind::Else {
                     count_scene_subtree(child, &mut child_walk.node_index, depth + 1)?;
                 } else {
                     self.scene_expand_sequence_step(
@@ -47,7 +47,7 @@ impl Document {
         } else {
             let mut out = Vec::new();
             for child in &node.children {
-                if child.kind == "Else" {
+                if child.kind == BuiltinKind::Else {
                     let mut else_walk = SceneWalk {
                         budget: child_walk.budget,
                         node_index: child_walk.node_index + 1,
@@ -170,7 +170,7 @@ impl Document {
             };
             let mut iter_state = std::borrow::Cow::Borrowed(&*local);
             for body_child in &node.children {
-                if body_child.kind == "Empty" {
+                if body_child.kind == BuiltinKind::Empty {
                     count_scene_subtree(body_child, &mut iter_walk.node_index, depth + 1)?;
                 } else {
                     self.scene_expand_sequence_step(
@@ -208,7 +208,7 @@ impl Document {
         } = *at;
         let mut child_idx = start_node_index + 1;
         for child in &node.children {
-            if child.kind == "Empty" {
+            if child.kind == BuiltinKind::Empty {
                 let mut empty_walk = SceneWalk {
                     budget: walk.budget,
                     node_index: child_idx + 1,

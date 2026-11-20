@@ -42,8 +42,8 @@ impl Document {
         // Ordinary visual expansion only reads inherited state; lexical writes own a copy.
         let mut current_state = std::borrow::Cow::Borrowed(state);
         for node in nodes {
-            match node.kind.as_str() {
-                "If" => {
+            match node.kind.builtin() {
+                Some(BuiltinKind::If) => {
                     if control_flow::evaluate_if_condition(node, props, &current_state)? {
                         result.extend(self.expand_sequence(
                             control_flow::if_then_children(node),
@@ -62,7 +62,7 @@ impl Document {
                         )?);
                     }
                 }
-                "For" => {
+                Some(BuiltinKind::For) => {
                     let (items, item) =
                         control_flow::evaluate_for_header(node, props, &current_state)?;
                     let idx_key = format!("__index.{item}");
@@ -101,8 +101,8 @@ impl Document {
                         )?);
                     }
                 }
-                "Else" | "Empty" => {}
-                "Let" => {
+                Some(BuiltinKind::Else | BuiltinKind::Empty) => {}
+                Some(BuiltinKind::Let) => {
                     if let Some((name, val, _)) =
                         control_flow::evaluate_let_binding(node, props, &current_state)?
                     {
@@ -121,7 +121,7 @@ impl Document {
                         }
                     }
                 }
-                "Match" => {
+                Some(BuiltinKind::Match) => {
                     let subject = node
                         .props
                         .get("subject")
@@ -156,7 +156,7 @@ impl Document {
         if depth > 64 {
             return Err("Visual composition depth exceeded".into());
         }
-        if n.kind == "ContentPresenter" {
+        if n.kind == BuiltinKind::ContentPresenter {
             let slot_name = n
                 .props
                 .get("key")
@@ -176,7 +176,7 @@ impl Document {
                         Value::Node(Box::new(n.children[0].clone()))
                     } else {
                         Value::Node(Box::new(Node {
-                            kind: "Frame".into(),
+                            kind: BuiltinKind::Frame.into(),
                             props: Properties::new(),
                             children: n.children.clone(),
                             action: None,
@@ -222,7 +222,7 @@ impl Document {
         };
         // Scene definitions can wrap primitives such as Text and TextInput.
         // Inside their visual templates the same names retain primitive meaning.
-        if !is_primitive(&n.kind) && self.definitions.contains_key(n.kind.as_str()) {
+        if !n.kind.is_primitive() && self.definitions.contains_key(n.kind.as_str()) {
             return Ok(self.instantiate(&node, false, state, parents)?.0);
         }
         Ok(node)
@@ -398,13 +398,13 @@ impl Document {
                 fn supply(nodes: &mut [Node], children: &[Node]) -> bool {
                     let mut found = false;
                     for node in nodes {
-                        if node.kind == "ContentPresenter"
+                        if node.kind == BuiltinKind::ContentPresenter
                             && node.props.get("key") == Some(&Value::Text("content".into()))
                         {
                             node.props.insert(
                                 "content".into(),
                                 Value::Node(Box::new(Node {
-                                    kind: "Frame".into(),
+                                    kind: BuiltinKind::Frame.into(),
                                     props: Properties::new(),
                                     children: children.to_vec(),
                                     action: None,
@@ -424,7 +424,7 @@ impl Document {
                 return Err("A component requires one root".into());
             }
             let mut root = self.expand(&nodes[0], &props, state, &parents, 0)?;
-            if top && root.kind != "Rectangle" {
+            if top && root.kind != BuiltinKind::Rectangle {
                 return Err("A control requires a Rectangle root".into());
             }
             if !top {
@@ -460,7 +460,10 @@ impl Document {
     ) -> Result<(), String> {
         let [mut x, mut y, mut w, mut h] = bounds;
         let owned_normalized;
-        let n = if matches!(n.kind.as_str(), "Row" | "Column" | "Grid" | "Stack") {
+        let n = if matches!(
+            n.kind.builtin(),
+            Some(BuiltinKind::Row | BuiltinKind::Column | BuiltinKind::Grid | BuiltinKind::Stack)
+        ) {
             owned_normalized = normalize_layout(n)?;
             &owned_normalized
         } else {
@@ -480,8 +483,8 @@ impl Document {
                 ),
             );
         };
-        match n.kind.as_str() {
-            "Frame" => {
+        match n.kind.builtin() {
+            Some(BuiltinKind::Frame) => {
                 let clipped = boolean(&n.props, "clip", false)?;
                 if clipped {
                     clip(out, num(&n.props, "radius", 0.)?);
@@ -524,7 +527,7 @@ impl Document {
                     out.push_str("ContentClipEnd {} ");
                 }
             }
-            "Rectangle" => {
+            Some(BuiltinKind::Rectangle) => {
                 clip(out, num(&n.props, "radius", 0.)?);
                 if let Some(color) = n.props.get("background") {
                     let _ = std::fmt::Write::write_fmt(
@@ -545,14 +548,14 @@ impl Document {
                 }
                 out.push_str("ContentClipEnd {} ");
             }
-            "Canvas" => {
+            Some(BuiltinKind::Canvas) => {
                 // Placement only; the application supplies geometry at runtime.
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!("Canvas {{ x:{x}; y:{y}; width:{w}; height:{h}; }} "),
                 );
             }
-            "TextInput" => {
+            Some(BuiltinKind::TextInput) => {
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
@@ -575,7 +578,7 @@ impl Document {
                     ),
                 );
             }
-            "Text"
+            Some(BuiltinKind::Text)
                 if n.props
                     .get("runs")
                     .is_some_and(|v| !matches!(v, Value::Null)) =>
@@ -586,7 +589,7 @@ impl Document {
                     super::text_runs::flatten(&runs, fs, wrap, [x, y, w, h], out);
                 }
             }
-            "Text" => {
+            Some(BuiltinKind::Text) => {
                 let value = text_ref(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = text_ref(&n.props, "color", "#ffffff")?;
@@ -655,7 +658,7 @@ impl Document {
                     }
                 }
             }
-            "Image" => {
+            Some(BuiltinKind::Image) => {
                 let source = text_ref(&n.props, "source", "")?;
                 let image = self
                     .images

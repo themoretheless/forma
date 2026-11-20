@@ -8,12 +8,19 @@ mod contracts;
 mod control_flow;
 mod eval;
 mod kind;
-pub use kind::NodeKind;
+pub use kind::{BuiltinKind, NodeKind};
 mod layout;
 mod properties;
 mod range;
+pub mod registry;
+pub use registry::{
+    BindingCapability, DocumentDependencySummary, InvalidationClass, PropertySpec, PropertyType,
+    analyze_document_dependencies, property_registry_json,
+};
 mod render;
 mod scene;
+mod scene_ir;
+pub use scene_ir::SceneIr;
 mod svg;
 mod svg_path;
 mod text_runs;
@@ -128,6 +135,9 @@ pub struct SceneControl {
     /// form one group, which arrow keys move through.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// Structural origin path stable across sibling insertions when explicit `key` is absent or synthesized.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 /// A `Scroll` container below the root, as one of the controls inside it sees it.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -205,6 +215,8 @@ struct SceneControlWire {
     scroll: Vec<SceneScroll>,
     #[serde(default)]
     group: Option<String>,
+    #[serde(default)]
+    origin: Option<String>,
 }
 fn deserialize_content_end<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -236,6 +248,8 @@ impl SceneArtifact {
             scroll: &'a [SceneScroll],
             #[serde(skip_serializing_if = "Option::is_none")]
             group: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            origin: Option<&'a str>,
         }
         fn entries<S: serde::Serializer>(
             entries: &[(&String, &Value)],
@@ -286,6 +300,7 @@ impl SceneArtifact {
                     clip: control.clip,
                     scroll: &control.scroll,
                     group: control.group.as_deref(),
+                    origin: control.origin.as_deref(),
                 }
             })
             .collect();
@@ -352,6 +367,7 @@ impl SceneArtifact {
                         clip: control.clip,
                         scroll: control.scroll,
                         group: control.group,
+                        origin: control.origin,
                     })
                 })
                 .collect::<Result<_, String>>()?;
@@ -655,30 +671,11 @@ fn key_part(value: &Value) -> Result<String, String> {
 fn group_declares(groups: Option<&Value>, key: &str) -> bool {
     matches!(groups,Some(Value::List(groups)) if groups.iter().any(|group| matches!(group,Value::Match(_,branches) if branches.iter().any(|(_,values)| matches!(values,Value::Object(values) if values.contains_key(key))))))
 }
-fn is_primitive(kind: &str) -> bool {
-    (is_layout(kind) && kind != "Scroll")
-        || [
-            "Text",
-            "TextInput",
-            "Canvas",
-            "Image",
-            "Rectangle",
-            "ContentPresenter",
-            "Brush",
-            "Border",
-            "Reveal",
-            "PointerArea",
-            "ContentText",
-            "ContentShape",
-            "ContentClip",
-            "ContentClipEnd",
-        ]
-        .contains(&kind)
-}
-fn is_layout(kind: &str) -> bool {
-    ["Frame", "Row", "Column", "Grid", "Stack", "Scroll"].contains(&kind)
-}
 impl Document {
+    pub fn dependency_summary(&self) -> DocumentDependencySummary {
+        analyze_document_dependencies(self)
+    }
+
     /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`)
     /// into a vector [`Image`] suitable for `Document.images`.
     pub fn parse_svg_image(svg: &str) -> Result<Image, String> {

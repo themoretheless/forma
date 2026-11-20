@@ -280,3 +280,148 @@ impl PendingWrites {
         Ok(commits)
     }
 }
+
+impl Form {
+    pub(super) fn instances(
+        &self,
+    ) -> Vec<(
+        Rc<ControlState>,
+        usize,
+        crate::form_document::Properties,
+        String,
+    )> {
+        if let Some(document) = &self.document {
+            document
+                .scene
+                .iter()
+                .enumerate()
+                .filter_map(|(index, item)| {
+                    let control_index = document.node_controls.get(&item.node)?;
+                    let control = self
+                        .controls
+                        .get(*control_index)
+                        .filter(|c| c.index == *control_index)
+                        .or_else(|| self.controls.iter().find(|c| c.index == *control_index))?;
+                    Some((control.clone(), index, item.state.clone(), item.key.clone()))
+                })
+                .collect()
+        } else {
+            self.controls
+                .iter()
+                .map(|c| {
+                    (
+                        c.clone(),
+                        c.index,
+                        Default::default(),
+                        self.runtime.control_key(c.index),
+                    )
+                })
+                .collect()
+        }
+    }
+
+    pub fn update<R>(&mut self, input: impl FnOnce(&mut Runtime) -> R) -> Result<R, String> {
+        self.sync()?;
+        let instances = self.instances();
+        let before: Vec<_> = instances
+            .iter()
+            .map(|(control, index, _, _)| ControlSnapshot::take(&self.runtime, control, *index))
+            .collect();
+        let result = input(&mut self.runtime);
+        let mut writes = PendingWrites::default();
+        let mut events = Vec::new();
+        for ((control, index, locals, key), snapshot) in instances.into_iter().zip(before) {
+            if control.context_epoch.get() != snapshot.context_epoch {
+                continue;
+            }
+            let change = ControlChange {
+                next_text: self.runtime.text_value(index),
+                next_range: self.runtime.range_value(index),
+                next_scaled: self.runtime.range_scaled_value(index),
+                clicks: self
+                    .runtime
+                    .control_clicks(index)
+                    .saturating_sub(snapshot.clicks),
+                text: snapshot.text,
+                range: snapshot.range,
+            };
+            let submitted = self
+                .runtime
+                .control_submissions(index)
+                .saturating_sub(snapshot.submissions);
+            let mut toggled = writes.collect_bindings(&control, snapshot.bindings, &change)?;
+            toggled |= writes.collect_collections(snapshot.collections, &locals, &change)?;
+            let mut queue = |event: &'static str, handler: Handler| {
+                events.push(QueuedEvent {
+                    control: control.clone(),
+                    key: key.clone(),
+                    context_epoch: snapshot.context_epoch,
+                    event,
+                    handler,
+                });
+            };
+            if change.value_changed() || toggled {
+                if let Some(handler) = control.changed_handler.borrow().clone() {
+                    queue("changed", handler);
+                }
+            }
+            if let Some(handler) = control.submitted_handler.borrow().clone() {
+                for _ in 0..submitted {
+                    queue("submitted", handler.clone());
+                }
+            }
+            if let Some(handler) = control.handler.borrow().clone() {
+                for _ in 0..change.clicks {
+                    queue("clicked", handler.clone());
+                }
+            }
+        }
+        // Validate and stage all fallible numeric and collection writes before
+        // committing any observable Property mutation in this batch.
+        for commit in writes.stage()? {
+            commit();
+        }
+        self.sync()?;
+        for event in events {
+            self.dispatch(event)?;
+        }
+        self.sync()?;
+        Ok(result)
+    }
+
+    /// Runs a queued handler against the control's current place in the scene, if it still has one.
+    pub(super) fn dispatch(&mut self, event: QueuedEvent) -> Result<(), String> {
+        let QueuedEvent {
+            control,
+            key,
+            context_epoch,
+            event,
+            handler,
+        } = event;
+        if control.context_epoch.get() != context_epoch {
+            return Ok(());
+        }
+        let current = if let Some(document) = &self.document {
+            document
+                .scene
+                .iter()
+                .enumerate()
+                .find(|(_, item)| item.key == key)
+                .map(|(index, item)| {
+                    (
+                        index,
+                        item.event_args.get(event).cloned().unwrap_or_default(),
+                    )
+                })
+        } else {
+            Some((control.index, Vec::new()))
+        };
+        if let Some((index, args)) = current {
+            control.dispatch_index.set(index);
+            *control.dispatch_arguments.borrow_mut() = args;
+            handler();
+            self.sync()?;
+        }
+        Ok(())
+    }
+}

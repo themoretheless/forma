@@ -15,11 +15,9 @@ impl Runtime {
         initial_state: &crate::form_document::Properties,
     ) -> Result<Self, String> {
         let doc = crate::form_document::Document::from_ui_files(files, entry_file, initial_state)?;
-        let (scene_src, templates, controls, logical_end) = doc.render_scene_with_extents()?;
-        let mut rt = Self::from_sources(&scene_src, &templates)?;
-        rt.apply_logical_content_end(logical_end);
-        rt.install_clips(&controls);
-        rt.ui_binding_scene = controls;
+        let ir = doc.render_scene_ir()?;
+        let mut rt = Self::from_scene_ir(&ir)?;
+        rt.ui_binding_scene = ir.controls;
         rt.ui_binding_states = doc.states.clone();
         rt.ui_document = Some(doc);
         Ok(rt)
@@ -61,11 +59,9 @@ impl Runtime {
     ) -> Result<(), String> {
         let doc =
             crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
-        let (source, templates, controls, logical_end) = doc.render_scene_with_extents()?;
-        let mut next = Self::from_sources(&source, &templates)?;
-        next.apply_logical_content_end(logical_end);
-        next.install_clips(&controls);
-        next.ui_binding_scene = controls;
+        let ir = doc.render_scene_ir()?;
+        let mut next = Self::from_scene_ir(&ir)?;
+        next.ui_binding_scene = ir.controls;
         next.ui_binding_states = doc.states.clone();
         next.ui_document = Some(doc);
         #[cfg(not(target_arch = "wasm32"))]
@@ -118,8 +114,40 @@ impl Runtime {
         Ok(runtime)
     }
 
+    /// Instantiates a [`Runtime`] directly from a validated typed [`crate::form_document::SceneIr`]
+    /// without formatting or parsing intermediate source or template text.
+    pub fn from_scene_ir(ir: &crate::form_document::SceneIr) -> Result<Self, String> {
+        if ir
+            .logical_content_end
+            .is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.))
+        {
+            return Err("Invalid logical content extent".into());
+        }
+        if ir.templates.len() != ir.scene.buttons.len() {
+            return Err("Control/template count mismatch".into());
+        }
+        if ir.controls.len() != ir.scene.buttons.len() {
+            return Err("Scene control mapping count does not match rendered controls".into());
+        }
+        let mut runtime = Self::from_validated_scene(ir.scene.clone(), &ir.templates)?;
+        for (mapping, control) in ir.controls.iter().zip(&runtime.controls) {
+            if mapping.key != control.scene.button.key {
+                return Err(
+                    "Scene control mapping key/order does not match rendered controls".into(),
+                );
+            }
+        }
+        if ir.logical_content_end.is_some() && !runtime.scene.scroll {
+            return Err("Logical content extent requires a Scroll scene".into());
+        }
+        runtime.apply_logical_content_end(ir.logical_content_end);
+        super::scroll_areas::validate_areas(ir.controls.iter().map(|c| c.scroll.as_slice()))?;
+        runtime.install_clips(&ir.controls);
+        Ok(runtime)
+    }
+
     pub fn from_sources(source: &str, component: &str) -> Result<Self, String> {
-        let mut scene = markup::parse(source).map_err(|error| {
+        let scene = markup::parse(source).map_err(|error| {
             // The layout places a control that does not fit its container at a negative
             // position, which the scene format refuses; say what that means.
             if error.contains("must be non-negative") {
@@ -128,13 +156,28 @@ impl Runtime {
                 error
             }
         })?;
-        let templates = templates(component, scene.buttons.len())?;
+        let template_sources = templates(component, scene.buttons.len())?;
+        let parsed = scene
+            .buttons
+            .iter()
+            .zip(template_sources)
+            .map(|(spec, src)| crate::template::parse_cached(src, spec))
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_validated_scene(scene, &parsed)
+    }
+
+    fn from_validated_scene(
+        mut scene: markup::Scene,
+        parsed_templates: &[Arc<crate::template::Template>],
+    ) -> Result<Self, String> {
         let mut controls = Vec::with_capacity(scene.buttons.len());
         let modal_of: Vec<Option<usize>> = (0..scene.buttons.len())
             .map(|i| scene.modals.iter().position(|m| m.controls.contains(&i)))
             .collect();
         let mut y = scene.padding[0];
-        for (index, (spec, component)) in scene.buttons.iter().zip(templates).enumerate() {
+        for (index, (spec, parsed_template)) in
+            scene.buttons.iter().zip(parsed_templates).enumerate()
+        {
             if let Some(m) = modal_of[index] {
                 if scene.modals[m].controls.start == index {
                     y = scene.modals[m].y;
@@ -158,13 +201,13 @@ impl Runtime {
                 content_width: scene.content_width,
                 content_height: scene.content_height,
                 gap: scene.gap,
-                // `from_scene` replaces the spec with the resolved one, so the leaf
-                // carries the document spec by reference instead of copying it.
+                // `from_template` replaces `scene.button` with `template.props`, so the
+                // leaf starts from default rather than cloning the document's button spec.
                 button: markup::ButtonSpec::default(),
                 buttons: Vec::new(),
                 modals: Vec::new(),
             };
-            let mut control = Button::from_scene(leaf, spec, component)?;
+            let mut control = Button::from_template(leaf, Arc::clone(parsed_template));
             // Defaults in the component can change height: lay out after linking.
             if !spec.specified.contains("y") {
                 control.scene.button.y = y;
@@ -317,6 +360,7 @@ impl Runtime {
             scroll_chains: Vec::new(),
             pointer_at: None,
             groups: Vec::new(),
+            control_origins: Vec::new(),
             area_nodes: Vec::new(),
             control_homes: Vec::new(),
             ui_binding_states: Vec::new(),
@@ -351,6 +395,10 @@ impl Runtime {
             super::scroll_areas::areas_of(controls.iter().map(|c| c.scroll.as_slice()));
         self.attach_area_nodes();
         self.groups = controls.iter().map(|c| c.group.clone()).collect();
+        self.control_origins = controls
+            .iter()
+            .map(|c| c.origin.clone().unwrap_or_default())
+            .collect();
         self.set_clips(
             controls
                 .iter()

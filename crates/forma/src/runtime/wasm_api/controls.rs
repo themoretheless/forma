@@ -53,6 +53,20 @@ impl Runtime {
         self.controls.get(i).map(Button::key).unwrap_or_default()
     }
 
+    pub fn control_origin(&self, i: usize) -> String {
+        self.control_origins.get(i).cloned().unwrap_or_default()
+    }
+
+    pub fn set_control_origins_json(&mut self, json: &str) -> Result<(), String> {
+        let origins: Vec<Option<String>> = serde_json::from_str(json)
+            .map_err(|error| format!("Invalid control origins: {error}"))?;
+        if origins.len() != self.controls.len() {
+            return Err("control origin count mismatch".into());
+        }
+        self.control_origins = origins.into_iter().map(Option::unwrap_or_default).collect();
+        Ok(())
+    }
+
     /// Stable editor name, separate from current value (label, placeholder, key).
     pub fn control_input_label(&self, i: usize) -> String {
         self.editors

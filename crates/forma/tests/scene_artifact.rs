@@ -83,6 +83,7 @@ fn scene_json_roundtrip_preserves_extents_and_typed_binding_values() {
         clip: Some([10., 20., 30., 40.]),
         scroll: Vec::new(),
         group: Some("state.choice".into()),
+        origin: Some("Column#0/Button#0".into()),
     });
     let restored = SceneArtifact::from_json(&artifact.to_json().unwrap()).unwrap();
     assert_eq!(restored.controls[0].state, state);
@@ -93,6 +94,10 @@ fn scene_json_roundtrip_preserves_extents_and_typed_binding_values() {
     assert_eq!(restored.controls[0].node, 7);
     assert_eq!(restored.controls[0].clip, Some([10., 20., 30., 40.]));
     assert_eq!(restored.controls[0].group.as_deref(), Some("state.choice"));
+    assert_eq!(
+        restored.controls[0].origin.as_deref(),
+        Some("Column#0/Button#0")
+    );
     assert!(
         Runtime::from_scene_artifact(&restored).is_err(),
         "serialization-only mapping cannot authorize a nonexistent rendered control"

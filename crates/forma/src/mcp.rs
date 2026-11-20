@@ -105,6 +105,7 @@ impl McpApp {
                 json!({
                     "index": i,
                     "key": self.runtime.control_key(i),
+                    "origin": self.runtime.control_origin(i),
                     "label": self.runtime.control_label(i),
                     "action": self.runtime.control_action(i),
                     "clicks": self.runtime.control_clicks(i),
@@ -143,6 +144,8 @@ impl McpApp {
                 .find(|&i| {
                     self.runtime.control_key(i) == key_or_index
                         || self.runtime.control_label(i) == key_or_index
+                        || (!key_or_index.is_empty()
+                            && self.runtime.control_origin(i) == key_or_index)
                 })
                 .ok_or_else(|| format!("Control '{key_or_index}' not found"))?
         };

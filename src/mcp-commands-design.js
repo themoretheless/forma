@@ -148,14 +148,17 @@ export function createDesignCommands(studio, helpers) {
     },
     component_select(args) {
       if (studio.error) throw Error('Fix diagnostics before selecting compiled source');
-      studio.select(findNode(args.start));
+      const node =
+        args.stableId !== undefined ? findNode(args.start, args.stableId) : findNode(args.start);
+      studio.select(node);
       return snapshot();
     },
     component_property(args) {
       const { files, entry, error } = studio;
       if (error || files[entry] !== args.expectedContent)
         throw Error('Stale or invalid source. Read entry file first.');
-      const n = findNode(args.start);
+      const n =
+        args.stableId !== undefined ? findNode(args.start, args.stableId) : findNode(args.start);
       if (!Object.hasOwn(n.props, args.property) || typeof n.props[args.property] === 'object')
         throw Error('Only existing literal properties are supported');
       if (typeof n.props[args.property] !== typeof args.value)

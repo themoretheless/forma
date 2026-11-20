@@ -97,6 +97,12 @@ export function createSceneLayout({ root, instantiate, metrics, rootSize, onRoot
       const area = {
         ...node,
         type: containerArea,
+        stableId:
+          typeof node.props.key === 'string' && node.props.key.length
+            ? `key:${node.props.key}`
+            : node.stableId
+              ? `${node.stableId}/ContainerArea#0`
+              : '',
         props: node.props.key === undefined ? {} : { key: node.props.key },
         bindings: {},
         children: [],
@@ -261,10 +267,16 @@ export function needsFlowLayout(root, controls) {
 
 /** The size a root declares, or 360 by 220 when it declares none. */
 export function declaredRootSize(rootProps) {
-  return [
-    constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360),
-    constrained(length(rootProps.height ?? 220, 220, 220, 'height'), rootProps, 1, 220),
-  ];
+  const width = constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360);
+  const height = constrained(
+    length(rootProps.height ?? 220, 220, 220, 'height'),
+    rootProps,
+    1,
+    220,
+  );
+  if (width <= 0 || width > 16384 || height <= 0 || height > 16384)
+    throw Error('Размер корневого контейнера вне допустимого диапазона 1…16384');
+  return [width, height];
 }
 
 /**
@@ -286,10 +298,18 @@ export function fitRootToContent(root, children, intrinsicScene, fit) {
         ? 'Column'
         : root.type,
   };
-  if (own(props, 'width') && intrinsicLength(props.width))
-    fit(0, naturalContainer(content, 0, intrinsicScene));
-  if (own(props, 'height') && intrinsicLength(props.height))
-    fit(1, naturalContainer(content, 1, intrinsicScene));
+  if (own(props, 'width') && intrinsicLength(props.width)) {
+    const w = naturalContainer(content, 0, intrinsicScene);
+    if (w <= 0 || w > 16384)
+      throw Error('Размер корневого контейнера вне допустимого диапазона 1…16384');
+    fit(0, w);
+  }
+  if (own(props, 'height') && intrinsicLength(props.height)) {
+    const h = naturalContainer(content, 1, intrinsicScene);
+    if (h <= 0 || h > 16384)
+      throw Error('Размер корневого контейнера вне допустимого диапазона 1…16384');
+    fit(1, h);
+  }
 }
 
 /** The part of rectangle `a` that `b` also covers, with zero size when they do not meet. */

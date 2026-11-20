@@ -239,8 +239,11 @@
   {
     "name": "component_select",
     "domain": "design",
-    "description": "Select a component by its source start offset from component_tree",
-    "schema": { "start": { "type": "nonnegativeInt" } },
+    "description": "Select a component by its source start offset or stableId from component_tree",
+    "schema": {
+      "start": { "type": "nonnegativeInt", "optional": true },
+      "stableId": { "type": "string", "optional": true }
+    },
     "readOnly": false
   },
   {
@@ -248,7 +251,8 @@
     "domain": "design",
     "description": "Set a simple existing literal property; rejects stale source and expression replacement",
     "schema": {
-      "start": { "type": "int" },
+      "start": { "type": "int", "optional": true },
+      "stableId": { "type": "string", "optional": true },
       "property": { "type": "string" },
       "value": { "type": "scalar" },
       "expectedContent": { "type": "string" }

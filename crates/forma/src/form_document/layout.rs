@@ -1,21 +1,4 @@
-use super::{Node, Properties, Value, boolean, font_family, num, number, text_ref};
-
-fn is_color_property(key: &str) -> bool {
-    key.as_bytes()
-        .windows(5)
-        .any(|w| w.eq_ignore_ascii_case(b"color"))
-        || [
-            "background",
-            "hoverBackground",
-            "pressedBackground",
-            "disabledBackground",
-            "hover",
-            "pressed",
-            "disabled",
-            "focus",
-        ]
-        .contains(&key)
-}
+use super::{BuiltinKind, Node, Properties, Value, boolean, font_family, num, number, text_ref};
 
 pub(super) fn write_property_literal(
     key: &str,
@@ -23,7 +6,7 @@ pub(super) fn write_property_literal(
     out: &mut String,
 ) -> Result<(), String> {
     if let Value::Text(text) = value {
-        if is_color_property(key)
+        if super::registry::is_color_property(key)
             && text.starts_with('#')
             && [4, 7, 9].contains(&text.len())
             && text[1..].bytes().all(|b| b.is_ascii_hexdigit())
@@ -164,9 +147,9 @@ pub(super) fn normalize_layout(n: &Node) -> Result<Node, String> {
 }
 
 pub(super) fn normalize_layout_owned(mut n: Node) -> Result<Node, String> {
-    match n.kind.as_str() {
-        "Row" | "Column" => {
-            let row = n.kind == "Row";
+    match n.kind.builtin() {
+        Some(BuiltinKind::Row | BuiltinKind::Column) => {
+            let row = n.kind == BuiltinKind::Row;
             let axis_key = if row { "width" } else { "height" };
             let tracks = n
                 .children
@@ -195,9 +178,9 @@ pub(super) fn normalize_layout_owned(mut n: Node) -> Result<Node, String> {
             }
             n.props
                 .insert("__linear_axis".into(), number(if row { 0. } else { 1. }));
-            n.kind = "Frame".into();
+            n.kind = BuiltinKind::Frame.into();
         }
-        "Grid" => {
+        Some(BuiltinKind::Grid) => {
             let columns = tracks_slice(&n.props, "columns").len().max(1);
             let mut rows = tracks(&n.props, "rows");
             if !n.props.contains_key("rows") {
@@ -244,10 +227,10 @@ pub(super) fn normalize_layout_owned(mut n: Node) -> Result<Node, String> {
                 c.props.insert("column".into(), number((column + 1) as f64));
             }
             n.props.insert("rows".into(), Value::List(rows));
-            n.kind = "Frame".into();
+            n.kind = BuiltinKind::Frame.into();
         }
-        "Stack" => {
-            n.kind = "Frame".into();
+        Some(BuiltinKind::Stack) => {
+            n.kind = BuiltinKind::Frame.into();
             n.props.insert("columns".into(), Value::Expr("*".into()));
             n.props.insert("rows".into(), Value::Expr("*".into()));
         }
@@ -264,14 +247,17 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
         }
     }
     let owned_normalized;
-    let n = if matches!(n.kind.as_str(), "Row" | "Column" | "Grid" | "Stack") {
+    let n = if matches!(
+        n.kind.builtin(),
+        Some(BuiltinKind::Row | BuiltinKind::Column | BuiltinKind::Grid | BuiltinKind::Stack)
+    ) {
         owned_normalized = normalize_layout(n)?;
         &owned_normalized
     } else {
         n
     };
-    let measured = match n.kind.as_str() {
-        "Text" => {
+    let measured = match n.kind.builtin() {
+        Some(BuiltinKind::Text) => {
             let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
             let wrap = boolean(&n.props, "wrap", false)?;
             let max_w = n
@@ -305,20 +291,20 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
                     .fold(0., f64::max)
             }
         }
-        "TextInput" => {
+        Some(BuiltinKind::TextInput) => {
             if axis == 0 {
                 80.
             } else {
                 num(&n.props, "fontSize", 15.)? * 1.5
             }
         }
-        "Image" => 20.,
-        "Rectangle" => n
+        Some(BuiltinKind::Image) => 20.,
+        Some(BuiltinKind::Rectangle) => n
             .children
             .iter()
             .map(|c| natural(c, axis))
             .try_fold(0.0_f64, |a, b| b.map(|b| a.max(b)))?,
-        "Frame" | "Scroll" => {
+        Some(BuiltinKind::Frame | BuiltinKind::Scroll) => {
             let ts = tracks_slice(&n.props, if axis == 0 { "columns" } else { "rows" });
             let pad = insets(n.props.get("padding"))?;
             let mut total = pad[1 - axis]

@@ -2,7 +2,7 @@
 256 texts: loads, 256 control(s), 257 node(s)
 257 texts: loads, 257 control(s), 258 node(s)
 1024 texts: loads, 1024 control(s), 1025 node(s)
-1025 texts: ERROR At most 1024 controls per scene (byte 149548)
+1025 texts: ERROR At most 1024 controls per scene
 nested column in column: loads, 1 control(s), 2 node(s)
 row in column: loads, 2 control(s), 3 node(s)
 scroll at the root: loads, 1 control(s), 3 node(s)
@@ -13,5 +13,5 @@ clip on the root: loads, 1 control(s), 2 node(s)
 clip on a nested column: loads, 1 control(s), 2 node(s)
 stack overlap: loads, 2 control(s), 3 node(s)
 grid with cells: loads, 2 control(s), 3 node(s)
-child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative (byte 197)
-keyed child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative (byte 196)
+child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative
+keyed child wider than its column: ERROR A control does not fit inside its container: 'x' must be non-negative

@@ -1,103 +1,21 @@
+//! Expression evaluation coordinator for `Document`.
+
 use super::{Expression, Properties, Value, number};
 
 mod builtins;
-use builtins::call;
+mod error;
+mod lookup;
+mod operators;
 
-pub(super) fn lookup(values: &Properties, path: &str) -> Option<Value> {
-    if let Some(value) = values.get(path) {
-        return Some(value.clone());
-    }
-    let (head, tail) = path.split_once('.')?;
-    lookup_value(values.get(head)?, tail)
-}
-
-pub(super) fn lookup_value(value: &Value, path: &str) -> Option<Value> {
-    match value {
-        Value::Object(object) => lookup(object, path),
-        Value::List(items) if path == "length" => Some(number(items.len() as f64)),
-        Value::List(items) => {
-            let (index, tail) = path
-                .split_once('.')
-                .map_or((path, None), |(index, tail)| (index, Some(tail)));
-            let value = items.get(index.parse::<usize>().ok()?)?;
-            match tail {
-                Some(tail) => lookup_value(value, tail),
-                None => Some(value.clone()),
-            }
-        }
-        Value::Text(value) if path == "length" => Some(number(value.encode_utf16().count() as f64)),
-        _ => None,
-    }
-}
-
-pub(super) fn enum_value(path: &str, scope: &Properties) -> Option<Value> {
-    let (kind, variant) = path.split_once('.')?;
-    let Value::Object(enums) = scope.get("__enums")? else {
-        return None;
-    };
-    let Value::List(variants) = enums.get(kind)? else {
-        return None;
-    };
-    variants
-        .iter()
-        .any(|v| v.text().ok().as_deref() == Some(variant))
-        .then(|| Value::Text(path.into()))
-}
+pub(super) use error::EvalError;
+use lookup::eval_expr_path;
+pub(super) use lookup::{enum_value, lookup};
+use operators::{eval_expression, eval_interpolation, pattern_matches_typed};
 
 pub(super) fn expression_number(value: &Value) -> Result<f64, String> {
     match value {
         Value::Number(value) if value.is_finite() => Ok(*value),
         _ => Err("Arithmetic expects a finite Number".into()),
-    }
-}
-
-#[derive(Debug)]
-pub(super) enum EvalError {
-    MissingState(String),
-    UnknownProperty(String),
-    UnknownMember(String),
-    UnknownListIndex(String),
-    CannotReadMember(String),
-    Message(String),
-}
-
-impl EvalError {
-    pub(super) fn is_missing_state(&self) -> bool {
-        matches!(self, Self::MissingState(_))
-    }
-
-    pub(super) fn is_optional_absent(&self) -> bool {
-        matches!(
-            self,
-            Self::MissingState(_)
-                | Self::UnknownProperty(_)
-                | Self::UnknownMember(_)
-                | Self::UnknownListIndex(_)
-                | Self::CannotReadMember(_)
-        )
-    }
-
-    pub(super) fn into_message(self) -> String {
-        match self {
-            Self::MissingState(key) => format!("Missing state.{key}"),
-            Self::UnknownProperty(path) => format!("Unknown property {path}"),
-            Self::UnknownMember(member) => format!("Unknown member {member}"),
-            Self::UnknownListIndex(idx) => format!("Unknown list index {idx}"),
-            Self::CannotReadMember(member) => format!("Cannot read member {member}"),
-            Self::Message(msg) => msg,
-        }
-    }
-}
-
-impl From<String> for EvalError {
-    fn from(msg: String) -> Self {
-        Self::Message(msg)
-    }
-}
-
-impl From<&str> for EvalError {
-    fn from(msg: &str) -> Self {
-        Self::Message(msg.to_owned())
     }
 }
 
@@ -119,7 +37,17 @@ pub(super) fn eval_typed<'a>(
     eval_mode_typed(value, scope, state, stack, false)
 }
 
-fn eval_mode_typed<'a>(
+pub(super) fn pattern_matches<'a>(
+    pattern: &'a Value,
+    value: &Value,
+    scope: &'a Properties,
+    state: &'a Properties,
+    stack: &mut Vec<&'a str>,
+) -> Result<bool, String> {
+    pattern_matches_typed(pattern, value, scope, state, stack).map_err(EvalError::into_message)
+}
+
+pub(super) fn eval_mode_typed<'a>(
     value: &'a Value,
     scope: &'a Properties,
     state: &'a Properties,
@@ -130,230 +58,11 @@ fn eval_mode_typed<'a>(
         return optional_result(eval_typed(value, scope, state, stack));
     }
     let result = match value {
-        Value::Expr(path) => {
-            let (negative, path) = path
-                .strip_prefix('!')
-                .map_or((false, path.as_str()), |p| (true, p));
-            let result = if let Some(key) = path.strip_prefix("props.") {
-                let key = if key == "font.size" { "fontSize" } else { key };
-                if stack.contains(&key) {
-                    return Err(EvalError::Message(format!("Cyclic property {key}")));
-                }
-                let v = lookup(scope, key)
-                    .ok_or_else(|| EvalError::UnknownProperty(path.to_owned()))?;
-                stack.push(key);
-                let result = eval_owned_value(&v, scope, state, stack);
-                stack.pop();
-                result?
-            } else if let Some(key) = path.strip_prefix("tokens.") {
-                match scope.get("__tokens") {
-                    Some(Value::Object(tokens)) => lookup(tokens, key)
-                        .ok_or_else(|| EvalError::Message(format!("Unknown token {path}")))?,
-                    _ => return Err(EvalError::Message(format!("Unknown token {path}"))),
-                }
-            } else if let Some(key) = path.strip_prefix("i18n.") {
-                match scope.get("__i18n") {
-                    Some(Value::Object(i18n)) => lookup(i18n, key)
-                        .ok_or_else(|| EvalError::Message(format!("Unknown i18n key {path}")))?,
-                    _ => return Err(EvalError::Message(format!("Unknown i18n key {path}"))),
-                }
-            } else if let Some(key) = path.strip_prefix("state.") {
-                lookup(state, key).ok_or_else(|| EvalError::MissingState(key.to_owned()))?
-            } else if path == "null" {
-                Value::Null
-            } else if let Some(value) = enum_value(path, scope)
-                .or_else(|| lookup(state, path))
-                .or_else(|| match scope.get("__lets") {
-                    Some(Value::Object(lets)) => lookup(lets, path),
-                    _ => None,
-                })
-            {
-                if matches!(
-                    value,
-                    Value::Expression(_)
-                        | Value::Expr(_)
-                        | Value::Interpolation(_)
-                        | Value::Match(..)
-                ) {
-                    eval_owned_value(&value, scope, state, stack)?
-                } else {
-                    value
-                }
-            } else if path.split_once('.').is_some_and(|(head, _)| {
-                matches!(scope.get("__enums"), Some(Value::Object(enums)) if enums.contains_key(head))
-            }) {
-                return Err(EvalError::Message(format!("Unknown enum variant {path}")));
-            } else if path
-                .split_once('.')
-                .is_some_and(|(head, _)| state.contains_key(head))
-            {
-                return Err(EvalError::UnknownMember(path.to_owned()));
-            } else {
-                Value::Expr(path.into())
-            };
-            if negative {
-                Value::Bool(!result.boolean()?)
-            } else {
-                result
-            }
+        Value::Expr(path) => eval_expr_path(path, scope, state, stack)?,
+        Value::Expression(expression) => {
+            eval_expression(expression, scope, state, stack, allow_missing)?
         }
-        Value::Expression(expression) => match expression.as_ref() {
-            Expression::Unary(operator, argument) => {
-                let argument = eval_mode_typed(argument, scope, state, stack, false)?;
-                match operator.as_str() {
-                    "!" => Value::Bool(!argument.boolean()?),
-                    "-" => number(-expression_number(&argument)?),
-                    "+" => number(expression_number(&argument)?),
-                    _ => {
-                        return Err(EvalError::Message(format!(
-                            "Unknown unary operator {operator}"
-                        )));
-                    }
-                }
-            }
-            Expression::Binary(operator, left, right) => {
-                let left =
-                    eval_mode_typed(left, scope, state, stack, operator == "??" || allow_missing)?;
-                match operator.as_str() {
-                    "&&" if !left.boolean()? => Value::Bool(false),
-                    "||" if left.boolean()? => Value::Bool(true),
-                    "??" if left != Value::Null => left,
-                    _ => {
-                        let right = eval_mode_typed(right, scope, state, stack, false)?;
-                        match operator.as_str() {
-                            "&&" | "||" => Value::Bool(right.boolean()?),
-                            "??" => right,
-                            "==" | "===" => Value::Bool(left == right),
-                            "!=" | "!==" => Value::Bool(left != right),
-                            ".." | "..=" => {
-                                let st = expression_number(&left)? as i64;
-                                let en = expression_number(&right)? as i64;
-                                let inclusive = operator == "..=";
-                                let count = if inclusive { en - st + 1 } else { en - st };
-                                if count <= 0 {
-                                    Value::List(vec![])
-                                } else if count > 4096 {
-                                    return Err("Range exceeds 4096 items".into());
-                                } else if inclusive {
-                                    Value::List((st..=en).map(|i| number(i as f64)).collect())
-                                } else {
-                                    Value::List((st..en).map(|i| number(i as f64)).collect())
-                                }
-                            }
-                            "+" if matches!(left, Value::Text(_))
-                                && matches!(right, Value::Text(_)) =>
-                            {
-                                Value::Text(left.text()? + &right.text()?)
-                            }
-                            "+" => number(expression_number(&left)? + expression_number(&right)?),
-                            "-" => number(expression_number(&left)? - expression_number(&right)?),
-                            "*" => number(expression_number(&left)? * expression_number(&right)?),
-                            "/" | "%" if expression_number(&right)? == 0. => {
-                                return Err("Division by zero".into());
-                            }
-                            "/" => number(expression_number(&left)? / expression_number(&right)?),
-                            "%" => number(expression_number(&left)? % expression_number(&right)?),
-                            "<" | "<=" | ">" | ">=" => {
-                                let order = match (&left, &right) {
-                                    (Value::Text(a), Value::Text(b)) => a.partial_cmp(b),
-                                    _ => expression_number(&left)?
-                                        .partial_cmp(&expression_number(&right)?),
-                                }
-                                .ok_or("Values cannot be compared")?;
-                                Value::Bool(match operator.as_str() {
-                                    "<" => order.is_lt(),
-                                    "<=" => order.is_le(),
-                                    ">" => order.is_gt(),
-                                    _ => order.is_ge(),
-                                })
-                            }
-                            _ => {
-                                return Err(EvalError::Message(format!(
-                                    "Unknown binary operator {operator}"
-                                )));
-                            }
-                        }
-                    }
-                }
-            }
-            Expression::Conditional(condition, yes, no) => {
-                let condition =
-                    eval_mode_typed(condition, scope, state, stack, false)?.boolean()?;
-                eval_mode_typed(if condition { yes } else { no }, scope, state, stack, false)?
-            }
-            Expression::Member(object, property, optional) => {
-                let optional = *optional || allow_missing;
-                let object = eval_mode_typed(object, scope, state, stack, optional)?;
-                if optional && object == Value::Null {
-                    Value::Null
-                } else {
-                    let property = eval_mode_typed(property, scope, state, stack, false)?.text()?;
-                    if ["__proto__", "prototype", "constructor"].contains(&property.as_str()) {
-                        return Err(EvalError::Message(format!("Unavailable member {property}")));
-                    }
-                    match object {
-                        Value::Object(object) => match object.get(&property).cloned() {
-                            Some(value) => value,
-                            None if optional => Value::Null,
-                            None => return Err(EvalError::UnknownMember(property)),
-                        },
-                        Value::List(items) if property == "length" => number(items.len() as f64),
-                        Value::List(items) => match property
-                            .parse::<usize>()
-                            .ok()
-                            .and_then(|index| items.get(index).cloned())
-                        {
-                            Some(value) => value,
-                            None if optional => Value::Null,
-                            None => return Err(EvalError::UnknownListIndex(property)),
-                        },
-                        Value::Text(value) if property == "length" => {
-                            number(value.encode_utf16().count() as f64)
-                        }
-                        _ => return Err(EvalError::CannotReadMember(property)),
-                    }
-                }
-            }
-            Expression::Call(name, arguments) => {
-                if name == "coalesce" {
-                    if arguments.is_empty() {
-                        return Err("coalesce expects at least one argument".into());
-                    }
-                    let mut found = Value::Null;
-                    for arg in arguments {
-                        let val = eval_mode_typed(arg, scope, state, stack, true)?;
-                        if val != Value::Null {
-                            found = val;
-                            break;
-                        }
-                    }
-                    found
-                } else {
-                    let arguments = arguments
-                        .iter()
-                        .map(|value| eval_mode_typed(value, scope, state, stack, false))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    call(name, &arguments)?
-                }
-            }
-        },
-        Value::Interpolation(parts) => {
-            let mut out = String::with_capacity(parts.len() * 16);
-            for part in parts {
-                match eval_typed(part, scope, state, stack)? {
-                    Value::Null => {}
-                    Value::Text(v) | Value::Expr(v) => out.push_str(&v),
-                    Value::Number(v) => {
-                        let _ = std::fmt::Write::write_fmt(&mut out, format_args!("{v}"));
-                    }
-                    Value::Bool(v) => {
-                        out.push_str(if v { "true" } else { "false" });
-                    }
-                    _ => return Err("Expected scalar text".into()),
-                }
-            }
-            Value::Text(out)
-        }
+        Value::Interpolation(parts) => eval_interpolation(parts, scope, state, stack)?,
         Value::Object(values) => Value::Object(
             values
                 .iter()
@@ -376,7 +85,7 @@ fn eval_mode_typed<'a>(
                 }
             }
             eval_typed(
-                selected.ok_or("No matching branch; add _ => ...")?,
+                selected.ok_or(EvalError::NoMatchingBranch)?,
                 scope,
                 state,
                 stack,
@@ -385,7 +94,7 @@ fn eval_mode_typed<'a>(
         _ => value.clone(),
     };
     if matches!(&result, Value::Number(n) if !n.is_finite()) {
-        return Err("Expression produced a non-finite number".into());
+        return Err(EvalError::NonFiniteNumber);
     }
     Ok(result)
 }
@@ -410,7 +119,7 @@ fn optional_result(result: Result<Value, EvalError>) -> Result<Value, EvalError>
     }
 }
 
-fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
+pub(super) fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
     let raw = value.text()?;
     let s = raw
         .trim()
@@ -441,7 +150,7 @@ fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
     }
 }
 
-fn format_hex_color(r: u8, g: u8, b: u8, a: u8, as_expr: bool) -> Value {
+pub(super) fn format_hex_color(r: u8, g: u8, b: u8, a: u8, as_expr: bool) -> Value {
     let s = if a == 255 {
         format!("#{r:02x}{g:02x}{b:02x}")
     } else {
@@ -454,7 +163,7 @@ fn format_hex_color(r: u8, g: u8, b: u8, a: u8, as_expr: bool) -> Value {
     }
 }
 
-fn char_slice_range(s: &str, start_char: usize, end_char: usize) -> &str {
+pub(super) fn char_slice_range(s: &str, start_char: usize, end_char: usize) -> &str {
     if start_char >= end_char {
         return "";
     }
@@ -472,98 +181,126 @@ fn char_slice_range(s: &str, start_char: usize, end_char: usize) -> &str {
     &s[start_byte..end_byte]
 }
 
-pub(super) fn pattern_matches<'a>(
-    pattern: &'a Value,
-    value: &Value,
-    scope: &'a Properties,
-    state: &'a Properties,
-    stack: &mut Vec<&'a str>,
-) -> Result<bool, String> {
-    pattern_matches_typed(pattern, value, scope, state, stack).map_err(EvalError::into_message)
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::form_document::props;
 
-fn pattern_matches_typed<'a>(
-    pattern: &'a Value,
-    value: &Value,
-    scope: &'a Properties,
-    state: &'a Properties,
-    stack: &mut Vec<&'a str>,
-) -> Result<bool, EvalError> {
-    if matches!(pattern, Value::Expr(v) if v == "_") {
-        return Ok(true);
-    }
-    if let Value::Object(obj) = pattern {
-        if let Some(Value::List(alts)) = obj.get("or") {
-            for alt in alts {
-                if pattern_matches_typed(alt, value, scope, state, stack)? {
-                    return Ok(true);
-                }
-            }
-            return Ok(false);
-        }
-    }
-    if let Value::Expression(expr) = pattern {
-        if let Expression::Binary(op, left, right) = expr.as_ref() {
-            if op == ".." || op == "..=" {
-                let lo = expression_number(&eval_typed(left, scope, state, stack)?)?;
-                let hi = expression_number(&eval_typed(right, scope, state, stack)?)?;
-                let Value::Number(vn) = value else {
-                    return Ok(false);
-                };
-                return Ok(if op == "..=" {
-                    *vn >= lo && *vn <= hi
-                } else {
-                    *vn >= lo && *vn < hi
-                });
-            }
-        }
-    }
-    if let Value::List(patterns) = pattern {
-        let Value::List(values) = value else {
-            return Ok(false);
-        };
-        if patterns.len() != values.len() {
-            return Ok(false);
-        }
-        for (pattern, value) in patterns.iter().zip(values) {
-            if !pattern_matches_typed(pattern, value, scope, state, stack)? {
-                return Ok(false);
-            }
-        }
-        return Ok(true);
-    }
-    Ok(matches(&eval_typed(pattern, scope, state, stack)?, value))
-}
+    #[test]
+    fn eval_error_preserves_structured_kind_without_string_prefix_matching() {
+        let scope = Properties::new();
+        let state = props(vec![("user", Value::Object(Properties::new()))]);
+        let missing = eval_typed(
+            &Value::Expr("state.query".into()),
+            &scope,
+            &state,
+            &mut Vec::new(),
+        )
+        .unwrap_err();
+        assert_eq!(missing, EvalError::MissingState("query".into()));
+        assert!(missing.is_missing_state());
+        assert_eq!(missing.into_message(), "Missing state.query");
 
-fn matches(pattern: &Value, value: &Value) -> bool {
-    match (pattern, value) {
-        (Value::Expr(v), _) if v == "_" => true,
-        (Value::List(a), Value::List(b)) => {
-            a.len() == b.len() && a.iter().zip(b).all(|(a, b)| matches(a, b))
-        }
-        (Value::Object(pattern), value) if pattern.contains_key("comparison") => {
-            let Some(expected) = pattern.get("value") else {
-                return false;
-            };
-            let order = match (value, expected) {
-                (Value::Text(a), Value::Text(b)) => a.partial_cmp(b),
-                (Value::Number(a), Value::Number(b)) => a.partial_cmp(b),
-                _ => None,
-            };
-            match (
-                pattern
-                    .get("comparison")
-                    .and_then(|v| v.text().ok())
-                    .as_deref(),
-                order,
-            ) {
-                (Some("<"), Some(order)) => order.is_lt(),
-                (Some("<="), Some(order)) => order.is_le(),
-                (Some(">"), Some(order)) => order.is_gt(),
-                (Some(">="), Some(order)) => order.is_ge(),
-                _ => false,
-            }
-        }
-        _ => pattern == value,
+        let div_zero = eval_typed(
+            &Value::Expression(Box::new(Expression::Binary(
+                "/".into(),
+                number(10.),
+                number(0.),
+            ))),
+            &scope,
+            &state,
+            &mut Vec::new(),
+        )
+        .unwrap_err();
+        assert_eq!(div_zero, EvalError::DivisionByZero);
+        assert_eq!(div_zero.into_message(), "Division by zero");
+
+        let unknown_prop = eval_typed(
+            &Value::Expr("props.missing".into()),
+            &scope,
+            &state,
+            &mut Vec::new(),
+        )
+        .unwrap_err();
+        assert!(unknown_prop.is_optional_absent());
+    }
+
+    #[test]
+    fn evaluates_optional_chaining_nullish_coalesce_and_patterns() {
+        let scope = props(vec![(
+            "__enums",
+            Value::Object(props(vec![(
+                "Tone",
+                Value::List(vec![
+                    Value::Text("Primary".into()),
+                    Value::Text("Muted".into()),
+                ]),
+            )])),
+        )]);
+        let state = props(vec![(
+            "items",
+            Value::List(vec![Value::Text("alpha".into())]),
+        )]);
+
+        let optional_member = Value::Expression(Box::new(Expression::Member(
+            Value::Expr("state.missingUser".into()),
+            Value::Text("name".into()),
+            true,
+        )));
+        assert_eq!(
+            eval(&optional_member, &scope, &state, &mut Vec::new()).unwrap(),
+            Value::Null
+        );
+
+        let coalesced = Value::Expression(Box::new(Expression::Binary(
+            "??".into(),
+            optional_member,
+            Value::Text("anon".into()),
+        )));
+        assert_eq!(
+            eval(&coalesced, &scope, &state, &mut Vec::new()).unwrap(),
+            Value::Text("anon".into())
+        );
+
+        let call_coalesce = Value::Expression(Box::new(Expression::Call(
+            "coalesce".into(),
+            vec![
+                Value::Expr("state.missing".into()),
+                Value::Expr("items.0".into()),
+                Value::Text("fallback".into()),
+            ],
+        )));
+        assert_eq!(
+            eval(&call_coalesce, &scope, &state, &mut Vec::new()).unwrap(),
+            Value::Text("alpha".into())
+        );
+
+        let range_pat = Value::Expression(Box::new(Expression::Binary(
+            "..=".into(),
+            number(1.),
+            number(5.),
+        )));
+        assert!(pattern_matches(&range_pat, &number(5.), &scope, &state, &mut Vec::new()).unwrap());
+        assert!(
+            !pattern_matches(&range_pat, &number(6.), &scope, &state, &mut Vec::new()).unwrap()
+        );
+
+        let cmp_pat = Value::Object(props(vec![
+            ("comparison", Value::Text(">=".into())),
+            ("value", number(10.)),
+        ]));
+        assert!(pattern_matches(&cmp_pat, &number(10.), &scope, &state, &mut Vec::new()).unwrap());
+        assert!(!pattern_matches(&cmp_pat, &number(9.), &scope, &state, &mut Vec::new()).unwrap());
+
+        assert_eq!(
+            eval(
+                &Value::Expr("Tone.Primary".into()),
+                &scope,
+                &state,
+                &mut Vec::new()
+            )
+            .unwrap(),
+            Value::Text("Tone.Primary".into())
+        );
     }
 }

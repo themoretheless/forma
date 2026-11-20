@@ -9,6 +9,7 @@ import {
   resolve as resolveValue,
 } from '@themoretheless/tokenizer-forma/language';
 import { readDesignData } from './design-data.js';
+import { stampStableIds } from './element-tree.js';
 
 /**
  * One choice of a radio group, `value: 'a'; group <-> state.choice;`: it is checked while the
@@ -39,6 +40,7 @@ function bindGroupChoices(nodes) {
 export function parse(source, options) {
   const doc = options === undefined ? parseSource(source) : parseSource(source, options);
   bindGroupChoices(doc.nodes);
+  stampStableIds(doc.nodes, options?.file ?? '');
   return doc;
 }
 export const resolve = (value, state) => resolveValue(value, state, readDesignData);

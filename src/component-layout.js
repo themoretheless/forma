@@ -218,7 +218,9 @@ export function arrange(node, box, natural, { scene = false } = {}) {
     const value = child.props[axis === 0 ? 'width' : 'height'];
     return constrained(
       value === undefined && stretch
-        ? available
+        ? scene && !containerTypes.has(child.type)
+          ? Math.min(available, 4096)
+          : available
         : length(value, available, intrinsicLength(value) ? natural(child, axis) : 0),
       child.props,
       axis,

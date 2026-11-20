@@ -251,3 +251,41 @@ test('splice commands change the entry source and report the new node', () => {
   );
   assert.ok(Array.isArray(commands.component_controls()));
 });
+
+test('component_select and component_property resolve nodes by stableId across shifted offsets', async () => {
+  const { createIdeCommands } = await import('../src/mcp-commands.js');
+  const { parse } = await import('../src/language.js');
+  const shifted =
+    "component Demo { Frame { Button { text: 'Inserted'; } Text { text: 'a'; } Text { text: 'b'; } } }";
+  const doc = parse(shifted, { file: 'ui/Demo.ui' });
+  const textA = doc.nodes[0].children[1];
+  const selected = [];
+  const ide = createIdeCommands({
+    $: () => ({}),
+    files: { 'ui/Demo.ui': shifted },
+    active: 'ui/Demo.ui',
+    entry: 'ui/Demo.ui',
+    scenario: -1,
+    mode: 'design',
+    error: null,
+    selected: null,
+    pending: null,
+    breakOn: false,
+    renderer: 'dom',
+    compiled: doc,
+    select: node => selected.push(node),
+    open() {},
+    persist() {},
+    compile() {},
+    propertyInput: () => ({ value: '', onchange() {} }),
+  });
+  ide('component_select', { stableId: textA.stableId });
+  assert.equal(selected[0], textA);
+  ide('component_property', {
+    stableId: textA.stableId,
+    property: 'text',
+    value: 'updated',
+    expectedContent: shifted,
+  });
+  assert.equal(selected.length, 2);
+});

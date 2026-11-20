@@ -121,6 +121,8 @@ pub struct Runtime {
     scroll_chains: Vec<Vec<usize>>,
     // Per control, the state path of its `group <->` binding: one radio group per path.
     groups: Vec<Option<String>>,
+    // Per control, its structural origin path (stable across sibling insertions).
+    control_origins: Vec<String>,
     // The tree node of each scroll area, and the node each control sat under before areas.
     area_nodes: Vec<usize>,
     control_homes: Vec<usize>,

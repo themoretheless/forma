@@ -49,7 +49,7 @@ import { escapeHtml as esc, parentDirOf, countLines } from './shared/text.js';
 import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
 import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
 import { restoreSelection, selectionIdentities } from './selection-restore.js';
-import { findNodeByStart } from './element-tree.js';
+import { findNodeByStart, stampStableIds } from './element-tree.js';
 import { mountEditor } from './editor.js';
 import { detectTokenizerLanguage } from './tokenizer-highlight.js';
 import { createPropertyInspector } from './property-inspector.js';
@@ -162,9 +162,9 @@ const $ = id => document.getElementById(id);
 // The file as it really stands: the editor's text for the open file, which `files` only catches up
 // with on the next microtask, and the stored text for every other one.
 const liveSource = path => (path === active ? $('code').value : files[path]);
-function reportError(message) {
-  error = message;
-  sourceDiagnostic = null;
+function reportError(err) {
+  error = typeof err === 'string' ? err : String(err?.message ?? err);
+  sourceDiagnostic = err?.diagnostic ?? null;
   output();
 }
 function downloadJson(name, text) {
@@ -454,8 +454,18 @@ function compile(reset = false) {
         }
       }
     }
+    const prevIdentities =
+      !reset && selected && selectedPath === entry && compiled?.nodes?.[0]
+        ? selectionIdentities(compiled.nodes[0], [selected.start])
+        : null;
+    stampStableIds(next.nodes, entry);
     compiled = next;
     compiled.states = states;
+    if (prevIdentities?.length && compiled.nodes?.[0]) {
+      const restored = restoreSelection(compiled.nodes[0], prevIdentities);
+      selected = restored.nodes[0] ?? null;
+      if (!selected) selectedPath = null;
+    }
     scenario = Math.min(scenario, Math.max(0, states.length - 1));
     if (reset) {
       const defState = Object.fromEntries(
@@ -473,6 +483,7 @@ function compile(reset = false) {
     $('preview-name').textContent = next.name;
     error = '';
     render();
+    if (prevIdentities?.length) renderInspector();
     syncHotRunningApp();
     $('status').textContent = 'Live preview обновлён';
   } catch (e) {
@@ -509,7 +520,11 @@ function render(designMode = mode === 'design') {
       nodes: designMode && designPresetName !== 'original' ? linked.previewNodes : compiled.nodes,
       selectedStart: selectedPath === entry ? selected?.start : null,
     });
-    if (!ok) throw Error(error || 'Ошибка векторного компонента');
+    if (!ok) {
+      const err = Error(error || 'Ошибка векторного компонента');
+      if (sourceDiagnostic) err.diagnostic = sourceDiagnostic;
+      throw err;
+    }
     $('preview').style.width = vectorPreview.layoutSnapshot().width + 'px';
     $('preview').style.minHeight = '0';
     $('preview').style.overflow = 'visible';
@@ -1717,8 +1732,9 @@ function initVector() {
         onSelect: n => {
           if (designPresetName === 'original') select(n);
         },
-        onError: message => {
-          error = String(message);
+        onError: err => {
+          error = String(err?.message ?? err);
+          sourceDiagnostic = err?.diagnostic ?? null;
           output();
         },
         onAction: (action, n, event = 'clicked') => {

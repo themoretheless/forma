@@ -1,7 +1,7 @@
   padding: 0;            compiler accepts, runtime accepts
   padding: 8;            compiler accepts, runtime accepts
   padding: 8 16;         compiler accepts, runtime accepts
-! padding: 1 2 3;        compiler accepts, runtime rejects
+  padding: 1 2 3;        compiler accepts, runtime accepts
   padding: 1 2 3 4;      compiler accepts, runtime accepts
   padding: 1 2 3 4 5;    compiler rejects, runtime rejects
   padding: -1;           compiler rejects, runtime rejects
@@ -9,15 +9,15 @@
   padding: 'wide';       compiler rejects, runtime rejects
   gap: 0;                compiler accepts, runtime accepts
   gap: 8;                compiler accepts, runtime accepts
-! gap: 8 16;             compiler accepts, runtime rejects
+  gap: 8 16;             compiler accepts, runtime accepts
   gap: 1 2 3;            compiler rejects, runtime rejects
   gap: -1;               compiler rejects, runtime rejects
   gap: 5000;             compiler accepts, runtime accepts
-! width: 0;              compiler accepts, runtime rejects
+  width: 0;              compiler rejects, runtime rejects
   width: 360;            compiler accepts, runtime accepts
   width: 4096;           compiler accepts, runtime accepts
-! width: 4097;           compiler rejects, runtime accepts
-! width: 5000;           compiler rejects, runtime accepts
+  width: 4097;           compiler accepts, runtime accepts
+  width: 5000;           compiler accepts, runtime accepts
   width: -1;             compiler rejects, runtime rejects
   height: 4096;          compiler accepts, runtime accepts
   height: 4097;          compiler accepts, runtime accepts

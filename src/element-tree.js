@@ -22,8 +22,39 @@ export function attachSources(value, file) {
 // property sources — and every copy of one would be a frozen allocation that no
 // reader can distinguish from its neighbours.
 const emptyObject = Object.freeze({});
+export function stampStableIds(nodes, file = '') {
+  const prefix = file ? `${file}::` : '';
+  function walk(list, parentPath) {
+    const counts = new Map();
+    for (const node of list ?? []) {
+      const explicitKey =
+        typeof node.props?.key === 'string' && node.props.key.length ? node.props.key : null;
+      let path = parentPath;
+      if (explicitKey) {
+        node.stableId = `key:${explicitKey}`;
+        path = parentPath ? `${parentPath}/key:${explicitKey}` : `${prefix}key:${explicitKey}`;
+      } else {
+        const ord = counts.get(node.type) ?? 0;
+        counts.set(node.type, ord + 1);
+        const seg = `${node.type}#${ord}`;
+        path = parentPath ? `${parentPath}/${seg}` : `${prefix}${seg}`;
+        node.stableId = path;
+      }
+      walk(node.children, path);
+      walk(node.elseChildren, `${path}/else`);
+      walk(node.emptyChildren, `${path}/empty`);
+      if (Array.isArray(node.branches)) {
+        node.branches.forEach((branch, index) => walk(branch.children, `${path}/branch#${index}`));
+      }
+    }
+  }
+  walk(nodes, '');
+  return nodes;
+}
+
 const emptyArray = Object.freeze([]);
-export function createElementTree(roots) {
+export function createElementTree(roots, file = '') {
+  const prefix = file ? `${file}::` : '';
   const nodes = [];
   // Nodes of repeated instances share their definition values, so each distinct
   // value is copied once and reused. Copying and freezing in one pass keeps the
@@ -47,10 +78,25 @@ export function createElementTree(roots) {
     for (const name of names) out[name] = copy(value[name]);
     return Object.freeze(out);
   }
-  function add(element, parent) {
+  function add(element, parent, parentPath, counts) {
     const id = nodes.length;
+    const explicitKey =
+      typeof element.props?.key === 'string' && element.props.key.length ? element.props.key : null;
+    let slotPath = parentPath;
+    let stableId = element.stableId;
+    if (explicitKey) {
+      slotPath = parentPath ? `${parentPath}/key:${explicitKey}` : `${prefix}key:${explicitKey}`;
+      stableId ??= `key:${explicitKey}`;
+    } else {
+      const ord = counts.get(element.type) ?? 0;
+      counts.set(element.type, ord + 1);
+      const seg = `${element.type}#${ord}`;
+      slotPath = parentPath ? `${parentPath}/${seg}` : `${prefix}${seg}`;
+      stableId ??= slotPath;
+    }
     const node = {
       id,
+      stableId,
       parent,
       type: element.type,
       key: element.props?.key ?? null,
@@ -62,11 +108,15 @@ export function createElementTree(roots) {
       children: [],
     };
     nodes.push(node);
-    node.children = Object.freeze((element.children ?? []).map(child => add(child, id)));
+    const childCounts = new Map();
+    node.children = Object.freeze(
+      (element.children ?? []).map(child => add(child, id, slotPath, childCounts)),
+    );
     Object.freeze(node);
     return id;
   }
-  const rootIds = roots.map(root => add(root, null));
+  const rootCounts = new Map();
+  const rootIds = roots.map(root => add(root, null, '', rootCounts));
   return Object.freeze({ roots: Object.freeze(rootIds), nodes: Object.freeze(nodes) });
 }
 
@@ -74,7 +124,29 @@ export function createElementTree(roots) {
 export function findNodeByStart(nodes, start) {
   for (const node of nodes ?? []) {
     if (node.start === start) return node;
-    const found = findNodeByStart(node.children, start);
+    const found =
+      findNodeByStart(node.children, start) ??
+      findNodeByStart(node.elseChildren, start) ??
+      findNodeByStart(node.emptyChildren, start) ??
+      (Array.isArray(node.branches)
+        ? (node.branches.map(b => findNodeByStart(b.children, start)).find(Boolean) ?? null)
+        : null);
+    if (found) return found;
+  }
+  return null;
+}
+
+export function findNodeByStableId(nodes, stableId) {
+  if (!stableId) return null;
+  for (const node of nodes ?? []) {
+    if (node.stableId === stableId) return node;
+    const found =
+      findNodeByStableId(node.children, stableId) ??
+      findNodeByStableId(node.elseChildren, stableId) ??
+      findNodeByStableId(node.emptyChildren, stableId) ??
+      (Array.isArray(node.branches)
+        ? (node.branches.map(b => findNodeByStableId(b.children, stableId)).find(Boolean) ?? null)
+        : null);
     if (found) return found;
   }
   return null;

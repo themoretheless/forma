@@ -136,38 +136,120 @@ impl Runtime {
     ) -> Vec<Option<usize>> {
         use std::collections::HashMap;
         // Reconcile only unambiguous identities; never transfer a gesture by index.
+        // Pass 1 matches explicit keys (never unkeyed positional `@<id>:0:` leaves when a
+        // structural `control_origins` entry is present for that control, since inserting a
+        // sibling shifts `@id` while keyed controls inside loops `@for:.../ @leaf:<len>:<key>`
+        // still retain stable explicit identities across reorder).
+        fn is_unkeyed_synthesized_key(key: &str) -> bool {
+            let leaf = key.rsplit_once('/').map_or(key, |(_, tail)| tail);
+            let Some(rest) = leaf.strip_prefix('@') else {
+                return false;
+            };
+            let Some((id, tail)) = rest.split_once(':') else {
+                return false;
+            };
+            !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()) && tail == "0:"
+        }
+        let is_explicit_key = |rt: &Runtime, idx: usize| -> bool {
+            let key = rt.controls[idx].scene.button.key.as_str();
+            !key.is_empty()
+                && (!is_unkeyed_synthesized_key(key)
+                    || rt.control_origins.get(idx).is_none_or(String::is_empty))
+        };
         let mut previous_keys: HashMap<&str, Option<usize>> =
             HashMap::with_capacity(previous.controls.len());
         for (i, c) in previous.controls.iter().enumerate() {
-            let key = c.scene.button.key.as_str();
-            if !key.is_empty() {
+            if is_explicit_key(previous, i) {
+                let key = c.scene.button.key.as_str();
                 previous_keys
                     .entry(key)
-                    .and_modify(|i| *i = None)
+                    .and_modify(|slot| *slot = None)
                     .or_insert(Some(i));
             }
         }
-        let matches: Vec<Option<usize>> = {
+        let mut matches: Vec<Option<usize>> = {
             let mut current_counts: HashMap<&str, usize> =
                 HashMap::with_capacity(self.controls.len());
-            for c in &self.controls {
-                let key = c.scene.button.key.as_str();
-                if !key.is_empty() {
-                    *current_counts.entry(key).or_default() += 1;
+            for (i, c) in self.controls.iter().enumerate() {
+                if is_explicit_key(self, i) {
+                    *current_counts
+                        .entry(c.scene.button.key.as_str())
+                        .or_default() += 1;
                 }
             }
             self.controls
                 .iter()
-                .map(|c| {
-                    let key = c.scene.button.key.as_str();
-                    if current_counts.get(key) == Some(&1) {
-                        previous_keys.get(key).copied().flatten()
+                .enumerate()
+                .map(|(i, c)| {
+                    if is_explicit_key(self, i) {
+                        let key = c.scene.button.key.as_str();
+                        if current_counts.get(key) == Some(&1) {
+                            previous_keys.get(key).copied().flatten()
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
                 })
                 .collect()
         };
+        let mut already_matched = vec![false; previous.controls.len()];
+        for old in matches.iter().flatten() {
+            already_matched[*old] = true;
+        }
+        fn origin_of(rt: &Runtime, idx: usize) -> Option<&str> {
+            let o = rt.control_origins.get(idx)?.as_str();
+            (!o.is_empty() && !o.starts_with("key:")).then_some(o)
+        }
+        let mut previous_origins: HashMap<&str, Option<usize>> =
+            HashMap::with_capacity(previous.controls.len());
+        for (old, prev_ctrl) in previous.controls.iter().enumerate() {
+            let key = prev_ctrl.scene.button.key.as_str();
+            if !already_matched[old] && (key.is_empty() || key.starts_with('@')) {
+                if let Some(orig) = origin_of(previous, old) {
+                    previous_origins
+                        .entry(orig)
+                        .and_modify(|slot| *slot = None)
+                        .or_insert(Some(old));
+                }
+            }
+        }
+        let mut current_origin_counts: HashMap<&str, usize> =
+            HashMap::with_capacity(self.controls.len());
+        for (i, c) in self.controls.iter().enumerate() {
+            let key = c.scene.button.key.as_str();
+            if matches[i].is_none() && (key.is_empty() || key.starts_with('@')) {
+                if let Some(orig) = origin_of(self, i) {
+                    *current_origin_counts.entry(orig).or_default() += 1;
+                }
+            }
+        }
+        for (i, matched) in matches.iter_mut().enumerate() {
+            if matched.is_some() {
+                continue;
+            }
+            let key = self.controls[i].scene.button.key.as_str();
+            if !(key.is_empty() || key.starts_with('@')) {
+                continue;
+            }
+            let Some(orig) = origin_of(self, i) else {
+                continue;
+            };
+            if current_origin_counts.get(orig) != Some(&1) {
+                continue;
+            }
+            let Some(Some(old)) = previous_origins.get(orig).copied() else {
+                continue;
+            };
+            let compatible = self.editors[i].is_some() == previous.editors[old].is_some()
+                && self.controls[i].template.range.is_some()
+                    == previous.controls[old].template.range.is_some()
+                && self.controls[i].template.clickable == previous.controls[old].template.clickable;
+            if compatible {
+                *matched = Some(old);
+            }
+        }
         self.scroll(
             previous.scroll[0] - self.scroll[0],
             previous.scroll[1] - self.scroll[1],
@@ -208,7 +290,7 @@ impl Runtime {
         let mut focused = None;
         for (i, c) in self.controls.iter_mut().enumerate() {
             if let Some(old) = matches[i] {
-                c.preserve_interaction(&previous.controls[old]);
+                c.preserve_interaction_matched(&previous.controls[old]);
                 self.submissions[i] = previous.submissions[old];
                 if previous.focused == Some(old) && !c.disabled() && c.template.clickable {
                     focused = Some(i);

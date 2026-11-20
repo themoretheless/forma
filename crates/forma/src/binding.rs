@@ -16,6 +16,7 @@ mod form;
 mod input;
 mod property;
 mod scene;
+mod sync;
 mod update;
 
 pub use context::*;
@@ -25,7 +26,6 @@ pub use form::*;
 use input::*;
 pub use property::*;
 use scene::*;
-use update::*;
 
 mod model_value;
 

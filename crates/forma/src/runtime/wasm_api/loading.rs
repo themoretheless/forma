@@ -30,6 +30,11 @@ impl Runtime {
             .map_err(|e| JsValue::from_str(&e))
     }
 
+    /// Exports the authoritative `.ui` property and binding registry as JSON.
+    pub fn property_registry_json() -> String {
+        crate::form_document::property_registry_json()
+    }
+
     pub fn load(&mut self, source: &str) -> Result<(), JsValue> {
         self.load_component(source, crate::BUTTON_COMPONENT)
     }

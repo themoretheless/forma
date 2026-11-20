@@ -1296,6 +1296,7 @@ fn cyclic_collection_parent_metadata_refuses_before_recursing_unbounded() {
         clip: None,
         scroll: Vec::new(),
         group: None,
+        origin: None,
         state: props(vec![("__collection.item", string("item.items"))]),
     };
     assert!(
@@ -1716,6 +1717,7 @@ fn borrowed_collection_keys_preserve_computed_and_exact_field_semantics() {
         clip: None,
         scroll: Vec::new(),
         group: None,
+        origin: None,
         state: props(vec![
             ("__collection.item", string("state.items")),
             (

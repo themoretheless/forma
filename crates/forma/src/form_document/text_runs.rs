@@ -230,6 +230,86 @@ pub(super) fn flatten(
     }
 }
 
+pub(super) struct IrRunTargets<'a> {
+    pub(super) content: &'a mut Vec<crate::template::Content>,
+    pub(super) links: &'a mut Vec<crate::template::TextLink>,
+}
+
+/// Flatten a run Text placed at `rect` directly into typed `Content` and `TextLink` records.
+pub(super) fn flatten_ir(
+    runs: &[StyledRun],
+    font_size: f64,
+    wrap: bool,
+    rect: [f64; 4],
+    parse_color: fn(&str, &str) -> Result<[u8; 4], String>,
+    out: &mut IrRunTargets<'_>,
+) -> Result<(), String> {
+    let [x, y, w, h] = rect;
+    let placed = layout(runs, font_size, (wrap && w > 0.).then_some(w));
+    let multiline = placed.lines > 1;
+    let line_height = font_size * 1.5;
+    if multiline {
+        out.content.push(crate::template::Content::Clip {
+            bounds: [x as f32, y as f32, w as f32, h as f32],
+            radius: 0.,
+        });
+    }
+    let line_box = |line: usize| {
+        if multiline {
+            (y + line as f64 * line_height, line_height)
+        } else {
+            (y, h)
+        }
+    };
+    for f in placed.fragments.iter().filter(|f| f.width > 0.) {
+        let Some(background) = &runs[f.run].background else {
+            continue;
+        };
+        let (top, height) = line_box(f.line);
+        let (left, right, bottom) = (
+            (x + f.x as f64) as f32,
+            (x + (f.x + f.width) as f64) as f32,
+            (top + height) as f32,
+        );
+        let top = top as f32;
+        out.content.push(crate::template::Content::Shape {
+            points: vec![[left, top], [right, top], [right, bottom], [left, bottom]],
+            color: parse_color(background, "background")?,
+        });
+    }
+    for f in &placed.fragments {
+        let run = &runs[f.run];
+        let piece = &run.text[f.range.clone()];
+        if piece.trim().is_empty() {
+            continue;
+        }
+        let (top, height) = line_box(f.line);
+        out.content.push(crate::template::Content::Text {
+            bounds: [(x + f.x as f64) as f32, top as f32, f.width, height as f32],
+            text: crate::template::Text {
+                text: piece.to_owned(),
+                color: parse_color(&run.color, "color")?,
+                font_size: font_size as f32,
+                family: run.family,
+            },
+        });
+    }
+    for f in placed.fragments.iter().filter(|f| f.width > 0.) {
+        let Some(link) = &runs[f.run].link else {
+            continue;
+        };
+        let (top, height) = line_box(f.line);
+        out.links.push(crate::template::TextLink {
+            bounds: [(x + f.x as f64) as f32, top as f32, f.width, height as f32],
+            id: link.clone(),
+        });
+    }
+    if multiline {
+        out.content.push(crate::template::Content::ClipEnd);
+    }
+    Ok(())
+}
+
 /// One run for [`TextRuns`]: text plus the optional fields of a `runs` item.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TextRun {

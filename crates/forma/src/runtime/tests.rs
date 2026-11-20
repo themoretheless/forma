@@ -2363,3 +2363,41 @@ fn a_reloaded_preview_keeps_where_a_scroll_area_was() {
         "and its controls with it"
     );
 }
+
+#[test]
+fn unkeyed_controls_preserve_focus_and_text_across_inserted_sibling_via_origin() {
+    let v1 = std::collections::BTreeMap::from([
+        (
+            "components/Button.ui".to_owned(),
+            crate::BUTTON_COMPONENT.to_owned(),
+        ),
+        (
+            "App.ui".to_owned(),
+            "component App { Column { TextInput { value: 'seed'; } } }".to_owned(),
+        ),
+    ]);
+    let v2 = std::collections::BTreeMap::from([
+        (
+            "components/Button.ui".to_owned(),
+            crate::BUTTON_COMPONENT.to_owned(),
+        ),
+        (
+            "App.ui".to_owned(),
+            "component App { Column { Button { text: 'New'; } TextInput { value: 'seed'; } } }"
+                .to_owned(),
+        ),
+    ]);
+    let mut prev = Runtime::from_ui_files(&v1, "App.ui", &Default::default()).unwrap();
+    assert!(prev.focus_control(0));
+    prev.text_key("End", false, false);
+    prev.text_insert(" typed");
+    assert_eq!(prev.text_value(0), "seed typed");
+
+    let mut next = Runtime::from_ui_files(&v2, "App.ui", &Default::default()).unwrap();
+    assert_eq!(prev.control_origin(0), next.control_origin(1));
+    next.preserve_interaction(&prev);
+    assert_eq!(next.focused_index(), 1);
+    assert_eq!(next.text_value(1), "seed typed");
+    assert!(next.text_key("z", false, true));
+    assert_eq!(next.text_value(1), "seed");
+}

@@ -1,7 +1,7 @@
 //! Shared zero-allocation control-flow selection and lexical binding helpers
 //! for both visual expansion (`visual.rs`) and scene expansion (`scene.rs`).
 
-use super::{Node, Properties, Value, pattern_matches, text};
+use super::{BuiltinKind, Node, Properties, Value, pattern_matches, text};
 
 /// Evaluates an `If` node's `condition` property into a boolean.
 pub(super) fn evaluate_if_condition(
@@ -59,7 +59,7 @@ pub(super) fn branch_matches(
     props: &Properties,
     state: &Properties,
 ) -> Result<bool, String> {
-    if branch.kind != "Branch" {
+    if branch.kind != BuiltinKind::Branch {
         return Ok(false);
     }
     let pat = branch
@@ -77,22 +77,24 @@ pub(super) fn branch_matches(
 
 /// Iterator over non-`Else` children of an `If` node without heap allocation.
 pub(super) fn if_then_children(node: &Node) -> impl Iterator<Item = &Node> {
-    node.children.iter().filter(|n| n.kind != "Else")
+    node.children.iter().filter(|n| n.kind != BuiltinKind::Else)
 }
 
 /// Finds the first `Else` child of an `If` node, if any.
 pub(super) fn if_else_node(node: &Node) -> Option<&Node> {
-    node.children.iter().find(|n| n.kind == "Else")
+    node.children.iter().find(|n| n.kind == BuiltinKind::Else)
 }
 
 /// Iterator over non-`Empty` body children of a `For` node without heap allocation.
 pub(super) fn for_body_children(node: &Node) -> impl Iterator<Item = &Node> {
-    node.children.iter().filter(|n| n.kind != "Empty")
+    node.children
+        .iter()
+        .filter(|n| n.kind != BuiltinKind::Empty)
 }
 
 /// Finds the first `Empty` child of a `For` node, if any.
 pub(super) fn for_empty_node(node: &Node) -> Option<&Node> {
-    node.children.iter().find(|n| n.kind == "Empty")
+    node.children.iter().find(|n| n.kind == BuiltinKind::Empty)
 }
 
 #[cfg(test)]

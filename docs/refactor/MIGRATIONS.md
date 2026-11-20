@@ -518,3 +518,29 @@
   WebSocket-сообщения `forma:native-run`/`update`/`stop` и шаг гейта `studio-legacy`) удалён.
   Все проекты в Studio (включая старый HTML-превью без `contextType`) открываются в нативном окне
   через `forma::native_window` (`forma:vector-run` / `forma:form-run`).
+
+## 30. Единая семантика .ui, типизированный SceneIr, стабильные идентификаторы узлов и реестр свойств
+
+- **Единая семантика `.ui` и мост в Svet:** устранены все 6 расхождений раскладки между Studio и
+  Rust (`test/golden/language-conformance.txt`: 0 строк с `!` на всех 26 кейсах), добавлено
+  сопоставление ошибок рантайма с позициями исходного `.ui` (`sourceMap` в `compileComponents`,
+  `mapRuntimeErrorToUiDiagnostic` в `src/diagnostics.js`), а Svet (`fromCanonicalFormaAst`,
+  `fromCanonicalFormaExpr`, `registerFormaFrontend`, `?.`, `..`, `..=`) принимает канонический AST
+  `@themoretheless/tokenizer-forma`.
+- **Типизированный `SceneIr` (`Document` → `Runtime`):** введены `SceneIr`
+  (`crates/forma/src/form_document/scene_ir.rs`), общая валидация `validate_scene_spec` /
+  `validate_template` (`crates/forma/src/template/validate.rs`) и `Runtime::from_scene_ir` с
+  интернированием `Arc<Template>` без промежуточной сериализации `FORMA-TEMPLATES-1`;
+  `Runtime::from_sources` сохранён как внешний текстовый фронтенд.
+- **Стабильные идентификаторы узлов (`origin` и `stableId`):** узлы `.ui` получают иерархические
+  пути происхождения (`origin` в `SceneControl`/`SceneArtifact` и `Runtime::control_origin` /
+  `set_control_origins_json`, `stableId` в `src/element-tree.js` и `src/selection-restore.js`),
+  сохраняющие фокус, буфер ввода и выделение при вставке соседей без явного `key`, а
+  MCP-инструменты `component_select`, `component_property`, `McpApp::controls_json` и
+  `click_control` поддерживают адресацию по `stableId` / `origin`.
+- **Реестр свойств и внутренняя декомпозиция `form_document` / `binding`:** добавлен декларативный
+  реестр `PROPERTIES` (`PropertyType`, `InvalidationClass`, `BindingCapability`,
+  `Document::dependency_summary`, WASM `Runtime::property_registry_json`) со синхронизацией словаря
+  Studio (`src/compiler/vocabulary.js`), строковые имена встроенных узлов заменены на
+  `NodeKind`/`BuiltinKind`, `eval.rs` разбит на `eval/{error,lookup,operators}.rs` с типизированным
+  `EvalError`, а `Form::sync` и `Form::update` вынесены в `binding/{sync,update}.rs`.

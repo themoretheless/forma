@@ -1,4 +1,4 @@
-import { findNodeByStart } from './element-tree.js';
+import { findNodeByStableId, findNodeByStart } from './element-tree.js';
 import { createProjectCommands } from './mcp-commands-project.js';
 import { createDesignCommands } from './mcp-commands-design.js';
 import { createRuntimeCommands } from './mcp-commands-runtime.js';
@@ -29,8 +29,11 @@ export function createIdeCommands(studio) {
   const requireFile = path => {
     if (!Object.hasOwn(studio.files, path)) throw Error('File not found: ' + path);
   };
-  const findNode = start => {
-    const found = findNodeByStart(studio.compiled?.nodes, start);
+  const findNode = (start, stableId) => {
+    const found =
+      typeof stableId === 'string' && stableId.length
+        ? findNodeByStableId(studio.compiled?.nodes, stableId)
+        : findNodeByStart(studio.compiled?.nodes, start);
     if (!found) throw Error('Component not found; refresh component_tree');
     return found;
   };

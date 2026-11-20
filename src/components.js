@@ -1,10 +1,10 @@
 // Component linking is shared by Studio preview and native launch. It emits the
 // same concrete primitive template; there is no DOM rendering of button content.
 import { parse } from './language.js';
-import { attachSources, createElementTree } from './element-tree.js';
+import { attachSources, createElementTree, stampStableIds } from './element-tree.js';
 import { createCacheBudget } from './cache-budget.js';
 import { evaluate, expandStructure } from './component-semantics.js';
-import { containerTypes } from './component-layout.js';
+import { containerTypes, gaps, padding } from './component-layout.js';
 import { frameTemplates, serialize } from './component-template.js';
 import { clone, visit } from './compiler/data.js';
 import { cachingMetrics } from './compiler/metrics-cache.js';
@@ -146,6 +146,7 @@ function compile(files, entry, state, metrics, read, links) {
   });
   if (scene.length !== 1 || !containerTypes.has(scene[0].type))
     throw Error('Ожидается один корневой Frame, Row, Column, Grid или Stack');
+  stampStableIds(scene);
   let instances = [];
   const instantiate = createInstantiator({
     link,
@@ -222,6 +223,12 @@ function compile(files, entry, state, metrics, read, links) {
       rootWidth,
       rootHeight,
     });
+  else {
+    if (rootProps.padding !== undefined) rootProps.padding = padding(rootProps.padding);
+    if (rootProps.gap !== undefined) rootProps.gap = gaps(rootProps.gap)[0];
+    if (rootProps.clip !== undefined && typeof rootProps.clip !== 'boolean')
+      throw Error('Frame.clip ожидает boolean');
+  }
   const layered = modals.flatMap(m => m.controls);
   if (
     instances.length + layered.length > 1024 ||
@@ -237,7 +244,9 @@ function compile(files, entry, state, metrics, read, links) {
     metrics,
     visualNodes,
   });
-  const controls = [...instances, ...layered].map(compileInstance);
+  const controlList = [...instances, ...layered];
+  const controlOrigins = controlList.map(n => n.origin ?? n.stableId ?? '');
+  const controls = controlList.map(compileInstance);
   const templateTree = createElementTree(controls.flatMap(c => c.treeRoots));
   const sourceScene = sourceSceneOf(root, scroll, modals, controls, instances.length);
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
@@ -247,6 +256,25 @@ function compile(files, entry, state, metrics, read, links) {
     args: (s.args ?? []).map(a => evaluate(a, documentProps, state, [], false, environment)),
     argExpressions: s.args ?? [],
   }));
+  const sourceMap = {
+    entry,
+    root: {
+      file: root.source?.file ?? entry,
+      from: root.source?.from ?? root.start ?? 0,
+      to: root.source?.to ?? root.end ?? root.start ?? 0,
+      propertySources: root.propertySources ?? {},
+    },
+    controls: controlList.map((n, index) => ({
+      index,
+      key: typeof n.props?.key === 'string' ? n.props.key : null,
+      origin: controlOrigins[index],
+      file: n.source?.file ?? entry,
+      from: n.source?.from ?? n.start ?? 0,
+      to: n.source?.to ?? n.end ?? n.start ?? 0,
+      propertySources: n.propertySources ?? {},
+      definition: controls[index]?.treeRoots?.[0]?.source ?? null,
+    })),
+  };
   return {
     source: `component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,
     template,
@@ -254,10 +282,12 @@ function compile(files, entry, state, metrics, read, links) {
     templateTree,
     visualNodes,
     previewNodes,
-    previewControls: [...instances, ...layered],
-    controlClips: [...instances, ...layered].map(n => n.clip ?? null),
+    previewControls: controlList,
+    controlOrigins,
+    sourceMap,
+    controlClips: controlList.map(n => n.clip ?? null),
     // The scroll areas around each control, outermost first, as the runtime takes them.
-    controlScrolls: [...instances, ...layered].map(n =>
+    controlScrolls: controlList.map(n =>
       (n.scroll ?? []).map(({ area, viewport }) => ({
         area,
         viewport,

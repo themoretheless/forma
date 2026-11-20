@@ -84,26 +84,23 @@ impl Runtime {
         let needs_render = changed > 0 || model_changed || self.ui_render_pending;
         self.ui_render_pending = needs_render;
         if needs_render {
-            let (scene_src, templates, controls, logical_end) =
-                match doc.render_scene_with_extents() {
-                    Ok(res) => res,
-                    Err(e) => {
-                        self.ui_document = Some(doc);
-                        return Err(e);
-                    }
-                };
-            let mut next = match Self::from_sources(&scene_src, &templates) {
+            let ir = match doc.render_scene_ir() {
+                Ok(ir) => ir,
+                Err(e) => {
+                    self.ui_document = Some(doc);
+                    return Err(e);
+                }
+            };
+            let mut next = match Self::from_scene_ir(&ir) {
                 Ok(rt) => rt,
                 Err(e) => {
                     self.ui_document = Some(doc);
                     return Err(e);
                 }
             };
-            next.apply_logical_content_end(logical_end);
             next.preserve_binding_interaction(self);
-            next.install_clips(&controls);
             next.keep_area_scroll(self);
-            next.ui_binding_scene = controls;
+            next.ui_binding_scene = ir.controls;
             next.ui_binding_states = doc.states.clone();
             next.ui_document = Some(doc);
             #[cfg(not(target_arch = "wasm32"))]

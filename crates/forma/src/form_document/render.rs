@@ -13,26 +13,19 @@ impl Document {
     /// Current control identity without visual instantiation/layout/serialization.
     /// A failed visual must not authorize bindings from a branch no longer selected.
     pub(crate) fn binding_scene_controls(&self) -> Result<Vec<SceneControl>, String> {
-        let mut walk = scene::SceneWalk::root();
-        let mut expanded = self.scene_expand(
-            &self.root,
-            &Properties::new(),
-            "",
-            &Properties::new(),
-            0,
-            &mut walk,
-        )?;
-        if expanded.len() != 1 || !is_layout(&expanded[0].kind) {
-            return Err("A scene requires one layout root".into());
-        }
+        let root = self.expand_scene_root()?;
         fn collect(mut node: Node, controls: &mut Vec<SceneControl>) -> Result<(), String> {
-            if is_layout(&node.kind) {
+            if node.kind.is_layout() {
                 for child in node.children {
                     collect(child, controls)?;
                 }
             } else {
                 let id = num(&node.props, "__node", 0.)? as usize;
                 let key = text(&node.props, "key", "")?;
+                let origin = match node.props.remove(scene::ORIGIN_PROPERTY) {
+                    Some(Value::Text(s)) if !s.is_empty() => Some(s),
+                    _ => None,
+                };
                 let state = match node.props.remove("__state") {
                     Some(Value::Object(state)) => state,
                     _ => Properties::new(),
@@ -57,12 +50,13 @@ impl Document {
                     clip: None,
                     scroll: Vec::new(),
                     group: None,
+                    origin,
                 });
             }
             Ok(())
         }
         let mut controls = Vec::new();
-        collect(expanded.remove(0), &mut controls)?;
+        collect(root, &mut controls)?;
         Ok(controls)
     }
     pub fn render_scene(&self) -> Result<(String, String, Vec<SceneControl>), String> {
@@ -82,6 +76,32 @@ impl Document {
     }
     /// Runtime metadata retains logical layout bounds that serialized control leaves cannot express.
     pub(crate) fn render_scene_with_extents(&self) -> Result<RenderedSceneParts, String> {
+        let prepared = self.prepare_scene()?;
+        let mut root = prepared.root;
+
+        let mut emitter = SceneEmitter::with_capacity(prepared.instances.len());
+        for (instance, precomputed_visual) in prepared.instances {
+            emitter.emit(
+                self,
+                instance,
+                precomputed_visual,
+                &prepared.scroll_content_sizes,
+            )?;
+        }
+        if prepared.scroll {
+            root.children[0].children = emitter.source_controls;
+        } else {
+            root.children = emitter.source_controls;
+        }
+        Ok((
+            self.scene_source(&root, prepared.scroll)?,
+            emitter.templates,
+            emitter.mapping,
+            prepared.logical_end,
+        ))
+    }
+
+    pub(super) fn prepare_scene(&self) -> Result<PreparedScene, String> {
         let mut root = self.expand_scene_root()?;
         let measuring = self.measure_scene_root(&mut root)?;
         let root_size = [
@@ -90,7 +110,7 @@ impl Document {
         ];
         root.props.insert("width".into(), number(root_size[0]));
         root.props.insert("height".into(), number(root_size[1]));
-        let scroll = root.children.len() == 1 && root.children[0].kind == "Scroll";
+        let scroll = root.children.len() == 1 && root.children[0].kind == BuiltinKind::Scroll;
         let scroll_viewport = if scroll {
             Some(root_scroll_viewport(&root, &measuring, root_size)?)
         } else {
@@ -98,28 +118,14 @@ impl Document {
         };
         let (instances, logical_end, scroll_content_sizes) =
             self.place_scene_instances(&mut root, measuring, scroll_viewport, root_size)?;
-        root.kind = "Frame".into();
-
-        let mut emitter = SceneEmitter::with_capacity(instances.len());
-        for (instance, precomputed_visual) in instances {
-            emitter.emit(self, instance, precomputed_visual)?;
-        }
-        if scroll {
-            root.children[0].children = emitter.source_controls;
-        } else {
-            root.children = emitter.source_controls;
-        }
-        for control in &mut emitter.mapping {
-            for area in &mut control.scroll {
-                area.content = scroll_content_sizes[area.area];
-            }
-        }
-        Ok((
-            self.scene_source(&root, scroll)?,
-            emitter.templates,
-            emitter.mapping,
-            scroll.then_some(logical_end),
-        ))
+        root.kind = BuiltinKind::Frame.into();
+        Ok(PreparedScene {
+            root,
+            instances,
+            scroll,
+            logical_end: scroll.then_some(logical_end),
+            scroll_content_sizes,
+        })
     }
 
     /// Expands the document to its single layout root.
@@ -136,21 +142,22 @@ impl Document {
         if expanded.len() != 1 {
             return Err("A scene requires one layout root".into());
         }
-        let root = expanded.remove(0);
-        if !is_layout(&root.kind) {
+        let mut root = expanded.remove(0);
+        if !root.kind.is_layout() {
             return Err("A scene requires a layout root".into());
         }
+        scene::assign_scene_origins(&mut root);
         Ok(root)
     }
 
     /// The root's visual tree, from which its size is read. A plain `Frame` is measured as a
     /// `Column`, which is how its children stack.
     fn measure_scene_root(&self, root: &mut Node) -> Result<Node, String> {
-        if root.kind == "Frame"
+        if root.kind == BuiltinKind::Frame
             && !root.props.contains_key("columns")
             && !root.props.contains_key("rows")
         {
-            let kind = std::mem::replace(&mut root.kind, "Column".into());
+            let kind = std::mem::replace(&mut root.kind, BuiltinKind::Column.into());
             let measured = self.scene_visual(root);
             root.kind = kind;
             measured
@@ -174,8 +181,11 @@ impl Document {
         let advanced = scroll
             || layout.props.contains_key("columns")
             || layout.props.contains_key("rows")
-            || !["Frame", "Scroll"].contains(&layout.kind.as_str())
-            || layout.children.iter().any(|n| is_layout(&n.kind))
+            || !matches!(
+                layout.kind.builtin(),
+                Some(BuiltinKind::Frame | BuiltinKind::Scroll)
+            )
+            || layout.children.iter().any(|n| n.kind.is_layout())
             || layout.action.is_some();
         let mut instances: Vec<SceneInstance> = Vec::new();
         let mut logical_end = [0_f64; 2];
@@ -272,6 +282,142 @@ impl Document {
     }
 }
 
+pub(super) struct PreparedScene {
+    pub(super) root: Node,
+    pub(super) instances: Vec<SceneInstance>,
+    pub(super) scroll: bool,
+    pub(super) logical_end: Option<[f64; 2]>,
+    pub(super) scroll_content_sizes: Vec<[f64; 2]>,
+}
+
+pub(super) fn resolve_control_visual(
+    document: &Document,
+    instance: &mut Node,
+    precomputed_visual: Option<Node>,
+) -> Result<(Node, Properties, [f64; 4]), String> {
+    let (mut visual, mut resolved) = match precomputed_visual {
+        Some(mut visual) => {
+            let mut resolved = std::mem::take(&mut visual.props);
+            let rect_props = match resolved.remove("__rect_props") {
+                Some(Value::Object(p)) => p,
+                _ => resolved.clone(),
+            };
+            for key in ["x", "y", "width", "height", "key"] {
+                if let Some(val) = instance.props.get(key) {
+                    resolved.insert(key.into(), val.clone());
+                }
+            }
+            visual.props = rect_props;
+            (visual, resolved)
+        }
+        None => document.instantiate_scene(instance)?,
+    };
+    // Measure the same children with resolved instance properties,
+    // then restore rectangle properties before flattening/serialization.
+    std::mem::swap(&mut visual.props, &mut resolved);
+    let bounds = [
+        0.,
+        0.,
+        dimension(&visual, 0, 260.)?,
+        dimension(&visual, 1, 70.)?,
+    ];
+    std::mem::swap(&mut visual.props, &mut resolved);
+    Ok((visual, resolved, bounds))
+}
+
+pub(super) fn finalize_control_props(resolved: &mut Properties, bounds: [f64; 4]) {
+    resolved.insert("width".into(), number(bounds[2]));
+    resolved.insert("height".into(), number(bounds[3]));
+    // A run Text has no `text` of its own: its label (accessibility, journal) is the
+    // concatenated runs.
+    if let Some(label) = super::text_runs::plain_label(resolved) {
+        resolved.insert("text".into(), Value::Text(label));
+    }
+}
+
+pub(super) fn extract_scene_control(
+    instance: &mut Node,
+    scroll_content_sizes: &[[f64; 2]],
+) -> Result<SceneControl, String> {
+    let event_args = match instance.props.get("__event_args") {
+        Some(Value::Object(events)) => events
+            .iter()
+            .map(|(name, value)| {
+                let Value::List(values) = value else {
+                    return Err("Event arguments must be a list".to_string());
+                };
+                Ok((name.clone(), values.clone()))
+            })
+            .collect::<Result<_, String>>()?,
+        _ => BTreeMap::new(),
+    };
+    let node = num(&instance.props, "__node", 0.)? as usize;
+    let key = text(&instance.props, "key", "")?;
+    let origin = match instance.props.remove(scene::ORIGIN_PROPERTY) {
+        Some(Value::Text(s)) if !s.is_empty() => Some(s),
+        _ => None,
+    };
+    let state = match instance.props.remove("__state") {
+        Some(Value::Object(state)) => state,
+        _ => Properties::new(),
+    };
+    let clip = match instance.props.remove(scene::CLIP_PROPERTY) {
+        Some(Value::List(values)) => match values.as_slice() {
+            [
+                Value::Number(x),
+                Value::Number(y),
+                Value::Number(w),
+                Value::Number(h),
+            ] => Some([*x, *y, *w, *h]),
+            _ => return Err("A control clip must be four numbers".into()),
+        },
+        _ => None,
+    };
+    let scroll = match instance.props.remove(scene::SCROLL_PROPERTY) {
+        Some(Value::List(chain)) => chain
+            .iter()
+            .map(|entry| match entry {
+                Value::List(values) => match values.as_slice() {
+                    [
+                        Value::Number(area),
+                        Value::Number(x),
+                        Value::Number(y),
+                        Value::Number(w),
+                        Value::Number(h),
+                    ] => {
+                        let area = *area as usize;
+                        Ok(SceneScroll {
+                            area,
+                            viewport: [*x, *y, *w, *h],
+                            content: scroll_content_sizes.get(area).copied().unwrap_or([*w, *h]),
+                        })
+                    }
+                    _ => Err("A scroll area must be five numbers".to_string()),
+                },
+                _ => Err("A scroll area must be five numbers".to_string()),
+            })
+            .collect::<Result<_, _>>()?,
+        _ => Vec::new(),
+    };
+    let group = match instance.props.get("__bindings") {
+        Some(Value::Object(bindings)) => match bindings.get("group") {
+            Some(Value::Text(path)) => Some(path.clone()),
+            _ => None,
+        },
+        _ => None,
+    };
+    Ok(SceneControl {
+        node,
+        key,
+        state: compact_scene_control_state(state),
+        event_args,
+        clip,
+        scroll,
+        group,
+        origin,
+    })
+}
+
 /// An expanded control and, when it was measured with the layout, its visual tree.
 type SceneInstance = (Node, Option<Node>);
 
@@ -279,40 +425,11 @@ type SceneInstance = (Node, Option<Node>);
 /// each scroll area below the root.
 type PlacedScene = (Vec<SceneInstance>, [f64; 2], Vec<[f64; 2]>);
 
-/// Visual kinds flattened into a control's template rather than serialized as they are.
-const FLATTENABLE_KINDS: [&str; 9] = [
-    "Frame",
-    "Row",
-    "Column",
-    "Grid",
-    "Stack",
-    "Text",
-    "TextInput",
-    "Image",
-    "Rectangle",
-];
-
 /// Properties a control keeps in the scene source; the rest live in its template.
-const SCENE_CONTROL_PROPERTIES: [&str; 18] = [
-    "key",
-    "x",
-    "y",
-    "width",
-    "height",
-    "text",
-    "fontSize",
-    "color",
-    "radius",
-    "disabled",
-    "background",
-    "hoverBackground",
-    "pressedBackground",
-    "disabledBackground",
-    "borderWidth",
-    "borderColor",
-    "focusBorderColor",
-    "transitionDuration",
-];
+#[inline]
+fn keep_scene_control_property(name: &str) -> bool {
+    super::registry::is_scene_control_property(name)
+}
 
 /// Where a root `Scroll` sits inside the scene: `[x, y, width, height]`, centred in the content
 /// area the root's padding leaves.
@@ -396,62 +513,24 @@ impl SceneEmitter {
         document: &Document,
         mut instance: Node,
         precomputed_visual: Option<Node>,
+        scroll_content_sizes: &[[f64; 2]],
     ) -> Result<(), String> {
-        let event_args = match instance.props.get("__event_args") {
-            Some(Value::Object(events)) => events
-                .iter()
-                .map(|(name, value)| {
-                    let Value::List(values) = value else {
-                        return Err("Event arguments must be a list".to_string());
-                    };
-                    Ok((name.clone(), values.clone()))
-                })
-                .collect::<Result<_, String>>()?,
-            _ => BTreeMap::new(),
-        };
-        let node = num(&instance.props, "__node", 0.)? as usize;
-        let key = text(&instance.props, "key", "")?;
-        let (mut visual, mut resolved) = match precomputed_visual {
-            Some(mut visual) => {
-                let mut resolved = std::mem::take(&mut visual.props);
-                let rect_props = match resolved.remove("__rect_props") {
-                    Some(Value::Object(p)) => p,
-                    _ => resolved.clone(),
-                };
-                for key in ["x", "y", "width", "height", "key"] {
-                    if let Some(val) = instance.props.get(key) {
-                        resolved.insert(key.into(), val.clone());
-                    }
-                }
-                visual.props = rect_props;
-                (visual, resolved)
-            }
-            None => document.instantiate_scene(&mut instance)?,
-        };
+        let (mut visual, mut resolved, bounds) =
+            resolve_control_visual(document, &mut instance, precomputed_visual)?;
         let state = match instance.props.get("__state") {
             Some(Value::Object(state)) => state,
             _ => &self.stateless,
         };
         self.content.clear();
-        // Measure the same children with resolved instance properties,
-        // then restore rectangle properties before flattening/serialization.
-        std::mem::swap(&mut visual.props, &mut resolved);
-        let bounds = [
-            0.,
-            0.,
-            dimension(&visual, 0, 260.)?,
-            dimension(&visual, 1, 70.)?,
-        ];
-        std::mem::swap(&mut visual.props, &mut resolved);
         for child in &visual.children {
-            if FLATTENABLE_KINDS.contains(&child.kind.as_str()) {
+            if child.kind.is_flattenable() {
                 document.flatten(child, bounds, &mut self.content)?;
             } else {
                 serialize_into(child, &mut self.content)?;
                 self.content.push(' ');
             }
         }
-        if instance.kind == "Slider" {
+        if instance.kind == BuiltinKind::Slider {
             write_slider_range(
                 document,
                 &instance,
@@ -472,80 +551,21 @@ impl SceneEmitter {
             &mut self.templates,
             format_args!("{}\n{}", self.template.len(), self.template),
         );
-        resolved.insert("width".into(), number(bounds[2]));
-        resolved.insert("height".into(), number(bounds[3]));
-        // A run Text has no `text` of its own: its label (accessibility, journal) is the
-        // concatenated runs.
-        if let Some(label) = super::text_runs::plain_label(&resolved) {
-            resolved.insert("text".into(), Value::Text(label));
-        }
+        finalize_control_props(&mut resolved, bounds);
         let props = resolved
             .into_iter()
-            .filter(|(k, _)| SCENE_CONTROL_PROPERTIES.contains(&k.as_str()))
+            .filter(|(k, _)| keep_scene_control_property(k))
             .collect();
         self.source_controls.push(Node {
-            kind: "Button".into(),
+            kind: BuiltinKind::Button.into(),
             props,
             children: vec![],
             action: instance.action.clone(),
         });
         // Templates (including Slider endpoints) may read props.__state.
         // Transfer its owned snapshot only after their last evaluation.
-        let state = match instance.props.remove("__state") {
-            Some(Value::Object(state)) => state,
-            _ => Properties::new(),
-        };
-        let clip = match instance.props.remove(scene::CLIP_PROPERTY) {
-            Some(Value::List(values)) => match values.as_slice() {
-                [
-                    Value::Number(x),
-                    Value::Number(y),
-                    Value::Number(w),
-                    Value::Number(h),
-                ] => Some([*x, *y, *w, *h]),
-                _ => return Err("A control clip must be four numbers".into()),
-            },
-            _ => None,
-        };
-        let scroll = match instance.props.remove(scene::SCROLL_PROPERTY) {
-            Some(Value::List(chain)) => chain
-                .iter()
-                .map(|entry| match entry {
-                    Value::List(values) => match values.as_slice() {
-                        [
-                            Value::Number(area),
-                            Value::Number(x),
-                            Value::Number(y),
-                            Value::Number(w),
-                            Value::Number(h),
-                        ] => Ok(SceneScroll {
-                            area: *area as usize,
-                            viewport: [*x, *y, *w, *h],
-                            content: [*w, *h],
-                        }),
-                        _ => Err("A scroll area must be five numbers".to_string()),
-                    },
-                    _ => Err("A scroll area must be five numbers".to_string()),
-                })
-                .collect::<Result<_, _>>()?,
-            _ => Vec::new(),
-        };
-        let group = match instance.props.get("__bindings") {
-            Some(Value::Object(bindings)) => match bindings.get("group") {
-                Some(Value::Text(path)) => Some(path.clone()),
-                _ => None,
-            },
-            _ => None,
-        };
-        self.mapping.push(SceneControl {
-            node,
-            key,
-            state: compact_scene_control_state(state),
-            event_args,
-            clip,
-            scroll,
-            group,
-        });
+        self.mapping
+            .push(extract_scene_control(&mut instance, scroll_content_sizes)?);
         Ok(())
     }
 }
@@ -585,7 +605,7 @@ fn write_slider_range(
         content.push_str(name);
         content.push_str(" { ");
         for c in &visual.children {
-            if FLATTENABLE_KINDS.contains(&c.kind.as_str()) {
+            if c.kind.is_flattenable() {
                 document.flatten(c, bounds, content)?;
             }
         }
@@ -601,10 +621,14 @@ fn write_scene(n: &Node, out: &mut String) -> Result<(), String> {
     out.push_str(" { ");
     let mut first = true;
     for (k, v) in &n.props {
-        if n.kind == "Scroll"
+        if n.kind == BuiltinKind::Scroll
             || k.starts_with("__")
             || ["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
-            || (k.as_str() == "key" && ["Frame", "Scroll"].contains(&n.kind.as_str()))
+            || (k.as_str() == "key"
+                && matches!(
+                    n.kind.builtin(),
+                    Some(BuiltinKind::Frame | BuiltinKind::Scroll)
+                ))
         {
             continue;
         }

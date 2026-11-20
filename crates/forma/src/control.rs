@@ -73,11 +73,18 @@ impl Button {
     // and the control owns that resolved copy, so the scene's own spec would be parsed
     // and thrown away: passing it by reference keeps the loader from a full deep clone.
     pub(crate) fn from_scene(
-        mut scene: markup::Scene,
+        scene: markup::Scene,
         props: &markup::ButtonSpec,
         component: &str,
     ) -> Result<Self, String> {
         let template = template::parse_cached(component, props)?;
+        Ok(Self::from_template(scene, template))
+    }
+
+    pub(crate) fn from_template(
+        mut scene: markup::Scene,
+        template: std::sync::Arc<template::Template>,
+    ) -> Self {
         scene.button = template.props.clone();
         scene.content_width = (scene.button.x + scene.button.width + scene.padding[1])
             .min(f32::MAX)
@@ -100,7 +107,7 @@ impl Button {
                 b.brush.color
             }
         }));
-        Ok(Self {
+        Self {
             scene,
             template,
             fill,
@@ -119,7 +126,7 @@ impl Button {
             raster_builds: std::cell::Cell::new(0),
             raster_paints: std::cell::Cell::new(0),
             display_cache: std::cell::RefCell::new(None),
-        })
+        }
     }
     pub fn load_source(&mut self, source: &str) -> Result<(), String> {
         // Commit only a valid scene; editor keeps the last good preview on error.
@@ -306,6 +313,10 @@ impl Button {
         if self.scene.button.key != previous.scene.button.key {
             return;
         }
+        self.preserve_interaction_matched(previous);
+    }
+
+    pub(crate) fn preserve_interaction_matched(&mut self, previous: &Button) {
         let before_reveal = self.reveal_paint();
         self.clicks = previous.clicks;
         self.focused = previous.focused && !self.disabled() && self.template.clickable;

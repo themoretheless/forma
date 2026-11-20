@@ -5,7 +5,12 @@
  * and owns admission snapshots (`snapshotFormaAst`, `assertFormaAstContracts`).
  */
 
-import { FORBIDDEN_MEMBER_KEYS, isSafePatternRegex } from './forma-expr.ts';
+import {
+  type CanonicalFormaValue,
+  canonicalValueToExprString,
+  FORBIDDEN_MEMBER_KEYS,
+  isSafePatternRegex,
+} from './forma-expr.ts';
 import { structuredCloneIfObject } from './forma-reactive.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -968,6 +973,328 @@ function parseLiteralValue(raw: string): unknown {
   return s;
 }
 
+export interface CanonicalFormaNode {
+  type: string;
+  props?: Record<string, CanonicalFormaValue> | undefined;
+  bindings?: Record<string, string> | undefined;
+  events?: Record<string, string> | undefined;
+  eventArgs?: Record<string, CanonicalFormaValue[]> | undefined;
+  children?: CanonicalFormaNode[] | undefined;
+  elseChildren?: CanonicalFormaNode[] | undefined;
+  emptyChildren?: CanonicalFormaNode[] | undefined;
+  apply?: string[] | undefined;
+  forward?: string[] | undefined;
+  condition?: CanonicalFormaValue | undefined;
+  item?: string | undefined;
+  collection?: CanonicalFormaValue | undefined;
+  key?: CanonicalFormaValue | undefined;
+  match?: CanonicalFormaValue | undefined;
+  branches?:
+    | Array<{
+        pattern: CanonicalFormaValue;
+        children?: CanonicalFormaNode[] | undefined;
+      }>
+    | undefined;
+}
+
+export interface CanonicalFormaDocument {
+  name: string;
+  nodes?: CanonicalFormaNode[] | undefined;
+  defaults?: Record<string, CanonicalFormaValue> | undefined;
+  propDefinitions?:
+    | Record<
+        string,
+        {
+          type?: string | undefined;
+          required?: boolean | undefined;
+          constraints?:
+            | {
+                range?: [number, number] | undefined;
+                pattern?: string | undefined;
+              }
+            | undefined;
+        }
+      >
+    | undefined;
+  stateDefinitions?:
+    | Record<string, { type?: string | undefined; default?: CanonicalFormaValue | undefined }>
+    | undefined;
+  lets?: Record<string, CanonicalFormaValue> | undefined;
+  tokens?: Record<string, CanonicalFormaValue> | undefined;
+  i18n?: Record<string, CanonicalFormaValue> | undefined;
+  styles?: Record<string, Record<string, CanonicalFormaValue>> | undefined;
+  shortcuts?:
+    Array<{ key: string; action: string; args?: CanonicalFormaValue[] | undefined }> | undefined;
+}
+
+let _canonicalFormaFrontend: ((source: string) => CanonicalFormaDocument) | null = null;
+
+/** Registers an external parser (such as `@themoretheless/tokenizer-forma`'s `parse`) for `.ui` source text. */
+export function registerFormaFrontend(
+  frontend: ((source: string) => CanonicalFormaDocument) | null,
+): void {
+  _canonicalFormaFrontend = frontend;
+}
+
+function canonicalPatternToString(
+  pattern: CanonicalFormaValue,
+  letNames: ReadonlySet<string>,
+): string {
+  if (
+    pattern &&
+    typeof pattern === 'object' &&
+    !Array.isArray(pattern) &&
+    'expression' in pattern &&
+    pattern.expression &&
+    typeof pattern.expression === 'object'
+  ) {
+    const ast = pattern.expression as {
+      kind?: string;
+      operator?: string;
+      op?: string;
+      left?: CanonicalFormaValue;
+      right?: CanonicalFormaValue;
+    };
+    const op = ast.operator ?? ast.op ?? '';
+    if (ast.kind === 'binary' && (op === '..' || op === '..=' || op === '|')) {
+      const left = canonicalPatternToString(ast.left ?? null, letNames);
+      const right = canonicalPatternToString(ast.right ?? null, letNames);
+      return op === '|' ? `${left} | ${right}` : `${left}${op}${right}`;
+    }
+  }
+  return canonicalValueToExprString(pattern, letNames);
+}
+
+function formatCanonicalCall(
+  action: string,
+  args: CanonicalFormaValue[] | undefined,
+  letNames: ReadonlySet<string>,
+): string {
+  const trimmed = action.trim();
+  if (trimmed.includes('(')) return trimmed;
+  const formattedArgs = (args ?? []).map(a => canonicalValueToExprString(a, letNames)).join(', ');
+  return `${trimmed}(${formattedArgs})`;
+}
+
+function convertCanonicalNode(
+  node: CanonicalFormaNode,
+  letNames: ReadonlySet<string>,
+): FormaAstNode {
+  const props = node.props ?? {};
+  const properties: Record<string, string> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (FORBIDDEN_MEMBER_KEYS.has(k) || k === 'transition') continue;
+    properties[k] = canonicalValueToExprString(v, letNames);
+  }
+  const eventHandlers: Record<string, string> = {};
+  for (const [evt, target] of Object.entries(node.events ?? {})) {
+    if (FORBIDDEN_MEMBER_KEYS.has(evt)) continue;
+    eventHandlers[evt] = formatCanonicalCall(target, node.eventArgs?.[evt], letNames);
+  }
+  const twoWayBindings: Record<string, string> = {};
+  for (const [propKey, path] of Object.entries(node.bindings ?? {})) {
+    if (!FORBIDDEN_MEMBER_KEYS.has(propKey)) twoWayBindings[propKey] = path;
+  }
+  const children = (node.children ?? []).map(c => convertCanonicalNode(c, letNames));
+  if (node.type === 'If') {
+    return {
+      kind: 'if',
+      conditionExpr:
+        node.condition !== undefined
+          ? canonicalValueToExprString(node.condition, letNames)
+          : 'false',
+      properties,
+      twoWayBindings,
+      eventHandlers,
+      appliedStyles: [...(node.apply ?? [])],
+      forwardedProps: [...(node.forward ?? [])],
+      children,
+      elseChildren: (node.elseChildren ?? []).map(c => convertCanonicalNode(c, letNames)),
+    };
+  }
+  if (node.type === 'For') {
+    return {
+      kind: 'for',
+      itemVar: node.item ?? 'item',
+      listExpr:
+        node.collection !== undefined
+          ? canonicalValueToExprString(node.collection, letNames)
+          : '[]',
+      keyExpr: node.key !== undefined ? canonicalValueToExprString(node.key, letNames) : undefined,
+      properties,
+      twoWayBindings,
+      eventHandlers,
+      appliedStyles: [...(node.apply ?? [])],
+      forwardedProps: [...(node.forward ?? [])],
+      children,
+      emptyChildren: (node.emptyChildren ?? []).map(c => convertCanonicalNode(c, letNames)),
+    };
+  }
+  if (node.type === 'Match') {
+    return {
+      kind: 'match',
+      matchExpr:
+        node.match !== undefined ? canonicalValueToExprString(node.match, letNames) : 'null',
+      properties,
+      twoWayBindings,
+      eventHandlers,
+      appliedStyles: [...(node.apply ?? [])],
+      forwardedProps: [...(node.forward ?? [])],
+      children: [],
+      matchArms: (node.branches ?? []).map(branch => ({
+        pattern: canonicalPatternToString(branch.pattern, letNames),
+        propertyAssignments: {},
+        childNodes: (branch.children ?? []).map(c => convertCanonicalNode(c, letNames)),
+      })),
+    };
+  }
+  if (node.type === 'Slot') {
+    const rawSlot = props.name ?? props.key ?? props.slot ?? 'default';
+    return {
+      kind: 'slot',
+      slotName:
+        typeof rawSlot === 'string' ? rawSlot : canonicalValueToExprString(rawSlot, letNames),
+      properties: {},
+      twoWayBindings: {},
+      eventHandlers: {},
+      appliedStyles: [],
+      forwardedProps: [],
+      children,
+    };
+  }
+  if (node.type === 'ContentPresenter') {
+    return {
+      kind: 'contentPresenter',
+      properties,
+      twoWayBindings,
+      eventHandlers,
+      appliedStyles: [...(node.apply ?? [])],
+      forwardedProps: [...(node.forward ?? [])],
+      children,
+    };
+  }
+  return {
+    kind: 'element',
+    tag: node.type,
+    properties,
+    twoWayBindings,
+    eventHandlers,
+    appliedStyles: [...(node.apply ?? [])],
+    forwardedProps: [...(node.forward ?? [])],
+    children,
+  };
+}
+
+/** Converts a canonical AST from `@themoretheless/tokenizer-forma` into Svet's `FormaDocumentAst`. */
+export function fromCanonicalFormaAst(doc: CanonicalFormaDocument): FormaDocumentAst {
+  const componentName = doc.name?.trim() || 'AnonymousFormaComponent';
+  const tokens: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(doc.tokens ?? {})) {
+    if (!FORBIDDEN_MEMBER_KEYS.has(k)) setNestedObjectKey(tokens, k, v);
+  }
+  const i18nDictionaries: Record<string, Record<string, string>> = {};
+  for (const [k, v] of Object.entries(doc.i18n ?? {})) {
+    if (
+      !FORBIDDEN_MEMBER_KEYS.has(k) &&
+      v &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      !('expr' in v) &&
+      !('expression' in v) &&
+      !('interpolation' in v)
+    ) {
+      const dict: Record<string, string> = {};
+      for (const [entryKey, entryVal] of Object.entries(v)) {
+        if (!FORBIDDEN_MEMBER_KEYS.has(entryKey) && typeof entryVal === 'string') {
+          dict[entryKey] = entryVal;
+        }
+      }
+      i18nDictionaries[k] = dict;
+    }
+  }
+  const letNames = new Set(
+    Object.keys(doc.lets ?? {}).filter(name => !FORBIDDEN_MEMBER_KEYS.has(name)),
+  );
+  const styles: Record<string, Record<string, string>> = {};
+  for (const [styleName, styleProps] of Object.entries(doc.styles ?? {})) {
+    if (FORBIDDEN_MEMBER_KEYS.has(styleName) || !styleProps || typeof styleProps !== 'object')
+      continue;
+    const styleMap: Record<string, string> = {};
+    for (const [k, v] of Object.entries(styleProps)) {
+      if (!FORBIDDEN_MEMBER_KEYS.has(k)) {
+        styleMap[k] = typeof v === 'string' ? v : canonicalValueToExprString(v, letNames);
+      }
+    }
+    styles[styleName] = styleMap;
+  }
+  const defaults = doc.defaults ?? {};
+  const propConstraints: FormaPropConstraint[] = [];
+  const seenProps = new Set<string>();
+  for (const [name, def] of Object.entries(doc.propDefinitions ?? {})) {
+    if (FORBIDDEN_MEMBER_KEYS.has(name))
+      throw new Error('Invalid Forma AST document: reserved declaration name');
+    seenProps.add(name);
+    propConstraints.push({
+      name,
+      type: def.type ?? 'Any',
+      required: Boolean(def.required),
+      defaultValue: Object.prototype.hasOwnProperty.call(defaults, name)
+        ? structuredCloneIfObject(defaults[name])
+        : null,
+      range: def.constraints?.range,
+      patternSource: def.constraints?.pattern,
+    });
+  }
+  for (const [name, val] of Object.entries(defaults)) {
+    if (
+      seenProps.has(name) ||
+      letNames.has(name) ||
+      Object.prototype.hasOwnProperty.call(doc.stateDefinitions ?? {}, name) ||
+      FORBIDDEN_MEMBER_KEYS.has(name)
+    ) {
+      continue;
+    }
+    const inferredType =
+      typeof val === 'number' ? 'Number' : typeof val === 'boolean' ? 'Bool' : 'String';
+    propConstraints.push({
+      name,
+      type: inferredType,
+      required: false,
+      defaultValue: structuredCloneIfObject(val),
+    });
+  }
+  const initialStateValues = Object.create(null) as Record<string, unknown>;
+  for (const [name, def] of Object.entries(doc.stateDefinitions ?? {})) {
+    if (FORBIDDEN_MEMBER_KEYS.has(name))
+      throw new Error('Invalid Forma AST document: reserved declaration name');
+    initialStateValues[name] = structuredCloneIfObject(def?.default ?? null);
+  }
+  const letExpressions: Array<{ name: string; expr: string }> = [];
+  for (const [name, val] of Object.entries(doc.lets ?? {})) {
+    if (FORBIDDEN_MEMBER_KEYS.has(name))
+      throw new Error('Invalid Forma AST document: reserved let name');
+    letExpressions.push({ name, expr: canonicalValueToExprString(val, letNames) });
+  }
+  const shortcuts = (doc.shortcuts ?? []).map(s => ({
+    combo: s.key,
+    action: formatCanonicalCall(s.action, s.args, letNames),
+  }));
+  const rootAstNodes = (doc.nodes ?? []).map(n => convertCanonicalNode(n, letNames));
+  const ast: FormaDocumentAst = {
+    componentName,
+    tokens,
+    i18nDictionaries,
+    styles,
+    propConstraints,
+    initialStateValues,
+    letExpressions,
+    shortcuts,
+    rootAstNodes,
+  };
+  assertFormaAstContracts(ast);
+  return ast;
+}
+
 /**
  * Pre-parses a Forma `.ui` source string into a serializable `FormaDocumentAst` at build time (AOT)
  * so the browser can instantiate `compileFormaAst(ast, options)` with 0ms of runtime source parsing!
@@ -979,6 +1306,9 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     cMatch && cMatch.index !== undefined ? rawUiSource.indexOf('{', cMatch.index) : -1;
   const compBody = cBraceIdx !== -1 ? extractBraceBlock(rawUiSource, cBraceIdx).body : rawUiSource;
   assertFormaContractDepth(compBody);
+  if (_canonicalFormaFrontend) {
+    return fromCanonicalFormaAst(_canonicalFormaFrontend(rawUiSource));
+  }
 
   const tokens: Record<string, unknown> = {};
   const i18nDictionaries: Record<string, Record<string, string>> = {};

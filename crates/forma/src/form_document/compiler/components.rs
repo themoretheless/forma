@@ -312,30 +312,10 @@ pub(super) fn ast_to_definition(ast: &serde_json::Value) -> Result<Definition, S
 }
 
 pub(super) fn collect_component_names(node: &Node, out: &mut std::collections::BTreeSet<String>) {
-    if ![
-        "Frame",
-        "Scroll",
-        "Row",
-        "Column",
-        "Grid",
-        "Stack",
-        "If",
-        "Else",
-        "For",
-        "Empty",
-        "Modal",
-        "Rectangle",
-        "Text",
-        "TextInput",
-        "Image",
-        "PointerArea",
-        "RangeInput",
-        "ContentPresenter",
-        "Let",
-        "Match",
-        "Branch",
-    ]
-    .contains(&node.kind.as_str())
+    if !node
+        .kind
+        .builtin()
+        .is_some_and(super::super::BuiltinKind::is_intrinsic_ast_node)
     {
         out.insert(node.kind.to_string());
     }

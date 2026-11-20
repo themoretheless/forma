@@ -6,36 +6,62 @@
 export function selectionIdentities(root, starts) {
   if (!root) return [];
   const found = new Map();
-  const walk = (node, path) => {
+  const walk = (node, path, slotPath) => {
     found.set(node.start, {
       key: typeof node.props?.key === 'string' ? node.props.key : null,
       type: node.type,
       path: [...path],
+      stableId: slotPath,
     });
-    (node.children ?? []).forEach((child, index) => walk(child, [...path, index]));
+    const counts = new Map();
+    (node.children ?? []).forEach((child, index) => {
+      const ord = counts.get(child.type) ?? 0;
+      counts.set(child.type, ord + 1);
+      walk(child, [...path, index], `${slotPath}/${child.type}#${ord}`);
+    });
   };
-  walk(root, []);
+  walk(root, [], `${root.type}#0`);
   return [...new Set(starts)].map(start => found.get(start)).filter(Boolean);
 }
 // A control with a key answers to it wherever it stands; one without a key has to be the same type in
-// the same slot, so a look-alike that only happens to sit under a moved container is not mistaken for
-// the node the designer had selected. Identities come back in the order they were given.
+// the same slot, or at its unique structural ordinal within the same container when a sibling was
+// inserted or removed. Identities come back in the order they were given.
 export function restoreSelection(root, identities) {
   const nodes = [];
   let dropped = 0;
   if (!root) return { nodes, starts: [], dropped: identities.length };
   const byKey = new Map(),
-    byPath = new Map();
-  const walk = (node, path) => {
+    byPath = new Map(),
+    byStableId = new Map();
+  const walk = (node, path, slotPath) => {
     const key = node.props?.key;
     if (typeof key === 'string' && !byKey.has(key)) byKey.set(key, node);
     byPath.set(path.join('/'), node);
-    (node.children ?? []).forEach((child, index) => walk(child, [...path, index]));
+    if (key == null) {
+      if (byStableId.has(slotPath)) byStableId.set(slotPath, null);
+      else byStableId.set(slotPath, node);
+    }
+    const counts = new Map();
+    (node.children ?? []).forEach((child, index) => {
+      const ord = counts.get(child.type) ?? 0;
+      counts.set(child.type, ord + 1);
+      walk(child, [...path, index], `${slotPath}/${child.type}#${ord}`);
+    });
   };
-  walk(root, []);
+  walk(root, [], `${root.type}#0`);
   for (const step of identities) {
-    const node = step.key !== null ? byKey.get(step.key) : byPath.get(step.path.join('/'));
-    if (node && (step.key !== null || node.type === step.type)) {
+    let node;
+    if (step.key !== null) {
+      node = byKey.get(step.key);
+    } else {
+      const candidate = byPath.get(step.path.join('/'));
+      if (candidate && candidate.type === step.type && candidate.props?.key == null) {
+        node = candidate;
+      } else {
+        node = step.stableId ? byStableId.get(step.stableId) : undefined;
+      }
+    }
+    if (node) {
       if (!nodes.includes(node)) nodes.push(node);
     } else dropped++;
   }

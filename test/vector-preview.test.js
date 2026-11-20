@@ -18,8 +18,13 @@ const withScope = replaceOnce(
   /from\s*'\.\/event-scope\.js';/,
   `from '${new URL('../src/event-scope.js', import.meta.url).href}';`,
 );
-const source = replaceOnce(
+const withDiagnostics = replaceOnce(
   withScope,
+  /from\s*'\.\/diagnostics\.js';/,
+  `from '${new URL('../src/diagnostics.js', import.meta.url).href}';`,
+);
+const source = replaceOnce(
+  withDiagnostics,
   /from\s*'\.\/shared\/range\.js';/,
   `from '${new URL('../src/shared/range.js', import.meta.url).href}';`,
 );
@@ -126,7 +131,15 @@ class Model {
   load_component(source) {
     this.controls = JSON.parse(source);
   }
-  preserve_interaction() {}
+  preserve_interaction() {
+    this.preserveCalledAfterOrigins = Boolean(this.origins);
+  }
+  set_control_origins_json(json) {
+    this.origins = JSON.parse(json);
+  }
+  control_origin(i) {
+    return this.origins?.[i] ?? '';
+  }
   free() {}
   control_count() {
     return this.controls.length;
@@ -1722,4 +1735,14 @@ test('exhausted epoch selection adoption checks current Rust value instead of st
   input.selectionDirection = 'forward';
   value = 'after';
   input.emit('select');
+});
+
+test('render forwards controlOrigins before preserve_interaction and surfaces origin on snapshots', t => {
+  const f = fixture(t, [{ key: 'k', bounds: [0, 0, 80, 30], interactive: true }]);
+  f.render([{ key: '', bounds: [0, 0, 80, 30], interactive: true }], false, {
+    controlOrigins: ['Frame#0/Button#0'],
+  });
+  assert.equal(f.models[1].preserveCalledAfterOrigins, true);
+  assert.deepEqual(f.models[1].origins, ['Frame#0/Button#0']);
+  assert.equal(f.preview.snapshot().controls[0].origin, 'Frame#0/Button#0');
 });
