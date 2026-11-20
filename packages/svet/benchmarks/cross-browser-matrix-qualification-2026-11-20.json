@@ -1,0 +1,140 @@
+{
+  "protocol": "cross-browser-matrix-v2",
+  "startedAt": "2026-11-20T07:34:37.419Z",
+  "engines": {
+    "chromium": {
+      "status": "passed",
+      "version": "159.0.8154.6",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.8154.6 Safari/537.36",
+      "previewInputProfiles": [
+        {
+          "profile": "native",
+          "apple": true,
+          "syntheticCases": 3,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": true,
+          "status": "passed"
+        },
+        {
+          "profile": "Linux",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        },
+        {
+          "profile": "Win32",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        }
+      ],
+      "previewWordCases": 17,
+      "svetBrowserMatrixFixtures": 21,
+      "svetBrowserMatrixAssertions": 189,
+      "svetCrossCopyRouterUnpacedCases": 19,
+      "svetCrossCopyRouterMode": "unpaced-single-page-19of19"
+    },
+    "webkit": {
+      "status": "passed",
+      "version": "27.2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+      "previewInputProfiles": [
+        {
+          "profile": "native",
+          "apple": true,
+          "syntheticCases": 3,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        },
+        {
+          "profile": "Linux",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        },
+        {
+          "profile": "Win32",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        }
+      ],
+      "previewWordCases": 17,
+      "svetBrowserMatrixFixtures": 21,
+      "svetBrowserMatrixAssertions": 189,
+      "svetCrossCopyRouterUnpacedCases": 19,
+      "svetCrossCopyRouterMode": "unpaced-split-per-direction-under-webkit-100calls-10s-quota"
+    },
+    "firefox": {
+      "status": "passed",
+      "version": "159.0",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0",
+      "previewInputProfiles": [
+        {
+          "profile": "native",
+          "apple": true,
+          "syntheticCases": 3,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        },
+        {
+          "profile": "Linux",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        },
+        {
+          "profile": "Win32",
+          "apple": false,
+          "syntheticCases": 4,
+          "trustedWordSelection": "beta",
+          "trustedWordBackspace": "alpha ",
+          "trustedWordDelete": " beta",
+          "cdpImeChecked": false,
+          "status": "passed"
+        }
+      ],
+      "previewWordCases": 17,
+      "svetBrowserMatrixFixtures": 21,
+      "svetBrowserMatrixAssertions": 189,
+      "svetCrossCopyRouterUnpacedCases": 19,
+      "svetCrossCopyRouterMode": "unpaced-single-page-19of19"
+    }
+  },
+  "status": "passed",
+  "completedAt": "2026-11-20T07:34:50.857Z",
+  "sha256": {
+    "src/vector-preview.js": "b511a13c647bd36c8dbfa9983abfdb421ea00e9a41806cbbce223a4faed6f5f2",
+    "crates/forma/tests/preview-cross-browser-input.html": "10ee9f95cbe0aeba0c165016e1bd4c5d3f5f17ff8dde6c0d34661a867eaff12d",
+    "packages/svet/dist/package/advanced.js": "3e2302e22235c20686b42afd03492381ebd8eb68fca762e702d07e0303b9ee87",
+    "packages/svet/dist/package/svet-core.wasm": "4666b1dcdb89b1ac2bcec85342b910779beb368793ec6c1e133d1b21ac283681"
+  }
+}

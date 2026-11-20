@@ -178,17 +178,47 @@ export function installAsyncCoreResolver(
   };
 }
 
+function tryReadWasmModuleExports(value: unknown): WebAssembly.ModuleExportDescriptor[] | null {
+  if (!value || typeof value !== 'object') return null;
+  if (value instanceof WebAssembly.Module) {
+    return WebAssembly.Module.exports(value);
+  }
+  try {
+    return WebAssembly.Module.exports(value as WebAssembly.Module);
+  } catch {
+    return null;
+  }
+}
+
+function isWasmModule(value: unknown): value is WebAssembly.Module {
+  return tryReadWasmModuleExports(value) !== null;
+}
+
+function isForeignArrayBuffer(value: unknown): value is ArrayBuffer {
+  return (
+    value instanceof ArrayBuffer || Object.prototype.toString.call(value) === '[object ArrayBuffer]'
+  );
+}
+
+function isUrlInput(value: unknown): value is string | URL {
+  return (
+    typeof value === 'string' ||
+    value instanceof URL ||
+    Object.prototype.toString.call(value) === '[object URL]'
+  );
+}
+
 /** Install this package's precompiled asset before any core is created. */
 export function installSvetWasmModule(module: WebAssembly.Module): void {
-  if (!(module instanceof WebAssembly.Module))
-    throw TypeError('Expected a precompiled Svet WebAssembly.Module');
+  const rawExports = tryReadWasmModuleExports(module);
+  if (!rawExports) throw TypeError('Expected a precompiled Svet WebAssembly.Module');
   if (compiledModule) {
     if (compiledModule === module) return;
     throw Error('Svet WASM module is already initialized');
   }
-  const actual = WebAssembly.Module.exports(module).sort((a, b) =>
-    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-  );
+  const actual = rawExports
+    .slice()
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   if (
     WebAssembly.Module.imports(module).length ||
     JSON.stringify(actual) !== JSON.stringify(WASM_EXPORTS)
@@ -219,17 +249,15 @@ export function installEmbeddedSvetWasmSource(decode: () => Uint8Array): void {
 export async function loadSvetWasm(
   source: string | URL | Response | Promise<Response> | BufferSource | WebAssembly.Module,
 ): Promise<void> {
-  if (source instanceof WebAssembly.Module) {
+  if (isWasmModule(source)) {
     installSvetWasmModule(source);
     return;
   }
-  if (source instanceof ArrayBuffer || ArrayBuffer.isView(source)) {
+  if (isForeignArrayBuffer(source) || ArrayBuffer.isView(source)) {
     installSvetWasmModule(await WebAssembly.compile(source as BufferSource));
     return;
   }
-  const response = await (typeof source === 'string' || source instanceof URL
-    ? fetch(source)
-    : source);
+  const response = await (isUrlInput(source) ? fetch(source) : source);
   if (!response.ok) {
     throw new Error(
       `Svet WASM core request failed: ${response.status} ${response.statusText}`.trim(),

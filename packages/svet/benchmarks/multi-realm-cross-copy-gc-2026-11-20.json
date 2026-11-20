@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "completedAt": "2026-11-20T07:27:22.666Z",
+  "node": "v22.23.5",
+  "cycles": 120,
+  "snapshot": "installed-svet-installed-copies-l4yO7F",
+  "trackedReferences": {
+    "realmWindow": 120,
+    "realmDocument": 120,
+    "foreignNode": 120,
+    "wasmCore": 120,
+    "wasmMemory": 120,
+    "asyncOwner": 120
+  },
+  "remainingAfterGc": 0,
+  "gcRounds": 1,
+  "positiveControlHeld": 4,
+  "positiveControlRemainingAfterRelease": 0,
+  "crossRealmModuleInstalled": true,
+  "defaultCoreMemoryBytes": 131072,
+  "probeSha256": "e2c0fe7b323fc5b7408d888fe03e4457e2f5700e1366192d0d4cd4c45d80d671",
+  "scope": "Forced Node GC across 120 JSDOM realm + VM WebAssembly.Module + cross-copy synchronous DOM and post-await SSR owner cycles."
+}

@@ -1751,3 +1751,149 @@ test('render forwards controlOrigins before preserve_interaction and surfaces or
   assert.deepEqual(f.models[1].origins, ['Frame#0/Button#0']);
   assert.equal(f.preview.snapshot().controls[0].origin, 'Frame#0/Button#0');
 });
+
+test('primary shortcuts separate Apple Meta from non-Apple Ctrl without Meta/Super leaks', async t => {
+  for (const platform of ['MacIntel', 'macOS', 'Linux', 'Win32'])
+    await t.test(platform, t => {
+      const f = fixture(t, [button], false, { platform });
+      const model = f.models[0];
+      const input = f.canvas.parentElement.children.find(c => c.tag === 'textarea');
+      const calls = [];
+      model.text_editing = () => true;
+      model.text_caret_bounds = () => [10, 10, 1, 20];
+      model.text_key = (...args) => {
+        calls.push(args);
+        return Boolean(args[2]);
+      };
+      const apple = platform === 'MacIntel' || platform === 'macOS';
+      const wrongModifier = input.emit('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        shiftKey: false,
+        ctrlKey: apple,
+        metaKey: !apple,
+        altKey: false,
+      });
+      assert.equal(wrongModifier.defaultPrevented, false);
+      assert.deepEqual(calls, [['a', false, false]]);
+      const primaryShortcut = input.emit('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        shiftKey: false,
+        ctrlKey: !apple,
+        metaKey: apple,
+        altKey: false,
+      });
+      assert.equal(primaryShortcut.defaultPrevented, true);
+      assert.deepEqual(calls.at(-1), ['a', false, true]);
+    });
+});
+
+test('non-ASCII layouts normalize shortcut codes while preserving ASCII Latin remaps', async t => {
+  for (const platform of ['macOS', 'Linux', 'Win32'])
+    await t.test(platform, t => {
+      const f = fixture(t, [button], false, { platform });
+      const model = f.models[0];
+      const input = f.canvas.parentElement.children.find(c => c.tag === 'textarea');
+      const calls = [];
+      model.text_editing = () => true;
+      model.text_caret_bounds = () => [10, 10, 1, 20];
+      model.text_key = (...args) => {
+        calls.push(args);
+        return Boolean(args[2]);
+      };
+      const apple = platform === 'macOS';
+      const mods = { ctrlKey: !apple, metaKey: apple, altKey: false };
+      for (const [key, code, shiftKey, expected] of [
+        ['ф', 'KeyA', false, ['a', false, true]],
+        ['я', 'KeyZ', false, ['z', false, true]],
+        ['Я', 'KeyZ', true, ['z', true, true]],
+        ['н', 'KeyY', false, ['y', false, true]],
+        ['a', 'KeyQ', false, ['a', false, true]],
+        ['y', 'KeyZ', false, ['y', false, true]],
+      ]) {
+        const event = input.emit('keydown', { key, code, shiftKey, ...mods });
+        assert.equal(event.defaultPrevented, true);
+        assert.deepEqual(calls.at(-1), expected);
+      }
+    });
+});
+
+test('AltGr text keys stay unconsumed in keydown and insert via beforeinput on Windows and Linux', async t => {
+  for (const platform of ['Linux', 'Win32'])
+    await t.test(platform, t => {
+      const f = fixture(t, [button], false, { platform });
+      const model = f.models[0];
+      const input = f.canvas.parentElement.children.find(c => c.tag === 'textarea');
+      const inserted = [],
+        keys = [];
+      model.text_editing = () => true;
+      model.text_caret_bounds = () => [10, 10, 1, 20];
+      model.text_key = (...args) => {
+        keys.push(args);
+        return true;
+      };
+      model.text_insert = text => inserted.push(text);
+      const ctrlAlt = input.emit('keydown', {
+        key: 'ą',
+        code: 'KeyA',
+        ctrlKey: true,
+        altKey: true,
+        metaKey: false,
+      });
+      const altGraph = input.emit('keydown', {
+        key: '€',
+        code: 'KeyE',
+        ctrlKey: false,
+        altKey: false,
+        metaKey: false,
+        getModifierState: name => name === 'AltGraph',
+      });
+      assert.equal(ctrlAlt.defaultPrevented, false);
+      assert.equal(altGraph.defaultPrevented, false);
+      assert.deepEqual(keys, []);
+      assert.equal(
+        input.emit('beforeinput', { inputType: 'insertText', data: 'ą' }).defaultPrevented,
+        true,
+      );
+      assert.equal(
+        input.emit('beforeinput', { inputType: 'insertText', data: '€' }).defaultPrevented,
+        true,
+      );
+      assert.deepEqual(inserted, ['ą', '€']);
+    });
+});
+
+test('IME Process, Dead, and keyCode 229 keydown events never submit, dismiss modals, or activate buttons', t => {
+  const f = fixture(t, [button]);
+  const model = f.models[0];
+  const input = f.canvas.parentElement.children.find(c => c.tag === 'textarea');
+  const keys = [];
+  model.text_editing = () => true;
+  model.text_caret_bounds = () => [10, 10, 1, 20];
+  model.modal_count = () => 1;
+  model.text_key = (...args) => {
+    keys.push(args);
+    return true;
+  };
+  for (const event of [
+    { key: 'Enter', isComposing: false, keyCode: 229 },
+    { key: 'Process', isComposing: false, keyCode: 229 },
+    { key: 'Dead', isComposing: false, keyCode: 0 },
+    { key: 'Escape', isComposing: false, keyCode: 229 },
+  ]) {
+    assert.equal(input.emit('keydown', event).defaultPrevented, false);
+  }
+  assert.deepEqual(keys, []);
+  assert.deepEqual(model.keyCalls, []);
+
+  model.text_editing = () => false;
+  for (const event of [
+    { key: 'Enter', isComposing: false, keyCode: 229 },
+    { key: ' ', isComposing: false, keyCode: 229 },
+    { key: 'Process', isComposing: false, keyCode: 229 },
+  ]) {
+    assert.equal(f.canvas.emit('keydown', event).defaultPrevented, false);
+  }
+  assert.deepEqual(model.keyCalls, []);
+});

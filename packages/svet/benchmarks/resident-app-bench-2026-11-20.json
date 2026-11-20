@@ -1,0 +1,108 @@
+{
+  "source": "/Users/themoretheless/.gemini/antigravity/brain/b95d8874-0dc2-476c-9182-b1d949d3c08c/scratch/resident-app-raw.json",
+  "validatedRows": 18,
+  "measuredFrames": 1080,
+  "workloads": [
+    {
+      "vertices": 2400,
+      "pairChanges": [
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": 102.77777929548866,
+          "p95ChangePercent": 67.29131159752973
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -40.909090498590594,
+          "p95ChangePercent": -31.953290347969343
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": 90.00000059604645,
+          "p95ChangePercent": 84.31372472427124
+        }
+      ],
+      "mapped": {
+        "medianP50Ms": 2,
+        "medianP95Ms": 3.3150000110268585,
+        "liveAfterMeasure": {
+          "buffers": 2,
+          "bufferBytes": 48000,
+          "textures": 1
+        },
+        "peakBufferBytes": 163216
+      },
+      "resident": {
+        "medianP50Ms": 3.6499999910593033,
+        "medianP95Ms": 4.910000006854534,
+        "liveAfterMeasure": {
+          "buffers": 3,
+          "bufferBytes": 86400,
+          "textures": 1
+        },
+        "peakBufferBytes": 124816
+      }
+    },
+    {
+      "vertices": 38400,
+      "pairChanges": [
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": 31.578946955646515,
+          "p95ChangePercent": 40.307329087890345
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -42.85714290782708,
+          "p95ChangePercent": -26.962727754880554
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -36.47058803729944,
+          "p95ChangePercent": -4.832423758940174
+        }
+      ],
+      "mapped": {
+        "medianP50Ms": 4.199999988079071,
+        "medianP95Ms": 6.305000011622905,
+        "liveAfterMeasure": {
+          "buffers": 2,
+          "bufferBytes": 768000,
+          "textures": 1
+        },
+        "peakBufferBytes": 2611216
+      },
+      "resident": {
+        "medianP50Ms": 2.7000000178813934,
+        "medianP95Ms": 5.935000005364416,
+        "liveAfterMeasure": {
+          "buffers": 3,
+          "bufferBytes": 1382400,
+          "textures": 1
+        },
+        "peakBufferBytes": 1996816
+      }
+    }
+  ],
+  "controls": [
+    {
+      "geometryIdentical": true,
+      "pixelsIdentical": true,
+      "p50ChangePercent": 82.97872374153827,
+      "p95ChangePercent": 82.42424177428359
+    },
+    {
+      "geometryIdentical": true,
+      "pixelsIdentical": true,
+      "p50ChangePercent": 99.99999919453184,
+      "p95ChangePercent": 57.30496454746166
+    }
+  ],
+  "longTasks": 0
+}

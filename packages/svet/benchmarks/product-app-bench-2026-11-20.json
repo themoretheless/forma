@@ -1,0 +1,169 @@
+{
+  "protocol": "product-app-cross-browser-v1",
+  "startedAt": "2026-11-20T07:44:44.859Z",
+  "snapshot": "snapshot-1795160684525",
+  "engines": {
+    "chromium": {
+      "status": "passed",
+      "version": "159.0.8154.6",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.8154.6 Safari/537.36",
+      "startup": {
+        "count": 9,
+        "p50Ms": 4.899999976158142,
+        "p95Ms": 5.980000007152557,
+        "p99Ms": 6.236000010967254,
+        "minMs": 4.4000000059604645,
+        "maxMs": 6.300000011920929
+      },
+      "interactions": {
+        "count": 120,
+        "p50Ms": 1,
+        "p95Ms": 3.8099999830126756,
+        "p99Ms": 5.400000000298023,
+        "minMs": 0,
+        "maxMs": 8.099999994039536
+      },
+      "frameUpdate": {
+        "count": 180,
+        "p50Ms": 1.300000011920929,
+        "p95Ms": 3.9050000056624397,
+        "p99Ms": 5.120999999046327,
+        "minMs": 0.5999999940395355,
+        "maxMs": 5.5999999940395355
+      },
+      "frameInterval": {
+        "count": 180,
+        "p50Ms": 16.699999999999818,
+        "p95Ms": 16.700000000000273,
+        "p99Ms": 16.800000000000182,
+        "minMs": 16.5,
+        "maxMs": 16.800000000000182
+      },
+      "memory": {
+        "wasmInitialBytes": 131072,
+        "wasmSteadyBytes": 393216,
+        "wasmSteadyDriftBytes": 0,
+        "steadyNodes": 1269,
+        "steadyEdges": 792,
+        "nodesAfterTeardown": 0,
+        "edgesAfterTeardown": 0,
+        "heapBeforeInteractions": {
+          "usedJSHeapSize": 18200000,
+          "totalJSHeapSize": 29400000,
+          "jsHeapSizeLimit": 3760000000
+        },
+        "heapAfterFrames": {
+          "usedJSHeapSize": 18200000,
+          "totalJSHeapSize": 29400000,
+          "jsHeapSizeLimit": 3760000000
+        }
+      },
+      "cdpHeapUsageAfterTeardown": {
+        "usedSize": 8443212,
+        "totalSize": 41320448,
+        "embedderHeapUsedSize": 38614472,
+        "backingStorageSize": 337797
+      }
+    },
+    "webkit": {
+      "status": "passed",
+      "version": "27.2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+      "startup": {
+        "count": 9,
+        "p50Ms": 9,
+        "p95Ms": 9.6,
+        "p99Ms": 9.92,
+        "minMs": 8,
+        "maxMs": 10
+      },
+      "interactions": {
+        "count": 120,
+        "p50Ms": 2,
+        "p95Ms": 8,
+        "p99Ms": 8,
+        "minMs": 0,
+        "maxMs": 8
+      },
+      "frameUpdate": {
+        "count": 180,
+        "p50Ms": 2,
+        "p95Ms": 5,
+        "p99Ms": 6,
+        "minMs": 1,
+        "maxMs": 6
+      },
+      "frameInterval": {
+        "count": 180,
+        "p50Ms": 17,
+        "p95Ms": 17,
+        "p99Ms": 18,
+        "minMs": 15,
+        "maxMs": 18
+      },
+      "memory": {
+        "wasmInitialBytes": 131072,
+        "wasmSteadyBytes": 393216,
+        "wasmSteadyDriftBytes": 0,
+        "steadyNodes": 1269,
+        "steadyEdges": 792,
+        "nodesAfterTeardown": 0,
+        "edgesAfterTeardown": 0,
+        "heapBeforeInteractions": null,
+        "heapAfterFrames": null
+      },
+      "cdpHeapUsageAfterTeardown": null
+    },
+    "firefox": {
+      "status": "passed",
+      "version": "159.0",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0",
+      "startup": {
+        "count": 9,
+        "p50Ms": 9,
+        "p95Ms": 11,
+        "p99Ms": 11,
+        "minMs": 7,
+        "maxMs": 11
+      },
+      "interactions": {
+        "count": 120,
+        "p50Ms": 2,
+        "p95Ms": 6.049999999999997,
+        "p99Ms": 10,
+        "minMs": 0,
+        "maxMs": 13
+      },
+      "frameUpdate": {
+        "count": 180,
+        "p50Ms": 1,
+        "p95Ms": 3,
+        "p99Ms": 3.210000000000008,
+        "minMs": 0,
+        "maxMs": 4
+      },
+      "frameInterval": {
+        "count": 180,
+        "p50Ms": 8.339999999999918,
+        "p95Ms": 8.40399999999987,
+        "p99Ms": 9.125199999999888,
+        "minMs": 7.320000000000164,
+        "maxMs": 9.299999999999955
+      },
+      "memory": {
+        "wasmInitialBytes": 131072,
+        "wasmSteadyBytes": 393216,
+        "wasmSteadyDriftBytes": 0,
+        "steadyNodes": 1269,
+        "steadyEdges": 792,
+        "nodesAfterTeardown": 0,
+        "edgesAfterTeardown": 0,
+        "heapBeforeInteractions": null,
+        "heapAfterFrames": null
+      },
+      "cdpHeapUsageAfterTeardown": null
+    }
+  },
+  "status": "passed",
+  "completedAt": "2026-11-20T07:44:57.859Z"
+}

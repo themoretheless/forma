@@ -278,3 +278,47 @@ it.each(
   expect(router.navigate('/ready')).toBe(true);
   expect(url()).toBe('/ready');
 });
+
+it('coalesces intermediate popstate restorations while a compensating traversal is pending', async () => {
+  vi.useFakeTimers();
+  try {
+    router = createRouter({ routes: [] });
+    router.navigate('/one');
+    const one = history.state;
+    router.navigate('/two');
+    const two = history.state;
+    router.navigate('/three');
+    const three = history.state;
+    const remove = router.beforeEach(() => false);
+
+    const go = vi.spyOn(history, 'go').mockImplementation(() => {});
+
+    // First denied traversal starts compensation synchronously.
+    history.replaceState(two, '', '/two');
+    window.dispatchEvent(new PopStateEvent('popstate', { state: two }));
+    expect(go).toHaveBeenCalledTimes(1);
+    expect(go).toHaveBeenLastCalledWith(1);
+
+    // Subsequent burst popstates while restoring coalesce into a single deferred go(2).
+    history.replaceState(one, '', '/one');
+    window.dispatchEvent(new PopStateEvent('popstate', { state: one }));
+    window.dispatchEvent(new PopStateEvent('popstate', { state: one }));
+    expect(go).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(10);
+    expect(go).toHaveBeenCalledTimes(2);
+    expect(go).toHaveBeenLastCalledWith(2);
+
+    // Landing on the accepted entry cancels any pending coalesced retry.
+    window.dispatchEvent(new PopStateEvent('popstate', { state: one }));
+    expect(go).toHaveBeenCalledTimes(2);
+    history.replaceState(three, '', '/three');
+    window.dispatchEvent(new PopStateEvent('popstate', { state: three }));
+    vi.advanceTimersByTime(10);
+    expect(go).toHaveBeenCalledTimes(2);
+    remove();
+    expect(router.navigate('/after-settle')).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
+});

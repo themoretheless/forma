@@ -307,3 +307,20 @@ v0.3.8 (692 / 2704 / 8548 без правки, 2004 / 7846 / 23896 на ренд
 - **Оговорка по оборудованию:** на локальной машине без GPU NVIDIA (`macOS M4 Max`) пути `CUDA`/`RTX`
   остаются хост-изолированными за динамической проверкой драйвера; исполнение ядер CUDA/RTX не выполнялось,
   прогоны Vulkan (`lavapipe`), GLES и DX12 заведены в матрицу `.github/workflows/ci.yml`.
+
+## Svet: кроссбраузерная матрица, HTTP external memory и продуктовые бенчмарки (Wave 5B, 2026-11-20)
+
+- **Кроссбраузерная матрица (`packages/svet/benchmarks/cross-browser-matrix-qualification-2026-11-20.json`):**
+  - `chromium 159.0.8154.6`, `webkit 27.2`, `firefox 159.0`: пройдены профили `native`/Apple, `Linux` и `Win32` в `preview-cross-browser-input.html` (плюс CDP IME в Chromium), `17/17` в `preview-word-browser.html`, `21/21` (`189` утверждений) в `browser-matrix.html`, а также unpaced `19/19` в `cross-copy-router.html` (в одном окне на Chromium и Firefox; по одному свежему окну на направление `?burst=A→B` / `?burst=B→A` на WebKit из-за лимита WebKit `100 pushState/replaceState за 10с`).
+- **Multi-realm GC, Edge `workerd` и разбор отказа HTTP external memory:**
+  - `multi-realm-cross-copy-gc-2026-11-20.json`: `120` циклов, `720/720` WeakRefs (`realmWindow`, `realmDocument`, `foreignNode`, `wasmCore`, `wasmMemory`, `asyncOwner`) собраны за `1` раунд GC, контрольные `4 -> 0`.
+  - `edge-ssr-qualification-2026-11-20.json` (`workerd 1.20260730.1` / `miniflare 4.20260730.0`): все проверки retained UI (`40` ссылок), cross-copy границ (`4/4`), post-`await` владельцев, отмен и proxy aborts пройдены (`nodes: 0`).
+  - `ssr-transport-matrix-2026-11-20.json`: `15с`, `432` запроса по `16` сценариям (`identity`/`svet-html-ref-v1` × `plain`/`gzip` × разрывы/отмены), `0` принудительных GC.
+  - **HTTP external memory до vs после `-zstack-size=65536` (`S-16`):**
+    - Исторический `2h` прогон со стеком LLVM 1 MiB (`1 114 112` байт/запрос): `external` рос между окнами `148.4 MB -> 220.8 MB` (`+72.4 MB` сверх `64 MiB`-бюджета при ровной нижней полке `~7.19 MB`) из-за удержания 160–236 финализируемых обёрток памяти под естественным V8 GC.
+    - После `-zstack-size=65536` (`131 072` байт/запрос, 2 WASM-страницы; `http-wasm-stack64k-qualification-2026-11-20.json`, `20с`, `5 008` запросов): `status: "within-observed-budget"`, `external` по окнам `8.14–62.72 MB`, `8.46–64.41 MB`, `6.61–63.09 MB`, `6.09–48.60 MB` (`postWarmupPeakGrowthBytes: 0`), при завершении `pending: 16` (`2 097 152` байт).
+- **Продуктовый бенчмарк реального приложения (`product-app-bench-2026-11-20.json`, 250 строк с сигналами + скомпилированная форма Forma + Canvas 2D):**
+  - `chromium 159.0.8154.6`: startup `p50 = 4.90 мс` / `p95 = 5.98 мс`, interaction `p50 = 1.00 мс` / `p95 = 3.81 мс`, frameUpdate `p50 = 1.30 мс` / `p95 = 3.91 мс`, `frameInterval p50 = 16.70 мс`, `usedJSHeapSize = 18.2 MB -> 18.2 MB`, `wasm = 393 216 Б` (`drift = 0`, `nodesAfterTeardown = 0`).
+  - `webkit 27.2`: startup `p50 = 9.00 мс` / `p95 = 9.60 мс`, interaction `p50 = 2.00 мс` / `p95 = 8.00 мс`, frameUpdate `p50 = 2.00 мс` / `p95 = 5.00 мс`, `nodesAfterTeardown = 0`.
+  - `firefox 159.0`: startup `p50 = 9.00 мс` / `p95 = 11.00 мс`, interaction `p50 = 2.00 мс` / `p95 = 6.05 мс`, frameUpdate `p50 = 1.00 мс` / `p95 = 3.00 мс`, `frameInterval p50 = 8.34 мс`, `nodesAfterTeardown = 0`.
+- **Резидентный WebGPU-бенчмарк (`resident-app-bench-2026-11-20.json`, Apple `metal-3` не-fallback адаптер):** `18` проверенных строк, `1 080` кадров, `6` нагрузок (`2 400` и `38 400` вершин: mapped `medianP50 = 2.00–4.20 мс`, resident `medianP50 = 2.70–3.65 мс`), `2` контрольных прогона, `0` long tasks, геометрия и пиксельные хэши идентичны во всех парах.

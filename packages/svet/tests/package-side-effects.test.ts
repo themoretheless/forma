@@ -69,5 +69,8 @@ describe('package sideEffects', () => {
     expect(required).toContain('wasm-embedded.js');
     expect(required).toContain('forma-3d.js');
     expect(required.filter(file => !listed.has(`./dist/package/${file}`))).toEqual([]);
+    expect(
+      required.filter(file => !listed.has(`./src/engine/${file.replace(/\.js$/, '.ts')}`)),
+    ).toEqual([]);
   });
 });

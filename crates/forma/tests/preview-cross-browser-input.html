@@ -1,0 +1,393 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Forma vector-preview cross-browser input qualification</title>
+<style>
+  body {
+    font: 16px system-ui;
+    margin: 32px;
+    background: #eef2f6;
+  }
+  #editor {
+    width: 520px;
+    min-height: 200px;
+  }
+  pre {
+    white-space: pre-wrap;
+  }
+</style>
+<h1>Forma vector-preview cross-browser input</h1>
+<p id="status">Ready</p>
+<div id="editor"></div>
+<pre id="report"></pre>
+<script type="module">
+  import init, * as wasm from '/wasm/forma.js';
+  import { createVectorPreview } from '/src/vector-preview.js';
+
+  try {
+  await init();
+
+  const sourceJson = JSON.stringify({
+    'Button.ui':
+      "component Button { Rectangle { Text { text: 'Activate'; } PointerArea { clicked -> events.clicked(); } } }",
+    'App.ui': `component App {
+      state query: String = 'alpha beta';
+      state submitQuery: String = 'ready';
+      Column {
+        width: 480;
+        height: 180;
+        TextInput { key: 'field'; width: 440; height: 36; value <-> state.query; }
+        TextInput { key: 'submitField'; width: 440; height: 36; value <-> state.submitQuery; }
+        Button { key: 'btn'; width: 120; height: 36; }
+      }
+    }`,
+  });
+
+  let active = null;
+  class Observed extends wasm.Runtime {
+    constructor() {
+      super();
+      active = this;
+    }
+    static from_component(source) {
+      const instance = new Observed();
+      instance.load_ui_files_json(source, 'App.ui', '{}');
+      return instance;
+    }
+    load_component(source) {
+      this.load_ui_files_json(source, 'App.ui', '{}');
+    }
+  }
+
+  const actions = [];
+  const bindings = [];
+  const errors = [];
+  const observedEvents = [];
+
+  const preview = createVectorPreview({
+    runtime: { ...wasm, Runtime: Observed },
+    onError: error => errors.push(String(error)),
+    onAction: (action, node, event) =>
+      actions.push({ action, key: node?.props?.key ?? null, event }),
+    onBindingChange: changes =>
+      bindings.push(changes.map(({ path, value }) => ({ path, value }))),
+  });
+
+  const rendered = preview.render({
+    container: document.querySelector('#editor'),
+    source: sourceJson,
+    designMode: false,
+    reducedMotion: true,
+    previewControls: [
+      { type: 'TextInput', props: { key: 'field' }, bindings: { value: 'state.query' } },
+      {
+        type: 'TextInput',
+        props: { key: 'submitField' },
+        bindings: { value: 'state.submitQuery' },
+        events: { submitted: 'actions.submit' },
+      },
+      { type: 'Button', props: { key: 'btn' }, events: { clicked: 'actions.activate' } },
+    ],
+  });
+  if (!rendered) {
+    throw Error('Preview render failed: ' + errors.join('; '));
+  }
+
+  const equal = (actual, expected, message) => {
+    if (actual !== expected) {
+      throw Error(`${message ?? 'Mismatch'}: ${JSON.stringify(actual)} !== ${JSON.stringify(expected)}`);
+    }
+  };
+
+  preview.focusKey('field');
+  const textarea = document.querySelector('textarea');
+  const canvas = document.querySelector('canvas');
+  if (!textarea || !canvas) throw Error('Preview DOM elements missing');
+
+  textarea.addEventListener('keydown', event => {
+    observedEvents.push({
+      target: 'textarea',
+      key: event.key,
+      code: event.code,
+      isTrusted: event.isTrusted,
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      shiftKey: event.shiftKey,
+      defaultPrevented: event.defaultPrevented,
+    });
+  });
+  textarea.addEventListener('beforeinput', event => {
+    observedEvents.push({
+      target: 'beforeinput',
+      inputType: event.inputType,
+      data: event.data,
+      isTrusted: event.isTrusted,
+      defaultPrevented: event.defaultPrevented,
+    });
+  });
+
+  function resolvePlatform() {
+    const platform =
+      globalThis.navigator?.userAgentData?.platform ?? globalThis.navigator?.platform ?? '';
+    return { platform, apple: /Mac|macOS|iPhone|iPad|iPod/.test(platform) };
+  }
+
+  function resetField(text = 'alpha beta', key = 'field') {
+    preview.focusKey(key);
+    const { apple } = resolvePlatform();
+    const cmd = apple ? { metaKey: true } : { ctrlKey: true };
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', bubbles: true, cancelable: true, ...cmd }),
+    );
+    textarea.dispatchEvent(
+      new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: text,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'End', code: 'End', bubbles: true, cancelable: true }),
+    );
+    observedEvents.length = 0;
+    actions.length = 0;
+  }
+
+  function runSyntheticMatrix() {
+    const { platform, apple } = resolvePlatform();
+    const cmd = apple ? { metaKey: true } : { ctrlKey: true };
+    const cases = [];
+    const check = (name, fn) => {
+      try {
+        fn();
+        cases.push({ name, status: 'passed' });
+      } catch (error) {
+        cases.push({ name, status: 'failed', error: String(error.stack ?? error) });
+      }
+    };
+
+    check('primary shortcut separates Apple Meta from non-Apple Ctrl', () => {
+      resetField('alpha beta');
+      const wrongMod = apple ? { ctrlKey: true } : { metaKey: true };
+      const wrongEvt = new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        bubbles: true,
+        cancelable: true,
+        ...wrongMod,
+      });
+      textarea.dispatchEvent(wrongEvt);
+      equal(wrongEvt.defaultPrevented, false, 'Wrong platform modifier must not select all');
+      equal(active.text_selected(), '', 'Wrong modifier must leave selection empty');
+
+      const goodEvt = new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyA',
+        bubbles: true,
+        cancelable: true,
+        ...cmd,
+      });
+      textarea.dispatchEvent(goodEvt);
+      equal(goodEvt.defaultPrevented, true, 'Platform primary modifier must select all');
+      equal(active.text_selected(), 'alpha beta', 'Selected entire field');
+    });
+
+    check('non-ASCII layout shortcuts normalize physical KeyA/KeyZ/KeyY without touching AZERTY', () => {
+      resetField('hello world');
+      const selAllCyr = new KeyboardEvent('keydown', {
+        key: 'ф',
+        code: 'KeyA',
+        bubbles: true,
+        cancelable: true,
+        ...cmd,
+      });
+      textarea.dispatchEvent(selAllCyr);
+      equal(selAllCyr.defaultPrevented, true, 'Non-ASCII KeyA shortcut handled');
+      equal(active.text_selected(), 'hello world', 'Cyrillic Ctrl/Cmd+KeyA selects all');
+
+      textarea.dispatchEvent(
+        new InputEvent('beforeinput', {
+          inputType: 'insertText',
+          data: 'replaced',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      equal(active.text_value(0), 'replaced');
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'я',
+          code: 'KeyZ',
+          bubbles: true,
+          cancelable: true,
+          ...cmd,
+        }),
+      );
+      equal(active.text_value(0), 'hello world', 'Cyrillic KeyZ undo');
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Я',
+          code: 'KeyZ',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+          ...cmd,
+        }),
+      );
+      equal(active.text_value(0), 'replaced', 'Cyrillic Shift+KeyZ redo');
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'z',
+          code: 'KeyZ',
+          bubbles: true,
+          cancelable: true,
+          ...cmd,
+        }),
+      );
+      equal(active.text_value(0), 'hello world');
+
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'н',
+          code: 'KeyY',
+          bubbles: true,
+          cancelable: true,
+          ...cmd,
+        }),
+      );
+      equal(active.text_value(0), 'replaced', 'Cyrillic KeyY redo');
+
+      // ASCII AZERTY: key 'a' physically on KeyQ must remain 'a' (select all), not 'q'.
+      textarea.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      const azerty = new KeyboardEvent('keydown', {
+        key: 'a',
+        code: 'KeyQ',
+        bubbles: true,
+        cancelable: true,
+        ...cmd,
+      });
+      textarea.dispatchEvent(azerty);
+      equal(azerty.defaultPrevented, true);
+      equal(active.text_selected(), 'replaced', 'AZERTY logical a on KeyQ selects all');
+    });
+
+    if (!apple) {
+      check('AltGr Ctrl+Alt and AltGraph leave keydown unconsumed and insert text', () => {
+        resetField('base');
+        const ctrlAlt = new KeyboardEvent('keydown', {
+          key: 'ą',
+          code: 'KeyA',
+          ctrlKey: true,
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        textarea.dispatchEvent(ctrlAlt);
+        equal(ctrlAlt.defaultPrevented, false, 'Ctrl+Alt AltGr not stolen');
+        equal(active.text_selected(), '');
+
+        const altGraph = new KeyboardEvent('keydown', {
+          key: '€',
+          code: 'KeyE',
+          modifierAltGraph: true,
+          bubbles: true,
+          cancelable: true,
+        });
+        equal(altGraph.getModifierState('AltGraph'), true, 'Native AltGraph modifier state present');
+        textarea.dispatchEvent(altGraph);
+        equal(altGraph.defaultPrevented, false, 'AltGraph not stolen');
+
+        textarea.dispatchEvent(
+          new InputEvent('beforeinput', { inputType: 'insertText', data: 'ą€', bubbles: true, cancelable: true }),
+        );
+        equal(active.text_value(0), 'baseą€');
+      });
+    }
+
+    check('CJK IME composition, Hangul, cancellation, blur, and post-commit 229 guard', () => {
+      resetField('prefix ', 'submitField');
+      textarea.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      textarea.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'にほん', bubbles: true }));
+      textarea.dispatchEvent(new CompositionEvent('compositionend', { data: '日本', bubbles: true }));
+      // Chromium & Safari can emit keyCode 229 Enter immediately after compositionend.
+      const enter229 = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        keyCode: 229,
+        which: 229,
+        isComposing: false,
+        bubbles: true,
+        cancelable: true,
+      });
+      textarea.dispatchEvent(enter229);
+      equal(enter229.defaultPrevented, false, 'keyCode 229 Enter must not be treated as submit');
+      equal(actions.length, 0, 'IME Enter must not emit submitted action');
+      equal(active.text_value(1), 'prefix 日本');
+
+      // Hangul composition
+      textarea.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+      textarea.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'ㅎ', bubbles: true }));
+      textarea.dispatchEvent(new CompositionEvent('compositionend', { data: '한글', bubbles: true }));
+      equal(active.text_value(1), 'prefix 日本한글');
+
+      // Dead/Process keydown guard even when button is focused
+      preview.focusKey('btn');
+      const processEvt = new KeyboardEvent('keydown', {
+        key: 'Process',
+        keyCode: 229,
+        bubbles: true,
+        cancelable: true,
+      });
+      canvas.dispatchEvent(processEvt);
+      equal(processEvt.defaultPrevented, false);
+      const deadEvt = new KeyboardEvent('keydown', {
+        key: 'Dead',
+        keyCode: 0,
+        bubbles: true,
+        cancelable: true,
+      });
+      canvas.dispatchEvent(deadEvt);
+      equal(deadEvt.defaultPrevented, false);
+      equal(active.clicks(), 0, 'IME Process/Dead must not click focused button');
+    });
+
+    equal(errors.length, 0, 'No runtime errors recorded');
+    return { platform, apple, cases, passed: cases.every(c => c.status === 'passed') };
+  }
+
+  window.__formaInputHarness = {
+    resolvePlatform,
+    resetField,
+    focusKey: key => preview.focusKey(key),
+    getEvents: () => observedEvents.slice(),
+    clearEvents: () => {
+      observedEvents.length = 0;
+    },
+    getState: () => ({
+      value: active.text_value(0),
+      selected: active.text_selected(),
+      submitValue: active.text_value(1),
+      actions: actions.slice(),
+      errors: errors.slice(),
+      focusedKey:
+        active.focused_index() >= 0 ? active.control_key(active.focused_index()) : null,
+      activeElementTag: document.activeElement?.tagName ?? null,
+    }),
+    runSyntheticMatrix,
+  };
+
+  document.querySelector('#status').textContent = 'READY';
+  } catch (err) {
+    document.querySelector('#status').textContent = 'ERROR: ' + (err?.stack ?? err);
+    throw err;
+  }
+</script>

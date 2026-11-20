@@ -1,0 +1,471 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Svet + Forma product application benchmark</title>
+<style>
+  body {
+    font: 14px system-ui;
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 16px;
+    color: #18232d;
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  td,
+  th {
+    padding: 4px 8px;
+    border-bottom: 1px solid #d7e0ea;
+    text-align: left;
+  }
+  .sidebar {
+    border: 1px solid #d7e0ea;
+    padding: 12px;
+    border-radius: 6px;
+  }
+  pre {
+    background: #eff6ff;
+    padding: 12px;
+    white-space: pre-wrap;
+  }
+</style>
+<h1>Svet + Forma product application benchmark</h1>
+<button id="run">Run product benchmark</button>
+<pre id="status" role="status">Not run</pre>
+<div id="mount-root"></div>
+<script id="raw-results" type="application/json"></script>
+<script type="module">
+  import {
+    For,
+    batch,
+    compileFormaComponent,
+    computed,
+    createContext,
+    createWasmCoreInstance,
+    effect,
+    getGraphTelemetry,
+    h,
+    mount,
+    onCleanup,
+    signal,
+    useContext,
+    withWasmCore,
+  } from '/src/engine/index.ts';
+
+  const status = document.querySelector('#status');
+  const raw = document.querySelector('#raw-results');
+  const mountRoot = document.querySelector('#mount-root');
+
+  const assert = (cond, msg) => {
+    if (!cond) throw Error(msg);
+  };
+  assert.equal = (actual, expected, msg) => {
+    if (actual !== expected) {
+      throw Error(`${msg ?? 'Assertion failed'}: ${JSON.stringify(actual)} !== ${JSON.stringify(expected)}`);
+    }
+  };
+  const raf = () => new Promise(resolve => requestAnimationFrame(resolve));
+  function quantile(values, p) {
+    assert(values.length > 0, 'Empty timing sample');
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = (sorted.length - 1) * p;
+    const lo = Math.floor(index);
+    const hi = Math.ceil(index);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
+  }
+  const summarize = values => ({
+    count: values.length,
+    p50Ms: quantile(values, 0.5),
+    p95Ms: quantile(values, 0.95),
+    p99Ms: quantile(values, 0.99),
+    minMs: Math.min(...values),
+    maxMs: Math.max(...values),
+  });
+  const readHeap = () => {
+    const m = performance.memory;
+    return m
+      ? {
+          usedJSHeapSize: m.usedJSHeapSize,
+          totalJSHeapSize: m.totalJSHeapSize,
+          jsHeapSizeLimit: m.jsHeapSizeLimit,
+        }
+      : null;
+  };
+
+  function createWorkspaceApp() {
+    const ThemeContext = createContext({ accent: '#2563eb', compact: false });
+    const statuses = ['healthy', 'active', 'degraded', 'alert'];
+    const query = signal('');
+    const filterStatus = signal('all');
+    const sortDesc = signal(false);
+    const selectedId = signal(0);
+    const rev = signal(0);
+
+    const rows = Array.from({ length: 250 }, (_, id) => ({
+      id,
+      name: `service-${String(id).padStart(3, '0')}-${id % 4 === 0 ? 'edge' : 'core'}`,
+      status: statuses[id % statuses.length],
+      latency: signal(12 + ((id * 7) % 90)),
+      qps: signal(200 + ((id * 31) % 900)),
+    }));
+
+    const visibleRows = computed(() => {
+      rev();
+      const q = query().trim().toLowerCase();
+      const st = filterStatus();
+      const list = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (st !== 'all' && row.status !== st) continue;
+        if (q && !row.name.includes(q)) continue;
+        list.push(row);
+      }
+      if (sortDesc()) list.reverse();
+      return list;
+    });
+
+    const selectedRow = computed(() => rows[selectedId()] ?? rows[0]);
+    const formaPanel = compileFormaComponent(
+      `component IncidentAckPanel {
+        state acks: Number = 0;
+        Column {
+          Text { key: 'ack-count'; text: state.acks; }
+          Button { key: 'ack-btn'; text: 'Acknowledge'; clicked -> state.increment('acks', 1); }
+        }
+      }`,
+    );
+
+    const theme = useContext(ThemeContext);
+    const canvas = document.createElement('canvas');
+    canvas.width = 280;
+    canvas.height = 64;
+    const ctx2d = canvas.getContext('2d');
+
+    effect(() => {
+      const list = visibleRows();
+      const count = Math.min(28, list.length);
+      if (!ctx2d) return;
+      ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+      ctx2d.fillStyle = theme.accent;
+      for (let i = 0; i < count; i++) {
+        const barH = Math.max(4, Math.min(60, Math.round(list[i].latency() * 0.5)));
+        ctx2d.fillRect(i * 10, canvas.height - barH, 8, barH);
+      }
+    });
+
+    onCleanup(() => {
+      formaPanel.dispose();
+      query.dispose();
+      filterStatus.dispose();
+      sortDesc.dispose();
+      selectedId.dispose();
+      rev.dispose();
+      for (const r of rows) {
+        r.latency.dispose();
+        r.qps.dispose();
+      }
+    });
+
+    const searchInput = h('input', {
+      type: 'search',
+      id: 'bench-search',
+      placeholder: 'Filter services',
+      model: query,
+    });
+    const tableBody = h(
+      'tbody',
+      null,
+      For({
+        each: visibleRows,
+        keyFn: row => row.id,
+        children: row =>
+          h(
+            'tr',
+            {
+              'data-row-id': String(row.id),
+              style: () => (selectedId() === row.id ? 'background:#dbeafe' : ''),
+              onClick: () => selectedId.set(row.id),
+            },
+            h('td', null, row.name),
+            h('td', null, row.status),
+            h('td', null, () => `${row.latency()}ms`),
+            h('td', null, () => `${row.qps()} qps`),
+          ),
+      }),
+    );
+
+    const formaHost = h('div', { id: 'forma-panel-host' });
+    formaPanel.mount(formaHost);
+
+    const view = h(
+      'div',
+      { className: 'bench-app' },
+      h(
+        'div',
+        { className: 'toolbar' },
+        searchInput,
+        h(
+          'button',
+          { id: 'btn-filter-all', onClick: () => filterStatus.set('all') },
+          'All',
+        ),
+        h(
+          'button',
+          { id: 'btn-filter-edge', onClick: () => filterStatus.set('alert') },
+          'Alert',
+        ),
+        h(
+          'button',
+          { id: 'btn-sort', onClick: () => sortDesc.set(!sortDesc.peek()) },
+          'Reverse Order',
+        ),
+        h('span', { id: 'visible-count' }, () => `${visibleRows().length} rows`),
+      ),
+      h(
+        'div',
+        { className: 'workspace' },
+        h(
+          'table',
+          null,
+          h('thead', null, h('tr', null, h('th', null, 'Name'), h('th', null, 'Status'), h('th', null, 'p95'), h('th', null, 'QPS'))),
+          tableBody,
+        ),
+        h(
+          'aside',
+          { className: 'sidebar' },
+          h('h3', { id: 'inspector-title' }, () => selectedRow().name),
+          h('div', { id: 'inspector-metrics' }, () => `${selectedRow().latency()}ms / ${selectedRow().qps()} qps`),
+          formaHost,
+          canvas,
+        ),
+      ),
+    );
+
+    return {
+      view,
+      formaPanel,
+      query,
+      filterStatus,
+      sortDesc,
+      selectedId,
+      rev,
+      rows,
+      tableBody,
+      searchInput,
+    };
+  }
+
+  document.querySelector('#run').onclick = async () => {
+    const runBtn = document.querySelector('#run');
+    runBtn.disabled = true;
+    raw.textContent = '';
+    status.textContent = 'Running product benchmarks...';
+
+    const report = {
+      protocol: 'product-app-bench-v1',
+      startedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      scope:
+        'Single frozen production bundle (250 keyed rows + Context + input model + Forma .ui component + reactive 2D canvas telemetry). Measurements taken in-page via performance.now() and rAF.',
+    };
+
+    try {
+      report.build = await fetch('/metadata.json').then(r => {
+        assert(r.ok, 'Prepared product bench metadata missing');
+        return r.json();
+      });
+
+      // 1. Startup rounds (2 warmup + 9 measured)
+      const startupSamples = [];
+      let startupFirstWasmBytes = 0;
+      for (let i = -2; i < 9; i++) {
+        mountRoot.replaceChildren();
+        const core = createWasmCoreInstance();
+        const initialBytes = core.memory.buffer.byteLength;
+        if (i === 0) startupFirstWasmBytes = initialBytes;
+        const container = document.createElement('div');
+        mountRoot.append(container);
+        let state;
+        const t0 = performance.now();
+        let app;
+        withWasmCore(core, () => {
+          app = mount(() => {
+            state = createWorkspaceApp();
+            return state.view;
+          }, container);
+        });
+        assert(container.getBoundingClientRect().height > 0, 'Workspace failed initial layout');
+        const elapsed = performance.now() - t0;
+        assert.equal(state.tableBody.children.length, 250, 'Expected 250 keyed rows at mount');
+        assert.equal(state.formaPanel.state.acks.peek(), 0);
+        if (i >= 0) startupSamples.push(elapsed);
+        app.unmount();
+        const startupTeardownTelemetry = withWasmCore(core, () => getGraphTelemetry());
+        assert.equal(startupTeardownTelemetry.nodes, 0, 'Startup teardown leaked graph nodes');
+        assert.equal(startupTeardownTelemetry.edges, 0, 'Startup teardown leaked graph edges');
+        mountRoot.replaceChildren();
+      }
+
+      // Mount active workspace for interactions & rAF frames.
+      const core = createWasmCoreInstance();
+      const container = document.createElement('div');
+      mountRoot.append(container);
+      let ws;
+      let app;
+      withWasmCore(core, () => {
+        app = mount(() => {
+          ws = createWorkspaceApp();
+          return ws.view;
+        }, container);
+      });
+
+      const heapBeforeInteractions = readHeap();
+
+      // 2. Interaction latency (15 warmup + 120 measured user operations)
+      const interactionSamples = [];
+      const ackBtn = ws.formaPanel.getElementByKey('ack-btn');
+      assert(ackBtn, 'Compiled Forma button missing');
+      let expectedAcks = 0;
+
+      for (let step = -15; step < 120; step++) {
+        const kind = ((step % 5) + 5) % 5;
+        const t0 = performance.now();
+        withWasmCore(core, () => {
+          if (kind === 0) {
+            ws.searchInput.value = 'edge';
+            ws.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            void container.offsetHeight;
+            assert.equal(ws.tableBody.children.length, 63);
+          } else if (kind === 1) {
+            ws.searchInput.value = '';
+            ws.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            void container.offsetHeight;
+            assert.equal(ws.tableBody.children.length, 250);
+          } else if (kind === 2) {
+            document.querySelector('#btn-sort').click();
+            void container.offsetHeight;
+            assert.equal(ws.tableBody.children.length, 250);
+          } else if (kind === 3) {
+            const idx = (step + 30) % 250;
+            ws.selectedId.set(idx);
+            void container.offsetHeight;
+            assert.equal(
+              document.querySelector('#inspector-title').textContent,
+              ws.rows[idx].name,
+            );
+          } else {
+            ackBtn.click();
+            expectedAcks++;
+            void container.offsetHeight;
+            assert.equal(ws.formaPanel.state.acks.peek(), expectedAcks);
+          }
+        });
+        const elapsed = performance.now() - t0;
+        if (step >= 0) interactionSamples.push(elapsed);
+      }
+
+      // Restore default unsorted full list before frame loop.
+      withWasmCore(core, () => {
+        if (ws.sortDesc.peek()) ws.sortDesc.set(false);
+        ws.searchInput.value = '';
+        ws.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      assert.equal(ws.tableBody.children.length, 250);
+
+      // 3. rAF frame time & steady-state memory plateau (20 warmup + 180 measured frames)
+      const frameUpdateSamples = [];
+      const frameIntervalSamples = [];
+      let steadyTelemetry = null;
+      let prevTs = null;
+
+      for (let frame = -20; frame < 180; frame++) {
+        const ts = await raf();
+        if (frame >= 0 && prevTs !== null) {
+          frameIntervalSamples.push(ts - prevTs);
+        }
+        prevTs = ts;
+
+        const t0 = performance.now();
+        withWasmCore(core, () => {
+          batch(() => {
+            for (let k = 0; k < 12; k++) {
+              const row = ws.rows[(Math.abs(frame) * 7 + k) % ws.rows.length];
+              row.latency.set(15 + ((Math.abs(frame) + k) % 85));
+              row.qps.set(300 + ((Math.abs(frame) * 5 + k) % 800));
+            }
+            ws.rev.set(frame + 100);
+          });
+          void container.offsetHeight;
+        });
+        const updateElapsed = performance.now() - t0;
+
+        const telemetry = withWasmCore(core, () => getGraphTelemetry());
+        if (frame === 0) {
+          steadyTelemetry = telemetry;
+        } else if (frame > 0) {
+          assert.equal(telemetry.nodes, steadyTelemetry.nodes, 'Node count drifted during steady rAF frames');
+          assert.equal(telemetry.edges, steadyTelemetry.edges, 'Edge count drifted during steady rAF frames');
+          assert.equal(telemetry.capacity, steadyTelemetry.capacity, 'Capacity drifted during steady rAF frames');
+          assert.equal(
+            telemetry.wasmMemoryBytes,
+            steadyTelemetry.wasmMemoryBytes,
+            'WASM linear memory grew during steady rAF frames',
+          );
+          assert.equal(telemetry.pendingEffectCount, 0);
+        }
+        if (frame >= 0) frameUpdateSamples.push(updateElapsed);
+      }
+
+      const heapAfterFrames = readHeap();
+
+      app.unmount();
+      const afterTeardownTelemetry = withWasmCore(core, () => getGraphTelemetry());
+      assert.equal(afterTeardownTelemetry.nodes, 0, 'Teardown retained reactive nodes');
+      assert.equal(afterTeardownTelemetry.edges, 0, 'Teardown retained reactive edges');
+      mountRoot.replaceChildren();
+
+      report.startup = summarize(startupSamples);
+      report.interactions = summarize(interactionSamples);
+      report.frameUpdate = summarize(frameUpdateSamples);
+      report.frameInterval = summarize(frameIntervalSamples);
+      report.memory = {
+        wasmInitialBytes: startupFirstWasmBytes,
+        wasmSteadyBytes: steadyTelemetry.wasmMemoryBytes,
+        wasmSteadyDriftBytes: 0,
+        steadyNodes: steadyTelemetry.nodes,
+        steadyEdges: steadyTelemetry.edges,
+        nodesAfterTeardown: afterTeardownTelemetry.nodes,
+        edgesAfterTeardown: afterTeardownTelemetry.edges,
+        heapBeforeInteractions,
+        heapAfterFrames,
+      };
+      report.status = 'passed';
+      report.completedAt = new Date().toISOString();
+      status.textContent =
+        `PASS startup p50=${report.startup.p50Ms.toFixed(2)}ms; ` +
+        `interaction p95=${report.interactions.p95Ms.toFixed(2)}ms; ` +
+        `frame update p50=${report.frameUpdate.p50Ms.toFixed(2)}ms; ` +
+        `wasm=${report.memory.wasmSteadyBytes}B (nodesAfter=${report.memory.nodesAfterTeardown})`;
+    } catch (error) {
+      report.status = 'failed';
+      report.error = String(error?.stack ?? error);
+      status.textContent = 'FAIL: ' + report.error;
+    } finally {
+      raw.textContent = JSON.stringify(report);
+      runBtn.disabled = false;
+    }
+  };
+</script>

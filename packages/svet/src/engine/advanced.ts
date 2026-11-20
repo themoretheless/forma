@@ -899,6 +899,13 @@ export function createRouter(options: {
   let acceptedPosition: RouterHistoryPosition | null = null;
   let acceptedCommit = {};
   let restoring = false;
+  let restoreTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearRestoreTimer = () => {
+    if (restoreTimer !== undefined) {
+      clearTimeout(restoreTimer);
+      restoreTimer = undefined;
+    }
+  };
   const fullLocation = () =>
     browserWindow
       ? `${browserWindow.location.pathname}${browserWindow.location.search}${browserWindow.location.hash}`
@@ -1004,6 +1011,7 @@ export function createRouter(options: {
   };
 
   const restoreAcceptedEntry = () => {
+    clearRestoreTimer();
     if (!isCurrent() || !history) return;
     const target = acceptedPosition;
     if (
@@ -1038,11 +1046,18 @@ export function createRouter(options: {
       acceptedPosition.index === physicalPosition.index &&
       fullLocation() === currentFull
     ) {
+      clearRestoreTimer();
       restoring = false;
       return; // Compensation is not another guarded navigation.
     }
     if (restoring) {
-      restoreAcceptedEntry();
+      // Coalesce burst popstate events arriving during compensation into one retry
+      // so rapid multi-step navigation bursts do not multiply History IPC calls.
+      clearRestoreTimer();
+      restoreTimer = setTimeout(() => {
+        restoreTimer = undefined;
+        if (restoring) restoreAcceptedEntry();
+      }, 0);
       return;
     }
     const previousCommit = acceptedCommit;
@@ -1071,6 +1086,7 @@ export function createRouter(options: {
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    clearRestoreTimer();
     navigationVersion++;
     if (owner && !owner.disposed) {
       const index = owner.disposables.indexOf(dispose);

@@ -1,0 +1,356 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-20T07:33:58.486Z",
+  "node": "v22.23.5",
+  "durationMs": 15000,
+  "concurrency": 4,
+  "forcedGCs": 0,
+  "rounds": 27,
+  "requests": 432,
+  "cases": {
+    "identity/plain/shell-disconnect": {
+      "count": 27,
+      "drains": 0,
+      "flushes": 0
+    },
+    "identity/plain/patch-disconnect": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 0
+    },
+    "identity/plain/patch-abort": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 0
+    },
+    "identity/plain/complete": {
+      "count": 27,
+      "drains": 54,
+      "flushes": 0
+    },
+    "identity/gzip/shell-disconnect": {
+      "count": 27,
+      "drains": 0,
+      "flushes": 27
+    },
+    "identity/gzip/patch-abort": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 27
+    },
+    "identity/gzip/patch-disconnect": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 27
+    },
+    "identity/gzip/complete": {
+      "count": 27,
+      "drains": 54,
+      "flushes": 81
+    },
+    "svet-html-ref-v1/plain/shell-disconnect": {
+      "count": 27,
+      "drains": 0,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/patch-disconnect": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/patch-abort": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/complete": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/gzip/shell-disconnect": {
+      "count": 27,
+      "drains": 0,
+      "flushes": 27
+    },
+    "svet-html-ref-v1/gzip/patch-abort": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 27
+    },
+    "svet-html-ref-v1/gzip/patch-disconnect": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 27
+    },
+    "svet-html-ref-v1/gzip/complete": {
+      "count": 27,
+      "drains": 27,
+      "flushes": 81
+    }
+  },
+  "samples": [
+    {
+      "elapsedMs": 623.2330000000001,
+      "requests": 16,
+      "rss": 241207320,
+      "heapTotal": 101515264,
+      "heapUsed": 64569760,
+      "external": 29292151,
+      "arrayBuffers": 15967538
+    },
+    {
+      "elapsedMs": 1200.323375,
+      "requests": 32,
+      "rss": 256773536,
+      "heapTotal": 102023168,
+      "heapUsed": 62779328,
+      "external": 24941606,
+      "arrayBuffers": 11616953
+    },
+    {
+      "elapsedMs": 1764.2511250000002,
+      "requests": 48,
+      "rss": 255939152,
+      "heapTotal": 98189312,
+      "heapUsed": 60370880,
+      "external": 29260201,
+      "arrayBuffers": 15947148
+    },
+    {
+      "elapsedMs": 2340.9485830000003,
+      "requests": 64,
+      "rss": 257923248,
+      "heapTotal": 98975744,
+      "heapUsed": 60373808,
+      "external": 25004214,
+      "arrayBuffers": 11692537
+    },
+    {
+      "elapsedMs": 2914.294625,
+      "requests": 80,
+      "rss": 267230464,
+      "heapTotal": 107397120,
+      "heapUsed": 69015368,
+      "external": 29318179,
+      "arrayBuffers": 16006502
+    },
+    {
+      "elapsedMs": 3493.5946670000003,
+      "requests": 96,
+      "rss": 272310320,
+      "heapTotal": 103448576,
+      "heapUsed": 64921224,
+      "external": 29242442,
+      "arrayBuffers": 15930765
+    },
+    {
+      "elapsedMs": 4063.0389580000005,
+      "requests": 112,
+      "rss": 274736112,
+      "heapTotal": 99483648,
+      "heapUsed": 60071184,
+      "external": 16349139,
+      "arrayBuffers": 3037462
+    },
+    {
+      "elapsedMs": 4631.6990829999995,
+      "requests": 128,
+      "rss": 324118952,
+      "heapTotal": 147718144,
+      "heapUsed": 110070336,
+      "external": 49520749,
+      "arrayBuffers": 17858992
+    },
+    {
+      "elapsedMs": 5197.732292,
+      "requests": 144,
+      "rss": 321563960,
+      "heapTotal": 138657792,
+      "heapUsed": 100281704,
+      "external": 47643883,
+      "arrayBuffers": 21225006
+    },
+    {
+      "elapsedMs": 5773.549083,
+      "requests": 160,
+      "rss": 289747120,
+      "heapTotal": 105299968,
+      "heapUsed": 66908584,
+      "external": 38210227,
+      "arrayBuffers": 17034230
+    },
+    {
+      "elapsedMs": 6317.988249999999,
+      "requests": 176,
+      "rss": 312750256,
+      "heapTotal": 131284992,
+      "heapUsed": 91882040,
+      "external": 39034182,
+      "arrayBuffers": 16547465
+    },
+    {
+      "elapsedMs": 6881.715375,
+      "requests": 192,
+      "rss": 295776864,
+      "heapTotal": 108707840,
+      "heapUsed": 69636816,
+      "external": 29252320,
+      "arrayBuffers": 15940643
+    },
+    {
+      "elapsedMs": 7439.314082999999,
+      "requests": 208,
+      "rss": 287749160,
+      "heapTotal": 100024320,
+      "heapUsed": 61203320,
+      "external": 29244574,
+      "arrayBuffers": 15932897
+    },
+    {
+      "elapsedMs": 8019.379666999999,
+      "requests": 224,
+      "rss": 287798720,
+      "heapTotal": 100270080,
+      "heapUsed": 60582840,
+      "external": 16291151,
+      "arrayBuffers": 2979474
+    },
+    {
+      "elapsedMs": 8589.291333,
+      "requests": 240,
+      "rss": 288470968,
+      "heapTotal": 99500032,
+      "heapUsed": 61223640,
+      "external": 29275912,
+      "arrayBuffers": 15964235
+    },
+    {
+      "elapsedMs": 9142.627167,
+      "requests": 256,
+      "rss": 337394528,
+      "heapTotal": 148193280,
+      "heapUsed": 110694576,
+      "external": 49796761,
+      "arrayBuffers": 18135004
+    },
+    {
+      "elapsedMs": 9686.890792,
+      "requests": 272,
+      "rss": 367541448,
+      "heapTotal": 177815552,
+      "heapUsed": 140929928,
+      "external": 63731586,
+      "arrayBuffers": 22894789
+    },
+    {
+      "elapsedMs": 10253.257292,
+      "requests": 288,
+      "rss": 293239528,
+      "heapTotal": 100532224,
+      "heapUsed": 61094560,
+      "external": 16351968,
+      "arrayBuffers": 3040291
+    },
+    {
+      "elapsedMs": 10828.134333,
+      "requests": 304,
+      "rss": 293469168,
+      "heapTotal": 100007936,
+      "heapUsed": 60855912,
+      "external": 16282179,
+      "arrayBuffers": 2970502
+    },
+    {
+      "elapsedMs": 11394.504917,
+      "requests": 320,
+      "rss": 328203680,
+      "heapTotal": 133709824,
+      "heapUsed": 95858752,
+      "external": 39073149,
+      "arrayBuffers": 16586432
+    },
+    {
+      "elapsedMs": 11953.367375,
+      "requests": 336,
+      "rss": 298433856,
+      "heapTotal": 104235008,
+      "heapUsed": 66033104,
+      "external": 33454092,
+      "arrayBuffers": 20142415
+    },
+    {
+      "elapsedMs": 12525.301292,
+      "requests": 352,
+      "rss": 294207048,
+      "heapTotal": 100532224,
+      "heapUsed": 61089776,
+      "external": 16265704,
+      "arrayBuffers": 2954027
+    },
+    {
+      "elapsedMs": 13077.398,
+      "requests": 368,
+      "rss": 391922712,
+      "heapTotal": 196362240,
+      "heapUsed": 160271600,
+      "external": 73645572,
+      "arrayBuffers": 23633735
+    },
+    {
+      "elapsedMs": 13631.277791999999,
+      "requests": 384,
+      "rss": 294830000,
+      "heapTotal": 100548608,
+      "heapUsed": 61747192,
+      "external": 29318022,
+      "arrayBuffers": 16006345
+    },
+    {
+      "elapsedMs": 14178.341208,
+      "requests": 400,
+      "rss": 343343792,
+      "heapTotal": 147193856,
+      "heapUsed": 110650112,
+      "external": 57162605,
+      "arrayBuffers": 25500848
+    },
+    {
+      "elapsedMs": 14737.116958,
+      "requests": 416,
+      "rss": 294830288,
+      "heapTotal": 100794368,
+      "heapUsed": 61074496,
+      "external": 16390186,
+      "arrayBuffers": 3078509
+    },
+    {
+      "elapsedMs": 15302.9635,
+      "requests": 432,
+      "rss": 373982448,
+      "heapTotal": 178929664,
+      "heapUsed": 141260456,
+      "external": 63382597,
+      "arrayBuffers": 22545800
+    }
+  ],
+  "scope": "Loopback fetch delayed reads, both codecs, gzip on/off, shell disconnect and observed pending large patch disconnect/host abort. No sustained kernel saturation, remote proxy or universal memory bound claim.",
+  "identities": {
+    "./soak-ssr-transport-matrix.mjs": "c3f1e1b2cc3891fd78df5399d494ed79ea7c0c0757f95c2e20f966a83b02536f",
+    "./browser-fixture-endpoints.mjs": "ed3ab7552f648b99a2af1027dfa5bfa476b67fbb2fe6146f45b2bf2a80ad66e1",
+    "../dist/package/server.js": "26fb3ff62d853f1a5a69425d2521afec11633b3f2e1861a841cefeeba5403ad1",
+    "../dist/package/stream.js": "547fa797e7554720f6c8e1f0a779360c3023b0850a5cf6b1af93da28aed8c5aa",
+    "../dist/package/reactivity.js": "6f27133221eadefd4bec2bb31ea6344e7d03fc483b4c685f9000faa5f517c5c1"
+  },
+  "updatedAt": "2026-11-20T07:34:13.797Z",
+  "elapsedMs": 15302.9635,
+  "finalIdentities": {
+    "./soak-ssr-transport-matrix.mjs": "c3f1e1b2cc3891fd78df5399d494ed79ea7c0c0757f95c2e20f966a83b02536f",
+    "./browser-fixture-endpoints.mjs": "ed3ab7552f648b99a2af1027dfa5bfa476b67fbb2fe6146f45b2bf2a80ad66e1",
+    "../dist/package/server.js": "26fb3ff62d853f1a5a69425d2521afec11633b3f2e1861a841cefeeba5403ad1",
+    "../dist/package/stream.js": "547fa797e7554720f6c8e1f0a779360c3023b0850a5cf6b1af93da28aed8c5aa",
+    "../dist/package/reactivity.js": "6f27133221eadefd4bec2bb31ea6344e7d03fc483b4c685f9000faa5f517c5c1"
+  },
+  "artifactsUnchanged": true,
+  "completedAt": "2026-11-20T07:34:13.797Z"
+}

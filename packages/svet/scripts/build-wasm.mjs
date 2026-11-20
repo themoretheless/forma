@@ -101,6 +101,8 @@ run('rustc', [
   'cdylib',
   ...commonFlags,
   '-C',
+  'link-arg=-zstack-size=65536',
+  '-C',
   'metadata=svet_wasm',
   '-L',
   `dependency=${depsDir}`,

@@ -73,6 +73,7 @@
     "dev:resume": "npm run build:package && node scripts/serve-resumption-browser.mjs",
     "bench:scaling": "npm run build:package && node scripts/bench-graph-scaling.mjs",
     "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs",
+    "bench:product-app:prepare": "node scripts/prepare-product-app-bench.mjs",
     "bench:resident-app:prepare": "node scripts/prepare-resident-app-bench.mjs",
     "test:edge": "npm run build:package && node scripts/check-edge-ssr.mjs",
     "lint": "eslint --max-warnings 0 ."
@@ -98,7 +99,14 @@
     "./dist/package/reactivity-entry.js",
     "./dist/package/ssr-runtime-entry.js",
     "./dist/package/wasm-embedded.js",
-    "./dist/package/forma-3d.js"
+    "./dist/package/forma-3d.js",
+    "./src/engine/server.ts",
+    "./src/engine/index.ts",
+    "./src/engine/jsx-runtime.ts",
+    "./src/engine/reactivity-entry.ts",
+    "./src/engine/ssr-runtime-entry.ts",
+    "./src/engine/wasm-embedded.ts",
+    "./src/engine/forma-3d.ts"
   ],
   "files": [
     "dist/package",

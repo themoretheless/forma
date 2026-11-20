@@ -1,0 +1,164 @@
+{
+  "scope": "Natural-GC loopback HTTP 20s soak after -zstack-size=65536 (2-page 131072B per-request WASM memory)",
+  "analysis": {
+    "status": "within-observed-budget",
+    "probeCompleted": true,
+    "issues": [],
+    "elapsedMs": 20009.334000000003,
+    "requests": 5008,
+    "minimumDurationMs": 20000,
+    "metrics": {
+      "heap": {
+        "windowRangesBytes": [
+          [
+            48790504,
+            102293632
+          ],
+          [
+            47109776,
+            102583576
+          ],
+          [
+            46548832,
+            100008344
+          ],
+          [
+            47143736,
+            90932528
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 33960,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      },
+      "rss": {
+        "windowRangesBytes": [
+          [
+            161877408,
+            251145392
+          ],
+          [
+            203770344,
+            252046656
+          ],
+          [
+            204687656,
+            253619712
+          ],
+          [
+            208964504,
+            252307624
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 5194160,
+        "postWarmupPeakGrowthBytes": 1573056,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "external": {
+        "windowRangesBytes": [
+          [
+            8137728,
+            62715400
+          ],
+          [
+            8464678,
+            64410380
+          ],
+          [
+            6612496,
+            63091552
+          ],
+          [
+            6089568,
+            48604465
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 0,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "arrayBuffers": {
+        "windowRangesBytes": [
+          [
+            1037943,
+            14081338
+          ],
+          [
+            1165695,
+            15058381
+          ],
+          [
+            1672809,
+            14258308
+          ],
+          [
+            1149881,
+            13838621
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 507114,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      }
+    },
+    "limitations": [
+      "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+      "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+      "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+    ],
+    "rawSha256": "592bcc6b5592f8f1aaba018f8d936429d21b5b856a99ed64b0021903e9323bb1",
+    "analyzerSha256": "a9b5082c5996cddf7e354cf3b92a86e1c3b99b6807ae5233ff14120c2bced14b"
+  },
+  "afterShutdown": {
+    "memory": {
+      "rss": 226038456,
+      "heapTotal": 103432192,
+      "heapUsed": 64686800,
+      "external": 18401433,
+      "arrayBuffers": 11102450
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 0,
+        "opened": 1685,
+        "closed": 1685,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 4038437,
+        "bytesWritten": 891599989
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {
+        "TTYWrap": 1
+      },
+      "v8": {
+        "externalMemory": 18401433,
+        "mallocedMemory": 1601640,
+        "peakMallocedMemory": 32997376,
+        "totalPhysicalSize": 86261760
+      },
+      "mainWasmBytes": 131072,
+      "requestCoreLifetimes": {
+        "created": 5008,
+        "finalized": 4992,
+        "memoryCreated": 5008,
+        "memoryFinalized": 4992,
+        "bytesRegistered": 656408576,
+        "bytesFinalized": 654311424,
+        "maxPendingMemories": 236,
+        "pending": 16,
+        "pendingMemories": 16,
+        "pendingRegisteredBytes": 2097152,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    }
+  },
+  "peakLifetimeObservation": null
+}

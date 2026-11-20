@@ -765,8 +765,15 @@ export function createVectorPreview({
     listen(input, name, callback);
   };
   listenKeys('keydown', event => {
+    if (
+      composing ||
+      event.isComposing ||
+      event.key === 'Process' ||
+      event.key === 'Dead' ||
+      event.keyCode === 229
+    )
+      return;
     if (button && !current.designMode && button.text_editing?.()) {
-      if (composing || event.isComposing) return;
       adoptTextSelection();
       const platform =
         globalThis.navigator?.userAgentData?.platform ?? globalThis.navigator?.platform ?? '';
@@ -776,8 +783,18 @@ export function createVectorPreview({
       if (!apple && (event.getModifierState?.('AltGraph') || (event.ctrlKey && event.altKey)))
         return;
       const word = apple
-        ? event.altKey && !event.metaKey
-        : event.ctrlKey && !event.altKey && !event.metaKey;
+        ? Boolean(event.altKey && !event.metaKey && !event.ctrlKey)
+        : Boolean(event.ctrlKey && !event.altKey && !event.metaKey);
+      const command = apple
+        ? Boolean(event.metaKey && !event.ctrlKey && !event.altKey)
+        : Boolean(event.ctrlKey && !event.altKey && !event.metaKey);
+      const asciiKey =
+        typeof event.key === 'string' &&
+        Array.from(event.key, ch => ch.codePointAt(0) ?? 0).every(cp => cp <= 0x7f);
+      const commandKey =
+        command && !asciiKey
+          ? ({ KeyA: 'a', KeyZ: 'z', KeyY: 'y' }[event.code] ?? event.key)
+          : event.key;
       const wordKey =
         word && ['ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'].includes(event.key);
       let handled = false;
@@ -785,7 +802,7 @@ export function createVectorPreview({
         handled =
           wordKey && typeof button.text_word_key === 'function'
             ? button.text_word_key(event.key, event.shiftKey)
-            : button.text_key(event.key, event.shiftKey, event.metaKey || event.ctrlKey);
+            : button.text_key(commandKey, event.shiftKey, command);
       });
       if (handled) {
         event.preventDefault();

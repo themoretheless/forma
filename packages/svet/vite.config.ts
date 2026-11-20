@@ -15,6 +15,7 @@ export default defineConfig({
           exclude: [
             'tests/async-components.test.ts',
             'tests/event-adoption.test.ts',
+            'tests/multi-realm-wasm.test.ts',
             'tests/package-side-effects.test.ts',
             'tests/precompiled-wasm.test.ts',
             'tests/slim-entry.test.ts',
@@ -35,6 +36,7 @@ export default defineConfig({
           include: [
             'tests/async-components.test.ts',
             'tests/event-adoption.test.ts',
+            'tests/multi-realm-wasm.test.ts',
             'tests/package-side-effects.test.ts',
             'tests/precompiled-wasm.test.ts',
             'tests/slim-entry.test.ts',

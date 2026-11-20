@@ -9,7 +9,7 @@ const equal=(a,b)=>{if(a!==b)throw Error(JSON.stringify(a)+' != '+JSON.stringify
 const check=(name,fn)=>{try{fn();report.cases.push({name,status:'passed'});}catch(e){report.cases.push({name,status:'failed',error:String(e.stack)});}};
 let active,preview;
 try{
- await init();class Observed extends wasm.Runtime{constructor(){super();active=this;}}
+ await init();class Observed extends wasm.Runtime{constructor(){super();active=this;}static from_component(s,t){return(active=wasm.Runtime.from_component(s,t));}}
  preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:e=>{(report.errors??=[]).push(String(e));},onBindingChange:changes=>report.bindings.push(changes.map(({path,value})=>({path,value})))});
  const renderOptions={container:document.querySelector('#editor'),source:"component App { Frame { width:480; height:160; Button { key:'field'; width:440; height:40; } Button { key:'other'; width:440; height:40; } } }",template:"component Button { Rectangle { ContentInput { width:440; height:40; value:'alpha beta'; fontSize:18; } PointerArea { clicked -> events.clicked(); } } }",designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'field'},bindings:{value:'query'}},{type:'TextInput',props:{key:'other'}}]};
  preview.render(renderOptions);
