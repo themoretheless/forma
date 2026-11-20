@@ -8,9 +8,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { compileComponents, evaluate } from '../src/components.js';
-import { parse } from '../src/language.js';
-import { mapRuntimeErrorToUiDiagnostic } from '../src/diagnostics.js';
+import { compileComponents, evaluate } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
+import { mapRuntimeErrorToUiDiagnostic } from '../src/compiler/diagnostics.js';
 import * as svet from '../packages/svet/dist/package/index.js';
 
 const button = `component Button { width: 200; height: 50; text: 'Base';

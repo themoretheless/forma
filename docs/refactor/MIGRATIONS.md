@@ -695,3 +695,17 @@
   - В `packages/svet/package.json#sideEffects` добавлены исходные модули `./src/engine/{server,index,jsx-runtime,reactivity-entry,ssr-runtime-entry,wasm-embedded,forma-3d}.ts` (`tests/package-side-effects.test.ts`), а в `scripts` добавлен `bench:product-app:prepare`.
 - **Новые фикстуры и раннеры квалификации (Wave 5B):**
   - В `crates/forma/tests/preview-word-browser.html` добавлено проксирование `Observed.from_component(source, target)` к `wasm.Runtime.from_component` для совместимости с актуальным WASM API на статическом сервере; добавлена страница `crates/forma/tests/preview-cross-browser-input.html` и скрипты `packages/svet/scripts/{verify-cross-browser-matrix.mjs,soak-multi-realm-gc.mjs,prepare-product-app-bench.mjs,run-product-app-bench.mjs,run-resident-app-bench.mjs}` + `packages/svet/tests/browser/product-app-bench.html`.
+
+## 37. Декомпозиция Studio по фичам, реестр команд, `@ts-check` и защита `design-data` раннера
+
+- **Фича-слои `src/` (`src/{shared,compiler,workspace,editor,preview,canvas,inspector,tree,output,shell,app}`):**
+  - Все 90 модулей Studio разнесены по фичам в строгом DAG (`shared -> compiler -> workspace -> {editor, tree, output} -> inspector -> canvas -> preview -> shell -> app -> main.js`), что закреплено в `test/module-graph.test.js`. В корне `src/` остался только `src/main.js`.
+  - Внутренние пути `src/` изменились (`src/language.js` -> `src/compiler/language.js`, `src/vector-preview.js` -> `src/preview/vector-preview.js`, `src/native-export.js` -> `src/workspace/native-export.js`, `src/dev-bridge.js` -> `src/shell/dev-bridge.js`, `src/mcp-commands*.js` -> `src/app/mcp-commands*.js` и т. д.); обновлены импорты во всех тестах, примерах, скриптах и HTML-фикстурах.
+- **Композиция `src/main.js` и удаление скрытого `<header>`:**
+  - `src/main.js` сокращён с `1,940` до `229` строк поверх `src/app/{state,commands,dom-template,coordinator,ide-facade}.js` и 7 сервисов (`workspace`, `editor`, `tree`, `inspector`, `canvas`, `preview`, `output`).
+  - Скрытый дублирующий `<header>` удалён из DOM-шаблона (`renderStudioDom`, `#run` перенесён в `.preview-tools`); `mountMinimalShell` (`src/shell/minimal-shell.js`) читает команды и заголовок проекта напрямую из `commands` (`createCommandRegistry`) и `getTitle`.
+- **Послойный `// @ts-check` + JSDoc (`npm run typecheck`, `typecheck-js`):**
+  - Добавлены `jsconfig.json`, `src/types.d.ts` и `scripts/typecheck.mjs`, проверяющий JSDoc-типы модулей с `// @ts-check` без изменения zero-build dev-потока (включая шаг `typecheck-js` в `scripts/full-gate.mjs` и `ci.yml`). Покрыто `119` модулей (0 ошибок), порог закреплён в `test/module-graph.test.js`.
+- **`buildNativeRustExport`, золотые эталоны компилятора и защита раннера `design-data` (`S-19`, `S-20`):**
+  - `buildNativeRustExport` (`src/workspace/native-export.js`) нормализует CRLF, префиксирует цифровые имена (`app-`/`dev.forma.app...`), проверяет относительные пути `.ui`/`.svg`, наличие корневых `.ui` и явного `entryFile`; `test/compile-errors.test.js` расширен на 28 дополнительных веток `throw` компилятора.
+  - Протокол `forma:design-data` (`dev-server/runner-ws.js` <-> `src/shell/dev-bridge.js`) требует `sessionTrust: true` (одно подтверждение на сессию с отзывом через `revokeTrust()`), `design-data-runner.js` экспортирует `validateDesignRustSource` (лексический сканер Rust) и `runSandboxedDesignBinary` (очищенный `env` + `sandbox-exec` / `bwrap`).

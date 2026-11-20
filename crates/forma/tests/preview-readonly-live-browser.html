@@ -2,7 +2,7 @@
 <style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:120px}pre{white-space:pre-wrap;font-size:13px}</style>
 <h1>Live readonly · retained Rust history</h1><p id="status">Loading…</p><div id="editor"></div><button id="lock">Lock editor</button><button id="unlock">Unlock editor</button><pre id="report"></pre>
 <script type="module">
-import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/vector-preview.js';
+import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/preview/vector-preview.js';
 const report={status:'running',events:[]};let active,preview;
 try{
  await init();class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}}

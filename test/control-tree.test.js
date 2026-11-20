@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { buildControlTree, treeRows, createControlTree } from '../src/control-tree.js';
+import { parse } from '../src/compiler/language.js';
+import { buildControlTree, treeRows, createControlTree } from '../src/tree/control-tree.js';
 
 const path = 'ui/Demo.ui';
 const source =

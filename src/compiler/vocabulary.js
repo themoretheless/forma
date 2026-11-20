@@ -1,6 +1,7 @@
+// @ts-check
 // The property names the component compiler knows: for every control, for layout, and for each
 // kind of content a control can draw.
-import { containerTypes } from '../component-layout.js';
+import { containerTypes } from './component-layout.js';
 
 export const standard = new Set(
   'key x y width height text fontSize font.size color radius disabled hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition background live'.split(

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
-import { parse } from '../src/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 
 const host = `component Host {
  width:160; height:60; text:'Caller'; color:#ff0000;

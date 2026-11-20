@@ -1,3 +1,4 @@
+// @ts-check
 // What the expressions of one compile are evaluated against, and the properties of the entry
 // document itself.
 
@@ -6,7 +7,7 @@ import {
   selectedProperties,
   selectedPropertySources,
   validateContract,
-} from '../component-semantics.js';
+} from './component-semantics.js';
 import { own } from '../shared/object.js';
 
 /**

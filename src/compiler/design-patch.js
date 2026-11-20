@@ -1,7 +1,8 @@
+// @ts-check
 // Applying design files to a scene: the overrides and the active design state of every
 // `.design.ui` the document names.
-import { validateDesign, designStatePatch } from '../language.js';
-import { designReference, readDesignData } from '../design-data.js';
+import { validateDesign, designStatePatch } from './language.js';
+import { designReference, readDesignData } from './design-data.js';
 import { own } from '../shared/object.js';
 import { visit } from './data.js';
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rememberDocument } from '../src/editor.js';
+import { rememberDocument } from '../src/editor/editor.js';
 
 test('remembered editor states are capped, evicting the least recently left file', () => {
   const documents = new Map();

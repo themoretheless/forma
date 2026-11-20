@@ -1,3 +1,4 @@
+// @ts-check
 // What the compiler knows without a project: the primitive node types, the sources of the
 // built-in components and the properties a base button falls back to.
 

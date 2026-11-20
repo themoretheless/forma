@@ -3,7 +3,7 @@
 <h1>Rust editor · multiline semantics</h1><p id="status">Loading…</p><div id="editor"></div><button id="select">Set reverse Unicode selection</button><button id="immediate">Select and replace in same task</button><button id="compose">Select and compose in same task</button><pre id="report"></pre>
 <script type="module">
 import init,* as wasm from '/wasm/forma.js';
-import {createVectorPreview} from '/src/vector-preview.js';
+import {createVectorPreview} from '/src/preview/vector-preview.js';
 const report={status:'running',cases:[]};
 try{
  await init();let active;class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}}

@@ -1,3 +1,4 @@
+// @ts-check
 import { createRustRunner } from '../rust-runner.js';
 import { evaluateDesignData } from '../design-data-runner.js';
 import { createVectorRunner } from '../vector-runner.js';
@@ -37,6 +38,13 @@ export function registerRunnerWebSockets(server, getClient) {
 
   server.ws.on('forma:design-data', async (data, sender) => {
     if (sender !== getClient()) return;
+    if (data?.sessionTrust !== true) {
+      sender.send('forma:design-data-result', {
+        id: data?.id,
+        error: 'Требуется подтверждение доверия проекту в текущей сессии Studio',
+      });
+      return;
+    }
     if (designBusy) {
       sender.send('forma:design-data-result', {
         id: data?.id,

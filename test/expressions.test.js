@@ -6,7 +6,7 @@ import {
   serializeValue,
   expressionReferences,
   parseString,
-} from '../src/expressions.js';
+} from '../src/compiler/expressions.js';
 function evaluate(source, state = {}) {
   return evaluateExpression(parseExpression(source), (path, { optional }) => {
     if (path.startsWith('state.')) {

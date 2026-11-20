@@ -13,9 +13,9 @@ body{background:#10141c;color:#dbe3f3;font:15px system-ui;margin:40px}h1{font-si
 <pre id="status">Загрузка…</pre>
 <pre id="events" aria-live="polite"></pre>
 <script type="module">
-import {loadVectorRuntime,createVectorPreview} from '/src/vector-preview.js';
-import {compileComponents} from '/src/components.js';
-import {parse} from '/src/language.js';
+import {loadVectorRuntime,createVectorPreview} from '/src/preview/vector-preview.js';
+import {compileComponents} from '/src/compiler/components.js';
+import {parse} from '/src/compiler/language.js';
 const files={'ui/TwoButtons.ui':await (await fetch('./TwoButtons.ui')).text(),'components/Button.ui':await (await fetch('./Button.component.ui')).text()};
 const runtime=await loadVectorRuntime();let designMode=false,selectedStart=null,preview;
 const log=document.querySelector('#events'),status=document.querySelector('#status'),container=document.querySelector('#preview');

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createProjectStore } from '../src/project-store.js';
+import { createProjectStore } from '../src/workspace/project-store.js';
 
 /** A store over a recording browser storage and a folder whose writes the test releases. */
 function storeWith({ browser = () => true } = {}) {

@@ -1,3 +1,4 @@
+// @ts-check
 // The scene as the runtime receives it: one Frame holding the compiled controls, with the modal
 // layers after them.
 

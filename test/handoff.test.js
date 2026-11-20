@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { controlCss, controlDeclarations, controlStates, handoffName } from '../src/handoff.js';
-import { compileComponents } from '../src/components.js';
+import {
+  controlCss,
+  controlDeclarations,
+  controlStates,
+  handoffName,
+} from '../src/canvas/handoff.js';
+import { compileComponents } from '../src/compiler/components.js';
 
 const control = (props, type = 'Button') => ({ type, props, children: [] });
 const css = (props, bounds, state) => controlCss(control(props), bounds, state);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitScale, controlBounds } from '../src/canvas-tools.js';
+import { fitScale, controlBounds } from '../src/canvas/canvas-tools.js';
 test('fit keeps a logical frame inside narrow and short viewports with room around it', () => {
   for (const viewport of [
     { width: 450, height: 500 },
@@ -15,7 +15,7 @@ test('fit keeps a logical frame inside narrow and short viewports with room arou
 });
 
 test('measurements choose nearest aligned siblings and otherwise the parent', async () => {
-  const { layoutDistances } = await import('../src/layout-distances.js');
+  const { layoutDistances } = await import('../src/canvas/layout-distances.js');
   const d = layoutDistances(
     [50, 50, 20, 20],
     [

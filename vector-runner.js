@@ -1,3 +1,4 @@
+// @ts-check
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -73,6 +74,7 @@ export function createVectorRunner(send, dependencies = {}) {
   }
 
   return {
+    /** @param {{ source?: string, template?: string, backend?: string, platform?: string }} [options] */
     async run({ source, template, backend, platform: targetPlatform } = {}) {
       if (active) {
         send({
@@ -171,6 +173,7 @@ export function createVectorRunner(send, dependencies = {}) {
       }
     },
 
+    /** @param {{ source?: string, template?: string }} [options] */
     async update({ source, template } = {}) {
       const job = active;
       if (!job || job.stopped || job.finished || !job.snapshot) return false;

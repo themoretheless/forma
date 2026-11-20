@@ -4,7 +4,7 @@
 // enough to pin what each one sends to the dev server, changes and refuses.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRuntimeCommands } from '../src/mcp-commands-runtime.js';
+import { createRuntimeCommands } from '../src/app/mcp-commands-runtime.js';
 
 const PLAIN = 'component Demo { Frame { Text { text: "a"; } } }';
 const FORM = 'component Demo { contextType: DemoContext; Frame { Text { text: "a"; } } }';

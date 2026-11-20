@@ -5,7 +5,10 @@ import { replaceOnce } from './support/source-text.js';
 
 // Run real preview event handlers and DOM updates. Most tests keep GPU
 // initialization pending; backend lifecycle checks inject a recording painter.
-const original = await readFile(new URL('../src/vector-preview.js', import.meta.url), 'utf8');
+const original = await readFile(
+  new URL('../src/preview/vector-preview.js', import.meta.url),
+  'utf8',
+);
 const withFactory = replaceOnce(
   original,
   /import\s*\{\s*createGpuPainter\s*\}\s*from\s*'\.\/vector-gpu\.js';/,
@@ -15,22 +18,22 @@ const withFactory = replaceOnce(
 // the Studio are imported by their file URLs.
 const withScope = replaceOnce(
   withFactory,
-  /from\s*'\.\/event-scope\.js';/,
-  `from '${new URL('../src/event-scope.js', import.meta.url).href}';`,
+  /from\s*'\.\.\/shared\/event-scope\.js';/,
+  `from '${new URL('../src/shared/event-scope.js', import.meta.url).href}';`,
 );
 const withDiagnostics = replaceOnce(
   withScope,
-  /from\s*'\.\/diagnostics\.js';/,
-  `from '${new URL('../src/diagnostics.js', import.meta.url).href}';`,
+  /from\s*'\.\.\/compiler\/diagnostics\.js';/,
+  `from '${new URL('../src/compiler/diagnostics.js', import.meta.url).href}';`,
 );
 const withDisplayDiagnostics = replaceOnce(
   withDiagnostics,
   /from\s*'\.\/display-list-diagnostics\.js';/,
-  `from '${new URL('../src/display-list-diagnostics.js', import.meta.url).href}';`,
+  `from '${new URL('../src/preview/display-list-diagnostics.js', import.meta.url).href}';`,
 );
 const source = replaceOnce(
   withDisplayDiagnostics,
-  /from\s*'\.\/shared\/range\.js';/,
+  /from\s*'\.\.\/shared\/range\.js';/,
   `from '${new URL('../src/shared/range.js', import.meta.url).href}';`,
 );
 const { createVectorPreview, setGpuFactory } = await import(

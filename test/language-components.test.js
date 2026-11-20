@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileComponents, createComponentCompiler, evaluate } from '../src/components.js';
-import { parse } from '../src/language.js';
+import {
+  compileComponents,
+  createComponentCompiler,
+  evaluate,
+} from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 
 const button = `component Button {
  width: 100; height: 30; text: ''; color: #ffffff;

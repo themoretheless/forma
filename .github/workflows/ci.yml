@@ -261,3 +261,5 @@ jobs:
         env:
           SVET_REBUILT_WASM: ${{ runner.temp }}/svet-wasm-provenance/wasm32-unknown-unknown/release/svet_wasm.wasm
         run: npm run test:package
+      - name: Studio JavaScript @ts-check (tsc --noEmit)
+        run: node ../scripts/typecheck.mjs

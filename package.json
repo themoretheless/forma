@@ -24,7 +24,8 @@
     "gate": "node scripts/full-gate.mjs",
     "format": "prettier --write . && node scripts/rust-fmt.mjs",
     "format:check": "prettier --check . && node scripts/rust-fmt.mjs --check",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "node scripts/typecheck.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

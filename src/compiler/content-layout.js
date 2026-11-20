@@ -1,3 +1,4 @@
+// @ts-check
 // Measuring and flattening the content a control draws: text, images, rectangles and the
 // containers that arrange them. Part of the component compiler.
 import {
@@ -7,8 +8,8 @@ import {
   intrinsicLength,
   length,
   naturalContainer,
-} from '../component-layout.js';
-import { literal } from '../component-template.js';
+} from './component-layout.js';
+import { literal } from './component-template.js';
 import { own } from '../shared/object.js';
 import { contentProps, layoutProps, visualTypes } from './vocabulary.js';
 
@@ -165,12 +166,9 @@ export function sizes(n, axis, available, metrics) {
       return (available * Number(x.slice(0, -1))) / 100;
     throw Error(`Неподдерживаемый размер ${x}`);
   });
-  const remaining = Math.max(
-    0,
-    available -
-      g * (ts.length - 1) -
-      result.reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0),
-  );
+  let used = 0;
+  for (const v of result) if (typeof v === 'number') used += v;
+  const remaining = Math.max(0, available - g * (ts.length - 1) - used);
   return result.map(v => (typeof v === 'number' ? v : (remaining * v.w) / weight));
 }
 export function flatten(n, box, files, output, metrics) {

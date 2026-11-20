@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createShellPainter } from '../src/studio-shell-painter.js';
+import { createShellPainter } from '../src/shell/studio-shell-painter.js';
 function fixture(t) {
   const original = globalThis.ImageData;
   globalThis.ImageData = class {

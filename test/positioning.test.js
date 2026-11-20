@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { arrange } from '../src/component-layout.js';
-import { compileComponents } from '../src/components.js';
-import { moveElement } from '../src/element-edit.js';
+import { parse } from '../src/compiler/language.js';
+import { arrange } from '../src/compiler/component-layout.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { moveElement } from '../src/compiler/element-edit.js';
 import {
   takesCoordinates,
   coordinateShift,
   flowsCoordinates,
   hasTracks,
-} from '../src/positioning.js';
+} from '../src/compiler/positioning.js';
 
 const rect = ([left, top, width, height]) => ({ left, top, width, height });
 const children = source => parse(source).nodes[0].children;

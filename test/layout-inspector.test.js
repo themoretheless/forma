@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resizeTracks, trackSource, parseTracks } from '../src/layout-inspector.js';
-import { designPreset } from '../src/design-presets.js';
+import { resizeTracks, trackSource, parseTracks } from '../src/inspector/layout-inspector.js';
+import { designPreset } from '../src/preview/design-presets.js';
 test('moving a Grid boundary fixes only its adjacent tracks and preserves other expressions', () => {
   const values = [{ expr: '*' }, 120, { expr: '2*' }, { expr: 'auto' }];
   assert.deepEqual(resizeTracks(values, [200, 120, 400, 30], 0, 500), [320, 0, '2*', 'auto']);

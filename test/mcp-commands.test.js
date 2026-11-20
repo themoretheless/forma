@@ -8,7 +8,7 @@ import {
   MCP_TOOLS,
   MCP_TOOL_NAMES,
 } from '../protocol/mcp-tools.js';
-import { createIdeCommands } from '../src/mcp-commands.js';
+import { createIdeCommands } from '../src/app/mcp-commands.js';
 import { squash } from './support/source-text.js';
 
 const root = new URL('..', import.meta.url);
@@ -70,7 +70,7 @@ test('every design state an agent can reach has a tool of its own', () => {
 });
 
 test('typed app_run starts the Rust ViewModel without designer preview state', () => {
-  const runtimeBridge = squash(read('src/mcp-commands-runtime.js'));
+  const runtimeBridge = squash(read('src/app/mcp-commands-runtime.js'));
   assert.match(
     runtimeBridge,
     /if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/,

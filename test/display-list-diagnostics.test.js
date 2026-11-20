@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeDisplayListDiagnostics } from '../src/display-list-diagnostics.js';
+import { summarizeDisplayListDiagnostics } from '../src/preview/display-list-diagnostics.js';
 
 test('summarizeDisplayListDiagnostics aggregates items, clip depth, and resource IDs', () => {
   const sample = JSON.stringify({

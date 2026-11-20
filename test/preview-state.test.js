@@ -4,9 +4,9 @@ import {
   writePreviewBinding,
   executePreviewStateAction,
   matchPreviewShortcut,
-} from '../src/preview-state.js';
-import { expandStructure } from '../src/component-semantics.js';
-import { parse } from '../src/language.js';
+} from '../src/preview/preview-state.js';
+import { expandStructure } from '../src/compiler/component-semantics.js';
+import { parse } from '../src/compiler/language.js';
 
 test('preview bindings update nested state and the keyed row object after reordering', () => {
   const first = { id: 'a', name: 'A' },

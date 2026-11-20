@@ -3,7 +3,7 @@
 <h1>Multiline · trusted browser input</h1><p id="status">Loading…</p><div id="editor"></div><pre id="journal"></pre>
 <script type="module">
 import init,* as wasm from '/wasm/forma.js';
-import {createVectorPreview} from '/src/vector-preview.js';
+import {createVectorPreview} from '/src/preview/vector-preview.js';
 const report={status:'loading',userAgent:navigator.userAgent,platform:navigator.platform,events:[]};
 try{
  await init();let active;class Observed extends wasm.Runtime{constructor(){super();active=this;}}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, validateDesign } from '../src/language.js';
+import { parse, validateDesign } from '../src/compiler/language.js';
 
 test('design overrides properties by key without changing source bindings', () => {
   const c = parse(
@@ -45,8 +45,8 @@ test('design keys are validated', () => {
 });
 
 test('vector compiler applies #[design] base overrides, named states and design.* tokens', async () => {
-  const { compileComponents } = await import('../src/components.js');
-  const { setDesignData } = await import('../src/design-data.js');
+  const { compileComponents } = await import('../src/compiler/components.js');
+  const { setDesignData } = await import('../src/compiler/design-data.js');
   const button = `component Button {
     width: 180; height: 40; text: 'Button'; disabled: false;
     Rectangle { background: #123456; Text { text: props.text; } PointerArea { clicked -> events.clicked(); } }

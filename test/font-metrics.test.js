@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as runtime from '../public/vector-pkg/forma.js';
-import { compileComponents } from '../src/components.js';
-import { parse } from '../src/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 await runtime.default({
   module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
 });

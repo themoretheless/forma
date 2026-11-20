@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
-import { parser } from '../src/forma-parser.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parser } from '../src/compiler/forma-parser.js';
 
 const files = {
   'ui/Demo.ui': 'component Demo { Frame { SearchButton {} } }',

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 await init({
@@ -229,7 +229,7 @@ test('visual composition inspection carries actual local bounds and source locat
 });
 
 test('all design presets compile and render without changing source files', async () => {
-  const { designPreset } = await import('../src/design-presets.js');
+  const { designPreset } = await import('../src/preview/design-presets.js');
   const source = "component Demo {Frame {width:320;height:100;TextField {value:'hello';}}}";
   const project = { ...materializeTheme(files, 'dark'), 'ui/Presets.ui': source };
   for (const name of ['original', 'long', 'empty', 'disabled']) {
@@ -274,7 +274,7 @@ test('root Grid is lowered identically for native and WASM with source metadata'
 });
 
 test('collection fixtures cover empty, populated, loading and error without source mutation', async () => {
-  const { collectionScenario } = await import('../src/design-presets.js');
+  const { collectionScenario } = await import('../src/preview/design-presets.js');
   const source = "component Collection {Frame {width:360;height:220;TableRow {first:'real';}}}";
   const project = { ...materializeTheme(files, 'dark'), 'ui/Collection.ui': source };
   for (const [name, count] of [

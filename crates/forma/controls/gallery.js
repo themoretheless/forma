@@ -1,7 +1,7 @@
 import './gallery.css';
-import { loadVectorRuntime, createVectorPreview } from '../../../src/vector-preview.js';
-import { compileComponents } from '../../../src/components.js';
-import { parse } from '../../../src/language.js';
+import { loadVectorRuntime, createVectorPreview } from '../../../src/preview/vector-preview.js';
+import { compileComponents } from '../../../src/compiler/components.js';
+import { parse } from '../../../src/compiler/language.js';
 import { themes, materializeTheme } from './tokens.js';
 import { sections, sectionSource, catalogProject } from './catalog.js';
 import { createCatalogSession } from './catalog-session.js';

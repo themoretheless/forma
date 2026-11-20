@@ -1,3 +1,4 @@
+// @ts-check
 import { readFile } from 'node:fs/promises';
 
 const VECTOR_FILES = new Set(['/forma.js', '/forma_bg.wasm']);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { propertyEdit } from '../src/property-edit.js';
+import { parse } from '../src/compiler/language.js';
+import { propertyEdit } from '../src/compiler/property-edit.js';
 import { EditorState } from '@codemirror/state';
 import { history, undo, redo } from '@codemirror/commands';
 

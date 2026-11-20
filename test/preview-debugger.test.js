@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPreviewDebugger } from '../src/preview-debugger.js';
+import { createPreviewDebugger } from '../src/preview/preview-debugger.js';
 
 function debuggerWith() {
   const calls = [];

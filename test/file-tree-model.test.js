@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fileTreeHtml, groupTreePaths, visibleTreePaths } from '../src/file-tree-model.js';
+import { fileTreeHtml, groupTreePaths, visibleTreePaths } from '../src/tree/file-tree-model.js';
 
 const project = {
   'Cargo.toml': '',

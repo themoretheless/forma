@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
-import { sampleProject } from '../src/sample-project.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { sampleProject } from '../src/workspace/sample-project.js';
 
 test('a state method handler reaches the runtime scene as an action name', () => {
   const out = compileComponents(sampleProject, 'ui/SearchWindow.ui');

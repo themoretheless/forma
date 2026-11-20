@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createOperationHistory } from '../src/operation-history.js';
+import { createOperationHistory } from '../src/shared/operation-history.js';
 
 /** An operation that records what was done to `log` and can be told to fail. */
 function operation(log, label, { undo = true, redo = true } = {}) {

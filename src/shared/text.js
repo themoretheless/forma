@@ -1,3 +1,4 @@
+// @ts-check
 // Small text helpers with no dependencies, shared by Studio modules and testable under node.
 
 const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };

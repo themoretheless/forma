@@ -1,0 +1,1234 @@
+// @ts-check
+import { createEventScope } from '../shared/event-scope.js';
+import { createGpuPainter } from './vector-gpu.js';
+import { mapRuntimeErrorToUiDiagnostic } from '../compiler/diagnostics.js';
+import { summarizeDisplayListDiagnostics } from './display-list-diagnostics.js';
+import { rangeBounds, rangeValue } from '../shared/range.js';
+let runtimePromise;
+// Same order as components.js sceneControlNodes: base controls (optionally in
+// one Scroll), then every Modal layer's children. Kept local so this module
+// stays loadable on its own by the preview test harness.
+function sceneControlNodes(root) {
+  if (!root?.children) return [];
+  const base = [],
+    modals = [];
+  for (let i = 0; i < root.children.length; i++) {
+    const n = root.children[i];
+    if (n.type === 'Modal') {
+      if (n.children?.length) modals.push(...n.children);
+    } else base.push(n);
+  }
+  const controls = base[0]?.type === 'Scroll' ? (base[0].children ?? []) : base;
+  return modals.length ? [...controls, ...modals] : controls;
+}
+
+export function loadVectorRuntime() {
+  if (!runtimePromise) {
+    const url = import.meta.env.DEV ? '/__forma_vector/forma.js' : '/vector-pkg/forma.js';
+    runtimePromise = import(/* @vite-ignore */ url)
+      .then(async runtime => {
+        await runtime.default();
+        return runtime;
+      })
+      .catch(error => {
+        runtimePromise = null;
+        throw error;
+      });
+  }
+  return runtimePromise;
+}
+
+/** @param {{ runtime: any, onSelect?: (node: any) => void, onAction?: (action: string, node: any, event?: string) => void, onError?: (err: any) => void, onControlPointer?: (phase: string, payload: any) => boolean | void, onControlKey?: (e: any, node?: any) => boolean | void, onBindingChange?: (changes: any[]) => void }} [options] */
+export function createVectorPreview(
+  {
+    runtime,
+    onSelect,
+    onAction,
+    onError,
+    onControlPointer,
+    onControlKey,
+    onBindingChange,
+  } = /** @type {any} */ ({}),
+) {
+  if (!runtime?.Runtime) throw new Error('Сначала загрузите векторный WASM runtime');
+  const host = document.createElement('div');
+  host.className = 'forma-vector-host';
+  Object.assign(host.style, { position: 'relative', flexShrink: '0', lineHeight: '0' });
+  const canvas = document.createElement('canvas');
+  canvas.className = 'forma-vector-canvas';
+  canvas.setAttribute('role', 'img');
+  Object.assign(canvas.style, {
+    display: 'block',
+    width: '100%',
+    height: 'auto',
+    touchAction: 'none',
+    outline: 'none',
+  });
+  const outline = document.createElement('div');
+  outline.className = 'forma-vector-selection';
+  outline.setAttribute('aria-hidden', 'true');
+  Object.assign(outline.style, {
+    position: 'absolute',
+    pointerEvents: 'none',
+    boxSizing: 'border-box',
+    outline: '2px solid #92aaff',
+    outlineOffset: '-2px',
+  });
+  outline.hidden = true;
+  host.append(canvas, outline);
+  // Browser input/clipboard/IME adapter; pixels and editing state stay in Rust.
+  const input = document.createElement('textarea');
+  input.setAttribute('aria-label', 'Поле ввода');
+  input.tabIndex = -1;
+  input.hidden = true;
+  Object.assign(input.style, {
+    position: 'absolute',
+    opacity: '0',
+    width: '1px',
+    height: '20px',
+    padding: '0',
+    border: '0',
+    resize: 'none',
+    pointerEvents: 'none',
+  });
+  host.append(input);
+  let composing = false;
+  let compositionOwner = null;
+  let inputMirror = null;
+  const ownsComposition = () =>
+    composing &&
+    compositionOwner?.model === button &&
+    compositionOwner.index === button?.focused_index();
+  function cancelComposition() {
+    composing = false;
+    compositionOwner = null;
+    input.value = '';
+  }
+
+  const gpuCanvas = document.createElement('canvas');
+  Object.assign(gpuCanvas.style, {
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    pointerEvents: 'none',
+  });
+  gpuCanvas.setAttribute('aria-hidden', 'true');
+  gpuCanvas.hidden = true;
+  host.insertBefore(gpuCanvas, outline);
+  const backendBadge = document.createElement('span');
+  Object.assign(backendBadge.style, {
+    position: 'absolute',
+    right: '6px',
+    top: '-18px',
+    font: '10px monospace',
+    lineHeight: '14px',
+    color: '#a1aec8',
+    pointerEvents: 'none',
+  });
+  backendBadge.textContent = 'CPU';
+  host.append(backendBadge);
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Canvas 2D недоступен');
+  const scope = createEventScope();
+  let button = null,
+    current = null,
+    selectedStart = null,
+    destroyed = false;
+  let layoutModel = null,
+    layoutRevision = null,
+    layout = null;
+  let pointerId = null,
+    pressedKey = null,
+    frame = null,
+    lastFrameTime = 0;
+  let cursorPosition = null;
+  let reverseTabEntry = false;
+  let controlDrag = null;
+  let proximityPosition = null;
+  let gpu = null,
+    gpuFailure = '';
+  let paintedModel = null,
+    paintedRevision = null,
+    paintedWidth = 0,
+    paintedHeight = 0,
+    paintedScale = 0,
+    paintedGpu = null;
+  function gpuFallback(error) {
+    if (destroyed) return;
+    gpuFailure = String(error.message ?? error);
+    gpu?.destroy();
+    gpu = null;
+    gpuCanvas.hidden = true;
+    canvas.style.opacity = '1';
+    backendBadge.textContent = 'CPU fallback';
+    backendBadge.title = gpuFailure;
+    if (button && !destroyed) {
+      try {
+        paint();
+      } catch (error) {
+        report(error);
+      }
+    }
+  }
+  createGpuPainter(gpuCanvas, gpuFallback)
+    .then(painter => {
+      if (destroyed) {
+        painter.destroy();
+        return;
+      }
+      gpu = painter;
+      if (button) {
+        try {
+          paint();
+        } catch (error) {
+          gpuFallback(error);
+        }
+      }
+    })
+    .catch(gpuFallback);
+  const report = error => onError?.(error instanceof Error ? error : new Error(String(error)));
+  const listen = scope.listen;
+  const controlNodes = () => {
+    if (!current) return [];
+    if (current.previewControls) return current.previewControls;
+    return current._cachedNodes ?? (current._cachedNodes = sceneControlNodes(current.nodes?.[0]));
+  };
+  const modalNode = index =>
+    current?.previewModals?.[index] ?? {
+      type: 'Modal',
+      props: { key: button.modal_key(index) },
+      children: [],
+    };
+  // Older or stubbed runtimes without modal layers behave as a single base scene.
+  const layered = () => Boolean(button) && (button.active_modal?.() ?? -1) >= 0;
+  const buttonNode = (index = 0) => controlNodes()[index];
+  const frameNode = () => current?.nodes?.[0];
+  const enabledControl = index =>
+    index >= 0 &&
+    button.control_interactive(index) &&
+    !button.control_disabled(index) &&
+    !button.control_blocked?.(index);
+  function hasEnabledControl() {
+    for (let i = 0; i < button.control_count(); i++) if (enabledControl(i)) return true;
+    return false;
+  }
+
+  function raster(model) {
+    const width = model.render_width(),
+      height = model.render_height();
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
+      throw new Error('Некорректный размер векторного интерфейса');
+    const dpr = Math.min(
+      8,
+      Math.max(1, (window.devicePixelRatio || 1) * (window.visualViewport?.scale || 1)),
+    );
+    const zoom = Math.max(1, Number(host.parentElement?.style?.zoom) || 1);
+    const targetScale = dpr * zoom;
+    const maxDim = gpu ? (gpu.maxTextureDimension2D ?? 8192) : 4096;
+    const maxPixels = gpu ? 32_000_000 : 8_000_000;
+    const scale = Math.min(
+      targetScale,
+      maxDim / width,
+      maxDim / height,
+      Math.sqrt(maxPixels / (width * height)),
+    );
+    const pixelWidth = Math.max(1, Math.floor(width * scale));
+    const pixelHeight = Math.max(1, Math.floor(height * scale));
+    const revision = model.visual_revision();
+    // Selection, layout notifications and repeated renders can reuse the pixels
+    // already on the canvas. Keep only the key, not a second full-size bitmap.
+    if (
+      paintedModel === model &&
+      paintedRevision === revision &&
+      paintedWidth === pixelWidth &&
+      paintedHeight === pixelHeight &&
+      paintedScale === scale &&
+      paintedGpu === gpu
+    )
+      return null;
+    const image = { width: pixelWidth, height: pixelHeight, scale, model, revision };
+    if (gpu) return image;
+    const pixels = model.content_pixels(pixelWidth, pixelHeight, scale);
+    if (pixels.length !== pixelWidth * pixelHeight * 4)
+      throw new Error('Векторный renderer вернул некорректное изображение');
+    // wasm-bindgen returns an owned Uint8Array; ImageData can share its backing
+    // buffer instead of copying up to 32 MB of RGBA bytes on every CPU frame.
+    image.data = new ImageData(
+      new Uint8ClampedArray(pixels.buffer, pixels.byteOffset, pixels.byteLength),
+      pixelWidth,
+      pixelHeight,
+    );
+    return image;
+  }
+
+  function paint(image = raster(button)) {
+    if (!image) return;
+    if (gpu) {
+      try {
+        gpu.draw(image.model, image.width, image.height, image.scale);
+        gpuCanvas.style.width = canvas.style.width;
+        gpuCanvas.style.height = canvas.style.height;
+        const arch = gpu.memoryArchitecture ?? gpu.snapshot?.()?.memoryArchitecture;
+        gpuCanvas.hidden = false;
+        canvas.style.opacity = '0';
+        backendBadge.textContent = 'GPU · vector';
+        backendBadge.title = `WebGPU (${arch ?? 'UMA'}) · геометрия и контуры из Rust`;
+        // CSS keeps input coordinates unchanged while releasing the unused CPU
+        // canvas backing store once the GPU owns presentation.
+        if (canvas.width !== 1) canvas.width = 1;
+        if (canvas.height !== 1) canvas.height = 1;
+      } catch (error) {
+        gpuFallback(error);
+        return;
+      }
+    } else {
+      if (canvas.width !== image.width) canvas.width = image.width;
+      if (canvas.height !== image.height) canvas.height = image.height;
+      context.putImageData(image.data, 0, 0);
+    }
+    paintedModel = image.model;
+    paintedRevision = image.revision;
+    paintedWidth = image.width;
+    paintedHeight = image.height;
+    paintedScale = image.scale;
+    paintedGpu = gpu;
+  }
+
+  function updateSelection() {
+    if (!button || !current) return;
+    const selectedIndex =
+      selectedStart == null ? -1 : controlNodes().findIndex(n => n.start === selectedStart);
+    const selectedButton = selectedIndex >= 0;
+    const selectedFrame = selectedStart != null && selectedStart === frameNode()?.start;
+    outline.hidden = !current.designMode || (!selectedButton && !selectedFrame);
+    const [x, y, width, height] = selectedButton
+      ? button.control_bounds(selectedIndex)
+      : [0, 0, button.width(), button.height()];
+    Object.assign(outline.style, {
+      left: `${(x / button.width()) * 100}%`,
+      top: `${(y / button.height()) * 100}%`,
+      width: `${(width / button.width()) * 100}%`,
+      height: `${(height / button.height()) * 100}%`,
+    });
+    if (selectedStart != null) outline.dataset.start = String(selectedStart);
+    else delete outline.dataset.start;
+  }
+
+  function schedule() {
+    if (destroyed || !button || current.designMode || frame !== null || !button.is_animating())
+      return;
+    lastFrameTime = performance.now();
+    frame = requestAnimationFrame(animate);
+  }
+
+  function animate(now) {
+    frame = null;
+    if (destroyed || !button || current.designMode || !host.isConnected) return;
+    try {
+      const revision = button.visual_revision();
+      const ongoing = button.tick(Math.max(0, Math.min(100, now - lastFrameTime)));
+      lastFrameTime = now;
+      if (button.visual_revision() !== revision) paint();
+      if (ongoing) frame = requestAnimationFrame(animate);
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  function change(update, forcePaint = false) {
+    if (!button || destroyed) return;
+    try {
+      const count = button.clicks();
+      const submissions = button.submissions?.() ?? 0;
+      const dismissals = button.dismiss_count?.() ?? 0;
+      const revision = button.visual_revision();
+      update();
+      updateCursor();
+      syncTextInput();
+      if (forcePaint || button.visual_revision() !== revision) paint();
+      schedule();
+      if (!current.designMode) {
+        const activated = button.clicks() !== count,
+          eventNode = activated ? buttonNode(button.event_index()) : null,
+          // A state method reaches the runtime under its method name alone; report it as written.
+          written = eventNode?.events?.clicked,
+          action = !activated ? null : written?.startsWith('state.') ? written : button.action();
+        const submitted = (button.submissions?.() ?? 0) !== submissions,
+          submittedNode = submitted ? buttonNode(button.submitted_index?.() ?? -1) : null,
+          submittedAction = submittedNode?.events?.submitted;
+        const changes = [];
+        if (onBindingChange && (activated || button.visual_revision() !== revision))
+          controlNodes().forEach((node, index) => {
+            for (const [property, path] of Object.entries(node.bindings ?? {})) {
+              let value;
+              if (property === 'value' && button.control_editable?.(index))
+                value = button.text_value(index);
+              else if (property === 'value' && node.type === 'Slider' && button.range_value) {
+                const range = button.range_value(index);
+                if (Number.isFinite(range))
+                  value = rangeValue(
+                    node.rangeBounds ?? rangeBounds(name => node.props[name]),
+                    range,
+                  );
+              } else if (
+                property === 'group' &&
+                eventNode === node &&
+                node.groupValue !== undefined &&
+                typeof node.groupValue !== 'object'
+              ) {
+                value = node.groupValue;
+                // Choosing the choice the group already holds writes nothing.
+                if (node.props.checked === true) value = undefined;
+              } else if (
+                (property === 'checked' || property === 'selected') &&
+                eventNode === node &&
+                typeof node.props[property] === 'boolean'
+              )
+                value = property === 'selected' ? true : !node.props[property];
+              if (value !== undefined && value !== node.props[property])
+                changes.push({ node, property, path, value });
+            }
+          });
+        // Consumers may recompile synchronously; capture event identity before
+        // callbacks can replace/free the old WASM model.
+        if (changes.length) onBindingChange(changes);
+        if (submittedAction) onAction?.(submittedAction, submittedNode, 'submitted');
+        if (action) onAction?.(action, eventNode);
+        // Escape or a backdrop press closed a layer inside Rust; run its handler
+        // through the same action path as a click.
+        if ((button.dismiss_count?.() ?? 0) !== dismissals) {
+          const index = button.dismissed_index(),
+            dismissAction = button.modal_action(index);
+          if (dismissAction) onAction?.(dismissAction, modalNode(index));
+        }
+      }
+    } catch (error) {
+      report(error);
+    }
+  }
+
+  function syncTextInput() {
+    if (!button) return;
+    if (composing && !ownsComposition()) cancelComposition();
+    const editing = !current?.designMode && button.text_editing?.();
+    if (!editing) {
+      inputMirror = null;
+      if (composing) cancelComposition();
+    }
+    if (editing) {
+      input.hidden = false;
+      const bounds = button.text_caret_bounds();
+      Object.assign(input.style, {
+        left: `${Math.max(0, bounds[0] ?? 0)}px`,
+        top: `${Math.max(0, bounds[1] ?? 0)}px`,
+        height: `${bounds[3] ?? 20}px`,
+      });
+      const focused = button.focused_index();
+      input.setAttribute(
+        'aria-label',
+        (button.control_input_label
+          ? button.control_input_label(focused)
+          : button.control_label(focused)) || 'Поле ввода',
+      );
+      input.setAttribute('aria-multiline', String(button.control_multiline?.(focused) ?? false));
+      input.readOnly = button.control_readonly?.(focused) ?? false;
+      input.setAttribute('aria-readonly', String(input.readOnly));
+      if (!composing && button.text_value) {
+        const revision = button.text_model_revision?.();
+        if (
+          revision === undefined ||
+          revision === 0 ||
+          inputMirror?.model !== button ||
+          inputMirror.index !== focused ||
+          inputMirror.revision !== revision
+        ) {
+          inputMirror = {
+            model: button,
+            index: focused,
+            revision,
+            value: button.text_value(focused).replace(/\r\n?/g, '\n'),
+            selection: button.text_selection_utf16?.(),
+          };
+        }
+        const { value, selection } = inputMirror;
+        if (input.value !== value) input.value = value;
+        if (selection?.length === 2) {
+          const [anchor, caret] = selection,
+            start = Math.min(anchor, caret),
+            end = Math.max(anchor, caret),
+            direction = anchor > caret ? 'backward' : 'forward';
+          if (
+            input.selectionStart !== start ||
+            input.selectionEnd !== end ||
+            input.selectionDirection !== direction
+          )
+            input.setSelectionRange?.(start, end, direction);
+        }
+      }
+      if (document.activeElement === canvas) input.focus({ preventScroll: true });
+    } else {
+      if (document.activeElement === input) {
+        if (!current?.designMode && button.focused_index() >= 0)
+          canvas.focus({ preventScroll: true });
+        else input.blur?.();
+      }
+      input.hidden = true;
+    }
+  }
+  function adoptTextSelection() {
+    if (
+      composing ||
+      document.activeElement !== input ||
+      !button?.text_editing?.() ||
+      !button.text_set_selection_utf16
+    )
+      return;
+    const index = button.focused_index(),
+      revision = button.text_model_revision?.();
+    const mirror =
+      revision !== undefined &&
+      revision !== 0 &&
+      inputMirror?.model === button &&
+      inputMirror.index === index &&
+      inputMirror.revision === revision
+        ? inputMirror
+        : null;
+    if (input.value !== (mirror ? mirror.value : button.text_value(index).replace(/\r\n?/g, '\n')))
+      return;
+    const start = input.selectionStart,
+      end = input.selectionEnd;
+    if (!Number.isInteger(start) || !Number.isInteger(end)) return;
+    const [anchor, caret] = input.selectionDirection === 'backward' ? [end, start] : [start, end];
+    const current = mirror ? mirror.selection : button.text_selection_utf16?.();
+    if (current?.[0] !== anchor || current?.[1] !== caret)
+      change(() => button.text_set_selection_utf16(anchor, caret));
+  }
+  listen(input, 'select', adoptTextSelection);
+  const textInsert = text => change(() => button.text_insert?.(text));
+  listen(input, 'compositionstart', () => {
+    adoptTextSelection();
+    composing = true;
+    compositionOwner = { model: button, index: button?.focused_index() };
+  });
+  listen(input, 'compositionupdate', event => {
+    if (ownsComposition()) change(() => button.text_preedit?.(event.data ?? ''));
+  });
+  listen(input, 'compositionend', event => {
+    if (!ownsComposition()) {
+      if (composing) cancelComposition();
+      syncTextInput();
+      return;
+    }
+    cancelComposition();
+    const text = event.data ?? '';
+    if (text) textInsert(text);
+    else change(() => button.text_preedit?.(''));
+  });
+  listen(input, 'beforeinput', event => {
+    if (composing || event.isComposing) return;
+    adoptTextSelection();
+    event.preventDefault();
+    if (event.inputType === 'insertText' || event.inputType === 'insertReplacementText') {
+      if (typeof event.data === 'string' && event.data.length) textInsert(event.data);
+    } else if (['insertLineBreak', 'insertParagraph'].includes(event.inputType))
+      change(() => button.text_key?.('Enter', false, false));
+    else if (event.inputType === 'deleteSoftLineBackward')
+      change(() => button.text_key?.('Backspace', false, true));
+    else if (event.inputType === 'deleteSoftLineForward')
+      change(() => button.text_key?.('Delete', false, true));
+    else if (event.inputType === 'deleteWordBackward')
+      change(() => button.text_word_key?.('Backspace', false));
+    else if (event.inputType === 'deleteWordForward')
+      change(() => button.text_word_key?.('Delete', false));
+    else if (event.inputType === 'deleteContentBackward')
+      change(() => button.text_key?.('Backspace', false, false));
+    else if (event.inputType === 'deleteContentForward')
+      change(() => button.text_key?.('Delete', false, false));
+    else if (event.inputType === 'historyUndo') change(() => button.text_key?.('z', false, true));
+    else if (event.inputType === 'historyRedo') change(() => button.text_key?.('z', true, true));
+    syncTextInput();
+  });
+  listen(input, 'paste', event => {
+    event.preventDefault();
+    if (!event.clipboardData?.getData) return;
+    let text;
+    try {
+      text = event.clipboardData.getData('text/plain');
+    } catch {
+      return;
+    }
+    if (typeof text !== 'string' || !text.length) return;
+    adoptTextSelection();
+    if (composing) cancelComposition();
+    textInsert(text);
+  });
+  for (const name of ['copy', 'cut'])
+    listen(input, name, event => {
+      adoptTextSelection();
+      const text = button?.text_selected?.();
+      if (!text) return;
+      event.preventDefault();
+      if (!event.clipboardData?.setData) return;
+      try {
+        event.clipboardData.setData('text/plain', text);
+      } catch {
+        return;
+      }
+      if (name === 'cut') {
+        if (composing) cancelComposition();
+        textInsert('');
+      }
+    });
+  listen(input, 'blur', event => {
+    if (event.relatedTarget !== canvas) {
+      cancel();
+    }
+  });
+  function position(event) {
+    const bounds = canvas.getBoundingClientRect();
+    return [
+      ((event.clientX - bounds.left) * button.render_width()) / bounds.width,
+      ((event.clientY - bounds.top) * button.render_height()) / bounds.height,
+    ];
+  }
+
+  function updateCursor(event) {
+    if (event) cursorPosition = { clientX: event.clientX, clientY: event.clientY };
+    if (!button || !current) return;
+    const index =
+      !current.designMode && cursorPosition ? button.hit_index(...position(cursorPosition)) : -1;
+    canvas.style.cursor = current.designMode
+      ? 'crosshair'
+      : enabledControl(index)
+        ? button.control_editable?.(index)
+          ? 'text'
+          : 'pointer'
+        : 'default';
+  }
+
+  function releasePointer() {
+    const id = pointerId;
+    pointerId = null;
+    if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
+  }
+
+  function cancel(event) {
+    cancelComposition();
+    pressedKey = null;
+    reverseTabEntry = false;
+    controlDrag = null;
+    if (event?.pointerType === 'touch') proximityPosition = null;
+    releasePointer();
+    change(() => {
+      button.pointer(-1, -1, 3);
+      button.focus(false);
+      button.reveal_pointer?.(0, 0, false);
+    });
+  }
+
+  function clearTouchReveal(event) {
+    if (event.pointerType !== 'touch') return;
+    proximityPosition = null;
+    button.reveal_pointer?.(0, 0, false);
+  }
+
+  function forwardPointer(event, kind) {
+    change(() => {
+      button.pointer(...position(event), kind);
+      // Runtime.pointer also updates Reveal; touch keeps its gesture and focus
+      // while removing the pointer-specific paint before this frame is drawn.
+      clearTouchReveal(event);
+    });
+  }
+
+  function controlPointer(phase, event, index) {
+    if (!onControlPointer || index < 0) return false;
+    if (event.pointerType === 'touch') change(() => clearTouchReveal(event));
+    const [px, py] = position(event),
+      [x, y, width, height] = button.control_bounds(index);
+    return (
+      onControlPointer(phase, {
+        node: buttonNode(index),
+        x: px - x,
+        y: py - y,
+        width,
+        height,
+        event,
+      }) === true
+    );
+  }
+
+  function proximity(event) {
+    if (!button || current.designMode || !button.reveal_pointer) return;
+    proximityPosition =
+      event && event.pointerType !== 'touch'
+        ? { clientX: event.clientX, clientY: event.clientY }
+        : null;
+    change(() =>
+      button.reveal_pointer(
+        ...(proximityPosition ? position(proximityPosition) : [0, 0]),
+        Boolean(proximityPosition),
+      ),
+    );
+  }
+
+  function activate() {
+    if (!button || current.designMode || !hasEnabledControl()) return false;
+    change(() => button.activate());
+    return true;
+  }
+
+  listen(canvas, 'pointerdown', event => {
+    reverseTabEntry = false;
+    if (!button || event.button !== 0 || event.isPrimary === false) return;
+    const [x, y] = position(event);
+    updateCursor(event);
+    if (current.designMode) {
+      event.preventDefault();
+      const index = button.hit_index(x, y);
+      const node = index >= 0 ? buttonNode(index) : frameNode();
+      if (node) {
+        selectedStart = node.start;
+        updateSelection();
+        onSelect?.(node);
+      }
+      return;
+    }
+    if (pointerId !== null) return;
+    const index = button.hit_index(x, y);
+    // Under an open layer every press reaches Rust: the backdrop can dismiss.
+    if (!enabledControl(index) && !layered()) {
+      event.preventDefault(); // Passive geometry and disabled buttons must not focus the canvas.
+      return;
+    }
+    event.preventDefault();
+    canvas.focus({ preventScroll: true });
+    pointerId = event.pointerId;
+    canvas.setPointerCapture(pointerId);
+    // Range/splitter models can own a drag without pretending to be a click.
+    if (onControlPointer && enabledControl(index)) {
+      controlDrag = button.control_key(index);
+      change(() => button.focus_control?.(index));
+      if (controlPointer('start', event, index)) return;
+      controlDrag = null;
+    }
+    forwardPointer(event, 1);
+  });
+  listen(canvas, 'pointermove', event => {
+    if (!button || current.designMode || (pointerId !== null && event.pointerId !== pointerId))
+      return;
+    updateCursor(event);
+    if (controlDrag !== null) {
+      const index = controlNodes().findIndex(n => n.props.key === controlDrag);
+      controlPointer('move', event, index);
+      return;
+    }
+    forwardPointer(event, 0);
+  });
+  listen(canvas, 'pointerup', event => {
+    if (!button || current.designMode || event.pointerId !== pointerId) return;
+    updateCursor(event);
+    if (controlDrag !== null) {
+      const index = controlNodes().findIndex(n => n.props.key === controlDrag);
+      controlPointer('end', event, index);
+      controlDrag = null;
+      releasePointer();
+      return;
+    }
+    releasePointer();
+    forwardPointer(event, 2);
+  });
+  listen(canvas, 'pointerleave', event => {
+    cursorPosition = null;
+    updateCursor();
+    if (!button || current.designMode) return;
+    forwardPointer(event, pointerId === null ? 3 : 0);
+  });
+  listen(canvas, 'pointercancel', event => {
+    if (event.pointerId === pointerId) cancel(event);
+  });
+  listen(canvas, 'lostpointercapture', event => {
+    if (event.pointerId === pointerId) cancel(event);
+  });
+  listen(canvas, 'focus', () => {
+    const reverse = reverseTabEntry;
+    reverseTabEntry = false;
+    if (button && !current.designMode && hasEnabledControl())
+      change(() => {
+        if (reverse) {
+          button.focus(false);
+          button.focus_next(true);
+        } else button.focus(true);
+      });
+  });
+  listen(canvas, 'blur', event => {
+    if (event.relatedTarget !== input) cancel();
+  });
+  const listenKeys = (name, callback) => {
+    listen(canvas, name, callback);
+    listen(input, name, callback);
+  };
+  listenKeys('keydown', event => {
+    if (
+      composing ||
+      event.isComposing ||
+      event.key === 'Process' ||
+      event.key === 'Dead' ||
+      event.keyCode === 229
+    )
+      return;
+    if (button && !current.designMode && button.text_editing?.()) {
+      adoptTextSelection();
+      const platform =
+        globalThis.navigator?.userAgentData?.platform ?? globalThis.navigator?.platform ?? '';
+      const apple = /Mac|macOS|iPhone|iPad|iPod/.test(platform);
+      // Do not consume VoiceOver chords or AltGr text-producing events.
+      if (apple && event.ctrlKey && event.altKey) return;
+      if (!apple && (event.getModifierState?.('AltGraph') || (event.ctrlKey && event.altKey)))
+        return;
+      const word = apple
+        ? Boolean(event.altKey && !event.metaKey && !event.ctrlKey)
+        : Boolean(event.ctrlKey && !event.altKey && !event.metaKey);
+      const command = apple
+        ? Boolean(event.metaKey && !event.ctrlKey && !event.altKey)
+        : Boolean(event.ctrlKey && !event.altKey && !event.metaKey);
+      const asciiKey =
+        typeof event.key === 'string' &&
+        Array.from(event.key, ch => ch.codePointAt(0) ?? 0).every(cp => cp <= 0x7f);
+      const commandKey =
+        command && !asciiKey
+          ? ({ KeyA: 'a', KeyZ: 'z', KeyY: 'y' }[event.code] ?? event.key)
+          : event.key;
+      const wordKey =
+        word && ['ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'].includes(event.key);
+      let handled = false;
+      change(() => {
+        handled =
+          wordKey && typeof button.text_word_key === 'function'
+            ? button.text_word_key(event.key, event.shiftKey)
+            : button.text_key(commandKey, event.shiftKey, command);
+      });
+      if (handled) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key !== 'Tab' && event.key !== 'Escape') return;
+    }
+    if (button && !current.designMode && event.key === 'Escape' && layered()) {
+      event.preventDefault();
+      change(() => button.key_event(3, true, event.repeat));
+      return;
+    }
+    if (
+      button &&
+      !current.designMode &&
+      onControlKey?.(event, buttonNode(button.focused_index())) === true
+    ) {
+      event.preventDefault();
+      return;
+    }
+    if (button && !current.designMode) {
+      let handled = false;
+      change(() => {
+        handled = button.range_key?.(event.key) ?? false;
+      });
+      if (handled) {
+        event.preventDefault();
+        return;
+      }
+    }
+
+    if (button && !current.designMode && event.key === 'Tab') {
+      let moved = false;
+      change(() => {
+        moved = button.focus_next(event.shiftKey);
+      });
+      if (moved) {
+        event.preventDefault();
+        pressedKey = null;
+      }
+      return;
+    }
+    if (
+      !button ||
+      current.designMode ||
+      !hasEnabledControl() ||
+      ![' ', 'Enter'].includes(event.key)
+    )
+      return;
+    event.preventDefault();
+    if (event.repeat || pressedKey !== null) return;
+    pressedKey = event.key;
+    change(() => button.key_event(event.key === ' ' ? 1 : 2, true, false));
+  });
+  listenKeys('keyup', event => {
+    if (!button || current.designMode || event.key !== pressedKey) return;
+    event.preventDefault();
+    pressedKey = null;
+    change(() => button.key_event(event.key === ' ' ? 1 : 2, false, false));
+  });
+  // Assistive technology can activate a role=button through a synthetic click.
+  listen(canvas, 'click', event => {
+    if (event.detail === 0) activate();
+  });
+  listen(
+    canvas,
+    'wheel',
+    event => {
+      if (!button || !button.scrollable()) return;
+      event.preventDefault();
+      const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? button.height() : 1;
+      change(() => button.scroll(event.deltaX * factor, event.deltaY * factor));
+      updateSelection();
+      if (proximityPosition) proximity(proximityPosition);
+    },
+    { passive: false },
+  );
+  // Tab's default action moves DOM focus after keydown bubbles to the window.
+  listen(window, 'keydown', event => {
+    reverseTabEntry = event.key === 'Tab' && event.shiftKey && !event.defaultPrevented;
+  });
+  listen(window, 'keyup', () => {
+    reverseTabEntry = false;
+  });
+  listen(window, 'pointermove', proximity);
+  listen(window, 'pointerout', event => {
+    if (!event.relatedTarget) proximity(null);
+  });
+  listen(
+    window,
+    'scroll',
+    () => {
+      if (proximityPosition) proximity(proximityPosition);
+    },
+    { capture: true },
+  );
+  const onResize = () => {
+    if (button && host.isConnected) {
+      change(() => {}, true);
+      if (proximityPosition) proximity(proximityPosition);
+    }
+  };
+  listen(window, 'resize', onResize);
+  if (window.visualViewport) listen(window.visualViewport, 'resize', onResize);
+  listen(window, 'blur', () => {
+    proximityPosition = null;
+    cancel();
+  });
+
+  return {
+    measureText: (value, fontSize, family) => runtime.text_metrics(value, fontSize, family),
+    /** @param {any} spec */
+    render({
+      container,
+      source,
+      template = '',
+      designMode = true,
+      nodes = [],
+      previewControls,
+      previewModals,
+      previewContainers,
+      controlOrigins = [],
+      sourceMap = null,
+      controlClips = [],
+      controlScrolls = [],
+      selectedStart: nextSelection = null,
+      reducedMotion = false,
+    }) {
+      let candidate = null;
+      try {
+        if (destroyed) throw new Error('Векторный предпросмотр уже закрыт');
+        if (!container?.replaceChildren) throw new Error('Не найден контейнер предпросмотра');
+        designMode = Boolean(designMode);
+        // Clips come from containers the markup does not carry, so they decide a reload too.
+        // The same arrays as last time say the same thing: a render that did not recompile
+        // skips writing them out.
+        const clips =
+          current?.controlClips === controlClips && current.controlScrolls === controlScrolls
+            ? current.clips
+            : JSON.stringify([controlClips, controlScrolls]);
+        const changed =
+          !button ||
+          current.source !== source ||
+          current.template !== template ||
+          current.clips !== clips;
+        const modeChanged = !changed && current.designMode !== designMode;
+        if (changed) {
+          if (typeof runtime.Runtime.from_component === 'function') {
+            candidate = runtime.Runtime.from_component(source, template);
+          } else {
+            candidate = new runtime.Runtime();
+            candidate.load_component(source, template);
+          }
+          controlClips.forEach((clip, index) => {
+            if (clip) candidate.set_control_clip(index, ...clip);
+          });
+          if (controlScrolls.some(chain => chain.length))
+            candidate.set_control_scroll_areas(JSON.stringify(controlScrolls));
+          (previewControls ?? []).forEach((node, index) => {
+            const group = node.bindings?.group;
+            if (typeof group === 'string') candidate.set_control_group?.(index, group);
+          });
+          if (controlOrigins.length)
+            candidate.set_control_origins_json?.(JSON.stringify(controlOrigins));
+          if (button) {
+            candidate.reuse_caches_from?.(button);
+            candidate.preserve_interaction(button);
+          }
+        }
+        if (changed || current.reducedMotion !== reducedMotion)
+          (candidate ?? button).set_reduced_motion?.(reducedMotion);
+        if (controlDrag !== null) {
+          const model = candidate ?? button;
+          let dragIndex = -1;
+          for (let i = 0, count = model.control_count(); i < count; i++)
+            if (model.control_key(i) === controlDrag) {
+              dragIndex = i;
+              break;
+            }
+          if (
+            designMode ||
+            dragIndex < 0 ||
+            !model.control_interactive(dragIndex) ||
+            model.control_disabled(dragIndex)
+          ) {
+            controlDrag = null;
+            releasePointer();
+          }
+        }
+        // Validate and rasterize before touching the last good DOM or runtime.
+        const image = modeChanged ? null : raster(candidate ?? button);
+        if (changed) {
+          cancelComposition();
+          cancelAnimationFrame(frame);
+          frame = null;
+          if (controlDrag === null) releasePointer();
+          pressedKey = null;
+          button?.free();
+          button = candidate;
+          candidate = null;
+        } else if (modeChanged) {
+          controlDrag = null;
+          releasePointer();
+          pressedKey = null;
+          button.pointer(-1, -1, 3);
+          button.focus(false);
+          button.tick(1000);
+        }
+        current = {
+          source,
+          template,
+          clips,
+          controlOrigins,
+          sourceMap,
+          controlClips,
+          controlScrolls,
+          designMode,
+          nodes,
+          previewControls,
+          previewModals,
+          previewContainers,
+          reducedMotion,
+        };
+        container.classList.add('vector-artboard');
+        container.style.backgroundColor = button.background_color();
+        container.style.borderRadius = button.frame_radius() + 1 + 'px';
+        selectedStart = nextSelection;
+        host.style.width = `${button.width()}px`;
+        host.style.height = `${button.height()}px`;
+        canvas.style.width = `${button.render_width()}px`;
+        canvas.style.height = `${button.render_height()}px`;
+        host.style.overflow = 'visible'; // Rust applies the rounded content clip once.
+        if (frameNode()) host.dataset.start = String(frameNode().start);
+        else delete host.dataset.start;
+        const count = button.control_count(),
+          labels = [];
+        let interactive = 0,
+          enabled = false;
+        for (let i = 0; i < count; i++) {
+          labels.push(button.control_label(i));
+          if (button.control_interactive(i)) {
+            interactive++;
+            if (!button.control_disabled(i) && !button.control_blocked?.(i)) enabled = true;
+          }
+        }
+        canvas.tabIndex = enabled ? 0 : -1;
+        canvas.setAttribute('role', count === 1 ? (interactive ? 'button' : 'img') : 'group');
+        canvas.setAttribute('aria-label', labels.join(', '));
+        if (interactive) canvas.setAttribute('aria-disabled', String(!enabled));
+        else canvas.removeAttribute('aria-disabled');
+        if (modeChanged) paint();
+        else paint(image);
+        if (host.parentElement !== container) container.replaceChildren(host);
+        updateCursor();
+        updateSelection();
+        syncTextInput();
+        schedule();
+        if (proximityPosition) proximity(proximityPosition);
+        return true;
+      } catch (error) {
+        candidate?.free();
+        report(mapRuntimeErrorToUiDiagnostic(error, sourceMap));
+        return false;
+      }
+    },
+    select(start) {
+      selectedStart = start;
+      const i = controlNodes().findIndex(n => n.start === start);
+      if (button?.scrollable() && i >= 0) {
+        const [x, y, w, h] = button.control_bounds(i);
+        const dx = x < 0 ? x : x + w > button.width() ? x + w - button.width() : 0;
+        const dy = y < 0 ? y : y + h > button.height() ? y + h - button.height() : 0;
+        if (dx || dy) change(() => button.scroll(dx, dy));
+      }
+      updateSelection();
+    },
+    focusKey(key) {
+      if (!button || current.designMode) return false;
+      const index = controlNodes().findIndex(node => node.props.key === key);
+      if (!enabledControl(index)) return false;
+      canvas.focus({ preventScroll: true });
+      change(() => button.focus_control?.(index));
+      return true;
+    },
+    refreshScale() {
+      if (!button || destroyed || !host.isConnected) return;
+      try {
+        paint();
+      } catch (error) {
+        report(error);
+      }
+    },
+    activate,
+    // Canvas tools need geometry, not strings, text values and interaction state
+    // for every control. Reuse an immutable snapshot until the model changes.
+    // Each record carries the markup offset of the control it drew, because the tools edit the
+    // source and the scene counts flattened controls: pairing the two by position hands a node
+    // the box of whoever happens to sit at that index. The container box the drawing measured its own
+    // `x`/`y` against travels with it, so a tool that writes a coordinate writes one the layout reads.
+    // A container paints nothing of its own, so its extent reaches the canvas only as the box the
+    // layout measured for it — beside the controls it drew.
+    layoutSnapshot() {
+      if (!button || !current) return null;
+      const revision = button.layout_revision?.() ?? button.visual_revision();
+      if (layoutModel === button && layoutRevision === revision) return layout;
+      const nodes = controlNodes();
+      layout = Object.freeze({
+        width: button.width(),
+        height: button.height(),
+        clip: button.clipped(),
+        scrollable: button.scrollable(),
+        scrollOffset: Object.freeze(Array.from(button.scroll_offset())),
+        controls: Object.freeze(
+          Array.from({ length: button.control_count() }, (_, index) =>
+            Object.freeze({
+              index,
+              start: nodes[index]?.start ?? null,
+              coordinateBox: Object.freeze(Array.from(nodes[index]?.coordinateBox ?? [0, 0, 0, 0])),
+              bounds: Object.freeze(Array.from(button.control_bounds(index))),
+            }),
+          ),
+        ),
+        containers: Object.freeze(
+          (current.previewContainers ?? []).map(panel =>
+            Object.freeze({
+              start: panel.start ?? null,
+              coordinateBox: Object.freeze(Array.from(panel.coordinateBox ?? [0, 0, 0, 0])),
+              bounds: Object.freeze(Array.from(panel.bounds ?? [0, 0, 0, 0])),
+            }),
+          ),
+        ),
+      });
+      layoutModel = button;
+      layoutRevision = revision;
+      return layout;
+    },
+    snapshot() {
+      return button && current
+        ? {
+            ...current,
+            nodes: undefined,
+            previewModals: undefined,
+            activeModal: button.active_modal?.() ?? -1,
+            modals: Array.from({ length: button.modal_count?.() ?? 0 }, (_, i) => ({
+              index: i,
+              key: button.modal_key(i),
+              open: button.modal_is_open(i),
+              dismissible: button.modal_dismissible(i),
+              action: button.modal_action(i),
+              bounds: Array.from(button.modal_bounds(i)),
+            })),
+            renderer: gpu ? 'rust-wasm-webgpu' : 'rust-wasm-cpu',
+            memoryArchitecture: gpu
+              ? (gpu.memoryArchitecture ?? gpu.snapshot?.()?.memoryArchitecture ?? 'UMA')
+              : 'UMA',
+            gpuStats: gpu?.snapshot() ?? null,
+            gpuFallbackReason: gpuFailure || null,
+            rasterStats: Array.from(button.raster_stats()),
+            displayListSummary: button.display_list_diagnostics_json
+              ? summarizeDisplayListDiagnostics(button.display_list_diagnostics_json(1, true))
+              : null,
+            selectedStart,
+            focusedIndex: button.focused_index(),
+            controls: Array.from({ length: button.control_count() }, (_, i) => ({
+              index: i,
+              key: button.control_key(i),
+              origin: button.control_origin?.(i) ?? current.controlOrigins?.[i] ?? '',
+              label: button.control_label(i),
+              bounds: Array.from(button.control_bounds(i)),
+              disabled: button.control_disabled(i),
+              interactive: button.control_interactive(i),
+              modal: button.control_modal?.(i) ?? -1,
+              blocked: button.control_blocked?.(i) ?? false,
+              editable: button.control_editable?.(i) ?? false,
+              value: button.control_editable?.(i) ? button.text_value(i) : undefined,
+              hovered: button.control_hovered(i),
+              focused: button.control_focused(i),
+              clicks: button.control_clicks(i),
+              action: button.control_action(i),
+            })),
+            width: button.width(),
+            height: button.height(),
+            clip: button.clipped(),
+            radius: button.frame_radius(),
+            overflow: button.overflow(),
+            scrollable: button.scrollable(),
+            renderWidth: button.render_width(),
+            renderHeight: button.render_height(),
+            scrollOffset: Array.from(button.scroll_offset()),
+            bounds: Array.from(button.bounds()),
+            label: button.label(),
+            key: button.key(),
+            action: button.action(),
+            disabled: button.disabled(),
+            clicks: button.clicks(),
+          }
+        : null;
+    },
+    destroy() {
+      if (destroyed) return;
+      cancelComposition();
+      inputMirror = null;
+      destroyed = true;
+      gpu?.destroy();
+      gpu = null;
+      scope.dispose();
+      cancelAnimationFrame(frame);
+      frame = null;
+      releasePointer();
+      host.remove();
+      // Callers can retain the preview API after closing it; release canvas
+      // allocations explicitly instead of waiting for the closure to be GC'd.
+      canvas.width = canvas.height = 1;
+      gpuCanvas.width = gpuCanvas.height = 1;
+      button?.free();
+      button = null;
+      current = null;
+      paintedModel = null;
+      paintedGpu = null;
+      layoutModel = null;
+      layout = null;
+      layoutRevision = null;
+    },
+  };
+}

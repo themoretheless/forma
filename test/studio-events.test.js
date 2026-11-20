@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStudioEvents, studioEventTypes } from '../src/studio-events.js';
+import { createStudioEvents, studioEventTypes } from '../src/shared/studio-events.js';
 
 test('subscribers receive the last published value immediately and every later one', () => {
   const events = createStudioEvents(),

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bracketLevels } from '../src/brackets.js';
+import { bracketLevels } from '../src/editor/brackets.js';
 test('bracket pairs share depth for all kinds', () => {
   assert.deepEqual(
     bracketLevels('{[()]}').map(x => x.level),

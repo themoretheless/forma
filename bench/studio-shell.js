@@ -1,8 +1,8 @@
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
-import { shellControl, shellScene } from '../src/studio-shell-controls.js';
-import { createShellPainter } from '../src/studio-shell-painter.js';
+import { shellControl, shellScene } from '../src/shell/studio-shell-controls.js';
+import { createShellPainter } from '../src/shell/studio-shell-painter.js';
 const raw = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
   query: '?raw',
   import: 'default',

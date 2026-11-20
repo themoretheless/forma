@@ -1,3 +1,4 @@
+// @ts-check
 // The modal layers of a scene: validated, and placed over the root frame.
 import { color, num } from './content-layout.js';
 

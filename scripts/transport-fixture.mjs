@@ -4,7 +4,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
-import { createComponentCompiler } from '../src/components.js';
+import { createComponentCompiler } from '../src/compiler/components.js';
 
 const out = resolve(process.argv[2] ?? '.forma/perf/template-load');
 const read = name => readFile(new URL(`../crates/forma/examples/${name}`, import.meta.url), 'utf8');

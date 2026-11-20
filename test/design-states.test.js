@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, validateDesign, designStatePatch } from '../src/language.js';
+import { parse, validateDesign, designStatePatch } from '../src/compiler/language.js';
 import {
   propertyEdit,
   propertyAddEdit,
   propertyRemoveEdit,
   sourceNode,
-} from '../src/property-edit.js';
+} from '../src/compiler/property-edit.js';
 import {
   findState,
   findEntry,
@@ -16,7 +16,7 @@ import {
   statePropertyEdit,
   stateEntryRemoveEdit,
   designStatesSummary,
-} from '../src/design-states.js';
+} from '../src/compiler/design-states.js';
 
 // The panel applies one edit at a time, exactly as the inspector does for the markup file.
 const run = (source, edit) => source.slice(0, edit.from) + edit.insert + source.slice(edit.to);

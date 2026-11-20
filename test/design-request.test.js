@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mountDevBridge } from '../src/dev-bridge.js';
+import { mountDevBridge } from '../src/shell/dev-bridge.js';
+import { registerRunnerWebSockets } from '../dev-server/runner-ws.js';
 
-function harness() {
+function harness({ confirmResult = () => true } = {}) {
   const handlers = new Map(),
     timers = new Map(),
     buttons = [],
@@ -10,6 +11,7 @@ function harness() {
     logs = [],
     disposers = [];
   let next = 0;
+  let confirmCalls = 0;
   const counts = { applied: 0, errors: [], inspections: [], commands: [] };
   const hot = {
     on: (k, f) => handlers.set(k, f),
@@ -25,7 +27,10 @@ function harness() {
         return b;
       },
     },
-    confirm: () => true,
+    confirm: message => {
+      confirmCalls++;
+      return confirmResult(confirmCalls, message);
+    },
     crypto: { randomUUID: () => String(++next) },
     setTimeout: f => {
       timers.set(next, f);
@@ -55,8 +60,19 @@ function harness() {
     },
     showNativeInspection: data => counts.inspections.push(data),
   };
-  mountDevBridge(hot, studio, env);
-  return { handlers, timers, buttons, sent, logs, disposers, counts, studio };
+  const bridge = mountDevBridge(hot, studio, env);
+  return {
+    bridge,
+    handlers,
+    timers,
+    buttons,
+    sent,
+    logs,
+    disposers,
+    counts,
+    studio,
+    getConfirmCalls: () => confirmCalls,
+  };
 }
 
 test('design request timeout/disconnect clear busy state and ignore late replies', () => {
@@ -135,4 +151,50 @@ test('the transport answers commands and Rust output feeds the inspector line by
   assert.ok(logs.includes('[Rust] :1}\nhello\n'));
   assert.equal(runRust.disabled, false);
   assert.equal(stopRust.disabled, true);
+});
+
+test('design requests prompt once per trusted session and reset on revokeTrust()', () => {
+  let allow = true;
+  const { bridge, handlers, buttons, sent, getConfirmCalls } = harness({
+    confirmResult: () => allow,
+  });
+  const refresh = buttons[0];
+  const requests = () => sent.filter(m => m.type === 'forma:design-data');
+
+  refresh.onclick();
+  assert.equal(getConfirmCalls(), 1);
+  assert.equal(requests().length, 1);
+  assert.equal(requests()[0].sessionTrust, true);
+  handlers.get('forma:design-data-result')({ id: requests()[0].id, values: {} });
+
+  refresh.onclick();
+  assert.equal(getConfirmCalls(), 1, 'second refresh reuses session trust without re-prompting');
+  assert.equal(requests().length, 2);
+  handlers.get('forma:design-data-result')({ id: requests()[1].id, values: {} });
+
+  bridge.revokeTrust();
+  allow = false;
+  refresh.onclick();
+  assert.equal(getConfirmCalls(), 2, 'revoking trust forces a fresh confirmation');
+  assert.equal(requests().length, 2);
+  assert.notEqual(refresh.disabled, true);
+});
+
+test('runner-ws rejects forma:design-data requests without explicit sessionTrust', async () => {
+  const listeners = new Map();
+  const replies = [];
+  const client = { send: (type, payload) => replies.push({ type, payload }) };
+  const server = {
+    ws: { on: (event, fn) => listeners.set(event, fn) },
+    httpServer: { once() {} },
+  };
+  registerRunnerWebSockets(server, () => client);
+  await listeners.get('forma:design-data')(
+    { id: 'req-1', files: { 'src/design.rs': 'pub const X: i32 = 1;' }, refs: ['design.X'] },
+    client,
+  );
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].type, 'forma:design-data-result');
+  assert.equal(replies[0].payload.id, 'req-1');
+  assert.match(replies[0].payload.error, /доверия проекту/);
 });

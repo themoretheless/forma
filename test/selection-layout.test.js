@@ -5,15 +5,15 @@ import {
   alignSelection,
   distributeSelection,
   snapSelection,
-} from '../src/selection-layout.js';
-import { parse } from '../src/language.js';
+} from '../src/canvas/selection-layout.js';
+import { parse } from '../src/compiler/language.js';
 import {
   editElements,
   moveElement,
   removeElement,
   copyElements,
   insertElements,
-} from '../src/element-edit.js';
+} from '../src/compiler/element-edit.js';
 const apply = (s, c) => s.slice(0, c.from) + c.insert + s.slice(c.to);
 test('alignment respects different sizes, distribution preserves outer edges', () => {
   const items = [

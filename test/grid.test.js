@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { gridStyles } from '../src/grid.js';
+import { parse } from '../src/compiler/language.js';
+import { gridStyles } from '../src/preview/grid.js';
 
 test('Grid auto-places children while Stack overlays them', () => {
   assert.deepEqual(gridStyles({ type: 'Grid', props: {} }, {}), {

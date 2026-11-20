@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { createStudioControlsProject } from '../src/studio-controls-project.js';
-import { compileComponents } from '../src/components.js';
-import { insertableControls } from '../src/control-catalog.js';
-import { insertElement } from '../src/element-edit.js';
-import { parse } from '../src/language.js';
+import { createStudioControlsProject } from '../src/workspace/studio-controls-project.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { insertableControls } from '../src/compiler/control-catalog.js';
+import { insertElement } from '../src/compiler/element-edit.js';
+import { parse } from '../src/compiler/language.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
 const read = (root, folders) =>

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { attachSources, createElementTree } from '../src/element-tree.js';
-import { compileComponents } from '../src/components.js';
+import { parse } from '../src/compiler/language.js';
+import { attachSources, createElementTree } from '../src/compiler/element-tree.js';
+import { compileComponents } from '../src/compiler/components.js';
 
 test('snapshot IDs are distinct from keys and UTF-16 source offsets', () => {
   const source =

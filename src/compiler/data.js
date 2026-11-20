@@ -1,3 +1,4 @@
+// @ts-check
 // Plain-data helpers of the component compiler.
 
 // Compiling clones a cached parse and the linked definitions on every run, and

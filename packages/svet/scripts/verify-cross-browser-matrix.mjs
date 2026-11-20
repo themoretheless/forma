@@ -404,7 +404,9 @@ try {
   report.status = 'passed';
   report.completedAt = new Date().toISOString();
   report.sha256 = {
-    'src/vector-preview.js': sha256(await readFile(resolve(repoRoot, 'src/vector-preview.js'))),
+    'src/preview/vector-preview.js': sha256(
+      await readFile(resolve(repoRoot, 'src/preview/vector-preview.js')),
+    ),
     'crates/forma/tests/preview-cross-browser-input.html': sha256(
       await readFile(resolve(repoRoot, 'crates/forma/tests/preview-cross-browser-input.html')),
     ),

@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, relative, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateForm } from '../src/form-codegen.js';
-import { parse } from '../src/language.js';
+import { generateForm } from '../src/compiler/form-codegen.js';
+import { parse } from '../src/compiler/language.js';
 
 // Build artifacts are written after every selected form validates.
 export async function generateProject({ project, entry, output, stateFile }) {

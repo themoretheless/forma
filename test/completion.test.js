@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { completeCode, createCompletionSource, indexProject } from '../src/completion.js';
+import { completeCode, createCompletionSource, indexProject } from '../src/editor/completion.js';
 import { EditorState } from '@codemirror/state';
 const files = {
   'src/lib.rs': `pub struct AddressVm { pub city: Property<String> }

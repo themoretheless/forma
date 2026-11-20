@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
-const modulePath = resolve(process.argv[3] ?? 'src/components.js');
+const modulePath = resolve(process.argv[3] ?? 'src/compiler/components.js');
 const { compileComponents, createComponentCompiler } = await import(pathToFileURL(modulePath));
 const out = resolve(process.argv[2] ?? '.forma/perf/compiler-session');
 const read = name => readFile(new URL(`../crates/forma/examples/${name}`, import.meta.url), 'utf8');

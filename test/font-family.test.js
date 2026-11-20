@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
 const project = family => ({

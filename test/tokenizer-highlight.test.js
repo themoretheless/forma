@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 // The module imports CodeMirror's view layer, which needs no DOM until a view is created.
 const { buildUtf8ToUtf16Map, detectTokenizerLanguage, kindColor } =
-  await import('../src/tokenizer-highlight.js');
+  await import('../src/editor/tokenizer-highlight.js');
 
 const encoder = new TextEncoder();
 

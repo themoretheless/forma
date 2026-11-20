@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { cpus, totalmem, platform, release, arch } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const out = resolve(
   root,

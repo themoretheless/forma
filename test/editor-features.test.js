@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EditorState } from '@codemirror/state';
-import { editorFeatures, languageFor } from '../src/editor-features.js';
-import { formaHighlight } from '../src/forma-highlight.js';
+import { editorFeatures, languageFor } from '../src/editor/editor-features.js';
+import { formaHighlight } from '../src/editor/forma-highlight.js';
 
 test('markup files get the Forma language and everything else plain text', () => {
   assert.equal(languageFor('ui/Window.ui'), formaHighlight);

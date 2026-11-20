@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 const files = {
   'ui/Demo.ui':
     "component Demo { Frame { width:200; height:180; padding:10; gap:12; Button { key:'one'; width:150; height:60; text:'Первый'; clicked -> actions.one(); } Green { key:'two'; width:150; height:60; text:'Второй'; clicked -> actions.two(); } } }",

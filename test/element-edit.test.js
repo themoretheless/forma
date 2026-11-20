@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
+import { parse } from '../src/compiler/language.js';
 import {
   moveElement,
   copyElement,
@@ -18,7 +18,7 @@ import {
   paddingBlock,
   readNodePadding,
   editPadding,
-} from '../src/element-edit.js';
+} from '../src/compiler/element-edit.js';
 const apply = (s, c) => s.slice(0, c.from) + c.insert + s.slice(c.to);
 const sample =
   "component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";

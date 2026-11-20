@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLatestOnly } from '../src/latest-only.js';
+import { createLatestOnly } from '../src/shared/latest-only.js';
 
 test('a load is current until a newer one begins or the owner cancels', async () => {
   const loads = createLatestOnly(),

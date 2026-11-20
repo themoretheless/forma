@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { parser } from '../src/forma-parser.js';
+import { parse } from '../src/compiler/language.js';
+import { parser } from '../src/compiler/forma-parser.js';
 test('Brush is a typed property value, including nested Border brush', () => {
   const source =
     'component Button { Rectangle { background: Brush { color: props.background; focus: #ffffff; transition: 140ms; }; Border { width: 1; background: Brush { color: #bed0ff; }; } } }';

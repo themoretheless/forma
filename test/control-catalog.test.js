@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { insertElement } from '../src/element-edit.js';
-import { insertableControls } from '../src/control-catalog.js';
+import { parse } from '../src/compiler/language.js';
+import { insertElement } from '../src/compiler/element-edit.js';
+import { insertableControls } from '../src/compiler/control-catalog.js';
 
 const button = "component Button {\n    text: 'Кнопка';\n    Rectangle { }\n}";
 const files = {

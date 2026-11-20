@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, resolve } from '../src/language.js';
-import { designReferences, setDesignData } from '../src/design-data.js';
+import { parse, resolve } from '../src/compiler/language.js';
+import { designReferences, setDesignData } from '../src/compiler/design-data.js';
 test('static constants and methods use cached design values', () => {
   const d = parse(
     "design A { Text { key: 'a'; text: design.STATUS; } TextInput { key: 'b'; value: design.example_query(); } }",

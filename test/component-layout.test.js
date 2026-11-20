@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, gridPlacement, naturalContainer } from '../src/component-layout.js';
+import { arrange, gridPlacement, naturalContainer } from '../src/compiler/component-layout.js';
 const star = { expr: '*' },
   auto = { expr: 'auto' };
 const row = (props, other) => ({

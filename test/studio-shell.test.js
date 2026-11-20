@@ -1,11 +1,11 @@
-import { svgShapes } from '../src/svg-shapes.js';
-import { canvasIcons, glyphIcons, glyphIcon } from '../src/studio-canvas-icons.js';
+import { svgShapes } from '../src/compiler/svg-shapes.js';
+import { canvasIcons, glyphIcons, glyphIcon } from '../src/shell/studio-canvas-icons.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
-import { shellControl, shellScene } from '../src/studio-shell-controls.js';
+import { shellControl, shellScene } from '../src/shell/studio-shell-controls.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
 test('Studio shell uses guideline controls and renders their states through shared Rust', async () => {

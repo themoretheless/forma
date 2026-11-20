@@ -1,3 +1,4 @@
+// @ts-check
 // Where the MCP bridge of the dev server lives, shared by the server that announces it and the
 // MCP process that connects to it.
 

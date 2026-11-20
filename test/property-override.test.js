@@ -4,8 +4,8 @@ import {
   compileComponents,
   createComponentCompiler,
   linkComponentDefinitions,
-} from '../src/components.js';
-import { parser } from '../src/forma-parser.js';
+} from '../src/compiler/components.js';
+import { parser } from '../src/compiler/forma-parser.js';
 
 const base = `component Button {
  width: 160; height: 40; text: 'Save'; color: #ffffff;

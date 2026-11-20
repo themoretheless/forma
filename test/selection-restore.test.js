@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { selectionIdentities, restoreSelection } from '../src/selection-restore.js';
+import { parse } from '../src/compiler/language.js';
+import { selectionIdentities, restoreSelection } from '../src/canvas/selection-restore.js';
 
 // A page whose controls sit at three different depths, some addressed by a design key and some not —
 // which is what an undo has to tell apart once every offset below the first edit has moved.

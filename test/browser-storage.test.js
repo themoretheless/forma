@@ -5,7 +5,7 @@ import {
   writeStorage,
   restoreProject,
   validateProject,
-} from '../src/browser-storage.js';
+} from '../src/workspace/browser-storage.js';
 test('storage access and quota failures do not crash startup or claim a successful write', () => {
   const denied = {
     get localStorage() {
@@ -51,7 +51,7 @@ test('project restoration validates structure and unsafe paths without touching 
 });
 
 test('project save preserves invalid data and refuses to overwrite a different recovery', async () => {
-  const { writeProject } = await import('../src/browser-storage.js');
+  const { writeProject } = await import('../src/workspace/browser-storage.js');
   const values = new Map([['project', '{broken']]);
   const host = {
     localStorage: { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v) },
@@ -71,7 +71,7 @@ test('project save preserves invalid data and refuses to overwrite a different r
 });
 
 test('unchanged valid project does not rewrite storage', async () => {
-  const { writeProject } = await import('../src/browser-storage.js');
+  const { writeProject } = await import('../src/workspace/browser-storage.js');
   const files = { 'main.ui': 'same' };
   let reads = 0;
   const host = {
@@ -90,7 +90,8 @@ test('unchanged valid project does not rewrite storage', async () => {
 });
 
 test('local directory project reader and writer sync nested .ui/.rs files and skip ignored directories', async () => {
-  const { readDirectoryProject, writeDirectoryProject } = await import('../src/browser-storage.js');
+  const { readDirectoryProject, writeDirectoryProject } =
+    await import('../src/workspace/browser-storage.js');
   function mockDir(tree) {
     return {
       async *entries() {
@@ -196,7 +197,8 @@ test('local directory project reader and writer sync nested .ui/.rs files and sk
 });
 
 test('writeDirectoryProject removes deleted and renamed files without recreating missing directories', async () => {
-  const { readDirectoryProject, writeDirectoryProject } = await import('../src/browser-storage.js');
+  const { readDirectoryProject, writeDirectoryProject } =
+    await import('../src/workspace/browser-storage.js');
   const dirCalls = [];
   function mockDir(tree) {
     return {

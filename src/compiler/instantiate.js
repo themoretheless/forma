@@ -1,3 +1,4 @@
+// @ts-check
 // Instantiating a component: checking the instance against the component's contract, resolving
 // its properties and expanding its template, including the control flow inside it.
 
@@ -8,8 +9,8 @@ import {
   selectedProperties,
   selectedPropertySources,
   validateContract,
-} from '../component-semantics.js';
-import { propertyOrigins } from '../property-origins.js';
+} from './component-semantics.js';
+import { propertyOrigins } from './property-origins.js';
 import { own } from '../shared/object.js';
 import { rangeBounds, rangeFraction } from '../shared/range.js';
 import { fallback, primitiveTypes } from './builtins.js';

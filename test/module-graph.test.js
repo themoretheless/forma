@@ -142,3 +142,112 @@ const glue=await import('./vector-pkg/forma.js');`);
     'the walk has to read imports, not a list of names',
   );
 });
+
+export const STUDIO_LAYERS = {
+  shared: [],
+  compiler: ['shared'],
+  output: ['shared'],
+  editor: ['shared', 'compiler'],
+  inspector: ['shared', 'compiler'],
+  canvas: ['shared', 'compiler'],
+  preview: ['shared', 'compiler'],
+  workspace: ['shared', 'compiler'],
+  tree: ['shared', 'compiler', 'workspace'],
+  shell: ['shared', 'compiler', 'workspace', 'preview'],
+  app: [
+    'shared',
+    'compiler',
+    'output',
+    'editor',
+    'inspector',
+    'canvas',
+    'preview',
+    'workspace',
+    'tree',
+    'shell',
+  ],
+};
+
+test('Studio src modules live in strict DAG feature folders and main.js stays a pure composition entry', () => {
+  const topLevel = sources().filter(f => f.split('/').length === 2);
+  assert.deepEqual(topLevel, ['src/main.js'], 'only src/main.js may live directly under src/');
+  const mainSource = read('src/main.js');
+  assert.doesNotMatch(mainSource, /<header/, 'src/main.js must not embed duplicate header HTML');
+  assert.ok(
+    mainSource.split('\n').length <= 240,
+    `src/main.js grew too large (${mainSource.split('\n').length} lines)`,
+  );
+
+  const violations = [];
+  const adj = new Map();
+  for (const file of sources()) {
+    const parts = file.split('/');
+    if (parts.length < 3) continue;
+    const layer = parts[1];
+    if (!Object.hasOwn(STUDIO_LAYERS, layer)) {
+      violations.push(`${file}: unknown feature folder '${layer}'`);
+      continue;
+    }
+    const deps = edges(file).filter(dep => dep.startsWith('src/'));
+    adj.set(file, deps);
+    for (const dep of deps) {
+      const targetParts = dep.split('/');
+      if (targetParts.length < 3) {
+        violations.push(`${file} -> ${dep}: feature module may not import top-level src entry`);
+        continue;
+      }
+      const targetLayer = targetParts[1];
+      if (targetLayer !== layer && !STUDIO_LAYERS[layer].includes(targetLayer)) {
+        violations.push(`${file} (${layer}) -> ${dep} (${targetLayer}) violates layer order`);
+      }
+    }
+  }
+  assert.deepEqual(violations, [], violations.join('\n'));
+
+  // Acyclic check across all src modules.
+  const state = new Map();
+  const stack = [];
+  const cycles = [];
+  const visit = node => {
+    state.set(node, 1);
+    stack.push(node);
+    for (const next of adj.get(node) ?? []) {
+      const s = state.get(next) ?? 0;
+      if (s === 0) visit(next);
+      else if (s === 1) cycles.push([...stack.slice(stack.indexOf(next)), next].join(' -> '));
+    }
+    stack.pop();
+    state.set(node, 2);
+  };
+  for (const node of adj.keys()) {
+    if ((state.get(node) ?? 0) === 0) visit(node);
+  }
+  assert.deepEqual(cycles, [], `Studio JS import cycle(s): ${cycles.join('; ')}`);
+});
+
+test('Studio JS layers maintain @ts-check coverage without regression', () => {
+  const checked = new Set();
+  for (const file of tracked) {
+    if (!file.endsWith('.js')) continue;
+    if (/^\/\/\s*@ts-check\b/m.test(read(file).slice(0, 512))) checked.add(file);
+  }
+  const required = tracked.filter(
+    file =>
+      file.endsWith('.js') &&
+      (file.startsWith('protocol/') ||
+        file.startsWith('dev-server/') ||
+        file.startsWith('src/shared/') ||
+        file.startsWith('src/output/') ||
+        file.startsWith('src/workspace/') ||
+        file.startsWith('src/app/') ||
+        file === 'src/main.js' ||
+        /^src\/[^/]+\/[^/]+-service\.js$/.test(file)),
+  );
+  const missing = required.filter(file => !checked.has(file));
+  assert.deepEqual(
+    missing,
+    [],
+    `Missing // @ts-check in required layer module(s): ${missing.join(', ')}`,
+  );
+  assert.ok(checked.size >= 119, `Expected >= 119 @ts-check modules, found ${checked.size}`);
+});

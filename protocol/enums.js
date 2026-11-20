@@ -1,3 +1,4 @@
+// @ts-check
 // Values shared by the Studio page, the Vite dev server and the MCP server. Each of the three used
 // to spell these lists out on its own; a value added in one place was rejected by the others.
 

@@ -1,8 +1,9 @@
+// @ts-check
 // Compiling one control of the scene: instantiating its component and flattening what it draws
 // into the template text the runtime loads.
 
-import { matchesType, validateTypeName } from '../component-semantics.js';
-import { literal, serializeNode } from '../component-template.js';
+import { matchesType, validateTypeName } from './component-semantics.js';
+import { literal, serializeNode } from './component-template.js';
 import { rangeBounds } from '../shared/range.js';
 import { flatten, num } from './content-layout.js';
 import { standard, visualTypes } from './vocabulary.js';

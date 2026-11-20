@@ -1,5 +1,6 @@
+// @ts-check
 // The measuring callbacks a compile uses, with their answers remembered for that one compile.
-import { parseSvgShapes, placeSvgShapes } from '../svg-shapes.js';
+import { parseSvgShapes, placeSvgShapes } from './svg-shapes.js';
 
 /**
  * Wraps the caller's metrics so that text is measured once per string and size, and an icon is

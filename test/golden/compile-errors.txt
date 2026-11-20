@@ -124,3 +124,59 @@ content that cannot be drawn
     Неподдерживаемый контент PointerArea
 content that cannot be measured
     Контент PointerArea пока не поддерживается
+required entry prop without default
+    Demo: обязательное свойство title не задано
+required child component prop without value
+    Card: обязательное свойство title не задано
+capture is not a boolean
+    Frame.capture ожидает boolean
+capture without clicked handler
+    Frame.capture требует clicked на том же контейнере
+root container width outside limit
+    Размер корневого контейнера вне допустимого диапазона 1…16384
+root frame clip is not a boolean
+    Frame.clip ожидает boolean
+nested container clip is not a boolean
+    Row.clip ожидает boolean
+unsupported element in nested visual component
+    Неподдерживаемый визуальный примитив Border
+override base key mismatch
+    В override content допустим только base.content
+override property block without base component
+    override требует базового компонента
+inheritance cycle
+    Цикл наследования: A → B → A
+missing base component
+    Компонент не найден: components/Missing.ui
+override mutating key
+    override не меняет key целевого элемента
+derived component declaring root nodes
+    Наследник меняет визуальное дерево через override
+override matching duplicate keys
+    override dup: ожидался один элемент, найдено 2.
+override from missing file
+    Файл override не найден: styles/Missing.ui
+override from element type mismatch
+    override outline: ожидался Rectangle, получен Text в styles/Wrong.ui
+modal unsupported property
+    Modal.bogus не поддерживается
+modal two-way binding
+    Modal не поддерживает привязки
+modal open not boolean
+    Modal.open ожидает boolean
+modal invalid backdrop
+    Modal.backdrop принимает hex-цвет
+modal containing scroll
+    Modal не содержит Scroll
+modal containing modal
+    Modal не содержит Modal
+modal before scene controls
+    Modal размещается после контролов сцены
+missing use import file
+    Импортируемый файл не найден: ui/missing.ui
+nested interactive visual component
+    Вложенный визуальный компонент не содержит интерактивных элементов: PointerArea
+composition depth above 32
+    Глубина композиции компонентов превышает 32
+direction together with dir
+    direction и dir — одно свойство

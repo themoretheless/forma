@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nativeInspectionModel } from '../src/native-inspection.js';
+import { nativeInspectionModel } from '../src/inspector/native-inspection.js';
 
 const controls = [
   { type: 'Button', props: { key: 'save' } },

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-const modulePath = resolve(process.argv[3] ?? 'src/components.js');
+const modulePath = resolve(process.argv[3] ?? 'src/compiler/components.js');
 const { createComponentCompiler } = await import(pathToFileURL(modulePath));
 const output = resolve(process.argv[2] ?? '.forma/perf/compiler-dependencies');
 const results = [];

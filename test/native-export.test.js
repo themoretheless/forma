@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { buildNativeRustExport } from '../src/native-export.js';
-import { sampleProject } from '../src/sample-project.js';
+import { buildNativeRustExport } from '../src/workspace/native-export.js';
+import { sampleProject } from '../src/workspace/sample-project.js';
 
 const typedProject = {
   'Cargo.toml': `[package] # application metadata
@@ -227,6 +227,113 @@ function compileBundle(bundle, targetDir) {
   assert.equal(native.status, 0, native.stderr + native.stdout);
 }
 
+test('buildNativeRustExport normalizes CRLF Cargo.toml sections without duplicating headers', () => {
+  const crlfManifest = typedProject['Cargo.toml'].replace(/\n/g, '\r\n');
+  const bundle = buildNativeRustExport(
+    { ...typedProject, 'Cargo.toml': crlfManifest },
+    'ui/Counter.ui',
+    { name: 'Windows Crate' },
+  );
+  for (const section of ['package', 'features', 'dependencies']) {
+    assert.equal(
+      bundle.files['Cargo.toml'].match(new RegExp(`^\\[${section}\\]`, 'gm'))?.length,
+      1,
+      `expected single [${section}] section`,
+    );
+  }
+  assert.ok(!bundle.files['Cargo.toml'].includes('\r'));
+  assert.ok(bundle.files['Cargo.toml'].includes('serde = "1"'));
+  assert.ok(bundle.files['Cargo.toml'].includes('native = ["forma/native"]'));
+});
+
+test('buildNativeRustExport sanitizes digit-leading crate names and Cargo.toml package names', () => {
+  const fromOption = buildNativeRustExport(runtimeProject, 'ui/SearchWindow.ui', {
+    projectName: '123-Widget!',
+  });
+  assert.equal(fromOption.name, 'app-123-widget');
+  assert.ok(fromOption.files['Cargo.toml'].includes('name = "app-123-widget"'));
+  assert.ok(fromOption.files['ios/Info.plist'].includes('dev.forma.app123widget'));
+
+  const fromManifest = buildNativeRustExport(
+    {
+      ...runtimeProject,
+      'Cargo.toml': '[package]\nname = "9lives"\nversion = "0.1.0"\nedition = "2021"\n',
+    },
+    'ui/SearchWindow.ui',
+  );
+  assert.equal(fromManifest.name, 'app-9lives');
+  assert.ok(fromManifest.files['Cargo.toml'].includes('name = "app-9lives"'));
+  assert.ok(fromManifest.files['ios/Info.plist'].includes('dev.forma.app9lives'));
+
+  const emptyPunctuation = buildNativeRustExport(runtimeProject, 'ui/SearchWindow.ui', {
+    name: '!!!',
+  });
+  assert.equal(emptyPunctuation.name, 'forma-app');
+});
+
+test('buildNativeRustExport rejects invalid Cargo.toml manifests and reserved output collisions', () => {
+  assert.throws(
+    () =>
+      buildNativeRustExport(
+        {
+          ...runtimeProject,
+          'Cargo.toml': '[dependencies]\nforma = {\n  path = "../crates/forma"\n}\n',
+        },
+        'ui/SearchWindow.ui',
+      ),
+    /многострочная зависимость forma/,
+  );
+
+  assert.throws(
+    () =>
+      buildNativeRustExport(
+        {
+          ...runtimeProject,
+          'Cargo.toml': '[features]\nnative = true\n',
+        },
+        'ui/SearchWindow.ui',
+      ),
+    /feature native/,
+  );
+
+  assert.throws(
+    () =>
+      buildNativeRustExport(
+        { ...typedProject, 'src/forma_generated.rs': '// existing' },
+        'ui/Counter.ui',
+      ),
+    /forma_generated\.rs/,
+  );
+
+  assert.throws(
+    () =>
+      buildNativeRustExport(
+        { ...runtimeProject, 'src/ui_bundle.rs': '// existing' },
+        'ui/SearchWindow.ui',
+      ),
+    /ui_bundle\.rs/,
+  );
+});
+
+test('buildNativeRustExport validates root .ui files, explicit entryFile, and safe paths', () => {
+  assert.throws(
+    () => buildNativeRustExport({ 'ui/Only.design.ui': 'design Only {}' }),
+    /корневых \.ui/,
+  );
+
+  assert.throws(
+    () => buildNativeRustExport(runtimeProject, 'ui/Missing.ui'),
+    /Входной файл не найден в проекте: ui\/Missing\.ui/,
+  );
+
+  for (const unsafePath of ['../escape.ui', 'ui/../App.ui', '/abs/App.ui', 'ui\\win.ui']) {
+    assert.throws(
+      () => buildNativeRustExport({ ...runtimeProject, [unsafePath]: 'component X { Frame {} }' }),
+      /Недопустимый путь UI-файла/,
+    );
+  }
+});
+
 test(
   'exported Runtime, starter, and typed crates compile, test handlers, and check the native window',
   rustOptions,
@@ -242,5 +349,37 @@ test(
       targetDir,
     );
     compileBundle(buildNativeRustExport(typedProject, 'ui/Counter.ui', { formaPath }), targetDir);
+
+    const crlfBundle = buildNativeRustExport(
+      {
+        ...runtimeProject,
+        'Cargo.toml':
+          '[package]\r\nname = "42-counter"\r\nversion = "0.1.0"\r\n\r\n[features]\r\ndefault = []\r\n\r\n[dependencies]\r\n',
+      },
+      'ui/SearchWindow.ui',
+      { formaPath, projectName: '42-counter' },
+    );
+    assert.equal(crlfBundle.name, 'app-42-counter');
+    const dir = mkdtempSync(join(tmpdir(), `${crlfBundle.name}-`));
+    try {
+      for (const [path, content] of Object.entries(crlfBundle.files)) {
+        const output = join(dir, path);
+        mkdirSync(dirname(output), { recursive: true });
+        writeFileSync(output, content);
+      }
+      const check = spawnSync(
+        'cargo',
+        ['check', '--offline', '--manifest-path', join(dir, 'Cargo.toml')],
+        {
+          encoding: 'utf8',
+          timeout: 240_000,
+          maxBuffer: 8 * 1024 * 1024,
+          env: { ...process.env, CARGO_TARGET_DIR: targetDir },
+        },
+      );
+      assert.equal(check.status, 0, check.stderr + check.stdout);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   },
 );

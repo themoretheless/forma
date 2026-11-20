@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStatesPanel } from '../src/states-panel.js';
+import { createStatesPanel } from '../src/tree/states-panel.js';
 
 // Minimal DOM: the panel assigns handlers directly, so a test presses the real button and reads
 // back the rows it produced instead of dispatching synthetic events.

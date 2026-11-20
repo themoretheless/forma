@@ -1,6 +1,7 @@
+// @ts-check
 import { fileURLToPath } from 'node:url';
-import { generateForm } from './src/form-codegen.js';
-import { parse } from './src/language.js';
+import { generateForm } from './src/compiler/form-codegen.js';
+import { parse } from './src/compiler/language.js';
 
 // Stage generated source next to the user's Rust modules. The virtual project
 // remains unchanged; each run recompiles all forms against the current model.

@@ -5,8 +5,8 @@ import init, * as runtime from '../public/vector-pkg/forma.js';
 import { createCatalogSession } from '../crates/forma/controls/catalog-session.js';
 import { sectionSource, sections, catalogProject } from '../crates/forma/controls/catalog.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
-import { compileComponents } from '../src/components.js';
-import { parse } from '../src/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 await init({
   module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
 });

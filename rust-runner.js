@@ -1,3 +1,4 @@
+// @ts-check
 import { prepareFormProject, mapFormDiagnostic } from './form-project.js';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, formatSource, lintDocument } from '../src/language.js';
-import { compileComponents } from '../src/components.js';
-import { expandStructure } from '../src/component-semantics.js';
+import { parse, formatSource, lintDocument } from '../src/compiler/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { expandStructure } from '../src/compiler/component-semantics.js';
 
 const metrics = {
   measureText: (t, s) => [String(t ?? '').length * s * 0.5, s * 1.2],
@@ -313,8 +313,8 @@ test('8. Extended stdlib (math, strings, collections/records, color/contrast), u
 
 test('9. Interactive local state mutations, shortcuts, and built-in visual components in HTML preview', async () => {
   const { executePreviewStateAction, matchPreviewShortcut } =
-    await import('../src/preview-state.js');
-  const { renderHtmlPreview } = await import('../src/html-preview.js');
+    await import('../src/preview/preview-state.js');
+  const { renderHtmlPreview } = await import('../src/preview/html-preview.js');
 
   const model = {
     count: 10,

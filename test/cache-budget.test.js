@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCacheBudget, estimateCacheBytes } from '../src/cache-budget.js';
+import { createCacheBudget, estimateCacheBytes } from '../src/shared/cache-budget.js';
 
 test('shared budget evicts the least recently used entry across namespaces', () => {
   const cache = createCacheBudget({ maxEntries: 2, maxBytes: 10000 });

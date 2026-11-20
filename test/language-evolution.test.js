@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, resolve } from '../src/language.js';
-import { compileComponents } from '../src/components.js';
-import { renderHtmlPreview } from '../src/html-preview.js';
+import { parse, resolve } from '../src/compiler/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { renderHtmlPreview } from '../src/preview/html-preview.js';
 
 function createFakeDom() {
   class FakeElement {

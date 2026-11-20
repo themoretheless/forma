@@ -5,8 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 const root = resolve(process.argv[3] ?? '.');
-const { blockRanges } = await import(pathToFileURL(resolve(root, 'src/folding.js')));
-const { treeRows } = await import(pathToFileURL(resolve(root, 'src/control-tree.js')));
+const { blockRanges } = await import(pathToFileURL(resolve(root, 'src/editor/folding.js')));
+const { treeRows } = await import(pathToFileURL(resolve(root, 'src/tree/control-tree.js')));
 const out = resolve(process.argv[2] ?? '.forma/perf/studio-tools');
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const roots = [

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sampleProject } from '../src/sample-project.js';
-import { validateProject } from '../src/browser-storage.js';
-import { parse } from '../src/language.js';
+import { sampleProject } from '../src/workspace/sample-project.js';
+import { validateProject } from '../src/workspace/browser-storage.js';
+import { parse } from '../src/compiler/language.js';
 import { prepareFormProject } from '../form-project.js';
-import { buildNativeRustExport } from '../src/native-export.js';
+import { buildNativeRustExport } from '../src/workspace/native-export.js';
 
 // The project every fresh Studio opens must load cleanly: a broken sample is the first thing a user sees.
 test('the sample project is a valid project whose design references resolve', () => {

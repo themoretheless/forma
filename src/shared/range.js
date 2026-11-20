@@ -1,3 +1,4 @@
+// @ts-check
 // The scale of a range control. A bound number lies between `min` and `max`, optionally on a
 // `step` grid, while the widget works with a fraction from 0 to 1. Mirrors
 // crates/forma/src/form_document/range.rs.

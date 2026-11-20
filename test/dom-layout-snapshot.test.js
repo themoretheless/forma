@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createComponentCatalog, domLayoutSnapshot } from '../src/dom-layout-snapshot.js';
+import { createComponentCatalog, domLayoutSnapshot } from '../src/canvas/dom-layout-snapshot.js';
 
 const rect = (left, top, width, height) => ({ left, top, width, height });
 

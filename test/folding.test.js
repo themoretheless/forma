@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockRanges } from '../src/folding.js';
+import { blockRanges } from '../src/editor/folding.js';
 test('nested blocks ignore braces in strings and comments', () => {
   const text = "component A {\n // }\n Button {\n text: '}'; /* { */\n }\n}";
   const ranges = blockRanges(text);

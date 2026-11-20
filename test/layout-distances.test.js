@@ -1,7 +1,7 @@
 // The distances the canvas draws from a selected control to its nearest neighbour or the frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutDistances } from '../src/layout-distances.js';
+import { layoutDistances } from '../src/canvas/layout-distances.js';
 
 const FRAME = [400, 300];
 const SELECTED = [100, 100, 50, 40]; // x 100..150, y 100..140, centre 125, 120

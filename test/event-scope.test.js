@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createEventScope } from '../src/event-scope.js';
-import { controlLabel, collapseText } from '../src/control-label.js';
+import { createEventScope } from '../src/shared/event-scope.js';
+import { controlLabel, collapseText } from '../src/shell/control-label.js';
 
 class Target {
   constructor() {

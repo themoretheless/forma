@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, parseShared, resolve, validateDesign, designStatePatch } from '../src/language.js';
+import {
+  parse,
+  parseShared,
+  resolve,
+  validateDesign,
+  designStatePatch,
+} from '../src/compiler/language.js';
 test('component exposes defaults separately from primitives', () => {
   const p = parse(
     "component Button { width: 100; text: 'Кнопка'; fontSize: 16; Rectangle { radius: props.radius; } }",

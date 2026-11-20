@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendLog, diagnosticTargets, outputHtml, problemCount } from '../src/output-panel.js';
+import {
+  appendLog,
+  diagnosticTargets,
+  outputHtml,
+  problemCount,
+} from '../src/output/output-panel.js';
 
 const base = { tab: 'problems', state: {}, logs: [], error: '', warnings: [] };
 

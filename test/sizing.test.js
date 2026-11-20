@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sizeValue } from '../src/sizing.js';
-import { trackList } from '../src/grid.js';
-import { parse, resolve } from '../src/language.js';
+import { sizeValue } from '../src/preview/sizing.js';
+import { trackList } from '../src/preview/grid.js';
+import { parse, resolve } from '../src/compiler/language.js';
 test('dash is content sizing without conflicting with arrows or negative numbers', () => {
   const n = parse(
     'component Demo { Frame { columns: [-, *]; rows: [48, -]; width: -; margin: -8; clicked -> actions.search(); value <-> state.query; } }',

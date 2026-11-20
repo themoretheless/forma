@@ -1,3 +1,4 @@
+// @ts-check
 // What a document and the files it `use`s declare for the whole compile: enums and structs,
 // design tokens, translations and styles.
 import { own } from '../shared/object.js';

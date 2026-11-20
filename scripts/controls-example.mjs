@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import { catalogProject } from '../crates/forma/controls/catalog.js';
 import init, { text_metrics } from '../public/vector-pkg/forma.js';
 const root = fileURLToPath(new URL('../', import.meta.url));

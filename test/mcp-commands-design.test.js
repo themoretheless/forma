@@ -1,7 +1,7 @@
 // Behaviour of the MCP design commands against a stand-in for the Studio.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDesignCommands } from '../src/mcp-commands-design.js';
+import { createDesignCommands } from '../src/app/mcp-commands-design.js';
 
 const SOURCE = "component Demo { Frame { Text { text: 'a'; } Text { text: 'b'; } } }";
 const FIRST = SOURCE.indexOf("Text { text: 'a'");
@@ -253,8 +253,8 @@ test('splice commands change the entry source and report the new node', () => {
 });
 
 test('component_select and component_property resolve nodes by stableId across shifted offsets', async () => {
-  const { createIdeCommands } = await import('../src/mcp-commands.js');
-  const { parse } = await import('../src/language.js');
+  const { createIdeCommands } = await import('../src/app/mcp-commands.js');
+  const { parse } = await import('../src/compiler/language.js');
   const shifted =
     "component Demo { Frame { Button { text: 'Inserted'; } Text { text: 'a'; } Text { text: 'b'; } } }";
   const doc = parse(shifted, { file: 'ui/Demo.ui' });

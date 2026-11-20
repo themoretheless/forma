@@ -3,7 +3,7 @@
 <h1>Rust word input · browser DOM</h1><p id="status">Running…</p><div id="editor"></div><ul id="cases"></ul><pre id="live"></pre><details><summary>Raw evidence</summary><pre id="report"></pre></details>
 <script type="module">
 import init,* as wasm from '/wasm/forma.js';
-import {createVectorPreview} from '/src/vector-preview.js?composition-owner=1';
+import {createVectorPreview} from '/src/preview/vector-preview.js?composition-owner=1';
 const report={status:'running',input:'synthetic DOM events; not trusted OS keyboard',platform:navigator.platform,userAgentPlatform:navigator.userAgentData?.platform,cases:[],bindings:[]};
 const equal=(a,b)=>{if(a!==b)throw Error(JSON.stringify(a)+' != '+JSON.stringify(b));};
 const check=(name,fn)=>{try{fn();report.cases.push({name,status:'passed'});}catch(e){report.cases.push({name,status:'failed',error:String(e.stack)});}};

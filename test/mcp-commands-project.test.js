@@ -1,7 +1,7 @@
 // Behaviour of the MCP project commands against a stand-in for the Studio.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createProjectCommands } from '../src/mcp-commands-project.js';
+import { createProjectCommands } from '../src/app/mcp-commands-project.js';
 
 const DEMO = "component Demo { Frame { Text { text: 'a'; } } }";
 

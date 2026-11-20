@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createElementTools } from '../src/element-tools.js';
-import { parse } from '../src/language.js';
+import { createElementTools } from '../src/canvas/element-tools.js';
+import { parse } from '../src/compiler/language.js';
 class Element extends EventTarget {
   constructor() {
     super();

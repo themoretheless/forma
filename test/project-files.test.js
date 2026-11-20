@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import {
   componentPath,
   createFile,
@@ -9,7 +9,7 @@ import {
   newFileContent,
   renameFile,
   suggestComponentName,
-} from '../src/project-files.js';
+} from '../src/workspace/project-files.js';
 
 const project = () => ({ 'ui/Demo.ui': 'demo', 'ui/Other.ui': 'other', README: 'read me' });
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileComponents, createComponentCompiler } from '../src/components.js';
-import { createCacheBudget } from '../src/cache-budget.js';
+import { compileComponents, createComponentCompiler } from '../src/compiler/components.js';
+import { createCacheBudget } from '../src/shared/cache-budget.js';
 
 const fixture = () => ({
   'Demo.ui':

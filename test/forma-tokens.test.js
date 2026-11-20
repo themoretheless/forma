@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parser } from '../src/forma-parser.js';
+import { parser } from '../src/compiler/forma-parser.js';
 
 // The external string tokenizer: names every String token the parser accepts in a property value.
 const strings = source => {

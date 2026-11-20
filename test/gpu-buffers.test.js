@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStoragePool, classifyMemoryArchitecture } from '../src/gpu-buffers.js';
+import { createStoragePool, classifyMemoryArchitecture } from '../src/preview/gpu-buffers.js';
 function fixture(limit = 1024) {
   const created = [],
     writes = [];

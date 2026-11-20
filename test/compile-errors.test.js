@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 
 const metrics = { measureText: () => [80, 20] };
 const demo = body => ({ 'ui/Demo.ui': `component Demo { ${body} }` });
@@ -217,6 +217,116 @@ const cases = {
   'content that cannot be measured': {
     'components/Button.ui': `component Button { Rectangle { Row { PointerArea { } } } }`,
     ...demo(`Frame { Button { } }`),
+  },
+  'required entry prop without default': {
+    'ui/Demo.ui': `component Demo { required prop title: String; Frame { Text { text: props.title; } } }`,
+  },
+  'required child component prop without value': {
+    'components/Card.ui': `component Card { required prop title: String; Rectangle { Text { text: props.title; } PointerArea { clicked -> events.clicked(); } } }`,
+    ...demo(`Frame { Card { } }`),
+  },
+  'capture is not a boolean': demo(
+    `Frame { Frame { capture: 3; clicked -> actions.go(); Text { text: 'a'; } } }`,
+  ),
+  'capture without clicked handler': demo(`Frame { Frame { capture: true; Text { text: 'a'; } } }`),
+  'root container width outside limit': demo(
+    `Frame { width: 20000; height: 200; Text { text: 'a'; } }`,
+  ),
+  'root frame clip is not a boolean': demo(`Frame { clip: 3; Text { text: 'a'; } }`),
+  'nested container clip is not a boolean': demo(`Frame { Row { clip: 3; Text { text: 'a'; } } }`),
+  'unsupported element in nested visual component': {
+    'components/Child.ui': `component Child { Frame { Border {} } }`,
+    'components/Outer.ui': `component Outer { Rectangle { Child {} PointerArea { clicked -> events.clicked(); } } }`,
+    ...demo(`Frame { Outer {} }`),
+  },
+  'override base key mismatch': {
+    'components/Button.ui': button,
+    'components/B2.ui': `component B2 : Button { override content: base.other; }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override property block without base component': {
+    'components/Lab.ui': `component Lab { override outline { width: 2; } Frame { Rectangle { key: 'outline'; } } }`,
+    ...demo(`Frame { Lab { } }`),
+  },
+  'inheritance cycle': {
+    'components/A.ui': `component A : B {}`,
+    'components/B.ui': `component B : A {}`,
+    ...demo(`Frame { A { } }`),
+  },
+  'missing base component': {
+    'components/A.ui': `component A : Missing {}`,
+    ...demo(`Frame { A { } }`),
+  },
+  'override mutating key': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'outline' { key: 'other'; } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'derived component declaring root nodes': {
+    'components/Button.ui': button,
+    'components/B2.ui': `component B2 : Button { Frame { Text { text: 'a'; } } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override matching duplicate keys': {
+    'components/Dup.ui': `component Dup { Rectangle { ContentPresenter { key: 'content'; content: match props.x { true => Text { key: 'dup'; text: 'a'; }; false => Text { key: 'dup'; text: 'b'; }; }; } } }`,
+    'components/Dup2.ui': `component Dup2 : Dup { override 'dup' { width: 20; } }`,
+    ...demo(`Frame { Dup2 { } }`),
+  },
+  'override from missing file': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'outline' from '../styles/Missing.ui' { width: 2; } }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'override from element type mismatch': {
+    'components/Button.ui': keyedButton,
+    'components/B2.ui': `component B2 : Button { override 'outline' from '../styles/Wrong.ui' { width: 2; } }`,
+    'styles/Wrong.ui': `Text { text: 'x'; }`,
+    ...demo(`Frame { B2 { } }`),
+  },
+  'modal unsupported property': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; bogus: 1; Frame { Text { text: 'b'; } } } }`,
+  ),
+  'modal two-way binding': demo(
+    `state open: Bool = false; Frame { Text { text: 'a'; } Modal { key: 'm'; open <-> state.open; Frame { Text { text: 'b'; } } } }`,
+  ),
+  'modal open not boolean': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; open: 3; Frame { Text { text: 'b'; } } } }`,
+  ),
+  'modal invalid backdrop': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; backdrop: 'red'; Frame { Text { text: 'b'; } } } }`,
+  ),
+  'modal containing scroll': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; Scroll { Text { text: 'b'; } } } }`,
+  ),
+  'modal containing modal': demo(
+    `Frame { Text { text: 'a'; } Modal { key: 'm'; Modal { key: 'm2'; Frame { Text { text: 'b'; } } } } }`,
+  ),
+  'modal before scene controls': demo(
+    `Frame { Modal { key: 'm'; Frame { Text { text: 'b'; } } } Text { text: 'a'; } }`,
+  ),
+  'missing use import file': {
+    'ui/Demo.ui': `use './missing.ui'; component Demo { Frame { Text { text: 'a'; } } }`,
+  },
+  'nested interactive visual component': {
+    'components/Inner.ui': `component Inner { Rectangle { Text { text: 'i'; } PointerArea { clicked -> events.clicked(); } } }`,
+    'components/Outer.ui': `component Outer { Rectangle { Inner {} PointerArea { clicked -> events.clicked(); } } }`,
+    ...demo(`Frame { Outer {} }`),
+  },
+  'composition depth above 32': {
+    ...Object.fromEntries(
+      Array.from({ length: 33 }, (_, i) => [
+        `components/V${i}.ui`,
+        i
+          ? `component V${i} { Frame { V${i - 1} {} } }`
+          : `component V0 { Frame { Text { text: 'a'; } } }`,
+      ]),
+    ),
+    'components/Outer.ui': `component Outer { Rectangle { V32 {} PointerArea { clicked -> events.clicked(); } } }`,
+    ...demo(`Frame { Outer {} }`),
+  },
+  'direction together with dir': {
+    'components/RtlLabel.ui': `component RtlLabel { direction: 'ltr'; Frame { Text { text: 'a'; } PointerArea { clicked -> events.clicked(); } } }`,
+    ...demo(`Frame { RtlLabel { direction: 'rtl'; dir: 'ltr'; } }`),
   },
 };
 

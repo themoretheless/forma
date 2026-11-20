@@ -1,8 +1,9 @@
+// @ts-check
 // Linking component definitions: resolving a component name to its definition with the base
 // component, overrides and contracts folded in.
 
-import { validateTypeName } from '../component-semantics.js';
-import { similarName, sourceError } from '../diagnostics.js';
+import { validateTypeName } from './component-semantics.js';
+import { similarName, sourceError } from './diagnostics.js';
 import { own } from '../shared/object.js';
 import { builtinSources } from './builtins.js';
 import { clone, visit } from './data.js';

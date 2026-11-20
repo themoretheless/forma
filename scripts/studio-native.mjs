@@ -7,10 +7,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compileComponents } from '../src/components.js';
-import { parse } from '../src/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
-import { composeStudioWindow, keyText } from '../src/studio-window.js';
+import { composeStudioWindow, keyText } from '../src/shell/studio-window.js';
 import { createVectorRunner } from '../vector-runner.js';
 import init, { text_metrics } from '../public/vector-pkg/forma.js';
 

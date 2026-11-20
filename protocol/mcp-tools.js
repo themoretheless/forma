@@ -1,3 +1,4 @@
+// @ts-check
 // Shared MCP tool protocol between the unified Rust MCP server (crates/forma-mcp), mcp/smoke.js,
 // and the Studio IDE bridge in src/mcp-commands*.js.
 import tools from './mcp-tools.json' with { type: 'json' };

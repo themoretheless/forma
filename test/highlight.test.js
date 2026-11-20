@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parser } from '../src/forma-parser.js';
+import { parser } from '../src/compiler/forma-parser.js';
 function errors(source) {
   const out = [];
   parser.parse(source).iterate({
@@ -77,7 +77,7 @@ test('highlight grammar covers contracts, expressions, grouped variants and keye
   );
 });
 test('the complete Studio highlight extension imports and installs in an editor state', async () => {
-  const { formaHighlight } = await import('../src/forma-highlight.js');
+  const { formaHighlight } = await import('../src/editor/forma-highlight.js');
   const { EditorState } = await import('@codemirror/state');
   const { syntaxTree } = await import('@codemirror/language');
   const state = EditorState.create({

@@ -1,7 +1,7 @@
-import { propertyOrigins } from '../src/property-origins.js';
+import { propertyOrigins } from '../src/compiler/property-origins.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 const files = {
   'components/Button.ui': `component Button {width:160;height:40;fontSize:14;text:'Save';color:#ffffff;Rectangle {Text {key:'caption';text:props.text;color:props.color;fontSize:props.fontSize;}}}`,
   'components/LargeButton.ui': `component LargeButton : Button {fontSize:18;override caption {color:#000000;}}`,

@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
-import { composeStudioWindow, keyText } from '../src/studio-window.js';
+import { composeStudioWindow, keyText } from '../src/shell/studio-window.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
 const read = (root, folders) =>

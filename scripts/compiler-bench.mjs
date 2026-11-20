@@ -3,7 +3,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
-import { compileComponents } from '../src/components.js';
+import { compileComponents } from '../src/compiler/components.js';
 const read = name => readFile(new URL(`../crates/forma/examples/${name}`, import.meta.url), 'utf8');
 const files = {
   'components/Button.ui': await read('Button.slots.ui'),

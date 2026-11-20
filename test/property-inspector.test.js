@@ -1,17 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse, designStatePatch } from '../src/language.js';
-import { setDesignData, designReferencesInFiles } from '../src/design-data.js';
-import { findEntry } from '../src/design-states.js';
-import { propertyFields, createPropertyInspector } from '../src/property-inspector.js';
-import { pickerHex } from '../src/color-values.js';
+import { parse, designStatePatch } from '../src/compiler/language.js';
+import { setDesignData, designReferencesInFiles } from '../src/compiler/design-data.js';
+import { findEntry } from '../src/compiler/design-states.js';
+import { propertyFields, createPropertyInspector } from '../src/inspector/property-inspector.js';
+import { pickerHex } from '../src/shared/color-values.js';
 import {
   valueTextEdit,
   statementTextEdit,
   propertyAddEdit,
   propertyRemoveEdit,
-} from '../src/property-edit.js';
-import { addableProperties, propertyStart } from '../src/property-catalog.js';
+} from '../src/compiler/property-edit.js';
+import { addableProperties, propertyStart } from '../src/inspector/property-catalog.js';
 
 const source = `component SearchWindow {
     Frame {

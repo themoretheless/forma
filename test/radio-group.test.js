@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { compileComponents } from '../src/components.js';
-import { parse } from '../src/language.js';
+import { compileComponents } from '../src/compiler/components.js';
+import { parse } from '../src/compiler/language.js';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
 
 function library() {

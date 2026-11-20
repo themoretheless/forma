@@ -1,3 +1,4 @@
+// @ts-check
 import { randomUUID } from 'node:crypto';
 import { chmodSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

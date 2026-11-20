@@ -1,3 +1,4 @@
+// @ts-check
 // Laying out the controls of a scene: what size each control takes and where its container puts it.
 
 import {
@@ -7,7 +8,7 @@ import {
   intrinsicLength,
   length,
   naturalContainer,
-} from '../component-layout.js';
+} from './component-layout.js';
 import { cell, gap, insets, natural, sizes } from './content-layout.js';
 import { own } from '../shared/object.js';
 import { clone } from './data.js';

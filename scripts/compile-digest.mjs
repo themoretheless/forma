@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
 const { createComponentCompiler, compileComponents } = await import(
-  pathToFileURL(resolve(root, 'src/components.js'))
+  pathToFileURL(resolve(root, 'src/compiler/components.js'))
 );
 const read = async name => readFile(resolve(root, 'crates/forma/examples', name), 'utf8');
 const components = {

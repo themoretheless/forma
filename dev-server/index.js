@@ -1,3 +1,4 @@
+// @ts-check
 import { registerMcpBridge } from './mcp-bridge.js';
 import { registerRunnerWebSockets } from './runner-ws.js';
 import { registerWasmMiddlewares } from './wasm-middleware.js';

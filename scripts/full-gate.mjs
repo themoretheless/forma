@@ -96,6 +96,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
         args: ['node_modules/eslint/bin/eslint.js', '--max-warnings', '0', '.'],
       },
       {
+        id: 'typecheck-js',
+        name: 'Studio JavaScript passes TypeScript @ts-check (tsc --noEmit)',
+        argv: process.execPath,
+        args: ['scripts/typecheck.mjs'],
+        requiresOutput: true,
+      },
+      {
         id: 'format-rust',
         name: 'Every tracked Rust manifest is formatted (rustfmt)',
         argv: process.execPath,

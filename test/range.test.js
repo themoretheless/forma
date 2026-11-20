@@ -53,7 +53,7 @@ test('an empty, reversed or non-numeric scale falls back to the default', () => 
   assert.equal(bounds({ step: -2 }).step, 0);
 });
 
-const { compileComponents } = await import('../src/components.js');
+const { compileComponents } = await import('../src/compiler/components.js');
 const { readFileSync, readdirSync } = await import('node:fs');
 const { materializeTheme } = await import('../crates/forma/controls/tokens.js');
 

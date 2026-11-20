@@ -1,7 +1,7 @@
 <!doctype html><meta charset="utf-8"><title>Rust clipboard failure safety</title><style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:140px}pre{white-space:pre-wrap}</style>
 <h1>Rust clipboard failure safety</h1><p id="status">Loading…</p><div id="editor"></div><pre id="report"></pre>
 <script type="module">
-import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/vector-preview.js';
+import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/preview/vector-preview.js';
 const report={status:'running',cases:[],epochMode:new URLSearchParams(location.search).has('uncached')?'forced-zero':'runtime'};
 try{
  await init();let active;const calls={value:0,selection:0};class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}text_model_revision(){return new URLSearchParams(location.search).has('uncached')?0:super.text_model_revision();}text_value(index){calls.value++;return super.text_value(index);}text_selection_utf16(){calls.selection++;return super.text_selection_utf16();}}

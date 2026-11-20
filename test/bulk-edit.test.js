@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { sharedFields, sharedEdit, createBulkEditor } from '../src/bulk-edit.js';
+import { parse } from '../src/compiler/language.js';
+import { sharedFields, sharedEdit, createBulkEditor } from '../src/inspector/bulk-edit.js';
 
 // Three controls the canvas can hold at once: one name they agree on (`height`), names they disagree
 // on (`text`, `opacity`), and names that have no single value to write into all of them — a design

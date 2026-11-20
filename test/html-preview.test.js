@@ -1,10 +1,10 @@
 // The HTML preview against a stand-in for the DOM: what it builds for a compiled document.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../src/language.js';
-import { renderHtmlPreview } from '../src/html-preview.js';
-import { sampleProject } from '../src/sample-project.js';
-import { addableProperties, propertyStart } from '../src/property-catalog.js';
+import { parse } from '../src/compiler/language.js';
+import { renderHtmlPreview } from '../src/preview/html-preview.js';
+import { sampleProject } from '../src/workspace/sample-project.js';
+import { addableProperties, propertyStart } from '../src/inspector/property-catalog.js';
 
 class FakeElement {
   constructor(tag) {

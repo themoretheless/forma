@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createKeyedPool } from '../src/keyed-pool.js';
+import { createKeyedPool } from '../src/shared/keyed-pool.js';
 
 test('a keyed pool hands back the latest item under a key and discards what it drops', () => {
   const discarded = [],

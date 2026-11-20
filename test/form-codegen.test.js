@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { sections, sectionSource } from '../crates/forma/controls/catalog.js';
 import { prepareFormProject, mapFormDiagnostic } from '../form-project.js';
-import { generateForm } from '../src/form-codegen.js';
+import { generateForm } from '../src/compiler/form-codegen.js';
 
 const project = resolve('crates/forma/examples/binding-app');
 const entry = 'ui/CustomerForm.ui';

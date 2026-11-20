@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "typeRoots": ["./packages/svet/node_modules/@types", "./node_modules/@types"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "protocol/**/*.js",
+    "dev-server/**/*.js",
+    "design-data-runner.js",
+    "form-project.js",
+    "rust-runner.js",
+    "vector-runner.js"
+  ]
+}
