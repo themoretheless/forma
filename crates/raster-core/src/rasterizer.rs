@@ -5,6 +5,7 @@
 //! semantics: opaque draws write depth, transparent draws blend without
 //! depth writes, morph source bound at vertex slot 1, rest morph weight 1.
 
+use crate::RasterError;
 use crate::pipeline::RasterPipelines;
 use crate::resources;
 use crate::shaders::MORPH_VERTEX_STRIDE;
@@ -13,6 +14,7 @@ use crate::uniform::{
 };
 use gpu_compute::{GpuContext, f32_le_bytes, wgpu};
 
+pub use crate::RasterError as Error;
 pub use crate::resources::{
     DrawEdges, DrawMesh, InstancePool, InstancedGeometry, LineBatch, OverlayBatch,
 };
@@ -84,7 +86,7 @@ pub struct Rasterizer {
 }
 
 impl Rasterizer {
-    pub fn new(context: GpuContext, format: wgpu::TextureFormat) -> Self {
+    pub fn new(context: GpuContext, format: wgpu::TextureFormat) -> Result<Self, RasterError> {
         let pipelines = RasterPipelines::new(&context.device, format);
         let scene_buffer = context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("raster scene uniform"),
@@ -109,20 +111,23 @@ impl Rasterizer {
             mapped_at_creation: false,
         });
         // Fullscreen triangle-pair quad for the grid shader (vec2 corners).
-        let grid_quad = context.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("raster grid quad"),
-            size: 6 * 8,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: true,
-        });
-        grid_quad
-            .slice(..)
-            .get_mapped_range_mut()
-            .expect("mapped grid quad")
-            .copy_from_slice(&f32_le_bytes(&[
-                -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
-            ]));
-        grid_quad.unmap();
+        let grid_quad_bytes = f32_le_bytes(&[
+            -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
+        ]);
+        let grid_quad = gpu_compute::create_buffer_initialized(
+            &context.device,
+            &wgpu::BufferDescriptor {
+                label: Some("raster grid quad"),
+                size: grid_quad_bytes.len() as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: true,
+            },
+            |mapping| {
+                mapping
+                    .into_slice(..grid_quad_bytes.len())
+                    .copy_from_slice(&grid_quad_bytes);
+            },
+        )?;
         // Shadow sampling shaders always have something bound: natively a 1×1
         // depth dummy + comparison sampler, with shadow_params disabled.
         let shadow_dummy = context.device.create_texture(&wgpu::TextureDescriptor {
@@ -162,7 +167,7 @@ impl Rasterizer {
                     },
                 ],
             });
-        Self {
+        Ok(Self {
             format,
             context,
             pipelines,
@@ -180,7 +185,7 @@ impl Rasterizer {
             section_enabled: false,
             cached_shadow_vp: None,
             last_scene_floats: None,
-        }
+        })
     }
 
     pub fn device(&self) -> &wgpu::Device {
@@ -196,7 +201,7 @@ impl Rasterizer {
         indices: &[u32],
         uniform: &ObjectUniform,
         morph_source: Option<&[f32]>,
-    ) -> DrawMesh {
+    ) -> Result<DrawMesh, RasterError> {
         resources::create_mesh(
             &self.context,
             &self.pipelines,
@@ -215,7 +220,7 @@ impl Rasterizer {
         edge_indices: &[u32],
         uniform: &ObjectUniform,
         morph_source: Option<&[f32]>,
-    ) -> DrawEdges {
+    ) -> Result<DrawEdges, RasterError> {
         resources::create_edges(
             &self.context,
             &self.pipelines,
@@ -227,17 +232,20 @@ impl Rasterizer {
     }
 
     /// Line segments, 7 floats per vertex (pos3 + color4).
-    pub fn create_line_batch(&self, vertices: &[f32]) -> LineBatch {
+    pub fn create_line_batch(&self, vertices: &[f32]) -> Result<LineBatch, RasterError> {
         resources::create_line_batch(&self.context.device, vertices)
     }
 
     /// Overlay triangles, 7 floats per vertex (pos3 + color4).
-    pub fn create_overlay_batch(&self, vertices: &[f32]) -> OverlayBatch {
+    pub fn create_overlay_batch(&self, vertices: &[f32]) -> Result<OverlayBatch, RasterError> {
         resources::create_overlay_batch(&self.context.device, vertices)
     }
 
     /// Uploads per-instance records (one [`ObjectUniform`] per instance).
-    pub fn create_instance_pool(&self, records: &[ObjectUniform]) -> InstancePool {
+    pub fn create_instance_pool(
+        &self,
+        records: &[ObjectUniform],
+    ) -> Result<InstancePool, RasterError> {
         resources::create_instance_pool(&self.context.device, &self.pipelines, records)
     }
 
@@ -247,7 +255,7 @@ impl Rasterizer {
         vertices: &[f32],
         indices: &[u32],
         morph_source: Option<&[f32]>,
-    ) -> InstancedGeometry {
+    ) -> Result<InstancedGeometry, RasterError> {
         resources::create_instanced_geometry(&self.context.device, vertices, indices, morph_source)
     }
 
@@ -287,8 +295,7 @@ impl Rasterizer {
             && self.shadow_bounds.is_some()
             && self.shadow_map.is_some()
             && scene.shadow_params[0] >= 0.0;
-        if self.shadow_active {
-            let (center, radius) = self.shadow_bounds.unwrap();
+        if let (Some((center, radius)), true) = (self.shadow_bounds, self.shadow_active) {
             let light_dir = [scene.light[0], scene.light[1], scene.light[2]];
             let vp = match self.cached_shadow_vp {
                 Some(cached)
@@ -415,33 +422,32 @@ impl Rasterizer {
         }
     }
 
-    fn ensure_depth(&mut self, width: u32, height: u32) {
-        let recreate = self
-            .depth
-            .as_ref()
-            .map(|(_, _, w, h)| *w != width || *h != height)
-            .unwrap_or(true);
-        if recreate {
-            let texture = self
-                .context
-                .device
-                .create_texture(&wgpu::TextureDescriptor {
-                    label: Some("raster depth"),
-                    size: wgpu::Extent3d {
-                        width,
-                        height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Depth24Plus,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                });
-            let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-            self.depth = Some((texture, view, width, height));
+    fn ensure_depth(&mut self, width: u32, height: u32) -> wgpu::TextureView {
+        if let Some((_, view, w, h)) = &self.depth {
+            if *w == width && *h == height {
+                return view.clone();
+            }
         }
+        let texture = self
+            .context
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("raster depth"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth24Plus,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        self.depth = Some((texture, view.clone(), width, height));
+        view
     }
 
     /// Draws the frame into `target` (opaque first, then transparent).
@@ -468,40 +474,41 @@ impl Rasterizer {
         height: u32,
         frame: &Frame,
     ) {
-        self.ensure_depth(width, height);
+        let depth_view = self.ensure_depth(width, height);
         // Contact shadow: render opaque meshes' depth from the key light into
         // the shadow map before the main pass samples it (surfaces + grid
         // floor). No camera-frustum culling, mirroring the browser renderer.
         // Simplified vs the TS Tier 2 cache: re-rendered every frame while
         // active (no epoch tracking in the native API).
         if self.shadow_active {
-            let (_, view, _) = self.shadow_map.as_ref().unwrap();
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("raster shadow"),
-                color_attachments: &[],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
+            if let Some((_, view, _)) = &self.shadow_map {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("raster shadow"),
+                    color_attachments: &[],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-            pass.set_pipeline(&self.pipelines.shadow);
-            pass.set_bind_group(0, &self.scene_bind_group, &[]);
-            for draw in frame.meshes.iter().filter(|d| !d.transparent) {
-                pass.set_bind_group(1, &draw.bind_group, &[]);
-                pass.set_vertex_buffer(0, draw.vertex_buffer.slice(..));
-                match &draw.morph_source {
-                    Some(source) => pass.set_vertex_buffer(1, source.slice(..)),
-                    None => pass.set_vertex_buffer(1, self.morph_dummy.slice(..)),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                pass.set_pipeline(&self.pipelines.shadow);
+                pass.set_bind_group(0, &self.scene_bind_group, &[]);
+                for draw in frame.meshes.iter().filter(|d| !d.transparent) {
+                    pass.set_bind_group(1, &draw.bind_group, &[]);
+                    pass.set_vertex_buffer(0, draw.vertex_buffer.slice(..));
+                    match &draw.morph_source {
+                        Some(source) => pass.set_vertex_buffer(1, source.slice(..)),
+                        None => pass.set_vertex_buffer(1, self.morph_dummy.slice(..)),
+                    }
+                    pass.set_index_buffer(draw.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..draw.index_count, 0, 0..1);
                 }
-                pass.set_index_buffer(draw.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..draw.index_count, 0, 0..1);
             }
         }
         {
@@ -517,7 +524,7 @@ impl Rasterizer {
                     depth_slice: None,
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &self.depth.as_ref().unwrap().1,
+                    view: &depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Store,
@@ -644,10 +651,14 @@ impl Rasterizer {
         pass.draw_indexed(0..edges.index_count, 0, 0..1);
     }
 
-    /// Compatibility convenience. Use `try_render_to_rgba` to recover errors.
-    pub fn render_to_rgba(&mut self, width: u32, height: u32, frame: &Frame) -> Vec<u8> {
-        self.try_render_to_rgba(width, height, frame)
-            .expect("RGBA readback failed")
+    /// Renders `frame` into a fresh `width x height` target and reads back RGBA8 bytes.
+    pub fn render_to_rgba(
+        &mut self,
+        width: u32,
+        height: u32,
+        frame: &Frame,
+    ) -> Result<Vec<u8>, RasterError> {
+        Ok(self.try_render_to_rgba(width, height, frame)?)
     }
 
     pub fn try_render_to_rgba(

@@ -5,16 +5,8 @@ use tensor_core::{AttentionMask, AttentionOptions, HasShape, Shape, TensorAttent
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+mod support;
+use support::backend;
 fn close(actual: f32, expected: f64) {
     assert!(
         actual.is_finite() && (f64::from(actual) - expected).abs() <= 6e-5 * expected.abs().max(1.),

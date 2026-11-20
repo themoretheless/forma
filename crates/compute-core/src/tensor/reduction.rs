@@ -97,7 +97,7 @@ impl ComputeProgram<'_> {
                 input.values().buffer(),
                 checked_index(input.shape().numel())?,
                 output.values().buffer(),
-            );
+            )?;
             reduction.append_to(&mut self.batch);
             return Ok(());
         }

@@ -15,7 +15,6 @@ use crate::{
 /// Device implementations of the batch kernels. `acceleration` is the
 /// already-resolved placement (`Gpu` or `Cuda`, or `Auto` where a kernel does
 /// not resolve it); every method defaults to `None`, i.e. "use the CPU".
-#[allow(unused_variables)]
 pub trait DeviceKernels: Send + Sync {
     /// Whether a CUDA device is usable; `Auto` placement heuristics prefer
     /// CUDA only when this holds.
@@ -28,6 +27,7 @@ pub trait DeviceKernels: Send + Sync {
         queries: &[V3],
         targets: &[V3],
     ) -> Option<Vec<(u32, f64)>> {
+        let _ = (acceleration, queries, targets);
         None
     }
     fn nearest_two(
@@ -36,6 +36,7 @@ pub trait DeviceKernels: Send + Sync {
         queries: &[V3],
         targets: &[V3],
     ) -> Option<Vec<TwoNearest>> {
+        let _ = (acceleration, queries, targets);
         None
     }
     fn nearest_four(
@@ -44,6 +45,7 @@ pub trait DeviceKernels: Send + Sync {
         queries: &[V3],
         targets: &[V3],
     ) -> Option<Vec<FourNearest>> {
+        let _ = (acceleration, queries, targets);
         None
     }
     fn directed_chamfer(
@@ -52,6 +54,7 @@ pub trait DeviceKernels: Send + Sync {
         queries: &[V3],
         targets: &[V3],
     ) -> Option<DirectedChamfer> {
+        let _ = (acceleration, queries, targets);
         None
     }
     fn squared_distance_pairs(
@@ -60,6 +63,7 @@ pub trait DeviceKernels: Send + Sync {
         a: &[V3],
         b: &[V3],
     ) -> Option<Vec<f64>> {
+        let _ = (acceleration, a, b);
         None
     }
     fn squared_distance_pair_sum(
@@ -68,6 +72,7 @@ pub trait DeviceKernels: Send + Sync {
         a: &[V3],
         b: &[V3],
     ) -> Option<f64> {
+        let _ = (acceleration, a, b);
         None
     }
     fn transformed_squared_distance_pair_sum(
@@ -78,9 +83,11 @@ pub trait DeviceKernels: Send + Sync {
         m: M3,
         t: V3,
     ) -> Option<f64> {
+        let _ = (acceleration, source, target, m, t);
         None
     }
     fn point_bounds(&self, acceleration: Acceleration, points: &[V3]) -> Option<PointBounds> {
+        let _ = (acceleration, points);
         None
     }
     fn transformed_point_bounds(
@@ -90,9 +97,11 @@ pub trait DeviceKernels: Send + Sync {
         m: M3,
         t: V3,
     ) -> Option<PointBounds> {
+        let _ = (acceleration, points, m, t);
         None
     }
     fn point_moments(&self, acceleration: Acceleration, points: &[V3]) -> Option<PointMoments> {
+        let _ = (acceleration, points);
         None
     }
     fn point_cloud_stats(
@@ -100,6 +109,7 @@ pub trait DeviceKernels: Send + Sync {
         acceleration: Acceleration,
         points: &[V3],
     ) -> Option<PointCloudStats> {
+        let _ = (acceleration, points);
         None
     }
 }

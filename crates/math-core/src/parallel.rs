@@ -54,7 +54,11 @@ where
                         }));
                     }
                     for handle in handles {
-                        out.extend(handle.join().expect("parallel worker thread panicked"));
+                        out.extend(
+                            handle
+                                .join()
+                                .unwrap_or_else(|payload| std::panic::resume_unwind(payload)),
+                        );
                     }
                 });
                 return out;
@@ -99,7 +103,11 @@ where
                         start = end;
                     }
                     for handle in handles {
-                        out.extend(handle.join().expect("parallel worker thread panicked"));
+                        out.extend(
+                            handle
+                                .join()
+                                .unwrap_or_else(|payload| std::panic::resume_unwind(payload)),
+                        );
                     }
                 });
                 return out;
@@ -148,7 +156,10 @@ where
                         }));
                     }
                     for handle in handles {
-                        match handle.join().expect("parallel worker thread panicked") {
+                        match handle
+                            .join()
+                            .unwrap_or_else(|payload| std::panic::resume_unwind(payload))
+                        {
                             Ok(part) if first_err.is_none() => out.extend(part),
                             Ok(_) => {}
                             Err(err) if first_err.is_none() => first_err = Some(err),

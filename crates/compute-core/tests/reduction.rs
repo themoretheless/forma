@@ -46,6 +46,7 @@ fn arbitrary_lengths_and_unpadded_scalar_buffers_match_f64() {
         assert_eq!(f64::from(actual), expected, "length {n}");
     }
 }
+
 #[test]
 fn cancellation_and_dynamic_range_use_f64_reference() {
     let Some(ctx) = context() else { return };
@@ -64,6 +65,7 @@ fn cancellation_and_dynamic_range_use_f64_reference() {
         assert_sum(actual, &values);
     }
 }
+
 #[test]
 fn reused_program_overwrites_output_and_respects_prefix_sentinels() {
     let Some(ctx) = context() else { return };
@@ -105,6 +107,7 @@ fn reused_program_overwrites_output_and_respects_prefix_sentinels() {
         );
     }
 }
+
 #[test]
 fn invalid_sum_outputs_leave_program_usable() {
     let Some(ctx) = context() else { return };
@@ -168,7 +171,8 @@ fn raw_reduction_retains_custom_workgroups_and_composes_in_one_pass() {
             input.view().raw(),
             n as u32,
             output.view().raw(),
-        );
+        )
+        .unwrap();
         for (iteration, use_existing_pass) in [false, true].into_iter().enumerate() {
             let values: Vec<f32> = (0..n).map(|i| ((i + iteration) % 7) as f32).collect();
             rt.write(&input, 0, &values).unwrap();
@@ -186,4 +190,55 @@ fn raw_reduction_retains_custom_workgroups_and_composes_in_one_pass() {
             assert_eq!(&actual[1..], &[88888.0; 2]);
         }
     }
+}
+
+#[test]
+fn raw_reduction_rejects_undersized_buffers_without_panicking() {
+    use compute_core::{Binding, Kernel, Reduction, shaders::BLOCK_SUM_WGSL};
+    let Some(ctx) = context() else { return };
+    let rt = ComputeRuntime::new(&ctx).unwrap();
+    let kernel = Kernel::new(
+        rt.device(),
+        "raw sum bounds",
+        BLOCK_SUM_WGSL,
+        "main",
+        &[
+            Binding::Uniform,
+            Binding::StorageRead,
+            Binding::StorageReadWrite,
+        ],
+    )
+    .unwrap();
+    let input = rt.upload(&[1.0f32, 2.0]).unwrap();
+    let output = rt.zeros::<f32>(1).unwrap();
+    let tiny = rt
+        .device()
+        .create_buffer(&compute_core::wgpu::BufferDescriptor {
+            label: Some("tiny output"),
+            size: 2,
+            usage: compute_core::wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+    assert!(matches!(
+        Reduction::with_output(
+            rt.device(),
+            rt.queue(),
+            &kernel,
+            input.view().raw(),
+            2,
+            &tiny
+        ),
+        Err(ComputeError::OutOfBounds)
+    ));
+    assert!(matches!(
+        Reduction::with_output(
+            rt.device(),
+            rt.queue(),
+            &kernel,
+            input.view().raw(),
+            3,
+            output.view().raw()
+        ),
+        Err(ComputeError::OutOfBounds)
+    ));
 }

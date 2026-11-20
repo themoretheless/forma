@@ -137,22 +137,25 @@ impl Kernel {
         bindings: &[Binding],
         selected: Option<u32>,
     ) -> Result<Self, KernelError> {
-        let (workgroup_size, binding_info) = reflect(&source, entry, bindings)?;
-        if selected.is_some_and(|selected| selected != workgroup_size) {
+        let reflected = reflect(&source, entry, bindings)?;
+        let workgroup_size = reflected.workgroup_size;
+        let binding_info = reflected.binding_info;
+        if let Some(selected) = selected.filter(|&s| s != workgroup_size) {
             return Err(KernelError {
                 message: format!(
-                    "requested WG {} but entry {entry} declares {workgroup_size}; the tuning anchor must control the entry point",
-                    selected.unwrap()
+                    "requested WG {selected} but entry {entry} declares {workgroup_size}; the tuning anchor must control the entry point",
                 ),
             });
         }
         let oom = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(label),
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source.as_ref())),
-        });
+        let module = device.create_shader_module_prevalidated(
+            Some(label),
+            source.as_ref(),
+            reflected.module,
+            &reflected.info,
+        );
         let entries: Vec<wgpu::BindGroupLayoutEntry> = bindings
             .iter()
             .enumerate()

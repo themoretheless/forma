@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Small dense linear algebra and accelerated geometry math kernels.
 
 mod acceleration;

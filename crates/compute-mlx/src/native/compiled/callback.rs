@@ -28,6 +28,7 @@ impl<'a> Vector<'a> {
 }
 impl Drop for Vector<'_> {
     fn drop(&mut self) {
+        // SAFETY: `self.raw` was allocated by `CompileApi` (`vector_array_new*`) and not yet freed.
         unsafe {
             (self.api.vector_array_free)(self.raw);
         }
@@ -42,12 +43,14 @@ fn trace_graph(graph: &Graph, output: *mut Handle, input: Handle) -> Result<(), 
         .ok_or("MLX compilation symbols unavailable")?;
     graph.state.count.fetch_add(1, Ordering::Relaxed);
     let mut arrays = Arrays::new(api);
+    // SAFETY: `input` is a valid vector_array passed by MLX-C during `closure_apply` under the `CALLS` lock.
     let count = unsafe { (compile.vector_array_size)(input) };
     if count != graph.input_specs.len() {
         return Err("MLX callback input count mismatch".into());
     }
     let mut arguments = Vec::with_capacity(count);
     for (index, spec) in graph.input_specs.iter().enumerate() {
+        // SAFETY: `index < count`, and `arrays.record` wraps `out` initialized by `array_new()`.
         let raw = arrays.record(|out| unsafe { (compile.vector_array_get)(out, input, index) })?;
         validate_array(api, raw, &spec.shape, spec.dtype)?;
         arguments.push(raw);
@@ -78,7 +81,7 @@ fn trace_graph(graph: &Graph, output: *mut Handle, input: Handle) -> Result<(), 
         values.push(value);
     }
     let selected: Vec<_> = graph.outputs.iter().map(|&i| values[i]).collect();
-    // set_data copies array ownership into the C-owned callback result vector.
+    // SAFETY: `output` is a valid non-null `*mut Handle` for the callback result vector and `selected` stays valid for this call.
     Api::check(unsafe {
         (compile.vector_array_set_data)(output, selected.as_ptr(), selected.len())
     })
@@ -94,6 +97,11 @@ fn boundary(state: &TraceState, operation: impl FnOnce() -> Result<(), String>) 
     1
 }
 
+/// # Safety
+///
+/// Invoked by MLX-C during `closure_apply`; `payload` must originate from
+/// `Box::into_raw(Box<Graph>)` and remain alive until `destroy`, while `output`
+/// and `input` must be valid MLX `vector_array` handles.
 pub(super) unsafe extern "C" fn trace(
     output: *mut Handle,
     input: Handle,
@@ -102,14 +110,18 @@ pub(super) unsafe extern "C" fn trace(
     if payload.is_null() || output.is_null() || input.ctx.is_null() {
         return 1;
     }
+    // SAFETY: Non-null `payload` points to an immutable `Graph` alive until `destroy` (serialized under `CALLS`).
     let graph = unsafe { &*payload.cast::<Graph>() };
     boundary(&graph.state, || trace_graph(graph, output, input))
 }
 
+/// # Safety
+///
+/// Invoked at most once by MLX-C when freeing the closure; `payload` must be
+/// either null or a `Box::into_raw(Box<Graph>)` no longer borrowed by `trace`.
 pub(super) unsafe extern "C" fn destroy(payload: *mut c_void) {
     if !payload.is_null() {
-        // Graph contains only Rust graph data, an Arc<Api> and a borrowed stream
-        // handle. It never drops a Context/Array or reacquires the native lock.
+        // SAFETY: Reclaims the unique `Box<Graph>` allocation on closure teardown; `Graph` never frees `Context`/`Array` or re-locks `CALLS`.
         let _ = catch_unwind(AssertUnwindSafe(|| unsafe {
             drop(Box::from_raw(payload.cast::<Graph>()))
         }));
@@ -171,6 +183,7 @@ mod tests {
         let mut stream = null;
         let mut input = null;
         let mut output = null;
+        // SAFETY: Calls MLX-C array setup on valid `device`/`stream` handles while `CALLS` is locked.
         api.call(|a| unsafe {
             let device = (a.device_new_type)(0, 0);
             stream = (a.stream_new_device)(device);
@@ -217,6 +230,7 @@ mod tests {
             state: state.clone(),
         });
         let payload = Box::into_raw(graph);
+        // SAFETY: `trace` and `destroy` match MLX-C `closure_new_func_payload` ABI and own `payload`.
         let closure = api
             .call(|_| unsafe {
                 Ok((compile.closure_new_func_payload)(
@@ -226,20 +240,22 @@ mod tests {
                 ))
             })
             .unwrap();
+        // SAFETY: `closure` and `input` are valid non-null handles; `&mut output` receives result vector.
         let rejected = api
             .call(|_| unsafe { Api::check((compile.closure_apply)(&mut output, closure, input)) });
-        // Test-only mutation while no apply is active; the native closure still
-        // owns this payload. Production graphs are immutable after construction.
+        // SAFETY: Test-only mutation while no apply is active; `closure` still uniquely owns `payload` until `closure_free`.
         unsafe {
             (*payload).nodes.pop();
             (*payload).outputs = vec![0];
         }
+        // SAFETY: `closure` and `input` are live; `arrays` frees retrieved output element handle.
         let recovered = api.call(|a| unsafe {
             Api::check((compile.closure_apply)(&mut output, closure, input))?;
             let mut arrays = Arrays::new(a);
             let value = arrays.record(|out| (compile.vector_array_get)(out, output, 0))?;
             validate_array(a, value, &input_shape, MlxDtype::F32)
         });
+        // SAFETY: `output`, `input`, `closure`, and `stream` are each freed once on teardown.
         let cleanup = api.call(|a| unsafe {
             (compile.vector_array_free)(output);
             (compile.vector_array_free)(input);

@@ -136,12 +136,8 @@ mod tests {
 
     #[test]
     fn statistics_pair_and_final_casts_roll_back_together_on_late_failure() {
-        let backend = match MlxBackend::new_gpu() {
-            Ok(b) => b,
-            Err(error) => {
-                assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-                return;
-            }
+        let Some(backend) = super::test_backend() else {
+            return;
         };
         let mut graph = backend.program();
         let input = graph

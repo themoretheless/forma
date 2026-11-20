@@ -22,9 +22,12 @@ impl HasShape for Tensor {
 
 mod activation;
 mod attention;
+mod channel_norm;
 mod convolution;
 mod normalization;
+mod rope;
 mod similarity;
+mod softmax;
 
 impl Tensor {
     pub fn new(

@@ -3,6 +3,37 @@
 use super::Tensor;
 use crate::{Shape, TensorError};
 
+fn pool1d_shape(
+    shape: &Shape,
+    kernel_size: usize,
+    stride: usize,
+) -> Result<(usize, usize, usize, Shape), TensorError> {
+    let rank = shape.rank();
+    if rank != 2 && rank != 3 {
+        return Err(TensorError::InvalidConvolution(
+            "1D pooling expects a 2D [C, L] or 3D [N, C, L] tensor",
+        ));
+    }
+    if kernel_size == 0 || stride == 0 {
+        return Err(TensorError::InvalidConvolution(
+            "1D pooling kernel_size and stride must be positive",
+        ));
+    }
+    let dims = shape.dims();
+    let in_len = dims[rank - 1];
+    if in_len < kernel_size {
+        return Err(TensorError::InvalidConvolution(
+            "1D pooling input length must be at least kernel_size",
+        ));
+    }
+    let out_len = (in_len - kernel_size) / stride + 1;
+    let mut out_dims = dims.to_vec();
+    out_dims[rank - 1] = out_len;
+    let out_shape = Shape::new(out_dims)?;
+    let outer: usize = dims[..rank - 1].iter().product();
+    Ok((in_len, out_len, outer, out_shape))
+}
+
 impl Tensor {
     /// 1D cross-correlation (`conv1d`) over a 3D input `[N, C_in, L]` with weight `[C_out, C_in, K]`,
     /// optional per-channel `bias` of length `C_out`, `stride >= 1`, and symmetric zero `padding`.
@@ -81,36 +112,13 @@ impl Tensor {
     /// 1D max pooling over the trailing spatial dimension of a 2D `[C, L]` or 3D `[N, C, L]` tensor
     /// with window `kernel_size >= 1` and `stride >= 1`.
     pub fn max_pool1d(&self, kernel_size: usize, stride: usize) -> Result<Self, TensorError> {
-        let rank = self.shape.rank();
-        if rank != 2 && rank != 3 {
-            return Err(TensorError::InvalidConvolution(
-                "max_pool1d expects a 2D [C, L] or 3D [N, C, L] tensor",
-            ));
-        }
-        if kernel_size == 0 || stride == 0 {
-            return Err(TensorError::InvalidConvolution(
-                "max_pool1d kernel_size and stride must be positive",
-            ));
-        }
-        let dims = self.shape.dims();
-        let in_len = dims[rank - 1];
-        if in_len < kernel_size {
-            return Err(TensorError::InvalidConvolution(
-                "max_pool1d input length must be at least kernel_size",
-            ));
-        }
-        let out_len = (in_len - kernel_size) / stride + 1;
-        let mut out_dims = dims.to_vec();
-        out_dims[rank - 1] = out_len;
-        let out_shape = Shape::new(out_dims)?;
+        let (in_len, out_len, outer, out_shape) = pool1d_shape(&self.shape, kernel_size, stride)?;
         if out_shape.numel() == 0 {
             return Ok(Self {
                 shape: out_shape,
                 data: Vec::new(),
             });
         }
-
-        let outer: usize = dims[..rank - 1].iter().product();
         let mut out = Vec::with_capacity(outer * out_len);
         for c in 0..outer {
             let row = &self.data[c * in_len..(c + 1) * in_len];
@@ -135,47 +143,21 @@ impl Tensor {
     /// 1D average pooling over the trailing spatial dimension of a 2D `[C, L]` or 3D `[N, C, L]` tensor
     /// with window `kernel_size >= 1` and `stride >= 1`.
     pub fn avg_pool1d(&self, kernel_size: usize, stride: usize) -> Result<Self, TensorError> {
-        let rank = self.shape.rank();
-        if rank != 2 && rank != 3 {
-            return Err(TensorError::InvalidConvolution(
-                "avg_pool1d expects a 2D [C, L] or 3D [N, C, L] tensor",
-            ));
-        }
-        if kernel_size == 0 || stride == 0 {
-            return Err(TensorError::InvalidConvolution(
-                "avg_pool1d kernel_size and stride must be positive",
-            ));
-        }
-        let dims = self.shape.dims();
-        let in_len = dims[rank - 1];
-        if in_len < kernel_size {
-            return Err(TensorError::InvalidConvolution(
-                "avg_pool1d input length must be at least kernel_size",
-            ));
-        }
-        let out_len = (in_len - kernel_size) / stride + 1;
-        let mut out_dims = dims.to_vec();
-        out_dims[rank - 1] = out_len;
-        let out_shape = Shape::new(out_dims)?;
+        let (in_len, out_len, outer, out_shape) = pool1d_shape(&self.shape, kernel_size, stride)?;
         if out_shape.numel() == 0 {
             return Ok(Self {
                 shape: out_shape,
                 data: Vec::new(),
             });
         }
-
         let inv_k = 1.0 / (kernel_size as f64);
-        let outer: usize = dims[..rank - 1].iter().product();
         let mut out = Vec::with_capacity(outer * out_len);
         for c in 0..outer {
             let row = &self.data[c * in_len..(c + 1) * in_len];
             for ol in 0..out_len {
                 let start = ol * stride;
                 let window = &row[start..start + kernel_size];
-                let mut sum = 0.0_f64;
-                for &v in window {
-                    sum += v as f64;
-                }
+                let sum: f64 = window.iter().map(|&v| v as f64).sum();
                 out.push((sum * inv_k) as f32);
             }
         }

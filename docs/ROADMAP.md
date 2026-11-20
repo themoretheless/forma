@@ -94,9 +94,9 @@
 
 ## 5. Вычислительные крейты и финальная чистка
 
-- [ ] Документировать FFI `// SAFETY:` в `compute-mlx` и соседних крейтах; заменить оставшиеся
+- [x] Документировать FFI `// SAFETY:` в `compute-mlx` и соседних крейтах; заменить оставшиеся
   достижимые библиотечные `expect` / `unwrap` типизированными ошибками.
-- [ ] Внутренний долг крейтов ([INVENTORY.md](refactor/INVENTORY.md)): табличный
+- [x] Внутренний долг крейтов ([INVENTORY.md](refactor/INVENTORY.md)): табличный
   `RasterPipelines::new` и вывод тестов во временные каталоги в `raster-core`, устранение дублей
   `gpu`/`cuda` в `math-compute`, разбиение `spatial.rs` и сокращение `allow` в `math-core`,
   разбиение `impl Tensor` в `tensor-core` и устранение двойного разбора WGSL в `compute-core`.

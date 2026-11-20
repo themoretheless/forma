@@ -8,22 +8,9 @@ use tensor_core::{HasShape, LowDtype, Shape, TensorError, TensorLowBackend};
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu().and_then(|b| {
-        if b.compile_available() {
-            Ok(b)
-        } else {
-            Err(MlxError::CompileUnavailable)
-        }
-    }) {
-        Ok(b) => Some(b),
-        Err(error) => {
-            eprintln!("SKIP compiled MLX statistics unavailable: {error}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-            None
-        }
-    }
-}
+#[path = "support/compiled.rs"]
+mod support;
+use support::backend;
 fn traces(program: &MlxCompiledProgram, runs: usize) {
     let expected = if std::env::var_os("MLX_DISABLE_COMPILE").is_some() {
         runs

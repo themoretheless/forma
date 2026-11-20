@@ -116,9 +116,9 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
             })
             .collect::<Vec<_>>()
     };
-    let a = storage_u32(&gpu.device, &gpu.queue, &words(false));
-    let b = storage_u32(&gpu.device, &gpu.queue, &words(true));
-    let out = storage_u32(&gpu.device, &gpu.queue, &vec![0; cases.len() * 2]);
+    let a = storage_u32(&gpu.device, &gpu.queue, &words(false)).unwrap();
+    let b = storage_u32(&gpu.device, &gpu.queue, &words(true)).unwrap();
+    let out = storage_u32(&gpu.device, &gpu.queue, &vec![0; cases.len() * 2]).unwrap();
     let kernel = Kernel::new(
         &gpu.device,
         "integer binary64 arithmetic",
@@ -133,7 +133,7 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
     )
     .unwrap();
     for op in 0..10 {
-        let params = storage_u32(&gpu.device, &gpu.queue, &[op]);
+        let params = storage_u32(&gpu.device, &gpu.queue, &[op]).unwrap();
         kernel.dispatch(
             &gpu.device,
             &gpu.queue,

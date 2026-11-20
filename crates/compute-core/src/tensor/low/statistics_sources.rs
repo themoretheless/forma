@@ -10,10 +10,11 @@ fn replace(source: &mut String, from: &str, to: &str) {
 }
 fn common(source: &str, reads_input: bool) -> String {
     let mut result = format!(
-        "{}\n{}\n{}\n{source}",
-        include_str!("../../../shaders/low_codec.wgsl"),
-        include_str!("../../../shaders/float_bits_order.wgsl"),
-        include_str!("../../../shaders/tensor_low_stats.wgsl")
+        "{}\n{}\n{}\n{}",
+        include_str!("../../../shaders/low_codec.wgsl").replace("\r\n", "\n"),
+        include_str!("../../../shaders/float_bits_order.wgsl").replace("\r\n", "\n"),
+        include_str!("../../../shaders/tensor_low_stats.wgsl").replace("\r\n", "\n"),
+        source.replace("\r\n", "\n"),
     );
     if reads_input {
         replace(&mut result, "input: array<f32>", "input: array<u32>");

@@ -709,3 +709,19 @@
 - **`buildNativeRustExport`, золотые эталоны компилятора и защита раннера `design-data` (`S-19`, `S-20`):**
   - `buildNativeRustExport` (`src/workspace/native-export.js`) нормализует CRLF, префиксирует цифровые имена (`app-`/`dev.forma.app...`), проверяет относительные пути `.ui`/`.svg`, наличие корневых `.ui` и явного `entryFile`; `test/compile-errors.test.js` расширен на 28 дополнительных веток `throw` компилятора.
   - Протокол `forma:design-data` (`dev-server/runner-ws.js` <-> `src/shell/dev-bridge.js`) требует `sessionTrust: true` (одно подтверждение на сессию с отзывом через `revokeTrust()`), `design-data-runner.js` экспортирует `validateDesignRustSource` (лексический сканер Rust) и `runSandboxedDesignBinary` (очищенный `env` + `sandbox-exec` / `bwrap`).
+
+## 38. Вычислительные крейты: SAFETY-инварианты FFI, типизированные ошибки и внутренняя декомпозиция
+
+- **Безопасность `unsafe` и цепочки `Error::source()`:**
+  - Во все крейты с FFI/unsafe-адаптерами (`compute-mlx`, `compute-cuda`, `compute-core`, `math-compute`) добавлен `#![deny(unsafe_op_in_unsafe_fn)]`, а в чистые крейты (`math-core`, `tensor-core`, `raster-core`) — `#![forbid(unsafe_code)]`.
+  - Документированы все 91 `unsafe`-участок в `compute-mlx`, 43 в `compute-cuda`, 2 в примерах `compute-core` и все `cuda::launch` в `math-compute`.
+  - Реализован `std::error::Error::source()` для `MlxError`, `ComputeError`, `TensorComputeError`, `GpuMathError` и нового `RasterError`.
+- **Повторяемая обработка ошибок (`compute-core`, `raster-core`, `math-compute`):**
+  - `compute-core`: `storage_f32`, `storage_u32`, `uniform_f32` возвращают `Result<wgpu::Buffer, gpu_compute::BufferError>`, `read_f32`/`read_u32` — `Result<Vec<_>, gpu_compute::ReadbackError>`, а `reduce_f32` и `Reduction::{new, with_output, for_runtime, with_schedule}` — `Result<_, ComputeError>` (`OutOfBounds` вместо паник `assert!`).
+  - `raster-core`: добавлен публичный `RasterError` (`Buffer` / `Readback`); `Rasterizer::{new, create_*, render_to_rgba}` и `resources::upload_bytes` возвращают `Result<_, RasterError>` вместо `.expect()`/`.unwrap()`.
+  - `gpu-runtime` / `compute-core`: добавлен `Device::create_shader_module_prevalidated`; `Kernel::compile` повторно использует разобранный и провалидированный `naga::Module` + `ModuleInfo` из `contract::reflect` без двойного разбора WGSL.
+- **Декомпозиция внутренних модулей и удаление дублей:**
+  - `raster-core`: `RasterPipelines::new` переведён на декларативные таблицы `SHADERS`/`PIPELINE_TABLE` и `const`-слои вершин; снимки в `tests/frame.rs` перенесены в RAII `TempDir` вместо каталога `output/` в репозитории.
+  - `math-core`: удалены оставшиеся `#[allow(...)]` (`device.rs`, `linalg.rs`), а крупные модули `spatial/{rotation,primitives,boxes}.rs` разбиты на `aabb`, `dual_quat`, `frustum`, `obb`, `plane`, `quat`, `ray`.
+  - `tensor-core`: `host_tensor/{normalization,attention,activation}.rs` разбиты на `activation`, `attention`, `channel_norm`, `normalization`, `rope`, `softmax` (`<= 178` строк на модуль реализации); в `convolution.rs` выделен `pool1d_shape`.
+  - `math-compute`: общий wire-слой и CPU-свёртки выделены в `f32_kernels::wire`; все 11 CUDA-синхронизаций объединены в единую потоко-локальную `CudaSession` с `u32::try_from` вместо усечений; `compute-mlx` тесты дедуплицированы через `tests/support/`.

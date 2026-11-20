@@ -136,17 +136,26 @@ pub fn eigen<const N: usize>(mut a: [[f64; N]; N]) -> ([f64; N], [[f64; N]; N]) 
         let (c, s) = (theta.cos(), theta.sin());
         let (app, aqq, apq) = (a[p][p], a[q][q], a[p][q]);
         // Symmetric updates read and write both rows and columns.
-        #[allow(
-            clippy::needless_range_loop,
-            reason = "Jacobi rotation updates symmetric matrix entries"
-        )]
-        for k in 0..n {
+        for (k, row) in a.iter_mut().enumerate() {
             if k != p && k != q {
-                let (kp, kq) = (a[k][p], a[k][q]);
-                a[k][p] = c * kp - s * kq;
-                a[p][k] = a[k][p];
-                a[k][q] = s * kp + c * kq;
-                a[q][k] = a[k][q];
+                let (kp, kq) = (row[p], row[q]);
+                row[p] = c * kp - s * kq;
+                row[q] = s * kp + c * kq;
+            }
+        }
+        let col_p = a.map(|row| row[p]);
+        let col_q = a.map(|row| row[q]);
+        if let Ok([row_p, row_q]) = a.get_disjoint_mut([p, q]) {
+            for (k, ((rp, rq), (vp, vq))) in row_p
+                .iter_mut()
+                .zip(row_q.iter_mut())
+                .zip(col_p.into_iter().zip(col_q))
+                .enumerate()
+            {
+                if k != p && k != q {
+                    *rp = vp;
+                    *rq = vq;
+                }
             }
         }
         a[p][p] = c * c * app - 2. * s * c * apq + s * s * aqq;
@@ -173,7 +182,9 @@ pub fn smallest<const N: usize>(rows: impl IntoIterator<Item = [f64; N]>) -> [f6
         }
     }
     let (d, v) = eigen(a);
-    let k = (0..N).min_by(|&i, &j| d[i].total_cmp(&d[j])).unwrap();
+    let Some(k) = (0..N).min_by(|&i, &j| d[i].total_cmp(&d[j])) else {
+        return [0.; N];
+    };
     std::array::from_fn(|i| v[i][k])
 }
 pub fn svd(a: M3) -> (M3, V3, M3) {
@@ -257,6 +268,11 @@ mod tests {
                 assert!((a[i][j] - b[i][j]).abs() < 1e-6);
             }
         }
+    }
+
+    #[test]
+    fn smallest_zero_dimension_returns_empty() {
+        assert_eq!(smallest::<0>([]), []);
     }
 }
 

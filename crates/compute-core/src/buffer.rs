@@ -11,7 +11,11 @@ fn storage_usage(device: &Device) -> wgpu::BufferUsages {
 }
 
 /// Uploads f32 values into fresh storage, directly mapped on Apple Silicon.
-pub fn storage_f32(device: &Device, _queue: &Queue, data: &[f32]) -> Buffer {
+pub fn storage_f32(
+    device: &Device,
+    _queue: &Queue,
+    data: &[f32],
+) -> Result<Buffer, gpu_compute::BufferError> {
     let bytes = gpu_compute::f32_le_bytes(data);
     initialized(
         device,
@@ -28,7 +32,7 @@ fn initialized(
     bytes: &[u8],
     minimum_size: usize,
     usage: wgpu::BufferUsages,
-) -> Buffer {
+) -> Result<Buffer, gpu_compute::BufferError> {
     gpu_compute::create_buffer_initialized(
         device,
         &wgpu::BufferDescriptor {
@@ -39,7 +43,6 @@ fn initialized(
         },
         |mapping| mapping.into_slice(..bytes.len()).copy_from_slice(bytes),
     )
-    .expect("GPU buffer initialization failed")
 }
 
 /// Zero-initialized f32 storage buffer (read_write outputs).
@@ -53,7 +56,11 @@ pub fn storage_f32_zeroed(device: &Device, _queue: &Queue, len: usize) -> Buffer
 }
 
 /// Same packing for u32 payloads (indices, counters).
-pub fn storage_u32(device: &Device, _queue: &Queue, data: &[u32]) -> Buffer {
+pub fn storage_u32(
+    device: &Device,
+    _queue: &Queue,
+    data: &[u32],
+) -> Result<Buffer, gpu_compute::BufferError> {
     let bytes = gpu_compute::u32_le_bytes(data);
     initialized(
         device,
@@ -66,7 +73,11 @@ pub fn storage_u32(device: &Device, _queue: &Queue, data: &[u32]) -> Buffer {
 
 /// Uniform buffer from raw float payloads (callers pack structs with
 /// [`gpu_compute::pack_f32`] semantics: 16-byte alignment is the caller's job).
-pub fn uniform_f32(device: &Device, _queue: &Queue, floats: &[f32]) -> Buffer {
+pub fn uniform_f32(
+    device: &Device,
+    _queue: &Queue,
+    floats: &[f32],
+) -> Result<Buffer, gpu_compute::BufferError> {
     let bytes = gpu_compute::f32_le_bytes(floats);
     initialized(
         device,
@@ -127,11 +138,22 @@ pub fn try_read_u32(
     )
 }
 
-/// Compatibility convenience: panics on transport failure, never fabricates an
-/// empty success. Use `try_read_f32` for recovery/fallback.
-pub fn read_f32(device: &Device, queue: &Queue, buffer: &Buffer, count: usize) -> Vec<f32> {
-    try_read_f32(device, queue, buffer, count).expect("GPU f32 readback failed")
+/// Reads `count` little-endian `f32` values from `buffer` via a staging copy.
+pub fn read_f32(
+    device: &Device,
+    queue: &Queue,
+    buffer: &Buffer,
+    count: usize,
+) -> Result<Vec<f32>, gpu_compute::ReadbackError> {
+    try_read_f32(device, queue, buffer, count)
 }
-pub fn read_u32(device: &Device, queue: &Queue, buffer: &Buffer, count: usize) -> Vec<u32> {
-    try_read_u32(device, queue, buffer, count).expect("GPU u32 readback failed")
+
+/// Reads `count` little-endian `u32` values from `buffer` via a staging copy.
+pub fn read_u32(
+    device: &Device,
+    queue: &Queue,
+    buffer: &Buffer,
+    count: usize,
+) -> Result<Vec<u32>, gpu_compute::ReadbackError> {
+    try_read_u32(device, queue, buffer, count)
 }

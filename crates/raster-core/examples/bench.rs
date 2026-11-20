@@ -52,7 +52,7 @@ fn main() {
         return;
     };
     println!("backend: {}", context.backend_label());
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
 
     let mesh_count = 200usize;
@@ -78,7 +78,11 @@ fn main() {
             0.9 - 0.6 * (i as f32 / mesh_count as f32),
             1.0,
         ];
-        meshes.push(rasterizer.create_mesh(&vertices, &indices, &uniform, None));
+        meshes.push(
+            rasterizer
+                .create_mesh(&vertices, &indices, &uniform, None)
+                .unwrap(),
+        );
     }
 
     let clear = wgpu::Color {

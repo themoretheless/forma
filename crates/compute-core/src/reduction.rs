@@ -1,4 +1,4 @@
-use crate::{ComputeRuntime, Kernel, read_f32, uniform_f32};
+use crate::{ComputeError, ComputeRuntime, Kernel, read_f32, uniform_f32};
 use wgpu::{Buffer, Device, Queue};
 
 #[derive(Clone, Copy)]
@@ -30,14 +30,20 @@ fn runtime_schedule(backend: wgpu::Backend, count: u32) -> Schedule {
 /// (up to 65535 workgroups), feeding the partials back as the next pass's
 /// input until a single partial remains. Lengths are arbitrary — the 65535
 /// per-dispatch group limit only shapes the pass schedule, not the total.
-pub fn reduce_f32(device: &Device, queue: &Queue, sum: &Kernel, input: &Buffer, count: u32) -> f32 {
-    let reduction = Reduction::new(device, queue, sum, input, count);
+pub fn reduce_f32(
+    device: &Device,
+    queue: &Queue,
+    sum: &Kernel,
+    input: &Buffer,
+    count: u32,
+) -> Result<f32, ComputeError> {
+    let reduction = Reduction::new(device, queue, sum, input, count)?;
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("compute reduction"),
     });
     reduction.record(&mut encoder);
     queue.submit([encoder.finish()]);
-    read_f32(device, queue, reduction.output(), 1)[0]
+    Ok(read_f32(device, queue, reduction.output(), 1)?[0])
 }
 
 /// Reusable sum reduction for a fixed input buffer and element count.
@@ -62,7 +68,7 @@ impl<'a> Reduction<'a> {
         kernel: &'a Kernel,
         input: &Buffer,
         count: u32,
-    ) -> Self {
+    ) -> Result<Self, ComputeError> {
         let output = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("reduction output"),
             size: 4,
@@ -83,7 +89,7 @@ impl<'a> Reduction<'a> {
         input: &Buffer,
         count: u32,
         destination: &Buffer,
-    ) -> Self {
+    ) -> Result<Self, ComputeError> {
         Self::with_schedule(
             device,
             queue,
@@ -100,7 +106,7 @@ impl<'a> Reduction<'a> {
         input: &Buffer,
         count: u32,
         destination: &Buffer,
-    ) -> Self {
+    ) -> Result<Self, ComputeError> {
         Self::with_schedule(
             runtime.device(),
             runtime.queue(),
@@ -120,12 +126,10 @@ impl<'a> Reduction<'a> {
         mut count: u32,
         destination: &Buffer,
         schedule: Schedule,
-    ) -> Self {
-        assert!(destination.size() >= 4);
-        assert!(
-            u64::from(count) * 4 <= input.size(),
-            "reduction input is too small"
-        );
+    ) -> Result<Self, ComputeError> {
+        if destination.size() < 4 || u64::from(count) * 4 > input.size() {
+            return Err(ComputeError::OutOfBounds);
+        }
         let mut source = input.clone();
         let mut passes = Vec::with_capacity(4);
         let output;
@@ -139,7 +143,7 @@ impl<'a> Reduction<'a> {
                 device,
                 queue,
                 &[f32::from_bits(count), f32::from_bits(groups), 0.0, 0.0],
-            );
+            )?;
             let partials = if groups == 1 {
                 destination.clone()
             } else {
@@ -159,11 +163,11 @@ impl<'a> Reduction<'a> {
             }
             count = groups;
         }
-        Self {
+        Ok(Self {
             kernel,
             passes,
             output,
-        }
+        })
     }
 
     pub(crate) fn append_to(&self, batch: &mut crate::ComputeBatch<'a>) {

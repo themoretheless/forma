@@ -7,16 +7,8 @@ use tensor_core::{
 fn shape(d: &[usize]) -> Shape {
     Shape::new(d.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+mod support;
+use support::backend;
 fn encode(dtype: LowDtype, value: f32) -> u16 {
     match dtype {
         LowDtype::F16 => f16::from_f32(value).to_bits(),

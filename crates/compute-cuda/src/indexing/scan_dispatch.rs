@@ -141,8 +141,7 @@ impl ScanPass {
         if self.output_shape.is_empty() {
             return Ok(());
         }
-        // Each workgroup owns one row/chunk; only the input loader differs for
-        // native low storage. Totals and values share the accumulator type O.
+        // SAFETY: `validate_storage` verified input, disjoint `values`/`totals`, and metadata lengths for this scan pass.
         unsafe {
             let mut launch = rt.device.stream.launch_builder(kernel.function);
             launch
@@ -196,6 +195,7 @@ impl ScanCarryDispatch {
         offsets: &CudaSlice<T>,
     ) -> Result<(), CudaError> {
         self.validate_storage(output.len(), offsets.len())?;
+        // SAFETY: `validate_storage` verified `output >= count` and `offsets >= offsets_required` before launching carry pass.
         unsafe {
             rt.device
                 .stream

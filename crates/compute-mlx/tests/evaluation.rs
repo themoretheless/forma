@@ -5,17 +5,8 @@ use tensor_core::{CompareOp, ScanOptions, Shape, TensorEvalBackend, TensorIndexB
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(backend) => Some(backend),
-        Err(error @ MlxError::Unavailable(_)) => {
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-            eprintln!("SKIP native MLX evaluation: {error}");
-            None
-        }
-        Err(error) => panic!("MLX initialization failed: {error}"),
-    }
-}
+mod support;
+use support::backend;
 
 #[test]
 fn evaluate_lazy_producers_keeps_resident_results_and_views() {

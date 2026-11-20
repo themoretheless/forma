@@ -1,6 +1,7 @@
 //! Headless rasterizer smoke tests. Skipped (with a notice) on machines
 //! without an adapter, matching the compute-kernel test convention.
 
+use raster_core::RasterError;
 use raster_core::gpu_compute::GpuContext;
 use raster_core::rasterizer::{Frame, Rasterizer};
 use raster_core::uniform::{ObjectUniform, SceneUniform};
@@ -85,20 +86,24 @@ fn morph_weight_moves_the_triangle_on_the_gpu() {
         return;
     };
     eprintln!("raster-core: rendering on {}", context.backend_label());
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&test_scene());
 
     let (vertices, indices, morph) = triangle();
-    let mesh = rasterizer.create_mesh(
-        &vertices,
-        &indices,
-        &colored_uniform(1.0, 0.0, 0.0),
-        Some(&morph),
-    );
+    let mesh = rasterizer
+        .create_mesh(
+            &vertices,
+            &indices,
+            &colored_uniform(1.0, 0.0, 0.0),
+            Some(&morph),
+        )
+        .unwrap();
 
     // Weight 0 shows the slot-1 source positions (shifted right).
     rasterizer.set_morph_weight(&mesh, 0.0);
-    let at_source = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
+    let at_source = rasterizer
+        .render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]))
+        .unwrap();
     assert!(
         red_at(&at_source, 55, 40),
         "source-only area is covered at weight 0"
@@ -110,7 +115,9 @@ fn morph_weight_moves_the_triangle_on_the_gpu() {
 
     // Weight 1 shows the vertex-buffer target positions.
     rasterizer.set_morph_weight(&mesh, 1.0);
-    let at_target = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
+    let at_target = rasterizer
+        .render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]))
+        .unwrap();
     assert!(
         red_at(&at_target, 16, 40),
         "target-only area is covered at weight 1"
@@ -122,7 +129,9 @@ fn morph_weight_moves_the_triangle_on_the_gpu() {
 
     // Halfway blend: midpoint covered, both extreme-only areas uncovered.
     rasterizer.set_morph_weight(&mesh, 0.5);
-    let at_half = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
+    let at_half = rasterizer
+        .render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]))
+        .unwrap();
     assert!(red_at(&at_half, 36, 40), "mid blend covers the midpoint");
     assert!(
         background_at(&at_half, 16, 40),
@@ -140,7 +149,7 @@ fn mesh_without_morph_source_draws_its_target_vertices() {
         eprintln!("raster-core: no GPU adapter available, skipping render test");
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&test_scene());
 
     let (vertices, indices, _morph) = triangle();
@@ -150,11 +159,13 @@ fn mesh_without_morph_source_draws_its_target_vertices() {
     // toward the origin; callers must never write a sub-rest weight without
     // binding a real morph source, and the browser renderer holds the same
     // invariant by retiring morphs back to weight 1.)
-    let mesh = rasterizer.create_mesh(&vertices, &indices, &colored_uniform(0.0, 0.0, 1.0), None);
+    let mesh = rasterizer
+        .create_mesh(&vertices, &indices, &colored_uniform(0.0, 0.0, 1.0), None)
+        .unwrap();
     let mesh_refs = [&mesh];
     let frame = morph_frame(&mesh_refs);
-    let first = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
-    let second = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let first = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
+    let second = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     assert_eq!(first, second, "repeated renders are deterministic");
     assert!(
         pixel(&first, 16, 40)[2] > 100,
@@ -175,11 +186,13 @@ fn caller_records_render_and_readback_in_one_submission() {
         );
         return;
     };
-    let mut rasterizer = Rasterizer::new(context.clone(), wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context.clone(), wgpu::TextureFormat::Rgba8Unorm).unwrap();
     assert_eq!(rasterizer.context.device, context.device);
     rasterizer.set_scene(&test_scene());
     let (vertices, indices, _) = triangle();
-    let mesh = rasterizer.create_mesh(&vertices, &indices, &colored_uniform(1.0, 0.0, 0.0), None);
+    let mesh = rasterizer
+        .create_mesh(&vertices, &indices, &colored_uniform(1.0, 0.0, 0.0), None)
+        .unwrap();
     let meshes = [&mesh];
     let frame = morph_frame(&meshes);
     let texture = context.device.create_texture(&wgpu::TextureDescriptor {
@@ -244,7 +257,7 @@ fn rgba_readback_handles_padded_rows_and_rejects_invalid_sizes() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     let frame = Frame {
         clear: wgpu::Color {
             r: 0.0,
@@ -263,6 +276,10 @@ fn rgba_readback_handles_padded_rows_and_rejects_invalid_sizes() {
         assert_eq!(rgba.len(), (width * height * 4) as usize);
         assert!(rgba.chunks_exact(4).all(|pixel| pixel == [0, 255, 0, 255]));
     }
+    assert!(matches!(
+        rasterizer.render_to_rgba(0, 0, &frame),
+        Err(RasterError::Readback(_))
+    ));
     assert!(rasterizer.try_render_to_rgba(0, 3, &frame).is_err());
     assert!(rasterizer.try_render_to_rgba(u32::MAX, 3, &frame).is_err());
 }

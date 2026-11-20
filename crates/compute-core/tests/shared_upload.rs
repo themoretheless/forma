@@ -65,7 +65,7 @@ fn device_without_primary_mapping_keeps_the_portable_upload_path() {
         gpu_compute::block_on(adapter.request_device(&Default::default())).unwrap();
     assert!(!gpu_compute::shared_memory_uploads(&device));
     let data = [0, u32::MAX, 0x8000_0000, 42];
-    let buffer = compute_core::storage_u32(&device, &queue, &data);
+    let buffer = compute_core::storage_u32(&device, &queue, &data).unwrap();
     assert!(!buffer.usage().contains(wgpu::BufferUsages::MAP_WRITE));
     assert_eq!(
         compute_core::try_read_u32(&device, &queue, &buffer, data.len()).unwrap(),

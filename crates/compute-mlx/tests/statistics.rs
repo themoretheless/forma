@@ -5,16 +5,8 @@ use tensor_core::{HasShape, Shape, TensorError, TensorStatsBackend};
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+mod support;
+use support::backend;
 fn close(actual: f32, expected: f64) {
     let difference = (f64::from(actual) - expected).abs();
     assert!(

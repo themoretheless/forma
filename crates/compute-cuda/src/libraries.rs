@@ -49,11 +49,13 @@ const GRAPH_RUNTIME_DRIVER_SYMBOLS: &[&str] = &[
 // loadable library lacks a symbol. Check the same retained library first, so
 // even panic=abort builds return a useful error before calling into cudarc.
 pub(crate) fn require_nvrtc() -> Result<(), CudaError> {
+    // SAFETY: Queries cudarc's retained NVRTC library handle presence before resolving symbols.
     if !unsafe { cudarc::nvrtc::sys::is_culib_present() } {
         return Err(CudaError::Unavailable(
             "NVRTC library is missing; provide compatible precompiled PTX with from_ptx",
         ));
     }
+    // SAFETY: NVRTC library is loaded above; `symbol` is NUL-free ASCII looked up via `libloading::Library::get`.
     validate_symbols("NVRTC", NVRTC_SYMBOLS, |symbol| unsafe {
         cudarc::nvrtc::sys::culib()
             .get::<*const std::ffi::c_void>(symbol.as_bytes())
@@ -61,9 +63,11 @@ pub(crate) fn require_nvrtc() -> Result<(), CudaError> {
     })
 }
 pub(crate) fn require_cublas() -> Result<(), CudaError> {
+    // SAFETY: Queries cudarc's retained cuBLAS library handle presence before resolving symbols.
     if !unsafe { cudarc::cublas::sys::is_culib_present() } {
         return Err(CudaError::Unavailable("cuBLAS library is missing"));
     }
+    // SAFETY: cuBLAS library is loaded above; symbol probe checks presence without calling the resolved address.
     validate_symbols("cuBLAS", CUBLAS_SYMBOLS, |symbol| unsafe {
         cudarc::cublas::sys::culib()
             .get::<*const std::ffi::c_void>(symbol.as_bytes())
@@ -73,6 +77,7 @@ pub(crate) fn require_cublas() -> Result<(), CudaError> {
 /// Graph-only additions remain optional for ordinary eager/prepared GEMM.
 pub(crate) fn require_cublas_capture() -> Result<(), CudaError> {
     require_cublas()?;
+    // SAFETY: `require_cublas()` succeeded, keeping cuBLAS loaded for symbol probing.
     validate_symbols("cuBLAS", CUBLAS_CAPTURE_SYMBOLS, |symbol| unsafe {
         cudarc::cublas::sys::culib()
             .get::<*const std::ffi::c_void>(symbol.as_bytes())
@@ -86,9 +91,11 @@ pub(crate) fn require_graph_runtime() -> Result<(), CudaError> {
     require_driver_symbols(GRAPH_RUNTIME_DRIVER_SYMBOLS)
 }
 fn require_driver_symbols(symbols: &[&'static str]) -> Result<(), CudaError> {
+    // SAFETY: Queries cudarc's retained CUDA driver library presence before probing symbols.
     if !unsafe { cudarc::driver::sys::is_culib_present() } {
         return Err(CudaError::Unavailable("CUDA driver library is missing"));
     }
+    // SAFETY: CUDA driver library is present; symbol lookup only checks symbol existence.
     validate_symbols("CUDA driver", symbols, |symbol| unsafe {
         cudarc::driver::sys::culib()
             .get::<*const std::ffi::c_void>(symbol.as_bytes())

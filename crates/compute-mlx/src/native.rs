@@ -90,7 +90,14 @@ impl std::fmt::Display for MlxError {
         }
     }
 }
-impl std::error::Error for MlxError {}
+impl std::error::Error for MlxError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Contract(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 impl From<TensorError> for MlxError {
     fn from(e: TensorError) -> Self {
         Self::Contract(e)
@@ -150,6 +157,7 @@ fn validate_array(api: &Api, raw: Handle, shape: &Shape, dtype: MlxDtype) -> Res
     if raw.ctx.is_null() {
         return Err("MLX returned a null array".into());
     }
+    // SAFETY: Caller holds `CALLS`; `raw` is a live non-null array handle and `dimensions` (when `rank > 0` and non-null) points to `rank` `c_int` dims for the call.
     unsafe {
         let rank = (api.array_ndim)(raw);
         let dimensions = (api.array_shape)(raw);
@@ -196,6 +204,7 @@ struct Context {
 }
 impl Drop for Context {
     fn drop(&mut self) {
+        // SAFETY: `self.stream` is a live handle released once here while `CALLS` is locked.
         let _ = self.api.call(|a| unsafe {
             let completion = Api::check((a.synchronize)(self.stream));
             let released = Api::check((a.stream_free)(self.stream));
@@ -209,6 +218,7 @@ struct Array {
 }
 impl Drop for Array {
     fn drop(&mut self) {
+        // SAFETY: `self.raw` is uniquely owned per `Array` instance (`Rc<Array>`) and freed once under `CALLS`.
         let _ = self
             .context
             .api
@@ -246,6 +256,7 @@ impl MlxBackend {
         let api = Api::global().map_err(MlxError::Unavailable)?;
         let (stream, version) = native(
             "initialize",
+            // SAFETY: Probes Metal availability, allocates device/stream/version under `CALLS`, and reads the NUL-terminated version string before freeing `version` and `device`.
             api.call(|a| unsafe {
                 let mut available = false;
                 Api::check((a.metal_is_available)(&mut available))?;
@@ -334,6 +345,7 @@ impl MlxBackend {
         Self::check_shape_limits(&shape)?;
         let raw = native(
             operation,
+            // SAFETY: Allocates placeholder via `array_new()`, lets `record` populate `&mut raw` under `CALLS`, validates contract, and frees `raw` on any error.
             self.context.api.call(|a| unsafe {
                 let mut raw = (a.array_new)();
                 if let Err(e) = Api::check(record(a, &mut raw)) {
@@ -372,6 +384,7 @@ impl MlxBackend {
         }
         let dims = Self::dimensions(&shape)?;
         let rank = i32::try_from(dims.len()).map_err(|_| MlxError::TooLarge)?;
+        // SAFETY: `ptr` points to `len == shape.numel()` initialized values matching `dtype` and `dims` has length `rank`.
         self.output("upload", shape, dtype, |a, out| unsafe {
             (a.array_set_data)(out, ptr, dims.as_ptr(), rank, dtype.raw())
         })
@@ -386,6 +399,7 @@ impl MlxBackend {
         self.check(t, None)?;
         native(
             "eval",
+            // SAFETY: `self.check` verified `t` belongs to this backend context under `CALLS`.
             self.context
                 .api
                 .call(|a| unsafe { Api::check((a.array_eval)(t.array.raw)) }),
@@ -394,6 +408,7 @@ impl MlxBackend {
     pub fn synchronize(&self) -> Result<(), MlxError> {
         native(
             "synchronize",
+            // SAFETY: `self.context.stream` stays live until `Context::drop`.
             self.context
                 .api
                 .call(|a| unsafe { Api::check((a.synchronize)(self.context.stream)) }),
@@ -401,6 +416,7 @@ impl MlxBackend {
     }
     pub fn materialize(&self, t: &MlxTensor) -> Result<MlxTensor, MlxError> {
         self.check(t, None)?;
+        // SAFETY: `t` and `self.context.stream` share a verified context and live under `CALLS`.
         self.output("contiguous", t.shape.clone(), t.dtype, |a, out| unsafe {
             (a.contiguous)(out, t.array.raw, false, self.context.stream)
         })
@@ -410,6 +426,7 @@ impl MlxBackend {
         let t = self.materialize(t)?;
         native(
             "read_f32",
+            // SAFETY: Evaluates contiguous `t` under `CALLS`, verifies `numel > 0` and non-null `ptr`, and copies while `t` keeps storage alive.
             self.context.api.call(|a| unsafe {
                 Api::check((a.array_eval)(t.array.raw))?;
                 if t.shape.numel() == 0 {
@@ -428,6 +445,7 @@ impl MlxBackend {
         let t = self.materialize(t)?;
         native(
             "read_u32",
+            // SAFETY: Evaluates contiguous `t` under `CALLS`, verifies `numel > 0` and non-null `ptr`, and copies while `t` keeps storage alive.
             self.context.api.call(|a| unsafe {
                 Api::check((a.array_eval)(t.array.raw))?;
                 if t.shape.numel() == 0 {
@@ -455,6 +473,7 @@ impl MlxBackend {
         }
         let dims = Self::dimensions(&shape)?;
         let input = self.materialize(t)?;
+        // SAFETY: `input` and `self.context.stream` share a verified context; `dims` outlives the C call.
         self.output("reshape", shape, t.dtype, |a, out| unsafe {
             (a.reshape)(
                 out,
@@ -472,6 +491,7 @@ impl MlxBackend {
             .iter()
             .map(|&x| i32::try_from(x).map_err(|_| MlxError::TooLarge))
             .collect::<Result<_, _>>()?;
+        // SAFETY: `t` was checked against `self.context`, and `axes` was validated by `permute`.
         self.output("permute", shape, t.dtype, |a, out| unsafe {
             (a.transpose_axes)(
                 out,
@@ -492,6 +512,7 @@ impl MlxBackend {
             .into());
         }
         let dims = Self::dimensions(&shape)?;
+        // SAFETY: Broadcast shape and `t` ownership are validated; `dims` stays alive for the C call.
         self.output("broadcast", shape, t.dtype, |a, out| unsafe {
             (a.broadcast_to)(
                 out,
@@ -504,6 +525,7 @@ impl MlxBackend {
     }
     pub fn unary(&self, op: UnaryOp, t: &MlxTensor) -> Result<MlxTensor, MlxError> {
         self.check(t, Some(MlxDtype::F32))?;
+        // SAFETY: `t` is checked to be F32 on `self.context` and invoked under `CALLS`.
         self.output("unary", t.shape.clone(), MlxDtype::F32, |a, out| unsafe {
             let operation = unary_function(a, op);
             operation(out, t.array.raw, self.context.stream)
@@ -518,6 +540,7 @@ impl MlxBackend {
         self.check(left, Some(MlxDtype::F32))?;
         self.check(right, Some(MlxDtype::F32))?;
         let shape = left.shape.broadcast(&right.shape)?;
+        // SAFETY: Both operands are F32 on `self.context` with broadcast-compatible shapes.
         self.output("binary", shape, MlxDtype::F32, |a, out| unsafe {
             let operation = binary_function(a, op);
             operation(out, left.array.raw, right.array.raw, self.context.stream)
@@ -573,6 +596,7 @@ impl MlxBackend {
         if shape.is_empty() {
             return self.zeros(shape, MlxDtype::F32);
         }
+        // SAFETY: Both matrices are non-empty F32 tensors on `self.context` with validated matmul shapes.
         self.output("matmul", shape, MlxDtype::F32, |a, out| unsafe {
             (a.matmul)(out, left.array.raw, right.array.raw, self.context.stream)
         })
@@ -611,6 +635,7 @@ impl MlxBackend {
         let shape = Shape::new(dims)?;
         let uploaded = self.upload_u32(Shape::new(vec![indices.len()])?, indices)?;
         let axis = i32::try_from(axis).map_err(|_| MlxError::TooLarge)?;
+        // SAFETY: `t` and `uploaded` live on `self.context`, and all indices were bounds-checked against `axis`.
         self.output("gather", shape, t.dtype, |a, out| unsafe {
             (a.take_axis)(
                 out,

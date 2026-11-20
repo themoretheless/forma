@@ -1,6 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 pub(super) use crate::M3;
 pub(super) use crate::V3;
+pub(super) use crate::f32_kernels::wire;
 #[cfg(target_arch = "wasm32")]
 pub(super) use compute_core::gpu_compute::pack_f32;
 pub(super) use compute_core::gpu_compute::wgpu;
@@ -20,11 +21,6 @@ pub(super) fn mk(device: &Device, label: &str, size: u64, usage: BufferUsages) -
         usage,
         mapped_at_creation: false,
     })
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(super) fn push_f32(bytes: &mut Vec<u8>, value: f32) {
-    bytes.extend_from_slice(&value.to_le_bytes());
 }
 
 /// Uniform + read storage + write storage bindings, the common shape.

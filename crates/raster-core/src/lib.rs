@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Rasterizer library: the pixel-render counterpart of the compute kernels.
 //!
 //! The WGSL sources in `shaders/` are the single source of truth for the
@@ -17,6 +19,7 @@ pub use wgpu;
 
 pub mod chunks;
 pub mod codegen;
+pub mod error;
 pub mod generated_layouts;
 pub mod layout;
 pub mod pipeline;
@@ -27,6 +30,8 @@ pub mod resources;
 pub mod shaders;
 pub mod uniform;
 pub mod variants;
+
+pub use error::RasterError;
 
 pub use postprocess::{
     CullingStats, apply_chromatic_aberration_and_vignette, bilateral_depth_filter,

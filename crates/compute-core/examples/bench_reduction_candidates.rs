@@ -70,7 +70,7 @@ fn make_plan<'a>(
             rt.device(),
             rt.queue(),
             &[f32::from_bits(count), f32::from_bits(groups), 0.0, 0.0],
-        );
+        )?;
         let bindings = candidate
             .kernel
             .create_bind_group(rt.device(), &[&params, &source, &destination]);

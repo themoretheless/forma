@@ -58,7 +58,8 @@ fn raw(
             0.,
             0.,
         ],
-    );
+    )
+    .unwrap();
     let bind = kernel.create_bind_group(
         &context.device,
         &[

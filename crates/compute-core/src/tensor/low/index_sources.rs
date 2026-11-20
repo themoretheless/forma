@@ -3,14 +3,17 @@ use crate::shaders;
 fn packed(buffer: &str, address: &str) -> String {
     format!("(({buffer}[({address})/2u]>>((({address})&1u)*16u))&65535u)")
 }
+fn normalize(source: &str) -> String {
+    source.replace("\r\n", "\n")
+}
 fn words(source: &str) -> String {
-    source.replace("alias Value = f32;", "alias Value = u32;")
+    normalize(source).replace("alias Value = f32;", "alias Value = u32;")
 }
 fn packed_writer(source: String, output_offset: u32) -> String {
     let traversal = source.split_once("@compute").expect("scalar writer").0;
     format!(
         "{traversal}\nconst OUTPUT_OFFSET:u32={output_offset}u;\n{}",
-        include_str!("../../../shaders/tensor_packed_write.wgsl")
+        normalize(include_str!("../../../shaders/tensor_packed_write.wgsl"))
     )
 }
 pub(super) fn compare() -> String {
@@ -19,7 +22,7 @@ pub(super) fn compare() -> String {
     let last = source.find("@compute").expect("comparison entry");
     source.replace_range(
         first..last,
-        include_str!("../../../shaders/low_ieee_compare.wgsl"),
+        &normalize(include_str!("../../../shaders/low_ieee_compare.wgsl")),
     );
     for (buffer, address) in [("a", "aa"), ("b", "bb")] {
         source = source.replace(
@@ -29,8 +32,8 @@ pub(super) fn compare() -> String {
     }
     format!(
         "{}\n{}\n{source}",
-        include_str!("../../../shaders/low_codec.wgsl"),
-        include_str!("../../../shaders/float_bits_order.wgsl")
+        normalize(include_str!("../../../shaders/low_codec.wgsl")),
+        normalize(include_str!("../../../shaders/float_bits_order.wgsl"))
     )
 }
 pub(super) fn select() -> String {
@@ -76,7 +79,7 @@ fn packed_store(address:u32,value:u32) {
     )
 }
 pub(super) fn scan() -> String {
-    let source = shaders::TENSOR_SCAN_BLOCKS_WGSL
+    let source = normalize(shaders::TENSOR_SCAN_BLOCKS_WGSL)
         .replace("input:array<Value>", "input:array<u32>")
         .replace(
             "input[row*p[1]+physical]",
@@ -84,8 +87,8 @@ pub(super) fn scan() -> String {
         );
     format!(
         "{}\n{}\n{source}",
-        include_str!("../../../shaders/low_codec.wgsl"),
-        include_str!("../../../shaders/tensor_low_scan_load.wgsl")
+        normalize(include_str!("../../../shaders/low_codec.wgsl")),
+        normalize(include_str!("../../../shaders/tensor_low_scan_load.wgsl"))
     )
 }
 #[cfg(test)]

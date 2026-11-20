@@ -1,4 +1,5 @@
 //! GPU resource creation and updates; frame ordering lives in rasterizer.
+use crate::RasterError;
 use crate::pipeline::RasterPipelines;
 use crate::uniform::{
     MORPH_BYTE_OFFSET, OBJECT_UNIFORM_BYTES, OBJECT_UNIFORM_FLOATS, ObjectUniform,
@@ -68,20 +69,23 @@ pub(crate) fn create_mesh(
     indices: &[u32],
     uniform: &ObjectUniform,
     morph_source: Option<&[f32]>,
-) -> DrawMesh {
+) -> Result<DrawMesh, RasterError> {
     let (vertex_buffer, index_buffer, index_count) =
-        upload_geometry(&context.device, vertices, indices);
+        upload_geometry(&context.device, vertices, indices)?;
     let (uniform_buffer, bind_group) =
-        upload_object_uniform(&context.device, &pipelines.object_bgl, uniform);
-    DrawMesh {
+        upload_object_uniform(&context.device, &pipelines.object_bgl, uniform)?;
+    let morph_source = morph_source
+        .map(|positions| upload_morph_source(&context.device, positions))
+        .transpose()?;
+    Ok(DrawMesh {
         vertex_buffer,
         index_buffer,
         index_count,
         uniform_buffer,
         bind_group,
-        morph_source: morph_source.map(|positions| upload_morph_source(&context.device, positions)),
+        morph_source,
         transparent: uniform.style[0] < 1.0,
-    }
+    })
 }
 
 pub(crate) fn create_edges(
@@ -91,40 +95,49 @@ pub(crate) fn create_edges(
     edge_indices: &[u32],
     uniform: &ObjectUniform,
     morph_source: Option<&[f32]>,
-) -> DrawEdges {
+) -> Result<DrawEdges, RasterError> {
     let (vertex_buffer, index_buffer, index_count) =
-        upload_geometry(&context.device, vertices, edge_indices);
+        upload_geometry(&context.device, vertices, edge_indices)?;
     let (uniform_buffer, bind_group) =
-        upload_object_uniform(&context.device, &pipelines.object_bgl, uniform);
-    DrawEdges {
+        upload_object_uniform(&context.device, &pipelines.object_bgl, uniform)?;
+    let morph_source = morph_source
+        .map(|positions| upload_morph_source(&context.device, positions))
+        .transpose()?;
+    Ok(DrawEdges {
         vertex_buffer,
         index_buffer,
         index_count,
         uniform_buffer,
         bind_group,
-        morph_source: morph_source.map(|positions| upload_morph_source(&context.device, positions)),
-    }
+        morph_source,
+    })
 }
 
-pub(crate) fn create_line_batch(device: &wgpu::Device, vertices: &[f32]) -> LineBatch {
-    LineBatch {
-        vertex_buffer: upload_vertex_data(device, vertices, "raster lines"),
+pub(crate) fn create_line_batch(
+    device: &wgpu::Device,
+    vertices: &[f32],
+) -> Result<LineBatch, RasterError> {
+    Ok(LineBatch {
+        vertex_buffer: upload_vertex_data(device, vertices, "raster lines")?,
         vertex_count: (vertices.len() / 7) as u32,
-    }
+    })
 }
 
-pub(crate) fn create_overlay_batch(device: &wgpu::Device, vertices: &[f32]) -> OverlayBatch {
-    OverlayBatch {
-        vertex_buffer: upload_vertex_data(device, vertices, "raster overlay"),
+pub(crate) fn create_overlay_batch(
+    device: &wgpu::Device,
+    vertices: &[f32],
+) -> Result<OverlayBatch, RasterError> {
+    Ok(OverlayBatch {
+        vertex_buffer: upload_vertex_data(device, vertices, "raster overlay")?,
         vertex_count: (vertices.len() / 7) as u32,
-    }
+    })
 }
 
 pub(crate) fn create_instance_pool(
     device: &wgpu::Device,
     pipelines: &RasterPipelines,
     records: &[ObjectUniform],
-) -> InstancePool {
+) -> Result<InstancePool, RasterError> {
     let buffer = create_buffer_initialized(
         device,
         &wgpu::BufferDescriptor {
@@ -143,8 +156,7 @@ pub(crate) fn create_instance_pool(
                     .copy_from_slice(&f32_le_bytes(&floats));
             }
         },
-    )
-    .expect("raster instance initialization failed");
+    )?;
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("raster instance bind group"),
         layout: &pipelines.instance_bgl,
@@ -153,11 +165,11 @@ pub(crate) fn create_instance_pool(
             resource: buffer.as_entire_binding(),
         }],
     });
-    InstancePool {
+    Ok(InstancePool {
         buffer,
         bind_group,
         count: records.len() as u32,
-    }
+    })
 }
 
 pub(crate) fn create_instanced_geometry(
@@ -165,14 +177,17 @@ pub(crate) fn create_instanced_geometry(
     vertices: &[f32],
     indices: &[u32],
     morph_source: Option<&[f32]>,
-) -> InstancedGeometry {
-    let (vertex_buffer, index_buffer, index_count) = upload_geometry(device, vertices, indices);
-    InstancedGeometry {
+) -> Result<InstancedGeometry, RasterError> {
+    let (vertex_buffer, index_buffer, index_count) = upload_geometry(device, vertices, indices)?;
+    let morph_source = morph_source
+        .map(|positions| upload_morph_source(device, positions))
+        .transpose()?;
+    Ok(InstancedGeometry {
         vertex_buffer,
         index_buffer,
         index_count,
-        morph_source: morph_source.map(|positions| upload_morph_source(device, positions)),
-    }
+        morph_source,
+    })
 }
 
 pub(crate) fn set_style(queue: &wgpu::Queue, buffer: &wgpu::Buffer, style: [f32; 4]) {
@@ -192,7 +207,11 @@ fn write_uniform_field(
     queue.write_buffer(buffer, byte_offset, &f32_le_bytes(floats));
 }
 
-fn upload_vertex_data(device: &wgpu::Device, floats: &[f32], label: &str) -> wgpu::Buffer {
+fn upload_vertex_data(
+    device: &wgpu::Device,
+    floats: &[f32],
+    label: &str,
+) -> Result<wgpu::Buffer, RasterError> {
     upload_bytes(
         device,
         &f32_le_bytes(floats),
@@ -206,8 +225,8 @@ fn upload_bytes(
     bytes: &[u8],
     label: &str,
     usage: wgpu::BufferUsages,
-) -> wgpu::Buffer {
-    create_buffer_initialized(
+) -> Result<wgpu::Buffer, RasterError> {
+    Ok(create_buffer_initialized(
         device,
         &wgpu::BufferDescriptor {
             label: Some(label),
@@ -216,26 +235,28 @@ fn upload_bytes(
             mapped_at_creation: true,
         },
         |mapping| mapping.into_slice(..bytes.len()).copy_from_slice(bytes),
-    )
-    .expect("raster buffer initialization failed")
+    )?)
 }
 
 fn upload_geometry(
     device: &wgpu::Device,
     vertices: &[f32],
     indices: &[u32],
-) -> (wgpu::Buffer, wgpu::Buffer, u32) {
-    let vertex_buffer = upload_vertex_data(device, vertices, "raster mesh vertices");
+) -> Result<(wgpu::Buffer, wgpu::Buffer, u32), RasterError> {
+    let vertex_buffer = upload_vertex_data(device, vertices, "raster mesh vertices")?;
     let index_buffer = upload_bytes(
         device,
         &u32_le_bytes(indices),
         "raster mesh indices",
         wgpu::BufferUsages::INDEX,
-    );
-    (vertex_buffer, index_buffer, indices.len() as u32)
+    )?;
+    Ok((vertex_buffer, index_buffer, indices.len() as u32))
 }
 
-fn upload_morph_source(device: &wgpu::Device, positions: &[f32]) -> wgpu::Buffer {
+fn upload_morph_source(
+    device: &wgpu::Device,
+    positions: &[f32],
+) -> Result<wgpu::Buffer, RasterError> {
     upload_vertex_data(device, positions, "raster morph source")
 }
 
@@ -243,7 +264,7 @@ fn upload_object_uniform(
     device: &wgpu::Device,
     object_bgl: &wgpu::BindGroupLayout,
     uniform: &ObjectUniform,
-) -> (wgpu::Buffer, wgpu::BindGroup) {
+) -> Result<(wgpu::Buffer, wgpu::BindGroup), RasterError> {
     let mut floats = [0.0f32; OBJECT_UNIFORM_FLOATS];
     uniform.write_f32(&mut floats);
     let uniform_buffer = upload_bytes(
@@ -251,7 +272,7 @@ fn upload_object_uniform(
         &f32_le_bytes(&floats),
         "raster object uniform",
         wgpu::BufferUsages::UNIFORM,
-    );
+    )?;
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("raster object bind group"),
         layout: object_bgl,
@@ -260,5 +281,5 @@ fn upload_object_uniform(
             resource: uniform_buffer.as_entire_binding(),
         }],
     });
-    (uniform_buffer, bind_group)
+    Ok((uniform_buffer, bind_group))
 }

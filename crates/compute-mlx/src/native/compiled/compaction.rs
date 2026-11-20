@@ -37,12 +37,8 @@ mod tests {
     use super::*;
     #[test]
     fn compact_values_and_count_roll_back_together_after_late_failure() {
-        let backend = match MlxBackend::new_gpu() {
-            Ok(b) => b,
-            Err(error) => {
-                assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-                return;
-            }
+        let Some(backend) = super::test_backend() else {
+            return;
         };
         let mut graph = backend.program();
         let input = graph

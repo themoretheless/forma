@@ -162,6 +162,7 @@ fn main() {
     // Fixed QoS for this benchmark thread only. This neither pins cores nor
     // controls system clocks, and applies equally to candidates and controls.
     #[cfg(target_os = "macos")]
+    // SAFETY: Standard Darwin libsystem C ABI (`pthread_set_qos_class_self_np`) configuring only the calling benchmark thread's QoS class (`0x19` = `QOS_CLASS_USER_INITIATED`).
     unsafe {
         unsafe extern "C" {
             fn pthread_set_qos_class_self_np(qos: u32, relative_priority: i32) -> i32;

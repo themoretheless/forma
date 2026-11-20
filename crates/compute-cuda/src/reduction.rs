@@ -95,8 +95,7 @@ impl CudaRuntime {
             let mut result = self.zeros_typed(shape.clone())?;
             if op == ReduceOp::Product {
                 let n = shape.numel() as u64;
-                // Only empty product needs one rather than the zero allocation;
-                // min/max empty contractions were rejected by the shared helper.
+                // SAFETY: `result` was freshly allocated by `self.zeros_typed(shape)` so `output(&mut result)` holds `n` elements of `T`.
                 unsafe {
                     self.device
                         .stream

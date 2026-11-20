@@ -35,14 +35,7 @@ impl GpuDistancePairs {
         })
     }
 
-    fn ensure_buffers(&self, pair_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(buffers) => buffers.capacity < pair_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, pair_count: usize) -> DistancePairBuffers {
         let device = &self.device;
         let capacity = pair_count.max(1);
         let params = mk(
@@ -72,39 +65,41 @@ impl GpuDistancePairs {
         let bind = self
             .kernel
             .create_bind_group(device, &[&params, &a, &b, &out]);
-        *self.buffers.borrow_mut() = Some(DistancePairBuffers {
+        DistancePairBuffers {
             capacity,
             params,
             a,
             b,
             out,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(&self, a: &[V3], b: &[V3]) -> Result<Vec<f64>, gpu_compute::ReadbackError> {
-        Ok({
-            let pair_count = a.len();
-            self.ensure_buffers(pair_count);
-            let flat_a: Vec<f32> = a.iter().flatten().map(|&v| v as f32).collect();
-            let flat_b: Vec<f32> = b.iter().flatten().map(|&v| v as f32).collect();
-            let params = pack_u32(&[pair_count as u32, 0, 0, 0]);
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            self.queue.write_buffer(&buffers.a, 0, &pack_f32(&flat_a));
-            self.queue.write_buffer(&buffers.b, 0, &pack_f32(&flat_b));
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                self.kernel.workgroup_count(pair_count.max(1) as u32),
-            );
-            read_f32(&self.device, &self.queue, &buffers.out, pair_count)?
-                .iter()
-                .map(|&dist| dist as f64)
-                .collect()
-        })
+        let pair_count = a.len();
+        let flat_a = wire::pack_points_f32(a);
+        let flat_b = wire::pack_points_f32(b);
+        let params = pack_u32(&[pair_count as u32, 0, 0, 0]);
+        let mut slot = self.buffers.borrow_mut();
+        if slot.as_ref().is_some_and(|buf| buf.capacity < pair_count) {
+            *slot = None;
+        }
+        let buffers = slot.get_or_insert_with(|| self.alloc_buffers(pair_count));
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        self.queue.write_buffer(&buffers.a, 0, &pack_f32(&flat_a));
+        self.queue.write_buffer(&buffers.b, 0, &pack_f32(&flat_b));
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            self.kernel.workgroup_count(pair_count.max(1) as u32),
+        );
+        Ok(wire::fold_f64_vec(&read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out,
+            pair_count,
+        )?))
     }
 }
 
@@ -112,10 +107,10 @@ pub(super) struct GpuDistancePairSum {
     device: Device,
     queue: wgpu::Queue,
     kernel: Kernel,
-    buffers: std::cell::RefCell<Option<DistancePairSumBuffers>>,
+    buffers: std::cell::RefCell<Option<DistanceSumBuffers>>,
 }
 
-struct DistancePairSumBuffers {
+struct DistanceSumBuffers {
     pair_capacity: usize,
     partial_capacity: usize,
     params: Buffer,
@@ -144,14 +139,7 @@ impl GpuDistancePairSum {
         })
     }
 
-    fn ensure_buffers(&self, pair_count: usize, partial_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.pair_capacity < pair_count || b.partial_capacity < partial_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, pair_count: usize, partial_count: usize) -> DistanceSumBuffers {
         let device = &self.device;
         let pair_capacity = pair_count.max(1);
         let partial_capacity = partial_count.max(1);
@@ -182,7 +170,7 @@ impl GpuDistancePairSum {
         let bind = self
             .kernel
             .create_bind_group(device, &[&params, &a, &b, &out]);
-        *self.buffers.borrow_mut() = Some(DistancePairSumBuffers {
+        DistanceSumBuffers {
             pair_capacity,
             partial_capacity,
             params,
@@ -190,33 +178,37 @@ impl GpuDistancePairSum {
             b,
             out,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(&self, a: &[V3], b: &[V3]) -> Result<f64, gpu_compute::ReadbackError> {
-        Ok({
-            let pair_count = a.len();
-            let partial_count = self.kernel.workgroup_count(pair_count.max(1) as u32) as usize;
-            self.ensure_buffers(pair_count, partial_count);
-            let flat_a: Vec<f32> = a.iter().flatten().map(|&v| v as f32).collect();
-            let flat_b: Vec<f32> = b.iter().flatten().map(|&v| v as f32).collect();
-            let params = pack_u32(&[pair_count as u32, 0, 0, 0]);
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            self.queue.write_buffer(&buffers.a, 0, &pack_f32(&flat_a));
-            self.queue.write_buffer(&buffers.b, 0, &pack_f32(&flat_b));
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                partial_count as u32,
-            );
-            read_f32(&self.device, &self.queue, &buffers.out, partial_count)?
-                .iter()
-                .map(|&dist| dist as f64)
-                .sum()
-        })
+        let pair_count = a.len();
+        let partial_count = self.kernel.workgroup_count(pair_count.max(1) as u32) as usize;
+        let flat_a = wire::pack_points_f32(a);
+        let flat_b = wire::pack_points_f32(b);
+        let params = pack_u32(&[pair_count as u32, 0, 0, 0]);
+        let mut slot = self.buffers.borrow_mut();
+        if slot.as_ref().is_some_and(|buf| {
+            buf.pair_capacity < pair_count || buf.partial_capacity < partial_count
+        }) {
+            *slot = None;
+        }
+        let buffers = slot.get_or_insert_with(|| self.alloc_buffers(pair_count, partial_count));
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        self.queue.write_buffer(&buffers.a, 0, &pack_f32(&flat_a));
+        self.queue.write_buffer(&buffers.b, 0, &pack_f32(&flat_b));
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            partial_count as u32,
+        );
+        Ok(wire::fold_f64_sum(&read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out,
+            partial_count,
+        )?))
     }
 }
 
@@ -224,17 +216,7 @@ pub(super) struct GpuTransformedDistancePairSum {
     device: Device,
     queue: wgpu::Queue,
     kernel: Kernel,
-    buffers: std::cell::RefCell<Option<TransformedDistancePairSumBuffers>>,
-}
-
-struct TransformedDistancePairSumBuffers {
-    pair_capacity: usize,
-    partial_capacity: usize,
-    params: Buffer,
-    source: Buffer,
-    target: Buffer,
-    out: Buffer,
-    bind: BindGroup,
+    buffers: std::cell::RefCell<Option<DistanceSumBuffers>>,
 }
 
 impl GpuTransformedDistancePairSum {
@@ -256,14 +238,7 @@ impl GpuTransformedDistancePairSum {
         })
     }
 
-    fn ensure_buffers(&self, pair_count: usize, partial_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.pair_capacity < pair_count || b.partial_capacity < partial_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, pair_count: usize, partial_count: usize) -> DistanceSumBuffers {
         let device = &self.device;
         let pair_capacity = pair_count.max(1);
         let partial_capacity = partial_count.max(1);
@@ -273,13 +248,13 @@ impl GpuTransformedDistancePairSum {
             64,
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         );
-        let source = mk(
+        let a = mk(
             device,
             "transformed_distance_pair_sum_source",
             (pair_capacity * 12) as u64,
             BufferUsages::STORAGE | BufferUsages::COPY_DST,
         );
-        let target = mk(
+        let b = mk(
             device,
             "transformed_distance_pair_sum_target",
             (pair_capacity * 12) as u64,
@@ -293,16 +268,16 @@ impl GpuTransformedDistancePairSum {
         );
         let bind = self
             .kernel
-            .create_bind_group(device, &[&params, &source, &target, &out]);
-        *self.buffers.borrow_mut() = Some(TransformedDistancePairSumBuffers {
+            .create_bind_group(device, &[&params, &a, &b, &out]);
+        DistanceSumBuffers {
             pair_capacity,
             partial_capacity,
             params,
-            source,
-            target,
+            a,
+            b,
             out,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -312,37 +287,36 @@ impl GpuTransformedDistancePairSum {
         m: M3,
         t: V3,
     ) -> Result<f64, gpu_compute::ReadbackError> {
-        Ok({
-            let pair_count = source.len();
-            let partial_count = self.kernel.workgroup_count(pair_count.max(1) as u32) as usize;
-            self.ensure_buffers(pair_count, partial_count);
-            let flat_source: Vec<f32> = source.iter().flatten().map(|&v| v as f32).collect();
-            let flat_target: Vec<f32> = target.iter().flatten().map(|&v| v as f32).collect();
-            // Params: count, pad x3, then 4 rows of (matrix row, translation comp).
-            let mut params = pack_u32(&[pair_count as u32, 0, 0, 0]);
-            for row in 0..3 {
-                for &value in &m[row] {
-                    push_f32(&mut params, value as f32);
-                }
-                push_f32(&mut params, t[row] as f32);
-            }
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            self.queue
-                .write_buffer(&buffers.source, 0, &pack_f32(&flat_source));
-            self.queue
-                .write_buffer(&buffers.target, 0, &pack_f32(&flat_target));
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                partial_count as u32,
-            );
-            read_f32(&self.device, &self.queue, &buffers.out, partial_count)?
-                .iter()
-                .map(|&dist| dist as f64)
-                .sum()
-        })
+        let pair_count = source.len();
+        let partial_count = self.kernel.workgroup_count(pair_count.max(1) as u32) as usize;
+        let flat_source = wire::pack_points_f32(source);
+        let flat_target = wire::pack_points_f32(target);
+        // Params: count, pad x3, then 4 rows of (matrix row, translation comp).
+        let mut params = pack_u32(&[pair_count as u32, 0, 0, 0]);
+        params.extend_from_slice(&pack_f32(&wire::pack_transform_f32(m, t)));
+        let mut slot = self.buffers.borrow_mut();
+        if slot.as_ref().is_some_and(|buf| {
+            buf.pair_capacity < pair_count || buf.partial_capacity < partial_count
+        }) {
+            *slot = None;
+        }
+        let buffers = slot.get_or_insert_with(|| self.alloc_buffers(pair_count, partial_count));
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        self.queue
+            .write_buffer(&buffers.a, 0, &pack_f32(&flat_source));
+        self.queue
+            .write_buffer(&buffers.b, 0, &pack_f32(&flat_target));
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            partial_count as u32,
+        );
+        Ok(wire::fold_f64_sum(&read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out,
+            partial_count,
+        )?))
     }
 }

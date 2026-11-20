@@ -48,6 +48,7 @@ impl InvalidIndicesDispatch {
         if self.count == 0 {
             return Ok(());
         }
+        // SAFETY: `validate_storage` verified `indices`, `invalid`, and `metadata` lengths for `count` checks.
         unsafe {
             rt.device
                 .stream
@@ -132,8 +133,7 @@ impl GatherDispatch {
         if self.count == 0 {
             return Ok(());
         }
-        // Every index is checked against the axis length in the kernel. It
-        // writes zero for invalid indices, also for a zero-length input axis.
+        // SAFETY: `validate_storage` verified input, index, metadata, and disjoint `output` sizes; kernel clamps out-of-range indices safely.
         unsafe {
             rt.device
                 .stream

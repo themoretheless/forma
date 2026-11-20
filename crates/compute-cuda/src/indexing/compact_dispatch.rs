@@ -105,8 +105,7 @@ impl CompactDispatch {
         if self.count == 0 {
             return Ok(());
         }
-        // The normalized flags and their exclusive prefix make each selected
-        // destination unique and bounded. Movement preserves the raw T bits.
+        // SAFETY: `validate_storage` checked input/flag/prefix/output/metadata bounds and `output` is uniquely owned.
         unsafe {
             rt.device
                 .stream

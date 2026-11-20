@@ -200,16 +200,18 @@ impl<'a> ComputeProgram<'a> {
         };
         let bindings = self.bind_fused(kernel, inputs, &[&partials], len)?;
         // Prepare every fallible resource before appending any work.
-        let tail = (groups > 1).then(|| {
-            Reduction::with_output(
+        let tail = if groups > 1 {
+            Some(Reduction::with_output(
                 self.runtime.device(),
                 self.runtime.queue(),
                 &self.runtime.sum,
                 partials.buffer(),
                 groups,
                 output.buffer(),
-            )
-        });
+            )?)
+        } else {
+            None
+        };
         self.batch.push(&kernel.kernel, &bindings, groups);
         if let Some(tail) = tail {
             self.batch.push_reduction(&tail);

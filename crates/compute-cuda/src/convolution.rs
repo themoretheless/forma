@@ -129,8 +129,8 @@ impl CudaRuntime {
         if let Some(ref dtype) = dtype {
             args.arg(dtype);
         }
-        // Layout validation covers every non-padding read, the result is fresh
-        // and disjoint, and the metadata descriptor exactly matches the ABI.
+        // SAFETY: Layout validation covers every non-padding read, the result is fresh
+        // and disjoint, and the metadata descriptor exactly matches the kernel ABI.
         unsafe {
             args.launch(self.config(count as usize))?;
         }

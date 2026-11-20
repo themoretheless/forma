@@ -127,7 +127,7 @@ impl ComputeProgram<'_> {
                 f32::from_bits(block_size),
                 0.0,
             ],
-        );
+        )?;
         let scatter_bindings = scatter.create_bind_group(
             &self.runtime.device,
             &[

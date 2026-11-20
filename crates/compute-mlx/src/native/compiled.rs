@@ -185,6 +185,7 @@ impl MlxProgramBuilder {
             ctx: std::ptr::null_mut(),
         };
         let mut closure = source;
+        // SAFETY: `CALLS` is locked; `callback::{trace, destroy}` own `payload`, and `&mut closure` is stack-allocated for `compile`.
         let result = api.call(|_| unsafe {
             // Payload ownership transfers even if native construction fails.
             source =
@@ -199,6 +200,7 @@ impl MlxProgramBuilder {
             }
             Ok(())
         });
+        // SAFETY: Frees temporary `source` handle (and `closure` on compile failure) under `CALLS`.
         let _ = api.call(|_| unsafe {
             if !source.ctx.is_null() {
                 (compile.closure_free)(source);
@@ -328,6 +330,7 @@ impl MlxCompiledProgram {
         let compile = api.compile.as_ref().ok_or(MlxError::CompileUnavailable)?;
         let input_handles: Vec<_> = inputs.iter().map(|t| t.array.raw).collect();
         let mut handles = Vec::with_capacity(self.outputs.len());
+        // SAFETY: All `input_handles` match `self.context` and `self.inputs`; `Vector` guards free vectors and `handles` collects validated output arrays under `CALLS`.
         let result = api.call(|a| unsafe {
             let input = callback::Vector::new(
                 compile,
@@ -351,6 +354,7 @@ impl MlxCompiledProgram {
             Ok(())
         });
         if let Err(error) = result {
+            // SAFETY: Frees any output handles recorded prior to the error inside the same context lock.
             let _ = api.call(|a| unsafe {
                 for raw in handles.drain(..) {
                     (a.array_free)(raw);
@@ -386,6 +390,7 @@ impl MlxCompiledProgram {
 impl Drop for MlxCompiledProgram {
     fn drop(&mut self) {
         if let Some(compile) = self.context.api.compile.as_ref() {
+            // SAFETY: `self.closure` was compiled uniquely for this `MlxCompiledProgram` and is freed once under `CALLS`.
             let _ = self
                 .context
                 .api
@@ -395,16 +400,23 @@ impl Drop for MlxCompiledProgram {
 }
 
 #[cfg(test)]
+pub(super) fn test_backend() -> Option<MlxBackend> {
+    match MlxBackend::new_gpu() {
+        Ok(backend) => Some(backend),
+        Err(error) => {
+            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
+            None
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn compound_lowering_rolls_back_appended_nodes_after_late_failure() {
-        let backend = match MlxBackend::new_gpu() {
-            Ok(backend) => backend,
-            Err(error) => {
-                assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-                return;
-            }
+        let Some(backend) = super::test_backend() else {
+            return;
         };
         let mut graph = backend.program();
         let input = graph.input(Shape::new(vec![1]).unwrap()).unwrap();

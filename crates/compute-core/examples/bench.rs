@@ -59,8 +59,9 @@ fn main() {
         device,
         queue,
         &scale_add_params(elements as u32, 2.5, -1.25),
-    );
-    let input_buf = storage_f32(device, queue, &input);
+    )
+    .unwrap();
+    let input_buf = storage_f32(device, queue, &input).unwrap();
     let output_buf = storage_f32_zeroed(device, queue, elements);
 
     // Warmup: pipeline caches hot, queue reaches steady state.
@@ -84,7 +85,7 @@ fn main() {
             elements as u32,
         );
     }
-    let _ = read_f32(device, queue, &output_buf, 1);
+    let _ = read_f32(device, queue, &output_buf, 1).unwrap();
     let elapsed = start.elapsed().as_secs_f64() / ITERATIONS as f64;
     println!(
         "scale_add (elementwise map): {:7.2} GB/s sustained ({:.2} ms/iter)",
@@ -120,7 +121,7 @@ fn main() {
     .expect("block_sum builds");
 
     let b: Vec<f32> = (0..elements).map(|i| (i % 1024) as f32 * -1e-3).collect();
-    let b_buf = storage_f32(device, queue, &b);
+    let b_buf = storage_f32(device, queue, &b).unwrap();
     let products = storage_f32_zeroed(device, queue, elements);
     let groups = sum.workgroup_count(elements as u32);
     let partials = storage_f32_zeroed(device, queue, groups as usize);
@@ -138,7 +139,7 @@ fn main() {
         &[&params, &products, &partials],
         elements as u32,
     );
-    let _ = read_f32(device, queue, &partials, 1);
+    let _ = read_f32(device, queue, &partials, 1).unwrap();
 
     let start = Instant::now();
     for _ in 0..ITERATIONS {
@@ -155,7 +156,7 @@ fn main() {
             elements as u32,
         );
     }
-    let _ = read_f32(device, queue, &partials, 1);
+    let _ = read_f32(device, queue, &partials, 1).unwrap();
     let elapsed = start.elapsed().as_secs_f64() / ITERATIONS as f64;
     let red_bytes = (elements * 4 * 3) as f64; // two reads per mul + write, then read for sum
     println!(
@@ -181,8 +182,8 @@ fn main() {
     .expect("scale_add4 builds");
     let lanes = kernel4.max_dispatch_invocations() as usize;
     let input4: Vec<f32> = (0..lanes * 4).map(|i| i as f32 * 1e-6).collect();
-    let params4 = uniform_f32(device, queue, &scale_add_params(lanes as u32, 2.5, -1.25));
-    let input4_buf = storage_f32(device, queue, &input4);
+    let params4 = uniform_f32(device, queue, &scale_add_params(lanes as u32, 2.5, -1.25)).unwrap();
+    let input4_buf = storage_f32(device, queue, &input4).unwrap();
     let output4_buf = storage_f32_zeroed(device, queue, lanes * 4);
     for _ in 0..WARMUP {
         kernel4.dispatch(
@@ -202,7 +203,7 @@ fn main() {
             lanes as u32,
         );
     }
-    let _ = read_f32(device, queue, &output4_buf, 1);
+    let _ = read_f32(device, queue, &output4_buf, 1).unwrap();
     let elapsed = start.elapsed().as_secs_f64() / ITERATIONS as f64;
     println!(
         "scale_add4 (vec4 map):         {:7.2} GB/s sustained ({:.2} ms/iter)",

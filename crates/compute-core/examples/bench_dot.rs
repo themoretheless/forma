@@ -78,7 +78,7 @@ fn main() -> AnyResult<()> {
                 &context.device,
                 &context.queue,
                 &[f32::from_bits(count), f32::from_bits(groups), 0.0, 0.0],
-            );
+            )?;
             let bindings =
                 frozen_kernel.create_bind_group(&context.device, &[&params, &source, &destination]);
             frozen_sum.push(&frozen_kernel, &bindings, groups);

@@ -34,10 +34,10 @@
 | crates/gpu-shader | 9500+ в 29 файлах | golden по 123 шейдерам + 33 unit/integration | декомпозированы `front/wgsl` и `back/msl`; семантическая валидация `Validator` (включая `@builtin` стадии); бэкенды `spv` (`SPIR-V 1.3`), `hlsl` (`SM 5.1/6.0`), `glsl` (`450 / ES 310`), `wgsl`; `CudaPtx` с явным отказом (`G-11`); 0 предупреждений Clippy | 1 | done |
 | crates/gpu-runtime | 15 500+ в 62 файлах | 61 + 7 (`portable_backends`) | `#![deny(unsafe_op_in_unsafe_fn)]`, `metal/stub.rs`, signal-driven Metal + переносимые бэкенды `Vulkan`, `DX12`, `OpenGL/GLES`, `BrowserWebGPU` (`portable/*`), хост-изоляция `CUDA` (`probe_driver_available`), `Device::destroy()`, `Error::source()`, 0 предупреждений на 4 таргетах | 1 | done |
 | crates/gpu-compute | 3329 в 15 файлах | 27 | `#![deny(unsafe_op_in_unsafe_fn)]` + `// SAFETY:`, `Error::source()` на `TimestampError`, wasm `TimestampState` без `allow(dead_code)`, проверятся с `--features native-wgpu,cuda` | 3 | done |
-| crates/raster-core | 3936 | 31 | `RasterPipelines::new` 426 строк; тесты пишут в `output/` | 3 | todo |
-| crates/math-core | 5916 | 92 | `spatial.rs` на 12 семейств типов, 21 `allow` | 3 | todo |
-| crates/math-compute | 5963 | 41 | параллельные реализации gpu/cuda (лидер по дублям) | 3 | todo |
-| crates/tensor-core | 9850 | 53 | 0 предупреждений Clippy; остался крупный `impl Tensor` | 3 | в работе |
-| crates/compute-core | 11 340 | 166 | кэш ядер `KernelCache` переведён на zero-alloc поиск по заимствованным срезам + `Cow<str>` для WG=256, 0 предупреждений Clippy | 3 | в работе |
-| crates/compute-mlx | 6859 | 148 | 84 `unsafe` без SAFETY; `backend()` скопирован в 22 тестах | 3 | todo |
-| crates/compute-cuda | 16 309 | 180 (хост) | не проверяется на устройстве | 3 | отложено до появления CUDA-хоста для логики |
+| crates/raster-core | ~3950 | 31 | `forbid(unsafe_code)`, `RasterError` на всех ресурсах/readback, табличный `RasterPipelines::new` (`SHADERS`/`PIPELINE_TABLE`), RAII `TempDir` для `tests/frame.rs` | 3 | done |
+| crates/math-core | ~6050 | 94 | `forbid(unsafe_code)`, `0` `#[allow(...)]`, `spatial/{aabb,dual_quat,frustum,obb,plane,quat,ray}`, убран достижимый `.unwrap()` в `smallest::<0>` и добавлен `resume_unwind` | 3 | done |
+| crates/math-compute | ~5650 | 45+ | `deny(unsafe_op_in_unsafe_fn)`, общий `f32_kernels::wire`, единая `CudaSession` (`// SAFETY:` на всех запусках, `u32::try_from`), `Error::source()` на `GpuMathError`, `wasm32` + `--all-features` 0 предупреждений | 3 | done |
+| crates/tensor-core | ~9900 | 53 | `forbid(unsafe_code)`, `host_tensor/*` разбит по доменам (`<= 178` строк на модуль реализации) + `pool1d_shape`, 0 предупреждений Clippy с `--features conformance` | 3 | done |
+| crates/compute-core | ~11 400 | 175+ | `deny(unsafe_op_in_unsafe_fn)`, единичный разбор WGSL через `create_shader_module_prevalidated`, `Result` на `buffer`/`reduction` + `Error::source()`, `\r\n`-нормализация WGSL-хуков | 3 | done |
+| crates/compute-mlx | ~6900 | 148+ | `deny(unsafe_op_in_unsafe_fn)`, 91/91 `// SAFETY:`, `MlxError::source()`, убраны паники `CString::new`, общий `tests/support/{mod,compiled}.rs` + `test_backend()` | 3 | done |
+| crates/compute-cuda | 16 309 | 180 (хост) | `deny(unsafe_op_in_unsafe_fn)`, 43/43 `// SAFETY:`, Clippy + 156+ хост-тестов зелёные; исполнение на CUDA-устройстве не выполнялось (нет CUDA-железа на хосте) | 3 | done (хост) |

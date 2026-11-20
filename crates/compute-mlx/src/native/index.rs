@@ -4,6 +4,7 @@ use tensor_core::{Compacted, Gathered, ScanOptions, TensorIndexBackend};
 impl MlxBackend {
     pub(super) fn zeros(&self, shape: Shape, dtype: MlxDtype) -> Result<MlxTensor, MlxError> {
         let dims = Self::dimensions(&shape)?;
+        // SAFETY: `dims` contains validated shape bounds and `dtype` matches `shape` on `self.context`.
         self.output("zeros", shape, dtype, |a, out| unsafe {
             (a.zeros)(
                 out,

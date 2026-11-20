@@ -15,22 +15,9 @@ const OPS: [ScatterOp; 5] = [
 fn shape(d: &[usize]) -> Shape {
     Shape::new(d.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu().and_then(|b| {
-        if b.compile_available() {
-            Ok(b)
-        } else {
-            Err(MlxError::CompileUnavailable)
-        }
-    }) {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX compiled scatter unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+#[path = "support/compiled.rs"]
+mod support;
+use support::backend;
 fn traces(p: &MlxCompiledProgram, n: usize) {
     assert_eq!(
         p.trace_count(),

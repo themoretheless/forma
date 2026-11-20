@@ -83,3 +83,12 @@
 |---|---|---|---|
 | R-1 | `crates/memory-budget/src/policy.rs` | исправлено (1e7d43d) | `WeightedLru` вызывал `Instant::now()` на каждой вставке, `set_limits` и `take_lru` даже без TTL; на `wasm32-unknown-unknown` это паника. Мешало перевести `TemplateCache` в `forma` на общий кэш; перевод сделан |
 | R-2 | `gpu_shader::back::msl::with_pipeline_constants` | исправлено | значение override печаталось без проверки: `NaN` и `inf` давали неверный MSL, неизвестное имя молча игнорировалось, имя с недопустимыми символами ломало `#define`. Теперь функция возвращает `PipelineConstantError` для необъявленного имени и неконечного значения, а `gpu-runtime` останавливает создание пайплайна с понятным сообщением; тесты в `crates/gpu-shader/tests/pipeline_constants.rs` |
+
+## Найдено при аудите вычислительных крейтов (Wave 7A)
+
+| ID | Место | Статус | Суть |
+|---|---|---|---|
+| C-3 | `crates/math-core/src/{linalg.rs, parallel.rs}` | исправлено (тест `smallest_zero_dimension_returns_empty`) | `smallest::<0>([])` паниковал на `.unwrap()` при `N = 0` и теперь возвращает `[0.; N]`; рабочие потоки в `parallel.rs` пробрасывают исходный payload паники через `std::panic::resume_unwind` |
+| C-4 | `crates/compute-core/src/{buffer.rs, reduction.rs, kernel.rs}`, `tensor/low/*_sources.rs` | исправлено (тесты `raw_reduction_rejects_undersized_buffers_without_panicking`, `contracts.rs`) | `storage_*`/`uniform_f32`/`read_*`/`reduce_f32`/`Reduction::{new, with_output}` возвращают `Result` (`Err(ComputeError::OutOfBounds)` / `BufferError` / `ReadbackError`) вместо `expect`/`assert!`; `tensor/low/*_sources.rs` нормализуют `\r\n` перед подстановкой хуков |
+| C-5 | `crates/raster-core/src/{error.rs, resources.rs, rasterizer.rs}` | исправлено (тест `rgba_readback_handles_padded_rows_and_rejects_invalid_sizes`) | `Rasterizer::{new, create_*, render_to_rgba}` и `resources::upload_bytes` возвращают `Result<_, RasterError>` вместо `.expect`/`.unwrap`; `render_to_rgba(0, 0, &frame)` возвращает `Err(RasterError::Readback(_))` |
+| C-6 | `crates/compute-mlx/src/native/custom_metal.rs` | исправлено (`cargo test --locked -p compute-mlx`) | `CString::new` в Custom Metal kernel/library возвращают `MlxError` через `.map_err(...)` вместо `.unwrap()`/`.expect()` на именах с нулевым байтом |

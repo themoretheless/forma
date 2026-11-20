@@ -454,7 +454,8 @@ fn four_item_scan_visits_multiple_blocks_per_workgroup_with_wrapping_and_normali
                 f32::from_bits(u32::from(normalize)),
                 0.,
             ],
-        );
+        )
+        .unwrap();
         let bindings = kernel.create_bind_group(
             &context.device,
             &[

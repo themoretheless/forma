@@ -191,12 +191,12 @@ impl<'a> MathGpuProgram<'a> {
         }
         Ok(())
     }
-    fn params(&self, count: u32, extra: u32) -> wgpu::Buffer {
-        uniform_f32(
+    fn params(&self, count: u32, extra: u32) -> Result<wgpu::Buffer, GpuMathError> {
+        Ok(uniform_f32(
             self.runtime.device(),
             self.runtime.queue(),
             &[f32::from_bits(count), f32::from_bits(extra), 0.0, 0.0],
-        )
+        )?)
     }
     pub fn transform(
         &mut self,
@@ -222,7 +222,7 @@ impl<'a> MathGpuProgram<'a> {
             params.extend(row.iter().map(|v| *v as f32));
             params.push(translation as f32);
         }
-        let params = uniform_f32(self.runtime.device(), self.runtime.queue(), &params);
+        let params = uniform_f32(self.runtime.device(), self.runtime.queue(), &params)?;
         let bindings = self.kernels.transform.create_bind_group_resources(
             self.runtime.device(),
             &[
@@ -256,7 +256,7 @@ impl<'a> MathGpuProgram<'a> {
             self.runtime.device(),
             self.runtime.queue(),
             &[f32::from_bits(a.count), 0.0, 0.0, 0.0],
-        );
+        )?;
         let bindings = self.kernels.distance.create_bind_group_resources(
             self.runtime.device(),
             &[
@@ -285,7 +285,7 @@ impl<'a> MathGpuProgram<'a> {
             values.view().raw(),
             values.len() as u32,
             output.view().raw(),
-        );
+        )?;
         self.batch.push_reduction(&plan);
         Ok(output)
     }

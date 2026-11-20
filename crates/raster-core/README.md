@@ -47,12 +47,12 @@ use raster_core::uniform::{ObjectUniform, SceneUniform};
 use raster_core::wgpu;
 
 let context = GpuContext::new().expect("GPU adapter");
-let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm)?;
 rasterizer.set_scene(&scene_uniform);
 
-let mesh = rasterizer.create_mesh(&vertices, &indices, &object_uniform, None);
+let mesh = rasterizer.create_mesh(&vertices, &indices, &object_uniform, None)?;
 let frame = Frame { clear, meshes: &[&mesh], ..Frame::default() };
-let rgba = rasterizer.render_to_rgba(512, 512, &frame);
+let rgba = rasterizer.render_to_rgba(512, 512, &frame)?;
 ```
 
 GPU-backed tests skip with a notice on machines without an adapter, matching
@@ -80,11 +80,10 @@ cargo test --offline --manifest-path crates/Cargo.toml -p raster-core
   semantics, determinism.
 - `tests/frame.rs` — frame composition (edges on top, grid axes, line +
   overlay, deep-selection x-ray, instancing, transparent blending) with
-  pixel assertions and PPM snapshots written to `output/raster-*.ppm`.
+  pixel assertions and PPM snapshots verified in an RAII temporary directory.
 
 `render_rgba_async` returns an `RgbaReadback` ticket after one submission containing
 render and copy commands. Poll `try_read`, cancel it, or use native `wait`.
-`try_render_to_rgba` returns transport/size errors; the legacy `render_to_rgba`
-convenience panics on failure. RGBA decoding removes padded rows above the shared
-`gpu-compute::ByteReadback` transport. Resource upload lives in `resources.rs`;
-frame command recording remains in `rasterizer.rs`.
+`render_to_rgba` and `try_render_to_rgba` return `Result` transport/size errors without panicking.
+RGBA decoding removes padded rows above the shared `gpu-compute::ByteReadback` transport.
+Resource upload lives in `resources.rs`; frame command recording remains in `rasterizer.rs`.

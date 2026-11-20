@@ -390,17 +390,17 @@ let kernel = Kernel::tuned(
 )
 .expect("kernel builds");
 
-let input = storage_f32(device, queue, &[1.0f32, 2.0, 3.0, 4.0]);
+let input = storage_f32(device, queue, &[1.0f32, 2.0, 3.0, 4.0]).unwrap();
 let output = storage_f32_zeroed(device, queue, 4);
 // Params: count(u32), scale(f32), offset(f32), pad — packed as 4 f32.
 let mut params = vec![0.0f32; 4];
 params[0] = f32::from_le_bytes(4u32.to_le_bytes());
 params[1] = 2.0;
 params[2] = 0.5;
-let params = uniform_f32(device, queue, &params);
+let params = uniform_f32(device, queue, &params).unwrap();
 
 kernel.dispatch(device, queue, &[&params, &input, &output], 4);
-let result = read_f32(device, queue, &output, 4);
+let result = read_f32(device, queue, &output, 4).unwrap();
 assert_eq!(result, vec![2.5f32, 4.5, 6.5, 8.5]);
 ```
 
@@ -441,14 +441,14 @@ can feed another kernel. The synchronous `reduce_f32` convenience function uses
 this plan internally, then reads back the scalar.
 
 ```rust,ignore
-let reduction = Reduction::new(device, queue, &sum, &products, count);
+let reduction = Reduction::new(device, queue, &sum, &products, count)?;
 let mut batch = ComputeBatch::new();
 batch.push(&multiply, &multiply_bindings, multiply.workgroup_count(count));
 batch.push_reduction(&reduction);
 // Bind reduction.output() as input to a downstream kernel if needed.
 // Update input buffer contents before each submission; reuse this batch.
 batch.submit(device, queue);
-let total = read_f32(device, queue, reduction.output(), 1)[0];
+let total = read_f32(device, queue, reduction.output(), 1)?[0];
 ```
 
 Plans have fixed buffer identities and element counts; rebuild them when those
@@ -490,8 +490,8 @@ retained by the pool, excluding replaced buffers held by callers or GPU work.
 
 Readback delegates to `gpu_compute::ByteReadback`. Use `record_read` and mark the
 ticket `submitted` after submitting a caller-owned encoder. Mapping failures,
-cancellation and empty payloads are distinct. Legacy `read_f32`/`read_u32` panic on
-transport failure; use their `try_` variants for recoverable errors.
+cancellation and empty payloads are distinct. `read_f32`/`read_u32` return `Result`
+via `try_read_f32`/`try_read_u32` for recoverable error handling.
 
 ### WGSL contracts and compiled pipeline reuse
 

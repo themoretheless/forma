@@ -138,7 +138,7 @@ fn main() -> AnyResult<()> {
                 f32::from_bits(n as u32),
                 0.0,
             ],
-        );
+        )?;
         let bindings = naive.create_bind_group(
             &context.device,
             &[

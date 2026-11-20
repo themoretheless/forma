@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Backend-independent tensor shapes, layouts, operations and native execution
 //! contracts. This crate has no GPU, CUDA, MLX or foreign-library dependencies.
 mod attention;

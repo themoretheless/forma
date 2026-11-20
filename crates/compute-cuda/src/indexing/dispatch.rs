@@ -46,6 +46,7 @@ impl CopyDispatch {
         if self.count == 0 {
             return Ok(());
         }
+        // SAFETY: `validate_buffers` verified input, uniquely owned output, and metadata lengths match `count`.
         unsafe {
             rt.device
                 .stream
@@ -112,6 +113,7 @@ impl CompareDispatch {
         if self.count == 0 {
             return Ok(());
         }
+        // SAFETY: `validate_buffers` verified both broadcast inputs, uniquely owned `u32` mask output, and metadata.
         unsafe {
             let mut launch = rt.device.stream.launch_builder(kernel.function);
             launch
@@ -197,6 +199,7 @@ impl SelectDispatch {
         if self.count == 0 {
             return Ok(());
         }
+        // SAFETY: `validate_buffers` verified mask/branch inputs, uniquely owned output, and metadata.
         unsafe {
             rt.device
                 .stream

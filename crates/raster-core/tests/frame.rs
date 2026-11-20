@@ -82,14 +82,42 @@ fn background_at(bytes: &[u8], x: u32, y: u32) -> bool {
     pixel(bytes, x, y) == CLEAR_BYTES
 }
 
-fn snapshot(name: &str, bytes: &[u8]) {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../output")
-        .join(format!("raster-{name}.ppm"));
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+struct TempDir(std::path::PathBuf);
+
+impl TempDir {
+    fn new() -> std::io::Result<Self> {
+        static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        let dir = std::env::temp_dir().join(format!(
+            "forma-raster-core-{}-{nanos}-{id}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir)?;
+        Ok(Self(dir))
     }
-    let _ = write_ppm(&path, WIDTH, HEIGHT, bytes);
+
+    fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn snapshot(name: &str, bytes: &[u8]) {
+    let dir = TempDir::new().expect("create snapshot temp dir");
+    let path = dir.path().join(format!("raster-{name}.ppm"));
+    write_ppm(&path, WIDTH, HEIGHT, bytes).expect("write snapshot ppm");
+    let written = std::fs::read(&path).expect("read snapshot ppm");
+    let header = format!("P6\n{WIDTH} {HEIGHT}\n255\n");
+    assert!(written.starts_with(header.as_bytes()));
+    assert_eq!(written.len(), header.len() + (WIDTH * HEIGHT * 3) as usize);
 }
 
 #[test]
@@ -97,22 +125,26 @@ fn edges_draw_on_top_of_the_mesh_with_depth_bias() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
     let (vertices, indices) = triangle();
     // Edge style: style.z is the edge alpha; dark edge color by default.
-    let mesh = rasterizer.create_mesh(
-        &vertices,
-        &indices,
-        &uniform([0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 0.0], identity()),
-        None,
-    );
-    let edges = rasterizer.create_edges(
-        &vertices,
-        &[0, 1, 1, 2, 2, 0],
-        &uniform([0.0, 0.0, 0.0], [1.0, 0.0, 0.9, 0.0], identity()),
-        None,
-    );
+    let mesh = rasterizer
+        .create_mesh(
+            &vertices,
+            &indices,
+            &uniform([0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 0.0], identity()),
+            None,
+        )
+        .unwrap();
+    let edges = rasterizer
+        .create_edges(
+            &vertices,
+            &[0, 1, 1, 2, 2, 0],
+            &uniform([0.0, 0.0, 0.0], [1.0, 0.0, 0.9, 0.0], identity()),
+            None,
+        )
+        .unwrap();
 
     let frame = Frame {
         clear: CLEAR,
@@ -120,7 +152,7 @@ fn edges_draw_on_top_of_the_mesh_with_depth_bias() {
         edges: &[&edges],
         ..Frame::default()
     };
-    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("edges", &bytes);
 
     // Edge endpoints and midpoints trace the triangle outline.
@@ -145,7 +177,7 @@ fn grid_lines_and_overlay_compose() {
         eprintln!("raster-core: no GPU adapter available, skipping render test");
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
 
     // Frame A: grid only. The shader reconstructs the z = 0 world plane, so
     // the axes cross at NDC (0, 0) → pixel (32, 32): x-axis red below/above,
@@ -156,7 +188,9 @@ fn grid_lines_and_overlay_compose() {
         grid: true,
         ..Frame::default()
     };
-    let grid = rasterizer.render_to_rgba(WIDTH, HEIGHT, &grid_frame);
+    let grid = rasterizer
+        .render_to_rgba(WIDTH, HEIGHT, &grid_frame)
+        .unwrap();
     snapshot("grid", &grid);
     let mut found_axis_red = false;
     let mut found_axis_green = false;
@@ -183,20 +217,24 @@ fn grid_lines_and_overlay_compose() {
     // sit off the ground). The overlay floats at z = 0.5, inside the
     // [0, 1] depth range.
     rasterizer.set_scene(&scene());
-    let lines = rasterizer.create_line_batch(&[
-        -0.9, 0.02, 0.5, 0.0, 0.9, 0.1, 1.0, 0.9, 0.02, 0.5, 0.0, 0.9, 0.1, 1.0,
-    ]);
-    let overlay = rasterizer.create_overlay_batch(&[
-        0.2, -0.2, 0.5, 1.0, 0.5, 0.0, 0.6, 0.9, -0.2, 0.5, 1.0, 0.5, 0.0, 0.6, 0.55, 0.5, 0.5,
-        1.0, 0.5, 0.0, 0.6,
-    ]);
+    let lines = rasterizer
+        .create_line_batch(&[
+            -0.9, 0.02, 0.5, 0.0, 0.9, 0.1, 1.0, 0.9, 0.02, 0.5, 0.0, 0.9, 0.1, 1.0,
+        ])
+        .unwrap();
+    let overlay = rasterizer
+        .create_overlay_batch(&[
+            0.2, -0.2, 0.5, 1.0, 0.5, 0.0, 0.6, 0.9, -0.2, 0.5, 1.0, 0.5, 0.0, 0.6, 0.55, 0.5, 0.5,
+            1.0, 0.5, 0.0, 0.6,
+        ])
+        .unwrap();
     let frame = Frame {
         clear: CLEAR,
         lines: Some(&lines),
         overlay: Some(&overlay),
         ..Frame::default()
     };
-    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("lines-overlay", &bytes);
 
     // The green line crosses the middle at NDC y ≈ 0.02 → pixel row ≈ 31.
@@ -229,7 +267,7 @@ fn deep_selection_underlay_draws_through_geometry() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
     let (vertices, indices) = triangle();
 
@@ -240,10 +278,16 @@ fn deep_selection_underlay_draws_through_geometry() {
         [1.0, 0.0, 0.0, 0.0],
         translated(0.0, 0.0, 0.4),
     );
-    let near_mesh = rasterizer.create_mesh(&vertices, &indices, &near, None);
+    let near_mesh = rasterizer
+        .create_mesh(&vertices, &indices, &near, None)
+        .unwrap();
     let sel = uniform([0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], identity());
-    let sel_mesh = rasterizer.create_mesh(&vertices, &indices, &sel, None);
-    let sel_edges = rasterizer.create_edges(&vertices, &[0, 1, 1, 2, 2, 0], &sel, None);
+    let sel_mesh = rasterizer
+        .create_mesh(&vertices, &indices, &sel, None)
+        .unwrap();
+    let sel_edges = rasterizer
+        .create_edges(&vertices, &[0, 1, 1, 2, 2, 0], &sel, None)
+        .unwrap();
 
     // Without deep: the near blue triangle fully hides the red one.
     let plain = Frame {
@@ -251,7 +295,7 @@ fn deep_selection_underlay_draws_through_geometry() {
         meshes: &[&near_mesh],
         ..Frame::default()
     };
-    let without = rasterizer.render_to_rgba(WIDTH, HEIGHT, &plain);
+    let without = rasterizer.render_to_rgba(WIDTH, HEIGHT, &plain).unwrap();
     // With deep underlay: the orange tint bleeds through the blue.
     let with_deep = Frame {
         clear: CLEAR,
@@ -259,7 +303,9 @@ fn deep_selection_underlay_draws_through_geometry() {
         meshes: &[&near_mesh],
         ..Frame::default()
     };
-    let with = rasterizer.render_to_rgba(WIDTH, HEIGHT, &with_deep);
+    let with = rasterizer
+        .render_to_rgba(WIDTH, HEIGHT, &with_deep)
+        .unwrap();
     snapshot("deep", &with);
 
     let p_plain = pixel(&without, 32, 40);
@@ -279,30 +325,34 @@ fn instanced_draws_place_each_record_its_own_transform() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
     let (vertices, indices) = triangle();
 
-    let pool = rasterizer.create_instance_pool(&[
-        uniform(
-            [1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
-            translated(-0.7, 0.0, 0.0),
-        ),
-        uniform(
-            [0.0, 0.0, 1.0],
-            [1.0, 0.0, 0.0, 0.0],
-            translated(0.7, 0.0, 0.0),
-        ),
-    ]);
-    let geometry = rasterizer.create_instanced_geometry(&vertices, &indices, None);
+    let pool = rasterizer
+        .create_instance_pool(&[
+            uniform(
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                translated(-0.7, 0.0, 0.0),
+            ),
+            uniform(
+                [0.0, 0.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0],
+                translated(0.7, 0.0, 0.0),
+            ),
+        ])
+        .unwrap();
+    let geometry = rasterizer
+        .create_instanced_geometry(&vertices, &indices, None)
+        .unwrap();
 
     let frame = Frame {
         clear: CLEAR,
         instances: &[(&geometry, &pool, 0, 2, false)],
         ..Frame::default()
     };
-    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("instanced", &bytes);
 
     // Red instance (shifted -0.7) is mostly clipped on the left; its visible
@@ -330,7 +380,7 @@ fn shadow_pass_darkens_occluded_floor_and_toggles_off_exactly() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
 
     // Floor: large quad at z = 0.6 (farther: with the identity VP, larger NDC
@@ -341,23 +391,27 @@ fn shadow_pass_darkens_occluded_floor_and_toggles_off_exactly() {
     for (x, y) in [(-1.5f32, -1.5f32), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         floor_vertices.extend_from_slice(&[x, y, 0.6, 0.0, 0.0, 1.0]);
     }
-    let floor = rasterizer.create_mesh(
-        &floor_vertices,
-        &[0, 1, 2, 0, 2, 3],
-        &uniform([0.8, 0.8, 0.8], [1.0, 0.0, 0.0, 0.0], identity()),
-        None,
-    );
+    let floor = rasterizer
+        .create_mesh(
+            &floor_vertices,
+            &[0, 1, 2, 0, 2, 3],
+            &uniform([0.8, 0.8, 0.8], [1.0, 0.0, 0.0, 0.0], identity()),
+            None,
+        )
+        .unwrap();
     let (blocker_vertices, blocker_indices) = triangle();
-    let blocker = rasterizer.create_mesh(
-        &blocker_vertices,
-        &blocker_indices,
-        &uniform(
-            [0.2, 0.2, 0.2],
-            [1.0, 0.0, 0.0, 0.0],
-            translated(0.0, 0.0, 0.2),
-        ),
-        None,
-    );
+    let blocker = rasterizer
+        .create_mesh(
+            &blocker_vertices,
+            &blocker_indices,
+            &uniform(
+                [0.2, 0.2, 0.2],
+                [1.0, 0.0, 0.0, 0.0],
+                translated(0.0, 0.0, 0.2),
+            ),
+            None,
+        )
+        .unwrap();
 
     let frame = Frame {
         clear: CLEAR,
@@ -366,14 +420,14 @@ fn shadow_pass_darkens_occluded_floor_and_toggles_off_exactly() {
     };
 
     // Baseline: shadows never enabled — the pre-shadow look.
-    let off = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let off = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("shadow-off", &off);
 
     // Shadows on: the pass runs and occluded floor pixels darken.
     rasterizer.set_shadow_bounds(Some(([0.0, 0.0, 0.4], 1.5)));
     rasterizer.set_shadows_enabled(true);
     rasterizer.set_scene(&scene());
-    let on = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let on = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("shadow-on", &on);
 
     let mut darkened = 0usize;
@@ -399,7 +453,7 @@ fn shadow_pass_darkens_occluded_floor_and_toggles_off_exactly() {
     // Toggling back off restores the pre-shadow look pixel for pixel.
     rasterizer.set_shadows_enabled(false);
     rasterizer.set_scene(&scene());
-    let off_again = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let off_again = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     assert_eq!(
         off, off_again,
         "disabling shadows restores the exact baseline"
@@ -411,33 +465,37 @@ fn transparent_mesh_blends_over_opaque_and_skips_depth_write() {
     let Some(context) = GpuContext::new() else {
         return;
     };
-    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
+    let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm).unwrap();
     rasterizer.set_scene(&scene());
     let (vertices, indices) = triangle();
 
     // Opaque blue triangle pushed back to z = 0.5; the red ghost floats in
     // front of it at z = 0.2 (the eye sits at +z, so "nearer" is smaller z
     // inside the [0, 1] WebGPU depth range).
-    let opaque = rasterizer.create_mesh(
-        &vertices,
-        &indices,
-        &uniform(
-            [0.0, 0.0, 1.0],
-            [1.0, 0.0, 0.0, 0.0],
-            translated(0.0, 0.0, 0.5),
-        ),
-        None,
-    );
-    let ghost = rasterizer.create_mesh(
-        &vertices,
-        &indices,
-        &uniform(
-            [1.0, 0.0, 0.0],
-            [0.5, 0.0, 0.0, 0.0],
-            translated(0.3, 0.0, 0.2),
-        ),
-        None,
-    );
+    let opaque = rasterizer
+        .create_mesh(
+            &vertices,
+            &indices,
+            &uniform(
+                [0.0, 0.0, 1.0],
+                [1.0, 0.0, 0.0, 0.0],
+                translated(0.0, 0.0, 0.5),
+            ),
+            None,
+        )
+        .unwrap();
+    let ghost = rasterizer
+        .create_mesh(
+            &vertices,
+            &indices,
+            &uniform(
+                [1.0, 0.0, 0.0],
+                [0.5, 0.0, 0.0, 0.0],
+                translated(0.3, 0.0, 0.2),
+            ),
+            None,
+        )
+        .unwrap();
     assert!(ghost.transparent, "alpha 0.5 marks the draw transparent");
 
     let frame = Frame {
@@ -445,7 +503,7 @@ fn transparent_mesh_blends_over_opaque_and_skips_depth_write() {
         meshes: &[&opaque, &ghost],
         ..Frame::default()
     };
-    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
+    let bytes = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame).unwrap();
     snapshot("transparent", &bytes);
 
     // The ghost (shifted +0.3 x, slightly nearer) blends red over blue:

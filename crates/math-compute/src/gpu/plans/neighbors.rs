@@ -49,7 +49,7 @@ impl MathGpuProgram<'_> {
         if queries.is_empty() {
             return Ok(());
         }
-        let params = self.params(queries.count, targets.count);
+        let params = self.params(queries.count, targets.count)?;
         // Zero-length buffers cannot be bound. The loop does not read targets
         // when target_count is zero, so the query binding is a valid placeholder.
         let target_view = if targets.is_empty() {

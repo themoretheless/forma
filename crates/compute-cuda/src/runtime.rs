@@ -136,7 +136,7 @@ impl CudaRuntime {
         require_nvrtc()?;
         let (major, minor) = device.context.compute_capability()?;
         let mut count = 0;
-        // The NVRTC library is present and the ABI receives live, sized outputs.
+        // SAFETY: `require_nvrtc()` verified NVRTC is loaded and `&mut count` points to valid stack storage.
         unsafe { cudarc::nvrtc::sys::nvrtcGetNumSupportedArchs(&mut count) }
             .result()
             .map_err(|e| CudaError::Compilation(e.to_string()))?;
@@ -146,6 +146,7 @@ impl CudaRuntime {
             ));
         }
         let mut architectures = vec![0i32; count as usize];
+        // SAFETY: `architectures` was allocated with length `count` matching the count just returned by `nvrtcGetNumSupportedArchs`.
         unsafe { cudarc::nvrtc::sys::nvrtcGetSupportedArchs(architectures.as_mut_ptr()) }
             .result()
             .map_err(|e| CudaError::Compilation(e.to_string()))?;

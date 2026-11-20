@@ -172,8 +172,7 @@ impl ReductionPass {
         if let Some(dtype) = kernel.dtype.as_ref() {
             builder.arg(dtype);
         }
-        // The descriptor checks source addressing and output count. The kernel
-        // specialization is internal and shares the eager path's type policy.
+        // SAFETY: The descriptor checked source addressing, output buffer size, and metadata; kernel specialization matches input dtype.
         unsafe {
             builder.launch(LaunchConfig {
                 grid_dim: (self.groups, 1, 1),

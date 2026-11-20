@@ -23,27 +23,20 @@ mod validation;
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
+#[path = "support/compiled.rs"]
+mod support;
 fn backend() -> Option<MlxBackend> {
-    let result = MlxBackend::new_gpu().and_then(|b| {
-        if !b.compile_available() {
-            Err(MlxError::CompileUnavailable)
-        } else if !b.low_precision_support(LowDtype::Bf16).matmul_f32 {
-            Err(MlxError::UnsupportedLowPrecision {
-                dtype: LowDtype::Bf16,
-                operation: "typed compiled custom kernels",
-            })
-        } else {
-            Ok(b)
-        }
-    });
-    match result {
-        Ok(b) => Some(b),
-        Err(error) => {
-            eprintln!("SKIP typed MLX programs unavailable: {error}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-            None
-        }
+    let b = support::backend()?;
+    if !b.low_precision_support(LowDtype::Bf16).matmul_f32 {
+        let error = MlxError::UnsupportedLowPrecision {
+            dtype: LowDtype::Bf16,
+            operation: "typed compiled custom kernels",
+        };
+        eprintln!("SKIP typed MLX programs unavailable: {error}");
+        assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
+        return None;
     }
+    Some(b)
 }
 fn traces(program: &MlxCompiledProgram, runs: usize) {
     let expected = if std::env::var_os("MLX_DISABLE_COMPILE").is_some() {

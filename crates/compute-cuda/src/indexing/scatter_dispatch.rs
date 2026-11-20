@@ -41,6 +41,7 @@ impl ScatterOwnersDispatch {
         if g.count == 0 || self.shape.is_empty() {
             return Ok(());
         }
+        // SAFETY: `validate_storage` verified indices, uniquely owned `owners`, and metadata lengths.
         unsafe {
             rt.device
                 .stream
@@ -161,6 +162,7 @@ impl ScatterDispatch {
             return Ok(());
         }
         let operation = self.operation as u32;
+        // SAFETY: `validate_storage` verified all operand, padded low-CAS `output`, `owners`, and metadata extents.
         unsafe {
             let mut launch = rt.device.stream.launch_builder(kernel.function);
             launch

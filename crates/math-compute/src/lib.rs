@@ -1,3 +1,5 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+
 //! GPU (wgpu), CUDA and tensor backends for the `math-core` point kernels.
 //!
 //! `math-core` is CPU-only and exposes the [`math_core::DeviceKernels`] port;
@@ -13,6 +15,8 @@ pub use shaders::*;
 
 #[cfg(feature = "cuda")]
 pub mod cuda;
+#[cfg(any(feature = "gpu", feature = "cuda"))]
+mod f32_kernels;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 #[cfg(feature = "gpu")]

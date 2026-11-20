@@ -223,7 +223,8 @@ impl<'a> ComputeProgram<'a> {
         if input.aliases(output) {
             return Err(ComputeError::AliasedOutput);
         }
-        let plan = Reduction::for_runtime(self.runtime, input.buffer(), input.len, output.buffer());
+        let plan =
+            Reduction::for_runtime(self.runtime, input.buffer(), input.len, output.buffer())?;
         self.batch.push_reduction(&plan);
         Ok(())
     }

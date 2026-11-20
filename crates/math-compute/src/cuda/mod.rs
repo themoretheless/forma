@@ -1,14 +1,14 @@
-//! CUDA nearest-neighbor search (feature `cuda`): runs the PTX port of
-//! `NEAREST_NEIGHBOR_WGSL` (`nearest_neighbor.cu` → `nearest_neighbor.ptx`)
-//! through the CUDA driver API. f32 arithmetic — see [`crate::Acceleration`].
+//! CUDA point-cloud kernels (feature `cuda`): PTX ports of the WGSL point
+//! shaders through a single per-thread [`CudaSession`] over the CUDA driver API.
 //!
-//! Device buffers are cached per query/target capacity (grow-only) so
-//! repeated calls at a stable size amortize allocation; only the elements
-//! actually used for the current call are copied to/from the device.
+//! Device buffers are cached per capacity (grow-only) inside each kernel slot so
+//! repeated calls amortize allocations; only the active prefix is copied.
+use crate::f32_kernels::wire;
 use crate::{M3, V3};
 use gpu_compute::cuda::{
     CudaDevice, CudaDeviceReport, CudaFunction, CudaSlice, PushKernelArg, launch_1d,
 };
+use std::cell::{LazyCell, OnceCell, RefCell};
 
 /// PTX generated from `nearest_neighbor.cu` by `scripts/build-cuda-kernels.mjs`.
 pub const NEAREST_NEIGHBOR_PTX: &str = include_str!("../nearest_neighbor.ptx");
@@ -40,20 +40,83 @@ mod distance;
 mod moments;
 mod neighbors;
 
-pub(crate) use bounds::point_bounds_cuda;
-pub(crate) use bounds::transformed_point_bounds_cuda;
-pub(crate) use distance::squared_distance_pair_sum_cuda;
-pub(crate) use distance::squared_distance_pairs_cuda;
-pub(crate) use distance::transformed_squared_distance_pair_sum_cuda;
-pub(crate) use moments::point_cloud_stats_cuda;
-pub(crate) use moments::point_moments_cuda;
-pub use neighbors::available;
-pub use neighbors::device_name;
-pub use neighbors::device_report;
-pub(crate) use neighbors::directed_chamfer_cuda;
-pub(crate) use neighbors::nearest_four_cuda;
-pub(crate) use neighbors::nearest_neighbor_cuda;
-pub(crate) use neighbors::nearest_two_cuda;
+pub(crate) use bounds::{point_bounds_cuda, transformed_point_bounds_cuda};
+pub(crate) use distance::{
+    squared_distance_pair_sum_cuda, squared_distance_pairs_cuda,
+    transformed_squared_distance_pair_sum_cuda,
+};
+pub(crate) use moments::{point_cloud_stats_cuda, point_moments_cuda};
+pub(crate) use neighbors::{
+    directed_chamfer_cuda, nearest_four_cuda, nearest_neighbor_cuda, nearest_two_cuda,
+};
+
+struct CudaSession {
+    device: CudaDevice,
+    nearest_neighbor: OnceCell<Option<neighbors::NearestNeighborKernel>>,
+    nearest_two: OnceCell<Option<neighbors::NearestTwoKernel>>,
+    nearest_four: OnceCell<Option<neighbors::NearestFourKernel>>,
+    chamfer: OnceCell<Option<neighbors::ChamferKernel>>,
+    point_bounds: OnceCell<Option<bounds::PointBoundsKernel>>,
+    transformed_point_bounds: OnceCell<Option<bounds::TransformedPointBoundsKernel>>,
+    distance_pairs: OnceCell<Option<distance::DistancePairsKernel>>,
+    distance_pair_sum: OnceCell<Option<distance::DistancePairSumKernel>>,
+    transformed_distance_pair_sum: OnceCell<Option<distance::TransformedDistancePairSumKernel>>,
+    point_moments: OnceCell<Option<moments::PointMomentsKernel>>,
+    point_cloud_stats: OnceCell<Option<moments::PointCloudStatsKernel>>,
+}
+
+impl CudaSession {
+    fn new() -> Option<Self> {
+        let device = CudaDevice::new()?;
+        Some(Self {
+            device,
+            nearest_neighbor: OnceCell::new(),
+            nearest_two: OnceCell::new(),
+            nearest_four: OnceCell::new(),
+            chamfer: OnceCell::new(),
+            point_bounds: OnceCell::new(),
+            transformed_point_bounds: OnceCell::new(),
+            distance_pairs: OnceCell::new(),
+            distance_pair_sum: OnceCell::new(),
+            transformed_distance_pair_sum: OnceCell::new(),
+            point_moments: OnceCell::new(),
+            point_cloud_stats: OnceCell::new(),
+        })
+    }
+
+    fn load(&self, ptx: &str, entry: &str) -> Option<CudaFunction> {
+        let module = self.device.load_ptx(ptx)?;
+        module.load_function(entry).ok()
+    }
+}
+
+thread_local! {
+    // Process-lifetime context, loaded PTX modules, and stream; see `sdf-core`'s `cuda.rs`.
+    static SESSION: LazyCell<Option<&'static CudaSession>> = LazyCell::new(|| {
+        CudaSession::new().map(|session| Box::leak(Box::new(session)) as &'static CudaSession)
+    });
+}
+
+fn with_session<R>(run: impl FnOnce(&CudaSession) -> Option<R>) -> Option<R> {
+    SESSION.with(|cell| {
+        let session: &Option<&CudaSession> = cell;
+        session.and_then(run)
+    })
+}
+
+/// True when a CUDA device can be initialized on this thread.
+pub fn available() -> bool {
+    with_session(|_| Some(())).is_some()
+}
+
+/// Device name for diagnostics/benchmarks; `None` without a CUDA device.
+pub fn device_name() -> Option<String> {
+    device_report().map(|report| report.name)
+}
+
+pub fn device_report() -> Option<CudaDeviceReport> {
+    with_session(|session| Some(session.device.report()))
+}
 
 #[cfg(test)]
 mod tests {

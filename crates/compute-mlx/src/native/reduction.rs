@@ -23,6 +23,7 @@ impl MlxBackend {
             // no reduction initializer or host data expansion is needed.
             if op == ReduceOp::Product {
                 let dims = Self::dimensions(&shape)?;
+                // SAFETY: `dims` contains validated positive dimensions for this call under `CALLS`.
                 return self.output("empty product", shape, input.dtype, |a, out| unsafe {
                     (a.ones)(
                         out,
@@ -52,6 +53,7 @@ impl MlxBackend {
             .iter()
             .map(|&axis| i32::try_from(axis).map_err(|_| MlxError::TooLarge))
             .collect::<Result<_, _>>()?;
+        // SAFETY: `input` belongs to `self.context`, and `axes` was validated by `reduction_shape`/`mean_shape`.
         self.output(name, shape, input.dtype, |_, out| unsafe {
             operation(
                 out,

@@ -1,13 +1,18 @@
 //! Preserve the shared scatter traversal and specialize packed reads/stores.
 use crate::shaders;
+fn normalize(source: &str) -> String {
+    source.replace("\r\n", "\n")
+}
 pub(super) fn source(packed_output: bool) -> String {
     let mut traversal =
-        shaders::TENSOR_SCATTER_WGSL.replace("alias Value = f32;", "alias Value = u32;");
+        normalize(shaders::TENSOR_SCATTER_WGSL).replace("alias Value = f32;", "alias Value = u32;");
     let first = traversal.find("fn fold(").expect("scatter fold hook");
     let last = traversal.find("@compute").expect("scatter entry");
     traversal.replace_range(
         first..last,
-        include_str!("../../../shaders/tensor_low_scatter_store.wgsl"),
+        &normalize(include_str!(
+            "../../../shaders/tensor_low_scatter_store.wgsl"
+        )),
     );
     traversal = traversal
         .replace(
@@ -20,8 +25,8 @@ pub(super) fn source(packed_output: bool) -> String {
         );
     format!(
         "const PACKED_OUTPUT:bool={packed_output};\n{}\n{}\n{traversal}",
-        include_str!("../../../shaders/low_codec.wgsl"),
-        include_str!("../../../shaders/float_bits_order.wgsl")
+        normalize(include_str!("../../../shaders/low_codec.wgsl")),
+        normalize(include_str!("../../../shaders/float_bits_order.wgsl"))
     )
 }
 #[cfg(test)]

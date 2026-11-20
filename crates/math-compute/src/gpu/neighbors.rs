@@ -29,17 +29,7 @@ impl GpuNearestNeighbor {
         })
     }
 
-    /// (Re)allocates the device buffers and bind group when either capacity
-    /// is exceeded; a no-op otherwise, so repeated calls at a stable or
-    /// shrinking size reuse the same GPU allocations.
-    fn ensure_buffers(&self, query_count: usize, target_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.query_capacity < query_count || b.target_capacity < target_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, query_count: usize, target_count: usize) -> NearestNeighborBuffers {
         let device = &self.device;
         let query_capacity = query_count.max(1);
         let target_capacity = target_count.max(1);
@@ -78,7 +68,7 @@ impl GpuNearestNeighbor {
             device,
             &[&params, &queries, &targets, &out_index, &out_dist],
         );
-        *self.buffers.borrow_mut() = Some(NearestNeighborBuffers {
+        NearestNeighborBuffers {
             query_capacity,
             target_capacity,
             params,
@@ -87,7 +77,7 @@ impl GpuNearestNeighbor {
             out_index,
             out_dist,
             binds,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -95,62 +85,56 @@ impl GpuNearestNeighbor {
         queries: &[V3],
         targets: &[V3],
     ) -> Result<Vec<(u32, f64)>, gpu_compute::ReadbackError> {
-        Ok({
-            let query_count = queries.len();
-            let target_count = targets.len();
-            self.ensure_buffers(query_count, target_count);
-            // Uniform layout matches nearest_neighbor.wgsl's `Params`: two counts
-            // padded to a 16-byte uniform buffer.
-            let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
-
-            let buffers = self.buffers.borrow();
-            let b = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&b.params, 0, &params);
-            if !queries.is_empty() {
-                write_points(&self.queue, &b.queries, queries)?;
-            }
-            if !targets.is_empty() {
-                write_points(&self.queue, &b.targets, targets)?;
-            }
-            if query_count == 0 {
-                return Ok(Vec::new());
-            }
-            let (kernel, index, groups) = self.kernels.select(query_count, target_count);
-            let mut encoder = self.device.create_command_encoder(&Default::default());
-            kernel.record_dispatch(&mut encoder, &b.binds[index], groups);
-            let bytes = query_count as u64 * 4;
-            let mut indices = gpu_compute::ByteReadback::copy_buffer(
-                &self.device,
-                &mut encoder,
-                &b.out_index,
-                0,
-                bytes,
-            )?;
-            let mut distances = gpu_compute::ByteReadback::copy_buffer(
-                &self.device,
-                &mut encoder,
-                &b.out_dist,
-                0,
-                bytes,
-            )?;
-            let submission = self.queue.submit([encoder.finish()]);
-            indices.submitted(submission.clone());
-            distances.submitted(submission);
-            let timeout = std::time::Duration::from_secs(30);
-            indices.wait_with(timeout, |raw_index| {
-                distances.wait_with(timeout, |raw_dist| {
-                    raw_index
-                        .as_chunks::<4>()
-                        .0
-                        .iter()
-                        .zip(raw_dist.as_chunks::<4>().0.iter())
-                        .map(|(index, dist)| {
-                            (u32::from_le_bytes(*index), f32::from_le_bytes(*dist) as f64)
-                        })
-                        .collect()
-                })
-            })??
-        })
+        let query_count = queries.len();
+        let target_count = targets.len();
+        let mut slot = self.buffers.borrow_mut();
+        if slot
+            .as_ref()
+            .is_some_and(|b| b.query_capacity < query_count || b.target_capacity < target_count)
+        {
+            *slot = None;
+        }
+        let b = slot.get_or_insert_with(|| self.alloc_buffers(query_count, target_count));
+        // Uniform layout matches nearest_neighbor.wgsl's `Params`: two counts
+        // padded to a 16-byte uniform buffer.
+        let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
+        self.queue.write_buffer(&b.params, 0, &params);
+        if !queries.is_empty() {
+            write_points(&self.queue, &b.queries, queries)?;
+        }
+        if !targets.is_empty() {
+            write_points(&self.queue, &b.targets, targets)?;
+        }
+        if query_count == 0 {
+            return Ok(Vec::new());
+        }
+        let (kernel, index, groups) = self.kernels.select(query_count, target_count);
+        let mut encoder = self.device.create_command_encoder(&Default::default());
+        kernel.record_dispatch(&mut encoder, &b.binds[index], groups);
+        let bytes = query_count as u64 * 4;
+        let mut indices = gpu_compute::ByteReadback::copy_buffer(
+            &self.device,
+            &mut encoder,
+            &b.out_index,
+            0,
+            bytes,
+        )?;
+        let mut distances = gpu_compute::ByteReadback::copy_buffer(
+            &self.device,
+            &mut encoder,
+            &b.out_dist,
+            0,
+            bytes,
+        )?;
+        let submission = self.queue.submit([encoder.finish()]);
+        indices.submitted(submission.clone());
+        distances.submitted(submission);
+        let timeout = std::time::Duration::from_secs(30);
+        indices.wait_with(timeout, |raw_index| {
+            distances.wait_with(timeout, |raw_dist| {
+                wire::zip_nearest_one_bytes(raw_index, raw_dist)
+            })
+        })?
     }
 }
 
@@ -192,18 +176,12 @@ impl GpuChamfer {
         })
     }
 
-    fn ensure_buffers(&self, query_count: usize, target_count: usize, partial_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => {
-                b.query_capacity < query_count
-                    || b.target_capacity < target_count
-                    || b.partial_capacity < partial_count
-            }
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(
+        &self,
+        query_count: usize,
+        target_count: usize,
+        partial_count: usize,
+    ) -> ChamferBuffers {
         let device = &self.device;
         let query_capacity = query_count.max(1);
         let target_capacity = target_count.max(1);
@@ -242,7 +220,7 @@ impl GpuChamfer {
         let bind = self
             .kernel
             .create_bind_group(device, &[&params, &queries, &targets, &out_sum, &out_max]);
-        *self.buffers.borrow_mut() = Some(ChamferBuffers {
+        ChamferBuffers {
             query_capacity,
             target_capacity,
             partial_capacity,
@@ -252,7 +230,7 @@ impl GpuChamfer {
             out_sum,
             out_max,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -260,35 +238,32 @@ impl GpuChamfer {
         queries: &[V3],
         targets: &[V3],
     ) -> Result<crate::DirectedChamfer, gpu_compute::ReadbackError> {
-        Ok({
-            let query_count = queries.len();
-            let target_count = targets.len();
-            let partial_count = self.kernel.workgroup_count(query_count as u32) as usize;
-            self.ensure_buffers(query_count, target_count, partial_count);
-            let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            write_points(&self.queue, &buffers.queries, queries)?;
-            write_points(&self.queue, &buffers.targets, targets)?;
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                partial_count as u32,
-            );
-            let raw_sum = read_f32(&self.device, &self.queue, &buffers.out_sum, partial_count)?;
-            let raw_max = read_f32(&self.device, &self.queue, &buffers.out_max, partial_count)?;
-            let sum: f64 = raw_sum.iter().map(|&v| v as f64).sum();
-            let max_squared_distance = raw_max.iter().map(|&v| v as f64).fold(0., f64::max);
-            let mean_squared_distance = sum / query_count as f64;
-            crate::DirectedChamfer {
-                samples: query_count,
-                mean_squared_distance,
-                rms_distance: mean_squared_distance.sqrt(),
-                max_squared_distance,
-            }
-        })
+        let query_count = queries.len();
+        let target_count = targets.len();
+        let partial_count = self.kernel.workgroup_count(query_count as u32) as usize;
+        let mut slot = self.buffers.borrow_mut();
+        if slot.as_ref().is_some_and(|b| {
+            b.query_capacity < query_count
+                || b.target_capacity < target_count
+                || b.partial_capacity < partial_count
+        }) {
+            *slot = None;
+        }
+        let buffers = slot
+            .get_or_insert_with(|| self.alloc_buffers(query_count, target_count, partial_count));
+        let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        write_points(&self.queue, &buffers.queries, queries)?;
+        write_points(&self.queue, &buffers.targets, targets)?;
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            partial_count as u32,
+        );
+        let raw_sum = read_f32(&self.device, &self.queue, &buffers.out_sum, partial_count)?;
+        let raw_max = read_f32(&self.device, &self.queue, &buffers.out_max, partial_count)?;
+        Ok(wire::fold_chamfer(&raw_sum, &raw_max, query_count))
     }
 }
 
@@ -339,14 +314,7 @@ impl GpuNearestTwo {
         })
     }
 
-    fn ensure_buffers(&self, query_count: usize, target_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.query_capacity < query_count || b.target_capacity < target_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, query_count: usize, target_count: usize) -> NearestTwoBuffers {
         let device = &self.device;
         let query_capacity = query_count.max(1);
         let target_capacity = target_count.max(1);
@@ -388,7 +356,7 @@ impl GpuNearestTwo {
                 &params, &queries, &targets, &outs[0], &outs[1], &outs[2], &outs[3],
             ],
         );
-        *self.buffers.borrow_mut() = Some(NearestTwoBuffers {
+        NearestTwoBuffers {
             query_capacity,
             target_capacity,
             params,
@@ -399,7 +367,7 @@ impl GpuNearestTwo {
             out_i1: outs[2].clone(),
             out_d1: outs[3].clone(),
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -407,30 +375,31 @@ impl GpuNearestTwo {
         queries: &[V3],
         targets: &[V3],
     ) -> Result<Vec<crate::TwoNearest>, gpu_compute::ReadbackError> {
-        Ok({
-            let query_count = queries.len();
-            let target_count = targets.len();
-            self.ensure_buffers(query_count, target_count);
-            let buffers = self.buffers.borrow();
-            let b = buffers.as_ref().expect("ensure_buffers was just called");
-            let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
-            self.queue.write_buffer(&b.params, 0, &params);
-            write_points(&self.queue, &b.queries, queries)?;
-            write_points(&self.queue, &b.targets, targets)?;
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &b.bind,
-                self.kernel.workgroup_count(query_count.max(1) as u32),
-            );
-            let i0 = read_u32(&self.device, &self.queue, &b.out_i0, query_count)?;
-            let d0 = read_f32(&self.device, &self.queue, &b.out_d0, query_count)?;
-            let i1 = read_u32(&self.device, &self.queue, &b.out_i1, query_count)?;
-            let d1 = read_f32(&self.device, &self.queue, &b.out_d1, query_count)?;
-            (0..query_count)
-                .map(|idx| [(i0[idx], d0[idx] as f64), (i1[idx], d1[idx] as f64)])
-                .collect()
-        })
+        let query_count = queries.len();
+        let target_count = targets.len();
+        let mut slot = self.buffers.borrow_mut();
+        if slot
+            .as_ref()
+            .is_some_and(|b| b.query_capacity < query_count || b.target_capacity < target_count)
+        {
+            *slot = None;
+        }
+        let b = slot.get_or_insert_with(|| self.alloc_buffers(query_count, target_count));
+        let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
+        self.queue.write_buffer(&b.params, 0, &params);
+        write_points(&self.queue, &b.queries, queries)?;
+        write_points(&self.queue, &b.targets, targets)?;
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &b.bind,
+            self.kernel.workgroup_count(query_count.max(1) as u32),
+        );
+        let i0 = read_u32(&self.device, &self.queue, &b.out_i0, query_count)?;
+        let d0 = read_f32(&self.device, &self.queue, &b.out_d0, query_count)?;
+        let i1 = read_u32(&self.device, &self.queue, &b.out_i1, query_count)?;
+        let d1 = read_f32(&self.device, &self.queue, &b.out_d1, query_count)?;
+        Ok(wire::zip_nearest_two(&i0, &d0, &i1, &d1))
     }
 }
 
@@ -471,14 +440,7 @@ impl GpuNearestFour {
         })
     }
 
-    fn ensure_buffers(&self, query_count: usize, target_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.query_capacity < query_count || b.target_capacity < target_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, query_count: usize, target_count: usize) -> NearestFourBuffers {
         let device = &self.device;
         let query_capacity = query_count.max(1);
         let target_capacity = target_count.max(1);
@@ -517,7 +479,7 @@ impl GpuNearestFour {
             device,
             &[&params, &queries, &targets, &out_indices, &out_distances],
         );
-        *self.buffers.borrow_mut() = Some(NearestFourBuffers {
+        NearestFourBuffers {
             query_capacity,
             target_capacity,
             params,
@@ -526,7 +488,7 @@ impl GpuNearestFour {
             out_indices,
             out_distances,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -534,32 +496,28 @@ impl GpuNearestFour {
         queries: &[V3],
         targets: &[V3],
     ) -> Result<Vec<crate::FourNearest>, gpu_compute::ReadbackError> {
-        Ok({
-            let query_count = queries.len();
-            let target_count = targets.len();
-            self.ensure_buffers(query_count, target_count);
-            let buffers = self.buffers.borrow();
-            let b = buffers.as_ref().expect("ensure_buffers was just called");
-            let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
-            self.queue.write_buffer(&b.params, 0, &params);
-            write_points(&self.queue, &b.queries, queries)?;
-            write_points(&self.queue, &b.targets, targets)?;
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &b.bind,
-                self.kernel.workgroup_count(query_count.max(1) as u32),
-            );
-            let indices = read_u32(&self.device, &self.queue, &b.out_indices, query_count * 4)?;
-            let distances = read_f32(&self.device, &self.queue, &b.out_distances, query_count * 4)?;
-            (0..query_count)
-                .map(|idx| {
-                    std::array::from_fn(|k| {
-                        let off = idx * 4 + k;
-                        (indices[off], distances[off] as f64)
-                    })
-                })
-                .collect()
-        })
+        let query_count = queries.len();
+        let target_count = targets.len();
+        let mut slot = self.buffers.borrow_mut();
+        if slot
+            .as_ref()
+            .is_some_and(|b| b.query_capacity < query_count || b.target_capacity < target_count)
+        {
+            *slot = None;
+        }
+        let b = slot.get_or_insert_with(|| self.alloc_buffers(query_count, target_count));
+        let params = pack_u32(&[query_count as u32, target_count as u32, 0, 0]);
+        self.queue.write_buffer(&b.params, 0, &params);
+        write_points(&self.queue, &b.queries, queries)?;
+        write_points(&self.queue, &b.targets, targets)?;
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &b.bind,
+            self.kernel.workgroup_count(query_count.max(1) as u32),
+        );
+        let indices = read_u32(&self.device, &self.queue, &b.out_indices, query_count * 4)?;
+        let distances = read_f32(&self.device, &self.queue, &b.out_distances, query_count * 4)?;
+        Ok(wire::zip_nearest_four(&indices, &distances, query_count))
     }
 }

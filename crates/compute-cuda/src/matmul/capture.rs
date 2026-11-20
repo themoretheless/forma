@@ -10,6 +10,7 @@ fn bind_cleanup(stream: &CudaStream) -> bool {
     // bind_to_thread consumes cudarc's stored async/Drop error first. Cleanup
     // must still run when that earlier error is pending on a valid context.
     let context = stream.context();
+    // SAFETY: `context.cu_ctx()` is retained by `stream` and bound directly so cleanup runs even if an async error is pending.
     match unsafe { driver::ctx::set_current(context.cu_ctx()) } {
         Ok(()) => true,
         Err(error) => {
@@ -85,6 +86,7 @@ impl Drop for Workspace {
         // synchronously also protects cleanup after partial initialization.
         let context = self.stream.context();
         if bind_cleanup(&self.stream) {
+            // SAFETY: `self.base` came from `driver::malloc_sync`, and `CaptureBlas::workspace` drops only after the cuBLAS handle is destroyed.
             context.record_err(unsafe { driver::free_sync(self.base) });
         }
     }
@@ -92,8 +94,7 @@ impl Drop for Workspace {
 
 #[derive(Debug)]
 struct Handle(sys::cublasHandle_t);
-// The opaque cuBLAS handle may move between threads. Its only access is behind
-// the owner's mutex, with its retained CUDA context bound on the calling thread.
+// SAFETY: The opaque `cublasHandle_t` is accessed exclusively through `CaptureBlas::lock()` while its retained CUDA context is bound on the calling thread.
 unsafe impl Send for Handle {}
 
 /// One immutable-stream handle and private workspace per captured program.
@@ -132,6 +133,7 @@ impl Drop for CaptureBlas {
             .unwrap_or_else(|error| error.into_inner());
         if !handle.0.is_null() && bind_cleanup(&self.workspace.stream) {
             self.workspace.stream.context().record_err(
+                // SAFETY: `handle.0` was created by `result::create_handle()`, its context is bound, and it is destroyed at most once here.
                 unsafe { result::destroy_handle(handle.0) }.map_err(|_| {
                     // The context error channel stores driver errors only;
                     // preserve a cleanup failure there instead of panicking.
@@ -163,6 +165,7 @@ impl CudaRuntime {
         self.device.context.bind_to_thread()?;
         // No CudaSlice wrapper: upgrade_device_ptr would create tracked events.
         let workspace = Workspace {
+            // SAFETY: Context is bound above and `bytes > 0` was validated by `capture_workspace_allocation_bytes`; `Workspace::drop` frees it.
             base: unsafe { driver::malloc_sync(bytes) }?,
             stream: self.device.stream.clone(),
         };
@@ -175,6 +178,7 @@ impl CudaRuntime {
         // SetStream resets user workspace, so it MUST precede SetWorkspace.
         // HOST alpha/beta values are captured by value by cuBLAS, not referenced
         // on later launches: https://docs.nvidia.com/cuda/archive/12.8.0/cublas/index.html#cuda-graphs-support
+        // SAFETY: `handle` and `self.device.stream` share the bound context, `owner` guards handle/workspace drop order, and `pointer..pointer+requested` was bounds-checked above.
         unsafe {
             result::set_stream(handle, self.device.stream.cu_stream() as _)
                 .map_err(|e| CudaError::Blas(e.to_string()))?;

@@ -6,23 +6,9 @@ fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
 
-fn backend() -> Option<MlxBackend> {
-    let available = MlxBackend::new_gpu().and_then(|b| {
-        if b.compile_available() {
-            Ok(b)
-        } else {
-            Err(MlxError::CompileUnavailable)
-        }
-    });
-    match available {
-        Ok(b) => Some(b),
-        Err(error) => {
-            eprintln!("SKIP MLX compiled programs unavailable: {error}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{error}");
-            None
-        }
-    }
-}
+#[path = "support/compiled.rs"]
+mod support;
+use support::backend;
 
 fn traces(program: &MlxCompiledProgram, runs: usize) {
     // getenv presence disables native compilation, including a value of "0".

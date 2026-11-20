@@ -127,8 +127,9 @@ fn scale_add_matches_cpu_reference() {
         device,
         queue,
         &scale_add_params(input.len() as u32, 2.5, -1.25),
-    );
-    let input_buf = storage_f32(device, queue, &input);
+    )
+    .unwrap();
+    let input_buf = storage_f32(device, queue, &input).unwrap();
     let output_buf = storage_f32_zeroed(device, queue, input.len());
     kernel.dispatch(
         device,
@@ -137,7 +138,7 @@ fn scale_add_matches_cpu_reference() {
         input.len() as u32,
     );
 
-    let output = read_f32(device, queue, &output_buf, input.len());
+    let output = read_f32(device, queue, &output_buf, input.len()).unwrap();
     for (i, (&got, &x)) in output.iter().zip(&input).enumerate() {
         let want = x * 2.5 - 1.25;
         assert!(
@@ -190,16 +191,16 @@ fn zip_mul_then_block_sum_computes_the_dot_product() {
     params[0] = f32::from_le_bytes(n.to_le_bytes());
     let groups = sum.workgroup_count(n);
     params[1] = f32::from_le_bytes(groups.to_le_bytes());
-    let params_buf = uniform_f32(device, queue, &params);
-    let a_buf = storage_f32(device, queue, &a);
-    let b_buf = storage_f32(device, queue, &b);
+    let params_buf = uniform_f32(device, queue, &params).unwrap();
+    let a_buf = storage_f32(device, queue, &a).unwrap();
+    let b_buf = storage_f32(device, queue, &b).unwrap();
     let products = storage_f32_zeroed(device, queue, n as usize);
     mul.dispatch(device, queue, &[&params_buf, &a_buf, &b_buf, &products], n);
 
     // partial reduction on the GPU, final fold on the CPU.
     let partials = storage_f32_zeroed(device, queue, groups as usize);
     sum.dispatch(device, queue, &[&params_buf, &products, &partials], n);
-    let partials = read_f32(device, queue, &partials, groups as usize);
+    let partials = read_f32(device, queue, &partials, groups as usize).unwrap();
 
     let want: f32 = a.iter().zip(&b).map(|(&x, &y)| x * y).sum();
     let got: f32 = partials.iter().sum();
@@ -237,12 +238,12 @@ fn reduction_handles_non_multiple_lengths() {
     params[0] = f32::from_le_bytes(n.to_le_bytes());
     let groups = sum.workgroup_count(n);
     params[1] = f32::from_le_bytes(groups.to_le_bytes());
-    let params_buf = uniform_f32(device, queue, &params);
-    let input = storage_f32(device, queue, &data);
+    let params_buf = uniform_f32(device, queue, &params).unwrap();
+    let input = storage_f32(device, queue, &data).unwrap();
     assert_eq!(groups, 5);
     let partials = storage_f32_zeroed(device, queue, groups as usize);
     sum.dispatch(device, queue, &[&params_buf, &input, &partials], n);
-    let partials = read_f32(device, queue, &partials, groups as usize);
+    let partials = read_f32(device, queue, &partials, groups as usize).unwrap();
     let want: f32 = data.iter().sum();
     let got: f32 = partials.iter().sum();
     assert_eq!(got, want, "partial sums must fold to the exact total");
@@ -283,12 +284,12 @@ fn scale_add4_matches_cpu_reference() {
     let input: Vec<f32> = (0..lanes * 4)
         .map(|i| (i as f32 - 2000.0) * 0.125)
         .collect();
-    let params = uniform_f32(device, queue, &vec4_params(lanes, 1.5, 0.25));
-    let input_buf = storage_f32(device, queue, &input);
+    let params = uniform_f32(device, queue, &vec4_params(lanes, 1.5, 0.25)).unwrap();
+    let input_buf = storage_f32(device, queue, &input).unwrap();
     let output_buf = storage_f32_zeroed(device, queue, input.len());
     kernel.dispatch(device, queue, &[&params, &input_buf, &output_buf], lanes);
 
-    let output = read_f32(device, queue, &output_buf, input.len());
+    let output = read_f32(device, queue, &output_buf, input.len()).unwrap();
     for (i, (&got, &x)) in output.iter().zip(&input).enumerate() {
         let want = x * 1.5 + 0.25;
         assert!(
@@ -336,9 +337,9 @@ fn zip_mul4_then_reduce_computes_dot_product() {
     let n = lanes * 4;
     let a: Vec<f32> = (0..n).map(|i| (i % 89) as f32 * 0.1).collect();
     let b: Vec<f32> = (0..n).map(|i| (i % 47) as f32 * -0.3).collect();
-    let params = uniform_f32(device, queue, &vec4_params(lanes, 0.0, 0.0));
-    let a_buf = storage_f32(device, queue, &a);
-    let b_buf = storage_f32(device, queue, &b);
+    let params = uniform_f32(device, queue, &vec4_params(lanes, 0.0, 0.0)).unwrap();
+    let a_buf = storage_f32(device, queue, &a).unwrap();
+    let b_buf = storage_f32(device, queue, &b).unwrap();
     let products = storage_f32_zeroed(device, queue, n as usize);
     mul.dispatch(device, queue, &[&params, &a_buf, &b_buf, &products], lanes);
 
@@ -347,11 +348,11 @@ fn zip_mul4_then_reduce_computes_dot_product() {
     sum_params[0] = f32::from_le_bytes(n.to_le_bytes());
     let groups = sum.workgroup_count(n);
     sum_params[1] = f32::from_le_bytes(groups.to_le_bytes());
-    let sum_params = uniform_f32(device, queue, &sum_params);
+    let sum_params = uniform_f32(device, queue, &sum_params).unwrap();
     let partials = storage_f32_zeroed(device, queue, groups as usize);
     sum.dispatch(device, queue, &[&sum_params, &products, &partials], n);
 
-    let partials = read_f32(device, queue, &partials, groups as usize);
+    let partials = read_f32(device, queue, &partials, groups as usize).unwrap();
     let want: f32 = a.iter().zip(&b).map(|(&x, &y)| x * y).sum();
     let got: f32 = partials.iter().sum();
     assert!(
@@ -384,8 +385,8 @@ fn reduce_f32_handles_lengths_beyond_the_dispatch_limit() {
 
     let n = 20_000_000u32;
     let data: Vec<f32> = (0..n).map(|i| (i % 1000) as f32).collect();
-    let input = storage_f32(device, queue, &data);
-    let got = reduce_f32(device, queue, &sum, &input, n);
+    let input = storage_f32(device, queue, &data).unwrap();
+    let got = reduce_f32(device, queue, &sum, &input, n).unwrap();
 
     // Exact by construction: 20000 full cycles of 0..=999.
     let want: f32 = 499_500.0 * (n / 1000) as f32;
@@ -428,11 +429,11 @@ fn recorded_chain_reuses_buffers_and_consumes_reduction_on_gpu() {
     let scaled = storage_f32_zeroed(device, queue, n);
     let products = storage_f32_zeroed(device, queue, n);
     let result = storage_f32_zeroed(device, queue, 1);
-    let params = uniform_f32(device, queue, &scale_add_params(n as u32, 2.0, 1.0));
-    let tail_params = uniform_f32(device, queue, &scale_add_params(1, 0.5, -3.0));
+    let params = uniform_f32(device, queue, &scale_add_params(n as u32, 2.0, 1.0)).unwrap();
+    let tail_params = uniform_f32(device, queue, &scale_add_params(1, 0.5, -3.0)).unwrap();
     let scale_bind = scale.create_bind_group(device, &[&params, &input, &scaled]);
     let mul_bind = mul.create_bind_group(device, &[&params, &scaled, &input, &products]);
-    let reduction = compute_core::Reduction::new(device, queue, &sum, &products, n as u32);
+    let reduction = compute_core::Reduction::new(device, queue, &sum, &products, n as u32).unwrap();
     let tail_bind = scale.create_bind_group(device, &[&tail_params, reduction.output(), &result]);
     let mut batch = compute_core::ComputeBatch::new();
     batch.push(&scale, &scale_bind, scale.workgroup_count(n as u32));
@@ -445,7 +446,7 @@ fn recorded_chain_reuses_buffers_and_consumes_reduction_on_gpu() {
         queue.write_buffer(&input, 0, &compute_core::gpu_compute::pack_f32(&values));
         batch.submit(device, queue);
         let want = values.iter().map(|x| (x * 2.0 + 1.0) * x).sum::<f32>() * 0.5 - 3.0;
-        assert_eq!(read_f32(device, queue, &result, 1), vec![want]);
+        assert_eq!(read_f32(device, queue, &result, 1).unwrap(), vec![want]);
     }
 }
 
@@ -472,13 +473,17 @@ fn reduction_handles_empty_singleton_and_workgroup_one() {
         .unwrap();
         for n in [0, 1, 3, 257] {
             let values: Vec<f32> = (0..n).map(|i| i as f32 + 1.0).collect();
-            let input = storage_f32(device, queue, &values);
+            let input = storage_f32(device, queue, &values).unwrap();
             assert_eq!(
-                reduce_f32(device, queue, &sum, &input, n),
+                reduce_f32(device, queue, &sum, &input, n).unwrap(),
                 values.iter().sum::<f32>()
             );
-            assert!(read_f32(device, queue, &input, 0).is_empty());
-            assert!(compute_core::read_u32(device, queue, &input, 0).is_empty());
+            assert!(read_f32(device, queue, &input, 0).unwrap().is_empty());
+            assert!(
+                compute_core::read_u32(device, queue, &input, 0)
+                    .unwrap()
+                    .is_empty()
+            );
         }
     }
 }

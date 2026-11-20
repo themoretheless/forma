@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (count, steps) in [(4096u32, 4usize), (4096, 32), (4096, 128), (1_000_003, 32)] {
         let first = storage_f32_zeroed(device, queue, count as usize);
         let second = storage_f32_zeroed(device, queue, count as usize);
-        let params = uniform_f32(device, queue, &[f32::from_bits(count), 1.0, 1.0, 0.0]);
+        let params = uniform_f32(device, queue, &[f32::from_bits(count), 1.0, 1.0, 0.0])?;
         let forward = kernel.create_bind_group(device, &[&params, &first, &second]);
         let backward = kernel.create_bind_group(device, &[&params, &second, &first]);
         let mut batch = ComputeBatch::new();

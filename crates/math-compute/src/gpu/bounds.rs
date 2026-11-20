@@ -36,14 +36,7 @@ impl GpuPointBounds {
         })
     }
 
-    fn ensure_buffers(&self, point_count: usize, partial_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.point_capacity < point_count || b.partial_capacity < partial_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, point_count: usize, partial_count: usize) -> PointBoundsBuffers {
         let device = &self.device;
         let point_capacity = point_count.max(1);
         let partial_capacity = partial_count.max(1);
@@ -75,7 +68,7 @@ impl GpuPointBounds {
         let bind = self
             .kernel
             .create_bind_group(device, &[&params, &points, &out_min, &out_max]);
-        *self.buffers.borrow_mut() = Some(PointBoundsBuffers {
+        PointBoundsBuffers {
             point_capacity,
             partial_capacity,
             params,
@@ -83,66 +76,52 @@ impl GpuPointBounds {
             out_min,
             out_max,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
         &self,
         points: &[V3],
     ) -> Result<crate::PointBounds, gpu_compute::ReadbackError> {
-        Ok({
-            let point_count = points.len();
-            let partial_count = self.kernel.workgroup_count(point_count as u32) as usize;
-            self.ensure_buffers(point_count, partial_count);
-            let flat: Vec<f32> = points.iter().flatten().map(|&v| v as f32).collect();
-            let params = pack_u32(&[point_count as u32, 0, 0, 0]);
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            self.queue
-                .write_buffer(&buffers.points, 0, &pack_f32(&flat));
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                partial_count as u32,
-            );
-            let raw_min = read_f32(
-                &self.device,
-                &self.queue,
-                &buffers.out_min,
-                partial_count * 3,
-            )?;
-            let raw_max = read_f32(
-                &self.device,
-                &self.queue,
-                &buffers.out_max,
-                partial_count * 3,
-            )?;
-            let mut min = [f64::INFINITY; 3];
-            let mut max = [f64::NEG_INFINITY; 3];
-            for chunk in raw_min.as_chunks::<3>().0.iter().take(partial_count) {
-                for axis in 0..3 {
-                    min[axis] = min[axis].min(chunk[axis] as f64);
-                }
-            }
-            for chunk in raw_max.as_chunks::<3>().0.iter().take(partial_count) {
-                for axis in 0..3 {
-                    max[axis] = max[axis].max(chunk[axis] as f64);
-                }
-            }
-            crate::PointBounds {
-                samples: point_count,
-                min,
-                max,
-                center: [
-                    0.5 * (min[0] + max[0]),
-                    0.5 * (min[1] + max[1]),
-                    0.5 * (min[2] + max[2]),
-                ],
-                extent: [max[0] - min[0], max[1] - min[1], max[2] - min[2]],
-            }
-        })
+        let point_count = points.len();
+        let partial_count = self.kernel.workgroup_count(point_count as u32) as usize;
+        let flat = wire::pack_points_f32(points);
+        let params = pack_u32(&[point_count as u32, 0, 0, 0]);
+        let mut slot = self.buffers.borrow_mut();
+        if slot
+            .as_ref()
+            .is_some_and(|b| b.point_capacity < point_count || b.partial_capacity < partial_count)
+        {
+            *slot = None;
+        }
+        let buffers = slot.get_or_insert_with(|| self.alloc_buffers(point_count, partial_count));
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        self.queue
+            .write_buffer(&buffers.points, 0, &pack_f32(&flat));
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            partial_count as u32,
+        );
+        let raw_min = read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out_min,
+            partial_count * 3,
+        )?;
+        let raw_max = read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out_max,
+            partial_count * 3,
+        )?;
+        Ok(wire::fold_point_bounds(
+            point_count,
+            &raw_min,
+            &raw_max,
+            partial_count,
+        ))
     }
 }
 
@@ -150,17 +129,7 @@ pub(super) struct GpuTransformedPointBounds {
     device: Device,
     queue: wgpu::Queue,
     kernel: Kernel,
-    buffers: std::cell::RefCell<Option<TransformedPointBoundsBuffers>>,
-}
-
-struct TransformedPointBoundsBuffers {
-    point_capacity: usize,
-    partial_capacity: usize,
-    params: Buffer,
-    points: Buffer,
-    out_min: Buffer,
-    out_max: Buffer,
-    bind: BindGroup,
+    buffers: std::cell::RefCell<Option<PointBoundsBuffers>>,
 }
 
 impl GpuTransformedPointBounds {
@@ -182,14 +151,7 @@ impl GpuTransformedPointBounds {
         })
     }
 
-    fn ensure_buffers(&self, point_count: usize, partial_count: usize) {
-        let stale = match &*self.buffers.borrow() {
-            Some(b) => b.point_capacity < point_count || b.partial_capacity < partial_count,
-            None => true,
-        };
-        if !stale {
-            return;
-        }
+    fn alloc_buffers(&self, point_count: usize, partial_count: usize) -> PointBoundsBuffers {
         let device = &self.device;
         let point_capacity = point_count.max(1);
         let partial_capacity = partial_count.max(1);
@@ -221,7 +183,7 @@ impl GpuTransformedPointBounds {
         let bind = self
             .kernel
             .create_bind_group(device, &[&params, &points, &out_min, &out_max]);
-        *self.buffers.borrow_mut() = Some(TransformedPointBoundsBuffers {
+        PointBoundsBuffers {
             point_capacity,
             partial_capacity,
             params,
@@ -229,7 +191,7 @@ impl GpuTransformedPointBounds {
             out_min,
             out_max,
             bind,
-        });
+        }
     }
 
     pub(super) fn run(
@@ -238,54 +200,45 @@ impl GpuTransformedPointBounds {
         m: M3,
         t: V3,
     ) -> Result<crate::PointBounds, gpu_compute::ReadbackError> {
-        Ok({
-            let point_count = points.len();
-            let partial_count = self.kernel.workgroup_count(point_count as u32) as usize;
-            self.ensure_buffers(point_count, partial_count);
-            let flat: Vec<f32> = points.iter().flatten().map(|&v| v as f32).collect();
-            let mut params = pack_u32(&[point_count as u32, 0, 0, 0]);
-            for row in 0..3 {
-                for &value in &m[row] {
-                    push_f32(&mut params, value as f32);
-                }
-                push_f32(&mut params, t[row] as f32);
-            }
-            let buffers = self.buffers.borrow();
-            let buffers = buffers.as_ref().expect("ensure_buffers was just called");
-            self.queue.write_buffer(&buffers.params, 0, &params);
-            self.queue
-                .write_buffer(&buffers.points, 0, &pack_f32(&flat));
-            self.kernel.dispatch_bind_group(
-                &self.device,
-                &self.queue,
-                &buffers.bind,
-                partial_count as u32,
-            );
-            let raw_min = read_f32(
-                &self.device,
-                &self.queue,
-                &buffers.out_min,
-                partial_count * 3,
-            )?;
-            let raw_max = read_f32(
-                &self.device,
-                &self.queue,
-                &buffers.out_max,
-                partial_count * 3,
-            )?;
-            let mut min = [f64::INFINITY; 3];
-            let mut max = [f64::NEG_INFINITY; 3];
-            for chunk in raw_min.as_chunks::<3>().0.iter().take(partial_count) {
-                for axis in 0..3 {
-                    min[axis] = min[axis].min(chunk[axis] as f64);
-                }
-            }
-            for chunk in raw_max.as_chunks::<3>().0.iter().take(partial_count) {
-                for axis in 0..3 {
-                    max[axis] = max[axis].max(chunk[axis] as f64);
-                }
-            }
-            crate::PointBounds::new(point_count, min, max)
-        })
+        let point_count = points.len();
+        let partial_count = self.kernel.workgroup_count(point_count as u32) as usize;
+        let flat = wire::pack_points_f32(points);
+        let mut params = pack_u32(&[point_count as u32, 0, 0, 0]);
+        params.extend_from_slice(&pack_f32(&wire::pack_transform_f32(m, t)));
+        let mut slot = self.buffers.borrow_mut();
+        if slot
+            .as_ref()
+            .is_some_and(|b| b.point_capacity < point_count || b.partial_capacity < partial_count)
+        {
+            *slot = None;
+        }
+        let buffers = slot.get_or_insert_with(|| self.alloc_buffers(point_count, partial_count));
+        self.queue.write_buffer(&buffers.params, 0, &params);
+        self.queue
+            .write_buffer(&buffers.points, 0, &pack_f32(&flat));
+        self.kernel.dispatch_bind_group(
+            &self.device,
+            &self.queue,
+            &buffers.bind,
+            partial_count as u32,
+        );
+        let raw_min = read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out_min,
+            partial_count * 3,
+        )?;
+        let raw_max = read_f32(
+            &self.device,
+            &self.queue,
+            &buffers.out_max,
+            partial_count * 3,
+        )?;
+        Ok(wire::fold_point_bounds(
+            point_count,
+            &raw_min,
+            &raw_max,
+            partial_count,
+        ))
     }
 }

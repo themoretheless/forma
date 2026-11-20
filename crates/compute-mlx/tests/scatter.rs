@@ -12,16 +12,8 @@ const OPS: [ScatterOp; 5] = [
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+mod support;
+use support::backend;
 
 #[test]
 fn replace_duplicate_winners_follow_logical_index_order_repeatedly() {

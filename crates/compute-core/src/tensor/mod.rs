@@ -61,7 +61,20 @@ impl std::fmt::Display for TensorComputeError {
         }
     }
 }
-impl std::error::Error for TensorComputeError {}
+impl std::error::Error for TensorComputeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Tensor(error) => Some(error),
+            Self::Compute(error) => Some(error),
+            Self::ShapeMismatch { .. }
+            | Self::OutputNotContiguous
+            | Self::IndexTooLarge
+            | Self::UnsupportedPrecision(_)
+            | Self::Evaluation(_)
+            | Self::LowDtypeMismatch { .. } => None,
+        }
+    }
+}
 impl From<tensor_core::TensorError> for TensorComputeError {
     fn from(error: tensor_core::TensorError) -> Self {
         Self::Tensor(error)

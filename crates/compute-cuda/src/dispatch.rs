@@ -45,9 +45,8 @@ impl<T: DeviceRepr> UnaryDispatch<T> {
         if self.count == 0 {
             return Ok(());
         }
-        // The caller validates layouts/storage and distinct output ownership;
-        // the same argument ABI serves eager and prepared execution. cudarc
-        // retains read/write access events through each argument guard.
+        // SAFETY: The caller validates layouts/storage and distinct output ownership;
+        // cudarc retains read/write access events through each argument guard.
         unsafe {
             rt.device
                 .stream
@@ -143,6 +142,7 @@ impl BinaryDispatch {
         if self.count == 0 {
             return Ok(());
         }
+        // SAFETY: Broadcast/output shapes, metadata buffer, and distinct output slice match the binary kernel ABI with `cudarc` event tracking.
         unsafe {
             rt.device
                 .stream
@@ -201,6 +201,7 @@ pub(crate) fn fill_typed<T: DeviceRepr>(
     if count == 0 {
         return Ok(());
     }
+    // SAFETY: `count <= output.len() as u64` was checked above; kernel writes `0..count` into uniquely borrowed `output`.
     unsafe {
         rt.device
             .stream

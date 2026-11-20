@@ -233,9 +233,7 @@ impl CudaRuntime {
             let (a_ptr, _a_guard) = a.device_ptr(&self.device.stream);
             let (b_ptr, _b_guard) = b.device_ptr(&self.device.stream);
             let (out_ptr, _out_guard) = out.device_ptr_mut(&self.device.stream);
-            // The plan proves every view bound before the first call. Row-major
-            // C=A*B is C^T=B^T*A^T in cuBLAS's column-major convention. Retained
-            // guards register accesses on the same stream as eager execution.
+            // SAFETY: `plan.batch(index)` bounds were verified, guards retain stream ordering, and row-major C=A*B maps to column-major C^T=B^T*A^T.
             unsafe {
                 result::gemm_ex(
                     handle,

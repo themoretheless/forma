@@ -19,7 +19,7 @@ impl<'a> Arrays<'a> {
         &mut self,
         operation: impl FnOnce(*mut Handle) -> Result<(), String>,
     ) -> Result<Handle, String> {
-        // Null is the valid initial destination placeholder in the MLX-C ABI.
+        // SAFETY: Outer `Api::call` holds `CALLS`; `array_new()` returns a valid empty handle slot.
         self.handles.push(unsafe { (self.api.array_new)() });
         let raw = self.handles.last_mut().expect("just appended");
         operation(raw)?;
@@ -32,6 +32,7 @@ impl<'a> Arrays<'a> {
 impl Drop for Arrays<'_> {
     fn drop(&mut self) {
         for raw in self.handles.drain(..).rev() {
+            // SAFETY: Each recorded `Handle` was allocated by `array_new()` in reverse dependency order under `CALLS`.
             unsafe {
                 (self.api.array_free)(raw);
             }
@@ -70,6 +71,7 @@ pub(in crate::native) fn apply(
     }
     let dims = MlxBackend::dimensions(&output.shape).map_err(|e| e.to_string())?;
     let mut arrays = Arrays::new(api);
+    // SAFETY: Caller holds `CALLS`; `inputs` arity, `dims`, and `stream` are validated, `out` points to initialized `Handle`, and any temporaries stay guarded in `arrays`.
     let code = unsafe {
         match op {
             NativeOp::Unary(op) => unary_function(api, *op)(out, inputs[0], stream),

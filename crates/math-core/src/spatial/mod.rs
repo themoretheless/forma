@@ -5,18 +5,26 @@
 use crate::affine::{AffineMatrix, IDENTITY};
 use crate::{Error, M3, Result, V3, add, cross, dot, norm, scale, sub, unit};
 
-mod boxes;
+mod aabb;
+mod dual_quat;
+mod frustum;
 mod morton;
-mod primitives;
-mod rotation;
+mod obb;
+mod plane;
+mod quat;
+mod ray;
 mod solve;
 mod spline;
 mod triangle;
 
-pub use boxes::*;
+pub use aabb::*;
+pub use dual_quat::*;
+pub use frustum::*;
 pub use morton::*;
-pub use primitives::*;
-pub use rotation::*;
+pub use obb::*;
+pub use plane::*;
+pub use quat::*;
+pub use ray::*;
 pub use solve::*;
 pub use spline::*;
 pub use triangle::*;

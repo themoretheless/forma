@@ -76,6 +76,7 @@ impl TensorLowBackend for MlxBackend {
         let input = self.materialize(&tensor.tensor)?;
         native(
             "read_low_bits",
+            // SAFETY: Materialized `input` is evaluated under `CALLS`, checked for non-empty and non-null `ptr`, and copied while `input` keeps storage alive.
             self.context.api.call(|a| unsafe {
                 Api::check((a.array_eval)(input.array.raw))?;
                 if input.shape.is_empty() {
@@ -149,6 +150,7 @@ impl TensorLowBackend for MlxBackend {
         let tensor = if shape.is_empty() {
             self.zeros(shape, dtype)?
         } else {
+            // SAFETY: `left` and `right` are verified matching low-precision tensors on `self.context` with validated matmul shapes.
             self.output("low matmul", shape, dtype, |a, out| unsafe {
                 (a.matmul)(
                     out,

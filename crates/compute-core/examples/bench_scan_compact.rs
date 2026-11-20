@@ -180,7 +180,8 @@ impl Baseline {
                 output.view().raw(),
                 n as u32,
                 sum.view().raw(),
-            );
+            )
+            .unwrap();
             batch.push_reduction(&reduction);
             Some(sum)
         } else {
@@ -196,7 +197,7 @@ impl Baseline {
     }
 }
 fn uniform(rt: &ComputeRuntime, v: [u32; 4]) -> wgpu::Buffer {
-    uniform_f32(rt.device(), rt.queue(), &v.map(f32::from_bits))
+    uniform_f32(rt.device(), rt.queue(), &v.map(f32::from_bits)).unwrap()
 }
 enum Plan<'a> {
     Raw(ComputeBatch<'a>),

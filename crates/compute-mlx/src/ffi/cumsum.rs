@@ -16,14 +16,24 @@ pub(crate) enum Cumsum {
     Axis(Axis),
 }
 impl Cumsum {
+    /// # Safety
+    ///
+    /// `library` must outlive `Self` and match either MLX-C v0.7 (`mlx_cumsum_axis`)
+    /// or MLX-C v0.6 (`mlx_cumsum`) ABI signatures.
     pub(super) unsafe fn load(library: &Library) -> Result<Self, String> {
+        // SAFETY: `library` remains loaded inside `Api::global()`; tries v0.7 symbol before falling back to v0.6.
         match unsafe { library.get::<Axis>(b"mlx_cumsum_axis\0") } {
             Ok(f) => Ok(Self::Axis(*f)),
             Err(_) => Ok(Self::Legacy(
+                // SAFETY: Fallback matches MLX-C v0.6 `mlx_cumsum` ABI signature.
                 *unsafe { library.get::<Legacy>(b"mlx_cumsum\0") }.map_err(|e| e.to_string())?,
             )),
         }
     }
+    /// # Safety
+    ///
+    /// `out` must point to writable `Handle` storage, and `input` and `stream`
+    /// must be valid live handles under the active synchronized `CALLS` gate.
     #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn call(
         &self,
@@ -36,7 +46,9 @@ impl Cumsum {
         stream: Handle,
     ) -> c_int {
         match self {
+            // SAFETY: Caller upholds all handle and pointer preconditions for the v0.6 ABI.
             Self::Legacy(f) => unsafe { f(out, input, axis, reverse, inclusive, stream) },
+            // SAFETY: Caller upholds all preconditions for the v0.7 axis ABI with explicit dtype.
             Self::Axis(f) => unsafe {
                 f(
                     out,
@@ -57,6 +69,9 @@ impl Cumsum {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// # Safety
+    ///
+    /// `out` must be a valid aligned pointer to writable `Handle`.
     unsafe extern "C" fn legacy(
         out: *mut Handle,
         _input: Handle,
@@ -68,9 +83,13 @@ mod tests {
         assert_eq!(axis, 2);
         assert!(reverse);
         assert!(!inclusive);
+        // SAFETY: Test passes stack `&mut out`.
         unsafe { *out = stream };
         23
     }
+    /// # Safety
+    ///
+    /// `out` must be a valid aligned pointer to writable `Handle`.
     unsafe extern "C" fn current(
         out: *mut Handle,
         input: Handle,
@@ -82,6 +101,7 @@ mod tests {
     ) -> c_int {
         assert!(dtype.has_value);
         assert_eq!(dtype.value, super::super::U32);
+        // SAFETY: Forwards stack `&mut out` to `legacy`.
         unsafe { legacy(out, input, axis, reverse, inclusive, stream) }
     }
     #[test]
@@ -96,6 +116,7 @@ mod tests {
         for abi in [Cumsum::Legacy(legacy), Cumsum::Axis(current)] {
             let mut out = empty;
             assert_eq!(
+                // SAFETY: `&mut out` is valid stack storage for the fake ABI callbacks.
                 unsafe { abi.call(&mut out, empty, 2, true, false, super::super::U32, stream) },
                 23
             );

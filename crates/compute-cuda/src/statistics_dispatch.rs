@@ -118,6 +118,7 @@ impl RowPlan {
             self.reduce_count as u64,
             self.chunks as u64,
         );
+        // SAFETY: `self.check` and caller validated input, `center`, `output`, and metadata bounds.
         unsafe {
             let mut launch = rt
                 .device
@@ -163,6 +164,7 @@ impl RowPlan {
             self.chunks as u64,
             self.reduce_count as u64,
         );
+        // SAFETY: `validate_storage` verified `partials` and uniquely owned `output` row counts.
         unsafe {
             rt.device
                 .stream
@@ -201,6 +203,7 @@ impl RowPlan {
             (rows.second.len(), self.rows),
             (output.len(), count as usize),
         ])?;
+        // SAFETY: `self.check` and `validate_storage` verified `first`/`second`/`output`/`metadata` lengths for all rows.
         unsafe {
             let mut launch = rt
                 .device
@@ -238,6 +241,7 @@ impl RowPlan {
             (output.len(), self.rows),
         ])?;
         let count = self.rows as u64;
+        // SAFETY: `validate_storage` verified `first`, `second`, and uniquely owned `output` have `self.rows` elements.
         unsafe {
             rt.device
                 .stream
@@ -266,6 +270,7 @@ impl RowPlan {
             (output.variance.len(), self.rows),
         ])?;
         let count = self.rows as u64;
+        // SAFETY: `self.check` and `validate_storage` verified input, row buffers, metadata, and disjoint `mean`/`variance` outputs.
         unsafe {
             let mut launch = rt
                 .device

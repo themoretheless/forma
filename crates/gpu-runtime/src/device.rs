@@ -350,20 +350,41 @@ impl Device {
                 return ShaderModule::invalid_with_module(Arc::new(module), description);
             }
         };
+        self.finish_shader_module(desc.label, wgsl_src, module, &info)
+    }
+
+    /// Compiles a shader module from WGSL that the caller already parsed and validated.
+    pub fn create_shader_module_prevalidated(
+        &self,
+        label: Option<&str>,
+        wgsl_src: &str,
+        module: naga::Module,
+        info: &naga::valid::ModuleInfo,
+    ) -> ShaderModule {
+        self.finish_shader_module(label, wgsl_src, module, info)
+    }
+
+    fn finish_shader_module(
+        &self,
+        label: Option<&str>,
+        wgsl_src: &str,
+        module: naga::Module,
+        info: &naga::valid::ModuleInfo,
+    ) -> ShaderModule {
         if let BackendDevice::Portable(portable) = &self.backend {
             return crate::portable::pipeline::create_shader_module(
                 portable,
-                desc.label,
+                label,
                 wgsl_src,
                 Arc::new(module),
-                &info,
+                info,
                 &|err| self.record_error(err),
             );
         }
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         let (msl_source, bindings) = match naga::back::msl::write_string(
             &module,
-            &info,
+            info,
             &naga::back::msl::Options::default(),
             &naga::back::msl::PipelineOptions::default(),
         ) {
@@ -375,7 +396,7 @@ impl Device {
             }
         };
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-        let _ = info;
+        let _ = (label, info);
 
         ShaderModule {
             module: Arc::new(module),

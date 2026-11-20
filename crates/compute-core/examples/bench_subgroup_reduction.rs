@@ -107,7 +107,8 @@ impl<'a> Prepared<'a> {
                 &context.device,
                 &context.queue,
                 &[f32::from_bits(count), f32::from_bits(groups), 0.0, 0.0],
-            );
+            )
+            .unwrap();
             let output = storage_f32_zeroed(&context.device, &context.queue, groups as usize);
             let bindings = candidate
                 .kernel
@@ -208,7 +209,7 @@ fn correctness(context: &GpuContext, candidates: &[Candidate]) -> AnyResult<()> 
                 })
                 .collect();
             let expected = values.iter().map(|&v| f64::from(v)).sum::<f64>();
-            let input = storage_f32(&context.device, &context.queue, &values);
+            let input = storage_f32(&context.device, &context.queue, &values)?;
             for candidate in candidates {
                 let prepared = Prepared::new(context, candidate, &input, n, 1024);
                 context
@@ -264,7 +265,7 @@ fn main() -> AnyResult<()> {
             .map(|i| 0.25 + ((i * 17 % 257) as f32 - 128.0) / 1024.0)
             .collect();
         let expected = values.iter().map(|&v| f64::from(v)).sum::<f64>();
-        let input = storage_f32(&context.device, &context.queue, &values);
+        let input = storage_f32(&context.device, &context.queue, &values)?;
         let mut prepared = Vec::new();
         for candidate in &candidates {
             for cap in [256, 1024, 4096, 65535] {

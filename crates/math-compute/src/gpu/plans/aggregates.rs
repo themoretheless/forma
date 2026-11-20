@@ -124,7 +124,7 @@ impl<'a> MathGpuProgram<'a> {
         self.check_output(output, GpuPointCloudStats::LEN, &[points.view])?;
         let count = self.kernels.stats_partial.workgroup_count(points.count);
         let partial = self.runtime.zeros::<f32>(count as usize * 15)?;
-        let params = self.params(points.count, 0);
+        let params = self.params(points.count, 0)?;
         let bindings = self.kernels.stats_partial.create_bind_group_resources(
             self.runtime.device(),
             &[
@@ -137,7 +137,7 @@ impl<'a> MathGpuProgram<'a> {
         // leave a partially appended domain operation in the caller's batch.
         let mut steps = vec![(&self.kernels.stats_partial, bindings, count)];
         let partial = self.fold_statistics(partial, count, &mut steps)?;
-        let params = self.params(points.count, 0);
+        let params = self.params(points.count, 0)?;
         let bindings = self.kernels.stats_finalize.create_bind_group_resources(
             self.runtime.device(),
             &[
@@ -186,7 +186,7 @@ impl<'a> MathGpuProgram<'a> {
         while count > 1 {
             let groups = self.kernels.stats_fold.workgroup_count(count);
             let next = self.runtime.zeros::<f32>(groups as usize * 15)?;
-            let params = self.params(count, 0);
+            let params = self.params(count, 0)?;
             let bindings = self.kernels.stats_fold.create_bind_group_resources(
                 self.runtime.device(),
                 &[

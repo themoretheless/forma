@@ -25,7 +25,19 @@ impl std::fmt::Display for GpuMathError {
         }
     }
 }
-impl std::error::Error for GpuMathError {}
+impl std::error::Error for GpuMathError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Compute(e) => Some(e),
+            Self::Buffer(e) => Some(e),
+            Self::Kernel(e) => Some(e),
+            Self::Readback(e) => Some(e),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::Tensor(e) => Some(e),
+            Self::Device(_) | Self::InvalidInput(_) => None,
+        }
+    }
+}
 impl From<compute_core::KernelError> for GpuMathError {
     fn from(e: compute_core::KernelError) -> Self {
         Self::Kernel(e)

@@ -191,3 +191,57 @@ fn batch_norm_1d_and_apply_rotary_pos_emb_work() {
         assert!((sw.data()[i] - silu_ref.data()[i] * g_val.data()[i]).abs() < 1e-6);
     }
 }
+
+#[test]
+fn scaled_dot_product_attention_broadcasts_multi_axis_batches() {
+    let q_5d = Tensor::new(
+        vec![2, 1, 1, 2, 2],
+        vec![
+            1.0, 0.0, 0.0, 1.0, // q batch (0, 0)
+            0.0, 1.0, 1.0, 0.0, // q batch (1, 0)
+        ],
+    )
+    .unwrap();
+    let k_5d = Tensor::new(
+        vec![1, 3, 1, 2, 2],
+        vec![
+            2.0, 0.0, 0.0, 2.0, // k batch (0, 0)
+            0.0, 2.0, 2.0, 0.0, // k batch (0, 1)
+            0.0, 0.0, 0.0, 0.0, // k batch (0, 2)
+        ],
+    )
+    .unwrap();
+    let v_5d = Tensor::new(
+        vec![1, 3, 1, 2, 2],
+        vec![
+            10.0, 20.0, 30.0, 40.0, // v batch (0, 0)
+            100.0, 200.0, 300.0, 400.0, // v batch (0, 1)
+            5.0, 7.0, 9.0, 11.0, // v batch (0, 2)
+        ],
+    )
+    .unwrap();
+
+    let out = Tensor::scaled_dot_product_attention(&q_5d, &k_5d, &v_5d, false).unwrap();
+    assert_eq!(out.shape().dims(), &[2, 3, 1, 2, 2]);
+
+    for qi in 0..2 {
+        let q_slice =
+            Tensor::new(vec![1, 2, 2], q_5d.data()[qi * 4..(qi + 1) * 4].to_vec()).unwrap();
+        for kj in 0..3 {
+            let k_slice =
+                Tensor::new(vec![1, 2, 2], k_5d.data()[kj * 4..(kj + 1) * 4].to_vec()).unwrap();
+            let v_slice =
+                Tensor::new(vec![1, 2, 2], v_5d.data()[kj * 4..(kj + 1) * 4].to_vec()).unwrap();
+            let expected =
+                Tensor::scaled_dot_product_attention(&q_slice, &k_slice, &v_slice, false).unwrap();
+            let b_idx = qi * 3 + kj;
+            let actual_slice = &out.data()[b_idx * 4..(b_idx + 1) * 4];
+            for (a, e) in actual_slice.iter().zip(expected.data().iter()) {
+                assert!(
+                    (a - e).abs() < 1e-6,
+                    "mismatch at batch ({qi}, {kj}): {a} != {e}"
+                );
+            }
+        }
+    }
+}

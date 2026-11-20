@@ -133,11 +133,18 @@ impl std::fmt::Display for KernelBindingError {
 }
 impl std::error::Error for KernelBindingError {}
 
+pub(super) struct ReflectedKernel {
+    pub(super) workgroup_size: u32,
+    pub(super) binding_info: Vec<BindingInfo>,
+    pub(super) module: naga::Module,
+    pub(super) info: naga::valid::ModuleInfo,
+}
+
 pub(super) fn reflect(
     source: &str,
     entry: &str,
     bindings: &[Binding],
-) -> Result<(u32, Vec<BindingInfo>), KernelError> {
+) -> Result<ReflectedKernel, KernelError> {
     let fail = |message: String| KernelError { message };
     let module =
         naga::front::wgsl::parse_str(source).map_err(|e| fail(e.emit_to_string(source)))?;
@@ -194,7 +201,12 @@ pub(super) fn reflect(
         }
         reflected[slot.binding as usize].min_size = u64::from(layout[global.ty].size);
     }
-    Ok((point.workgroup_size[0], reflected))
+    Ok(ReflectedKernel {
+        workgroup_size: point.workgroup_size[0],
+        binding_info: reflected,
+        module,
+        info,
+    })
 }
 
 #[cfg(test)]
@@ -209,10 +221,14 @@ mod tests {
             Binding::StorageReadWrite,
         ];
         let source = crate::shaders::SCALE_ADD_WGSL;
-        let (size, slots) = reflect(source, "main", &layout).unwrap();
-        assert_eq!(size, 256);
+        let reflected = reflect(source, "main", &layout).unwrap();
+        assert_eq!(reflected.workgroup_size, 256);
         assert_eq!(
-            slots.iter().map(|s| s.min_size).collect::<Vec<_>>(),
+            reflected
+                .binding_info
+                .iter()
+                .map(|s| s.min_size)
+                .collect::<Vec<_>>(),
             [16, 4, 4]
         );
         assert!(reflect(source, "absent", &layout).is_err());
@@ -220,7 +236,7 @@ mod tests {
         assert!(reflect(source, "main", &[Binding::StorageRead; 3]).is_err());
         assert!(reflect("@compute @workgroup_size(8, 8) fn main() {}", "main", &[]).is_err());
         let fixed = source.replace("const WG: u32 = 256;", "const WG: u32 = 96;");
-        assert_eq!(reflect(&fixed, "main", &layout).unwrap().0, 96);
+        assert_eq!(reflect(&fixed, "main", &layout).unwrap().workgroup_size, 96);
     }
 
     #[test]

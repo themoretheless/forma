@@ -24,6 +24,7 @@ impl Drop for Kernel {
     fn drop(&mut self) {
         let _ = self.api.call(|a| {
             if let Some(m) = &a.metal {
+                // SAFETY: `self.raw` was created by `fast_metal_kernel_new` and is released once under `CALLS`.
                 unsafe { (m.fast_metal_kernel_free)(self.raw) };
             }
             Ok(())
@@ -39,23 +40,30 @@ impl MlxBackend {
         static NEXT_KERNEL: AtomicU64 = AtomicU64::new(0);
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         key.hash(&mut hash);
+        let cstr_err = |op: &'static str| {
+            move |e: std::ffi::NulError| MlxError::Native {
+                operation: op,
+                message: e.to_string(),
+            }
+        };
         let name = CString::new(format!(
             "compute_mlx_{:016x}_{}",
             hash.finish(),
             NEXT_KERNEL.fetch_add(1, Ordering::Relaxed)
         ))
-        .unwrap();
-        let source = CString::new(key.source.as_str()).expect("internal Metal source has no NUL");
-        let header = CString::new(key.header).expect("internal Metal header has no NUL");
-        let names: Vec<_> = key
+        .map_err(cstr_err("custom Metal kernel name"))?;
+        let source = CString::new(key.source.as_str()).map_err(cstr_err("custom Metal source"))?;
+        let header = CString::new(key.header).map_err(cstr_err("custom Metal header"))?;
+        let names = key
             .inputs
             .iter()
-            .map(|n| CString::new(*n).unwrap())
-            .collect();
+            .map(|n| CString::new(*n).map_err(cstr_err("custom Metal arg name")))
+            .collect::<Result<Vec<_>, _>>()?;
         let pointers: Vec<_> = names.iter().map(|n| n.as_ptr()).collect();
         let output = [c"out".as_ptr()];
         let raw = native(
             "create custom Metal kernel",
+            // SAFETY: `CALLS` is locked; `name`, `source`, `header`, `pointers`, and `output` are NUL-terminated and live until `fast_metal_kernel_new` returns, and temporary vectors are always freed.
             self.context.api.call(|a| unsafe {
                 let m = a
                     .metal
@@ -176,6 +184,7 @@ pub(super) fn apply_raw(
         .metal
         .as_ref()
         .ok_or("MLX-C custom Metal ABI is unavailable")?;
+    // SAFETY: Caller holds the `CALLS` lock; `inputs`, `kernel`, `stream`, and `out` are valid MLX handles/pointers, and all temporary vectors/config objects are unconditionally freed below.
     unsafe {
         let input_vector = (m.vector_array_new_data)(inputs.as_ptr(), inputs.len());
         let mut outputs = (m.vector_array_new)();

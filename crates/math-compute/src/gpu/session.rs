@@ -85,14 +85,14 @@ impl MathGpuSession {
     }
     #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn tensor_runtime(&self) -> Result<&compute_core::ComputeRuntime, GpuMathError> {
-        if self.stable_stats_runtime.get().is_none() {
-            let runtime = compute_core::ComputeRuntime::new(&self.context)?;
-            let _ = self.stable_stats_runtime.set(runtime);
+        if let Some(runtime) = self.stable_stats_runtime.get() {
+            return Ok(runtime);
         }
-        Ok(self
-            .stable_stats_runtime
+        let runtime = compute_core::ComputeRuntime::new(&self.context)?;
+        let _ = self.stable_stats_runtime.set(runtime);
+        self.stable_stats_runtime
             .get()
-            .expect("runtime initialized above"))
+            .ok_or_else(|| GpuMathError::Device("compute runtime initialization failed".into()))
     }
     pub fn nearest_neighbor(&self, queries: &[V3], targets: &[V3]) -> Option<Vec<(u32, f64)>> {
         self.try_nearest_neighbor(queries, targets)

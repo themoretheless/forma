@@ -4,6 +4,7 @@
 //! PTX). Matrix multiplication uses cuBLAS with an explicit precision policy.
 //! No operation falls back to the CPU. CUDA execution must be qualified on
 //! NVIDIA hardware; successful compilation on another platform is not GPU proof.
+#![deny(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
 mod attention;
 mod attention_dispatch;

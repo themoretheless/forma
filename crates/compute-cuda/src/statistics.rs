@@ -111,7 +111,7 @@ impl CudaRuntime {
             if op == 0 {
                 let count = input.shape().numel() as u64;
                 let one = 1f32;
-                // Singleton softmax writes one without an input-sized temporary.
+                // SAFETY: `result` was freshly allocated with `shape.numel() == count` elements; `fill[0]` writes `0..count`.
                 unsafe {
                     self.device
                         .stream

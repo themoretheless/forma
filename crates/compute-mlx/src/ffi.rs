@@ -54,9 +54,16 @@ pub(crate) struct CompileApi {
     pub vector_array_get: unsafe extern "C" fn(*mut Handle, Handle, usize) -> c_int,
 }
 impl CompileApi {
+    /// # Safety
+    ///
+    /// `library` must remain open (`_library` on `Api`) for as long as any
+    /// resolved `extern "C"` function pointer is invoked, and its MLX-C C ABI
+    /// symbols must match the declared function pointer signatures.
     unsafe fn load(library: &Library) -> Option<Self> {
         macro_rules! symbol {
             ($name:ident) => {
+                // SAFETY: `_library` outlives all users inside `Api::global()`, and
+                // each name/type pair matches the audited MLX-C compile ABI.
                 *unsafe { library.get(concat!("mlx_", stringify!($name), "\0").as_bytes()) }.ok()?
             };
         }
@@ -82,8 +89,15 @@ macro_rules! metal_api {
     ($($name:ident:$ty:ty),* $(,)?) => {
         pub(crate) struct MetalApi { $(pub $name:$ty,)* }
         impl MetalApi {
+            /// # Safety
+            ///
+            /// `library` must outlive every resolved function pointer (`_library` in
+            /// `Api`) and match the MLX-C 0.6/0.7 custom Metal kernel C ABI.
             unsafe fn load(library: &Library) -> Option<Self> {
-                $(let $name = *unsafe { library.get::<$ty>(concat!("mlx_",stringify!($name),"\0").as_bytes()) }.ok()?;)*
+                $(
+                    // SAFETY: caller upholds `library` lifetime and MLX-C Metal ABI layout.
+                    let $name = *unsafe { library.get::<$ty>(concat!("mlx_",stringify!($name),"\0").as_bytes()) }.ok()?;
+                )*
                 Some(Self { $($name,)* })
             }
         }
@@ -111,11 +125,15 @@ metal_api! {
 
 static CALLS: Mutex<()> = Mutex::new(());
 static LAST_ERROR: Mutex<Option<String>> = Mutex::new(None);
+/// # Safety
+///
+/// Called by MLX-C while `CALLS` is locked; `message` must be either null or a
+/// valid NUL-terminated C string that remains readable for the duration of the call.
 unsafe extern "C" fn error_handler(message: *const c_char, _data: *mut c_void) {
     if message.is_null() {
         return;
     }
-    // MLX guarantees a valid NUL-terminated message for the callback duration.
+    // SAFETY: Non-null `message` is guaranteed by MLX-C to be NUL-terminated and live for this callback.
     let message = unsafe { CStr::from_ptr(message) }
         .to_string_lossy()
         .into_owned();
@@ -135,18 +153,31 @@ macro_rules! api {
             _library:Library,
         }
         impl Api {
+            /// # Safety
+            ///
+            /// `path` must resolve to an audited MLX-C shared library whose exported
+            /// symbols match this `Api` table and whose `Library` handle stays loaded.
             unsafe fn load(path:&std::ffi::OsStr)->Result<Self,String> {
-                // Caller-selected native libraries are trusted executable code.
+                // SAFETY: Caller-selected native library paths are trusted dynamic libraries; the handle stays owned by `_library`.
                 let library=unsafe { Library::new(path) }.map_err(|e|e.to_string())?;
-                $(let $name=*unsafe { library.get::<$ty>(format!("mlx_{}\0",stringify!($name).trim_start_matches("r#")).as_bytes()) }.map_err(|e|e.to_string())?;)*
+                $(
+                    // SAFETY: `_library` stays alive inside `Api`; each symbol signature matches MLX-C 0.6/0.7.
+                    let $name=*unsafe { library.get::<$ty>(format!("mlx_{}\0",stringify!($name).trim_start_matches("r#")).as_bytes()) }.map_err(|e|e.to_string())?;
+                )*
                 // MLX-C only exports these accessors when its host compiler
                 // supports the corresponding native half type. Their absence
                 // must not make the existing f32/u32 backend unavailable.
+                // SAFETY: Optional half accessors use the audited `*const u16` pointer ABI and share `_library` lifetime.
                 let array_data_float16 = unsafe { library.get::<HalfData>(b"mlx_array_data_float16\0") }.ok().map(|p| *p);
+                // SAFETY: Optional bfloat16 accessor matches `HalfData` and stays valid while `_library` is loaded.
                 let array_data_bfloat16 = unsafe { library.get::<HalfData>(b"mlx_array_data_bfloat16\0") }.ok().map(|p| *p);
+                // SAFETY: `library` is kept open in `Self._library` for the lifetime of the returned handles.
                 let metal = unsafe { MetalApi::load(&library) };
+                // SAFETY: `library` is kept open in `Self._library` for the lifetime of the returned handles.
                 let compile = unsafe { CompileApi::load(&library) };
+                // SAFETY: `library` is kept open in `Self._library` for the lifetime of the returned `Attention` pointer.
                 let attention = unsafe { Attention::load(&library) }?;
+                // SAFETY: `library` is kept open in `Self._library` for the lifetime of the returned `Cumsum` pointer.
                 let cumsum = unsafe { Cumsum::load(&library) }?;
                 Ok(Self { $($name,)* array_data_float16, array_data_bfloat16, metal, compile, attention, cumsum, _library:library })
             }
@@ -229,10 +260,12 @@ impl Api {
             };
         let mut failures = Vec::new();
         for path in paths {
+            // SAFETY: Standard platform MLX-C path or user-configured `COMPUTE_MLX_LIBRARY` matching the audited ABI.
             match unsafe { Self::load(&path) } {
                 Ok(api) => {
                     let api = Arc::new(api);
                     let _gate = CALLS.lock().unwrap_or_else(|e| e.into_inner());
+                    // SAFETY: `CALLS` lock serializes global handler setup, and `error_handler` has process-static lifetime.
                     unsafe { (api.set_error_handler)(error_handler, std::ptr::null_mut(), None) };
                     *shared = Some(api.clone());
                     return Ok(api);
@@ -268,6 +301,7 @@ mod tests {
     #[test]
     fn missing_library_is_an_error_without_native_initialization() {
         assert!(
+            // SAFETY: Calling `Api::load` with a nonexistent path returns `Err` cleanly before resolving symbols.
             unsafe { Api::load(std::ffi::OsStr::new("/__compute_mlx_missing__/libmlxc")) }.is_err()
         );
     }
@@ -282,6 +316,7 @@ mod tests {
         };
         // All operations here use a CPU stream and only validate shapes; no GPU
         // execution is needed to prove the C handler does not terminate Rust.
+        // SAFETY: `api.call` holds `CALLS`; all local handles (`input`, `output`, `stream`) stay live through `free`.
         let result = api.call(|a| unsafe {
             let device = (a.device_new_type)(0, 0);
             let stream = (a.stream_new_device)(device);

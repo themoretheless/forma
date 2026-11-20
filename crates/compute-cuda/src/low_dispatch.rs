@@ -51,7 +51,7 @@ impl LowCastDispatch {
         if geometry.count == 0 {
             return Ok(());
         }
-        // The caller validates storage/ownership and prepares metadata once.
+        // SAFETY: The caller validates storage/ownership and prepares metadata once.
         // cudarc retains access guards for the current allocations on replay.
         unsafe {
             rt.device
@@ -103,6 +103,7 @@ impl LowUnaryDispatch {
         if geometry.count == 0 {
             return Ok(());
         }
+        // SAFETY: Unary geometry/metadata match `u16` input and uniquely owned `output` with `cudarc` stream tracking.
         unsafe {
             rt.device
                 .stream
@@ -152,6 +153,7 @@ impl LowBinaryDispatch {
         if geometry.count == 0 {
             return Ok(());
         }
+        // SAFETY: Broadcast binary geometry/metadata match both `u16` operands and uniquely owned `output`.
         unsafe {
             rt.device
                 .stream

@@ -36,16 +36,18 @@ fn actual_workgroup_size_covers_all_elements_without_a_tuning_anchor() {
     assert_eq!(kernel.workgroup_size(), 64);
     assert_eq!(kernel.workgroup_count(257), 5);
     let params =
-        compute_core::uniform_f32(&c.device, &c.queue, &[f32::from_bits(257), 2.0, 3.0, 0.0]);
+        compute_core::uniform_f32(&c.device, &c.queue, &[f32::from_bits(257), 2.0, 3.0, 0.0])
+            .unwrap();
     let input = compute_core::storage_f32(
         &c.device,
         &c.queue,
         &(0..257).map(|i| i as f32).collect::<Vec<_>>(),
-    );
+    )
+    .unwrap();
     let output = compute_core::storage_f32_zeroed(&c.device, &c.queue, 257);
     kernel.dispatch(&c.device, &c.queue, &[&params, &input, &output], 257);
     assert_eq!(
-        read_f32(&c.device, &c.queue, &output, 257),
+        read_f32(&c.device, &c.queue, &output, 257).unwrap(),
         (0..257).map(|i| i as f32 * 2.0 + 3.0).collect::<Vec<_>>()
     );
     let misleading = format!("// const WG: u32 = 256;\n{SCALE_ADD_WGSL}");
@@ -138,7 +140,7 @@ fn reflected_bindings_reject_errors_before_recording_and_remain_usable() {
     let bindings = kernel.bind(&c.clone(), &[p, i, o]).unwrap();
     kernel.dispatch_bind_group(&c.device, &c.queue, &bindings, 1);
     assert_eq!(
-        read_f32(&c.device, &c.queue, output.raw(), 4),
+        read_f32(&c.device, &c.queue, output.raw(), 4).unwrap(),
         [5.0, 8.0, 11.0, 14.0]
     );
 }
@@ -195,11 +197,12 @@ fn cache_keys_use_compiled_contract_and_eviction_preserves_live_kernels() {
     assert!(cache.is_empty());
     // A retained pipeline remains valid after both eviction and clearing.
     let params =
-        compute_core::uniform_f32(&c.device, &c.queue, &[f32::from_bits(1), 2.0, 1.0, 0.0]);
-    let input = compute_core::storage_f32(&c.device, &c.queue, &[4.0]);
+        compute_core::uniform_f32(&c.device, &c.queue, &[f32::from_bits(1), 2.0, 1.0, 0.0])
+            .unwrap();
+    let input = compute_core::storage_f32(&c.device, &c.queue, &[4.0]).unwrap();
     let output = compute_core::storage_f32_zeroed(&c.device, &c.queue, 1);
     first.dispatch(&c.device, &c.queue, &[&params, &input, &output], 1);
-    assert_eq!(read_f32(&c.device, &c.queue, &output, 1), [9.0]);
+    assert_eq!(read_f32(&c.device, &c.queue, &output, 1).unwrap(), [9.0]);
     let mut no_cache = KernelCache::new(&c, 0);
     no_cache
         .get("zero capacity", SCALE_ADD_WGSL, "main", &LAYOUT)
@@ -253,6 +256,10 @@ fn one_bind_group_remains_compatible_across_entry_points_using_different_slots()
     first.record_dispatch(&mut encoder, &group, 1);
     second.record_dispatch(&mut encoder, &group, 1);
     c.queue.submit([encoder.finish()]);
-    assert_eq!(read_f32(&c.device, &c.queue, a.raw(), 1), [7.0]);
-    assert_eq!(read_f32(&c.device, &c.queue, b.raw(), 2), [9.0, 11.0]);
+    assert_eq!(read_f32(&c.device, &c.queue, a.raw(), 1).unwrap(), [7.0]);
+    assert_eq!(
+        read_f32(&c.device, &c.queue, b.raw(), 2).unwrap(),
+        [9.0, 11.0]
+    );
+    assert!(read_f32(&c.device, &c.queue, a.raw(), 2).is_err());
 }

@@ -1,20 +1,12 @@
 #![cfg(not(target_arch = "wasm32"))]
-use compute_mlx::{MlxBackend, MlxError};
+use compute_mlx::MlxError;
 use tensor_core::{HasShape, MatmulPrecision, ReduceOp, Shape, TensorError, TensorReduceBackend};
 
 fn shape(dims: &[usize]) -> Shape {
     Shape::new(dims.to_vec()).unwrap()
 }
-fn backend() -> Option<MlxBackend> {
-    match MlxBackend::new_gpu() {
-        Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("MLX unavailable: {e}");
-            assert!(std::env::var_os("COMPUTE_REQUIRE_MLX").is_none(), "{e}");
-            None
-        }
-    }
-}
+mod support;
+use support::backend;
 
 #[test]
 fn unsigned_reductions_remain_exact_for_strided_inputs_and_wrap_products() {

@@ -11,6 +11,7 @@ impl TensorEvalBackend for MlxBackend {
         }
         native(
             "evaluate",
+            // SAFETY: All tensors in `floats` and `integers` were checked to belong to `self.context` under `CALLS`.
             self.context.api.call(|api| unsafe {
                 // MLX 0.32.1 eval_impl detaches non-tracer graph edges after
                 // evaluation (mlx/transforms.cpp). Views can still share data

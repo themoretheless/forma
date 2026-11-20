@@ -86,7 +86,7 @@ impl<'a> ScanPlan<'a> {
                     f32::from_bits(runtime.scan.blocks.workgroup_size() * ITEMS_PER_LANE),
                     0.0,
                 ],
-            );
+            )?;
             let bindings = add.create_bind_group(
                 &runtime.device,
                 &[&params, offsets.buffer(), output.buffer()],
@@ -116,7 +116,7 @@ impl<'a> ScanPlan<'a> {
                 f32::from_bits(u32::from(normalize)),
                 0.0,
             ],
-        );
+        )?;
         let bindings = kernel.create_bind_group(
             &runtime.device,
             &[&params, input.buffer(), output.buffer(), totals.buffer()],

@@ -190,7 +190,7 @@ fn main() -> AnyResult<()> {
                     f32::from_bits(n as u32),
                     f32::from_bits(groups),
                 ],
-            );
+            )?;
             let output = runtime.zeros::<f32>(m * n)?;
             let group = candidate.kernel.create_bind_group(
                 &context.device,

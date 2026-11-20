@@ -206,6 +206,7 @@ impl AttentionDispatch {
                 launch.arg(b.query);
             }
         }
+        // SAFETY: Attention tensor layouts, metadata buffer, and disjoint output slices match the kernel ABI, and `cudarc` guards retain argument streams.
         unsafe {
             launch
                 .arg(output.values)

@@ -1,4 +1,5 @@
 #![recursion_limit = "256"]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 //! Compute-core: the runtime library for WGSL compute kernels — the compute
 //! counterpart of raster-core.

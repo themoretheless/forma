@@ -77,6 +77,7 @@ impl TensorLowOpsBackend for CudaRuntime {
             if op == ReduceOp::Product {
                 let n = shape.numel() as u64;
                 let one = 1f32;
+                // SAFETY: `result` was freshly allocated by `self.zeros(shape)` so `output(&mut result)` has `n` elements.
                 unsafe {
                     self.device
                         .stream

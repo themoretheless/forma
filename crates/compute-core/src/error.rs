@@ -60,7 +60,24 @@ impl std::fmt::Display for ComputeError {
         }
     }
 }
-impl std::error::Error for ComputeError {}
+impl std::error::Error for ComputeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Kernel(e) => Some(e),
+            Self::Buffer(e) => Some(e),
+            Self::Transfer(e) => Some(e),
+            Self::TooLarge { .. }
+            | Self::LengthMismatch { .. }
+            | Self::ShapeMismatch { .. }
+            | Self::OutOfBounds
+            | Self::BudgetExceeded { .. }
+            | Self::ForeignArray
+            | Self::AliasedOutput
+            | Self::Readback(_)
+            | Self::ReadbackConsumed => None,
+        }
+    }
+}
 impl From<KernelError> for ComputeError {
     fn from(e: KernelError) -> Self {
         Self::Kernel(e)
