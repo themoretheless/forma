@@ -27,7 +27,7 @@ impl CudaProgramPlanBuilder {
     pub fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(1);
         let owner = NEXT
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
             .expect("CUDA program identity space exhausted");
         Self {
             owner,

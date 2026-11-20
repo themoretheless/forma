@@ -104,7 +104,7 @@ export async function mountStudioShell(root) {
     )
       return 'tab';
     const glyph = el.tagName === 'BUTTON' ? glyphIcon(el.textContent) : null,
-      accent = el.matches('.accent,#native-run');
+      accent = el.matches('.accent');
     if (glyph)
       return glyph.text ? (accent ? 'primaryLeading' : 'leading') : accent ? 'accentIcon' : 'icon';
     if (accent) return 'primary';

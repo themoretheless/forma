@@ -445,7 +445,7 @@ mod native {
                 true,
             )?;
             window.pre_present_notify();
-            frame.present();
+            self.renderer.queue.present(frame);
             if suboptimal {
                 self.config.width = 0;
             }

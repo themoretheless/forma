@@ -2,6 +2,7 @@
 name = "gpu-runtime"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.92"
 publish = false
 description = "Custom zero-copy cross-platform GPU runtime (Metal, Vulkan, DirectX 12, CUDA, OpenGL, WebGPU, RTX, ASD, UMA, dUMA)"
 

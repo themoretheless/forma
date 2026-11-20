@@ -32,13 +32,13 @@ test('the gate covers every runner platform CI uses', () => {
   assert.equal(
     list.some(step => step.id === 'studio-legacy'),
     false,
-    'the WebView host is a macOS job',
   );
   const mac = matrix({ platform: 'darwin' });
-  assert.equal(mac.list.at(-1).id, 'studio-legacy');
-  // Without the fixture the host cannot generate its actions module, and the step fails locally
-  // while CI passes: the env is part of the step, not of the machine.
-  assert.deepEqual(mac.list.at(-1).env, { FORMA_ACTIONS: '.github/fixtures/actions.rs' });
+  assert.equal(
+    mac.list.some(step => step.id === 'studio-legacy'),
+    false,
+    'the legacy WebView host has been retired',
+  );
   assert.equal(
     list.every(step => step.id !== step.name),
     true,

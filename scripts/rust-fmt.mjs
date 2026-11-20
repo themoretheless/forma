@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { root } from './versions.mjs';
 
-// Not every crate is a workspace member (gpu-compute, svet-wasm and native-app are not), so
+// Not every crate is a workspace member (svet-wasm is not), so
 // `cargo fmt --all` would miss them: every tracked package manifest is formatted on its own.
 // The root manifest is virtual and has no sources of its own. Frozen source snapshots kept as benchmark evidence are not
 // part of any build and stay byte-for-byte as recorded.

@@ -152,7 +152,7 @@ enum TimestampState {
         completed: mpsc::Receiver<()>,
     },
     Resolving {
-        bytes: ByteReadback,
+        bytes: Box<ByteReadback>,
         _resolve: GpuBuffer,
     },
     Terminal(TimestampError),
@@ -294,7 +294,7 @@ impl TimestampReadback {
             Ok::<_, TimestampError>(bytes)
         })??;
         Ok(TimestampState::Resolving {
-            bytes,
+            bytes: Box::new(bytes),
             _resolve: resolve,
         })
     }
@@ -456,7 +456,7 @@ mod tests {
             .record_compute(&mut unused_encoder, "mapping fixture", |_| {})
             .unwrap();
         pending.state = TimestampState::Resolving {
-            bytes,
+            bytes: Box::new(bytes),
             _resolve: resolve,
         };
         assert_eq!(

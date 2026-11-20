@@ -35,7 +35,6 @@ function studioWith(overrides = {}) {
     render: (...args) => calls.push(['render', ...args]),
     output: () => calls.push(['output']),
     dispatch: (action, node) => calls.push(['dispatch', action, node.id]),
-    nativeSnapshot: (element, compiled) => ({ element: element.id, nodes: compiled.nodes.length }),
     compileComponents: (files, entry, state, options) => ({
       source: `compiled ${entry}`,
       designState: options.designState,
@@ -57,12 +56,17 @@ function studioWith(overrides = {}) {
 
 test('app_run asks the dev server for the run that matches the project and renderer', () => {
   const dom = studioWith();
-  assert.deepEqual(dom.commands.app_run({}), { status: 'requested' });
+  assert.deepEqual(dom.commands.app_run({}), {
+    status: 'requested',
+    renderer: 'vector',
+    backend: 'ask',
+    platform: 'desktop',
+  });
   assert.deepEqual(dom.sent, [
-    ['forma:native-run', { files: dom.studio.files, snapshot: { element: 'preview', nodes: 1 } }],
+    ['forma:vector-run', { source: 'compiled ui/Demo.ui', designState: null }],
   ]);
-  // The preview is rendered without design overlays for the snapshot and restored afterwards.
-  assert.deepEqual(dom.calls, [['render', false], ['render']]);
+  assert.equal(dom.studio.nativeSource.entry, 'ui/Demo.ui');
+  assert.deepEqual(dom.calls, []);
 
   const form = studioWith({ files: { 'ui/Demo.ui': FORM }, backend: 'metal' });
   assert.deepEqual(form.commands.app_run({ platform: 'ios' }), {
@@ -101,7 +105,7 @@ test('stop and Rust run commands only send requests', () => {
   assert.deepEqual(commands.app_stop(), { status: 'requested' });
   assert.deepEqual(
     sent.map(([name]) => name),
-    ['forma:rust-stop', 'forma:native-stop', 'forma:vector-stop'],
+    ['forma:rust-stop', 'forma:vector-stop'],
   );
   sent.length = 0;
   assert.equal(commands.rust_run().status, 'requested');

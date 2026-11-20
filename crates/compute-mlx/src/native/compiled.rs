@@ -98,7 +98,7 @@ impl MlxBackend {
     pub fn program(&self) -> MlxProgramBuilder {
         static NEXT: AtomicU64 = AtomicU64::new(1);
         let owner = NEXT
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
             .expect("MLX program identity space exhausted");
         MlxProgramBuilder {
             backend: self.clone(),

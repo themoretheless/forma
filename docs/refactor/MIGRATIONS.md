@@ -493,3 +493,28 @@
   направление абзаца справа налево. В полях с переносом строк (`wrap`) каретка, выделение и
   попадание указателя (в том числе публичная `hit_wrapped_text`) следуют визуальному порядку
   каждой строки, стрелки там прежние.
+
+## 29. Автономная сборка, единый workspace и вывод из эксплуатации `native-app`
+
+- **Вендоринг `@themoretheless/tokenizer-forma`:** корневой `package.json` переведён с
+  `file:../tokenizer/packages/forma` на проверенный тарбол
+  `file:vendor/themoretheless-tokenizer-forma-0.8.0.tgz` с манифестом целостности
+  `vendor/tokenizer-forma.json` (SHA-256). `npm ci` и `npm install` теперь работают из
+  изолированного checkout без соседнего каталога `../tokenizer`.
+- **`wasm-bindgen` и единый workspace:** `wasm-bindgen` обновлён с `=0.2.125` до `=0.2.130` (вместе с
+  `wasm-bindgen-cli 0.2.130`), Linux-ветка `forma` переведена с `wgpu 29.0.4` на `wgpu 30.0.1`
+  (`queue.present(frame)`), а `crates/gpu-compute` и `crates/gpu-kit` возвращены в корневой
+  workspace без отдельных `Cargo.lock`.
+- **Минимальная версия Rust (`rust-version = "1.92"`):** минимально поддерживаемый стабильный
+  компилятор для потребителей Cargo снижен с `1.97.1` до `1.92`, а точный воспроизводимый toolchain
+  для релизных WASM-артефактов и Clippy-ratchet закреплён в `rust-toolchain.toml` (`1.97.1`).
+- **Автономная генерация Rust-форм (`forma-build`):** линковка `.ui`-компонентов и генерация
+  типизированных Rust-форм вынесены в рабочий крейт `crates/forma-build` поверх
+  `themoretheless-tokenizer-forma`, а `build.rs` примеров `binding-app` и `language-app`
+  вызывают `forma-build` напрямую на Rust без Node.js. Парсер SVG (`forma-build` и
+  `src/form-codegen.js`) сохраняет `currentColor` за один проход без двойной подстановки цветов.
+- **Вывод из эксплуатации `native-app` (`forma-native`):** legacy WebView-раннер (`native-app/`,
+  `tao`/`wry`, переменная компиляции `FORMA_ACTIONS`, `native-runner.js`, `src/native-snapshot.js`,
+  WebSocket-сообщения `forma:native-run`/`update`/`stop` и шаг гейта `studio-legacy`) удалён.
+  Все проекты в Studio (включая старый HTML-превью без `contextType`) открываются в нативном окне
+  через `forma::native_window` (`forma:vector-run` / `forma:form-run`).

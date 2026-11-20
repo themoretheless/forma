@@ -89,6 +89,24 @@ pub struct AdapterInfo {
     pub transient_saves_memory: bool,
 }
 
+impl AdapterInfo {
+    pub const fn new(device_type: DeviceType, backend: Backend) -> Self {
+        Self {
+            name: String::new(),
+            vendor: 0,
+            device: 0,
+            device_type,
+            device_pci_bus_id: String::new(),
+            driver: String::new(),
+            driver_info: String::new(),
+            backend,
+            subgroup_min_size: 4,
+            subgroup_max_size: 64,
+            transient_saves_memory: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Limits {
     pub max_texture_dimension_1d: u32,

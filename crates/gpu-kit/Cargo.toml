@@ -12,9 +12,7 @@ bytemuck = { version = "1.25", features = ["derive"] }
 memory-budget = { path = "../memory-budget", version = "0.1.0" }
 thiserror = "2.0"
 
-# `gpu_kit::wgpu` is Forma's Metal runtime on macOS and upstream wgpu elsewhere. Upstream wgpu 30
-# needs a newer wasm-bindgen than Forma pins, so this crate stays outside the workspace with its
-# own lockfile, like gpu-compute.
+# `gpu_kit::wgpu` is Forma's Metal runtime on macOS and upstream wgpu elsewhere.
 [target.'cfg(target_os = "macos")'.dependencies]
 gpu-runtime = { path = "../gpu-runtime", version = "0.1.0" }
 gpu-shader = { path = "../gpu-shader", version = "0.1.0", features = ["wgsl-in"] }
@@ -28,5 +26,3 @@ pollster = "0.4"
 
 [lints.rust]
 missing_debug_implementations = "warn"
-
-[workspace]

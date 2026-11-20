@@ -533,7 +533,11 @@ impl Renderer {
             recv.recv()
                 .map_err(|e| e.to_string())?
                 .map_err(|e| e.to_string())?;
-            let values = timing.readback.slice(..).get_mapped_range();
+            let values = timing
+                .readback
+                .slice(..)
+                .get_mapped_range()
+                .map_err(|e| e.to_string())?;
             let pair = (
                 u64::from_ne_bytes(values[..8].try_into().unwrap()),
                 u64::from_ne_bytes(values[8..16].try_into().unwrap()),

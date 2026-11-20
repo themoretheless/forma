@@ -1,12 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { root } from './versions.mjs';
 
-export const STANDALONE_MANIFESTS = [
-  'crates/gpu-compute/Cargo.toml',
-  'crates/gpu-kit/Cargo.toml',
-  'packages/svet/crates/svet-wasm/Cargo.toml',
-  'native-app/Cargo.toml',
-];
+export const STANDALONE_MANIFESTS = ['packages/svet/crates/svet-wasm/Cargo.toml'];
 
 // Which crate in this repository may depend on which. Dependencies point inward only and form a
 // strict DAG: the shader compiler, tensor contracts, reactive core and CPU math know nothing of the
@@ -38,9 +33,9 @@ export const ALLOWED = {
     'compute-mlx',
   ],
   forma: ['gpu-runtime', 'gpu-compute', 'gpu-shader', 'memory-budget', 'svet-graph'],
-  'forma-binding-example': ['forma'],
-  'forma-language-example': ['forma'],
-  'forma-native': [],
+  'forma-build': [],
+  'forma-binding-example': ['forma', 'forma-build'],
+  'forma-language-example': ['forma', 'forma-build'],
   'forma-mcp': ['forma'],
 };
 

@@ -53,9 +53,6 @@ export function versions() {
     throw Error('Runtime Cargo.lock version mismatch');
   if (lock.version !== studio || lock.packages[''].version !== studio)
     throw Error('Studio package-lock.json version mismatch');
-  for (const path of ['native-app/Cargo.toml', 'native-app/Cargo.lock'])
-    if (cargoVersion(read(path), 'forma-native') !== studio)
-      throw Error(`Studio host version mismatch: ${path}`);
   // The svet engine ships in the same release: its npm package and its Rust core carry the
   // release version, so a version number never stands still across commits.
   const svet = JSON.parse(read(SVET_PACKAGE)).version;
@@ -134,15 +131,10 @@ export function setVersion(component, version) {
     for (const [path, text] of updates) writeFileSync(resolve(root, path), text);
     return versions();
   }
-  // forma is a workspace member, so its lock entry lives in the root Cargo.lock;
-  // native-app stays outside the workspace and keeps its own.
-  const name = component === 'runtime' ? 'forma' : 'forma-native',
-    paths =
-      component === 'runtime'
-        ? ['crates/forma/Cargo.toml', 'Cargo.lock']
-        : ['native-app/Cargo.toml', 'native-app/Cargo.lock'];
-  for (const path of paths) updates.set(path, replaceCargo(read(path), name, version));
-  if (component === 'studio') {
+  if (component === 'runtime') {
+    for (const path of ['crates/forma/Cargo.toml', 'Cargo.lock'])
+      updates.set(path, replaceCargo(read(path), 'forma', version));
+  } else {
     for (const path of ['package.json', 'package-lock.json'])
       updates.set(path, bumpJson(read(path), version));
   }

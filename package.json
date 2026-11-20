@@ -44,7 +44,7 @@
     "@lezer/highlight": "^1.2.3",
     "@lezer/lr": "^1.4.10",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@themoretheless/tokenizer-forma": "file:../tokenizer/packages/forma",
+    "@themoretheless/tokenizer-forma": "file:vendor/themoretheless-tokenizer-forma-0.8.0.tgz",
     "codemirror": "^6.0.2",
     "zod": "^4.5.4"
   }

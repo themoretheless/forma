@@ -353,7 +353,7 @@ fn read(renderer: &mut Renderer, model: &Runtime, scale: f32) -> Vec<u8> {
         .poll(wgpu::PollType::wait_indefinitely())
         .unwrap();
     rx.recv().unwrap().unwrap();
-    let mapped = buffer.slice(..).get_mapped_range();
+    let mapped = buffer.slice(..).get_mapped_range().unwrap();
     let mut out = Vec::new();
     for row in mapped.chunks_exact(stride as usize) {
         out.extend_from_slice(&row[..w as usize * 4]);

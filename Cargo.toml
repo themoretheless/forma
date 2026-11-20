@@ -1,5 +1,7 @@
 # One workspace for every crate the repository builds: one lockfile, one target directory and one
 # place for lints and profiles. Decisions and exclusions are explained in docs/adr/0001-cargo-workspace.md.
+# Policy: `rust-version = "1.92"` is the minimum supported stable compiler for Cargo consumers, while
+# `rust-toolchain.toml` pins the exact compiler used in CI for reproducible WASM artifacts and lint ratchets.
 [workspace]
 resolver = "2"
 members = [
@@ -9,10 +11,13 @@ members = [
     "crates/svet-reconcile",
     "crates/svet-gpu-arena",
     "crates/forma",
+    "crates/forma-build",
     "crates/forma/examples/binding-app",
     "crates/forma/examples/language-app",
     "crates/gpu-shader",
     "crates/gpu-runtime",
+    "crates/gpu-compute",
+    "crates/gpu-kit",
     "crates/raster-core",
     "crates/math-core",
     "crates/math-compute",
@@ -22,8 +27,6 @@ members = [
     "crates/compute-cuda",
     "crates/forma-mcp",
 ]
-# The two example apps run Node and the tokenizer package from build.rs, so a plain
-# `cargo build` at the root must not pull them in.
 default-members = [
     "crates/memory-budget",
     "crates/swap-store",
@@ -31,8 +34,13 @@ default-members = [
     "crates/svet-reconcile",
     "crates/svet-gpu-arena",
     "crates/forma",
+    "crates/forma-build",
+    "crates/forma/examples/binding-app",
+    "crates/forma/examples/language-app",
     "crates/gpu-shader",
     "crates/gpu-runtime",
+    "crates/gpu-compute",
+    "crates/gpu-kit",
     "crates/raster-core",
     "crates/math-core",
     "crates/math-compute",
@@ -45,20 +53,16 @@ default-members = [
 exclude = [
     # generated and checked-out crates, some with path dependencies on crates/forma
     ".forma",
-    # needs FORMA_ACTIONS at compile time and GTK/WebKit on Linux
-    "native-app",
     # a self-contained npm package: its wasm bytes are verified against its own lockfile and profile
     "packages/svet",
-    # its optional native-wgpu feature pulls crates.io wgpu 30, which needs wasm-bindgen >= 0.2.127,
-    # while forma pins wasm-bindgen 0.2.125 for its CLI; as a member it would force that upgrade
-    "crates/gpu-compute",
-    # builds on upstream wgpu 30 off macOS (same wasm-bindgen constraint); has its own lockfile
-    "crates/gpu-kit",
     # frozen source snapshots kept as benchmark evidence
     "crates/compute-core/benchmarks",
     "crates/compute-mlx/benchmarks",
     "crates/compute-mlx/qualification",
 ]
+
+[workspace.package]
+rust-version = "1.92"
 
 # Was crates/forma/Cargo.toml [profile.release]: it ships the native runtime and forma.wasm.
 [profile.release]

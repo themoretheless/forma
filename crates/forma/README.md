@@ -255,7 +255,7 @@ npm run dev
 ```
 
 Результат — `public/vector-pkg/forma.js` и `public/vector-pkg/forma_bg.wasm`.
-Открыть `/vector.html`. wasm-bindgen CLI должен быть версии 0.2.125, как зависимость ядра.
+Открыть `/vector.html`. wasm-bindgen CLI должен быть версии 0.2.130, как зависимость ядра.
 
 Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; ttf-parser только читает шрифт. Лицензия шрифта — assets/UFL.txt (Ubuntu Bold — та же, см. assets/bold). Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.
 # Свойства компонента

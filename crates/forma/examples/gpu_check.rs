@@ -120,7 +120,7 @@ async fn run() {
                 .unwrap();
             recv.recv().unwrap().unwrap();
             {
-                let mapped = readback.slice(..).get_mapped_range();
+                let mapped = readback.slice(..).get_mapped_range().unwrap();
                 // Optional exact before/after GPU regression, independent of CPU AA.
                 // Records are test artifacts, never consumed by the application.
                 if let Ok(dir) = std::env::var("FORMA_GPU_GOLDEN_DIR") {

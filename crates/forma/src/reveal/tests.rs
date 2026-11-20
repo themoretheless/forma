@@ -252,7 +252,7 @@ fn reveal_cpu_gpu_agree_across_states_and_dpi_without_geometry_uploads() {
                         let cpu = model.content_pixels(w, h, scale);
                         let mut max_error = 0;
                         {
-                            let mapped = readback.slice(..).get_mapped_range();
+                            let mapped = readback.slice(..).get_mapped_range().unwrap();
                             for y in 0..h as usize {
                                 for x in 0..w as usize {
                                     let p = &cpu[(y * w as usize + x) * 4..][..4];

@@ -152,11 +152,29 @@ let pixels = runtime.pixels(360, 180, 1.);
 
 ## Сборка
 
-Генератор использует общий парсер и компилятор компонентов Studio. Он запускается
-Node.js из `build.rs`, без новых Rust build-dependencies:
+Генератор типизированных форм и линкер компонентов реализованы на чистом Rust в крейте
+`forma-build` (`crates/forma-build`) поверх `themoretheless-tokenizer-forma`, поэтому `cargo build`
+и `build.rs` работают автономно без Node.js. Для CLI-запуска из скриптов можно также использовать:
+
+```toml
+[build-dependencies]
+forma-build = { path = "../../../forma-build" }
+```
+
+```rust
+forma_build::build_script_generate(&forma_build::ProjectBuildSpec {
+    project: &project,
+    output: &output,
+    entry: Some("ui/CustomerForm.ui"),
+    state_file: None,
+    native_app: false,
+})?;
+```
+
+или
 
 ```sh
-node scripts/generate-form.mjs \
+cargo run --locked -p forma-build -- \
   --project crates/forma/examples/binding-app \
   --entry ui/CustomerForm.ui \
   --output /tmp/customer_form.rs
@@ -164,8 +182,7 @@ node scripts/generate-form.mjs \
 
 См. [рабочий build.rs](examples/binding-app/build.rs): он записывает результат
 в `OUT_DIR` и объявляет зависимости через `cargo:rerun-if-changed`. Внешний проект
-должен также следить за своими assets и JSON-файлом, если передаёт `--state`.
-`FORMA_NODE` в примере позволяет указать путь к Node.js.
+должен также следить за своими assets и JSON-файлом, если передаёт `state_file`.
 
 Неверный синтаксис, неизвестные свойства и необъявленные события дают
 диагностику `ui/Form.ui:строка`. Доступ к полям, числовые/логические свойства,

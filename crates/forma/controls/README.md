@@ -18,8 +18,8 @@ npm run dev
 ```
 
 Откройте [каталог контролов](http://127.0.0.1:5173/crates/forma/examples/controls.html).
-Для `build:wasm` нужен CLI wasm-bindgen 0.2.125, соответствующий зависимости
-Rust: `cargo install wasm-bindgen-cli --version 0.2.125 --locked`.
+Для `build:wasm` нужен CLI wasm-bindgen 0.2.130, соответствующий зависимости
+Rust: `cargo install wasm-bindgen-cli --version 0.2.130 --locked`.
 
 Каталог переключает светлую/тёмную тему, четыре размера кнопок и reduced motion.
 «Без анимаций» учитывает `prefers-reduced-motion` и допускает ручное изменение.

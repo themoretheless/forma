@@ -108,7 +108,7 @@ impl GpuContext {
             label: Some("gpu-compute"),
             required_features,
             required_limits: adapter.limits(),
-            experimental_features: wgpu::ExperimentalFeatures::default(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
         }))

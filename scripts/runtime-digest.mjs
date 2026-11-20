@@ -35,6 +35,7 @@ export function runtimeSourceDigest(root) {
     'scripts/build-wasm.mjs',
     'scripts/runtime-digest.mjs',
     'scripts/tokenizer.mjs',
+    'vendor/tokenizer-forma.json',
   ]);
 }
 export const runtimeArtifacts = ['forma.js', 'forma_bg.wasm', 'forma.d.ts', 'forma_bg.wasm.d.ts'];

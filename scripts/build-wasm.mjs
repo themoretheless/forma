@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { root, versions } from './versions.mjs';
-import { checkTokenizer, buildTokenizerWasm } from './tokenizer.mjs';
+import { checkTokenizer } from './tokenizer.mjs';
 const current = versions(),
   sourceDigest = runtimeSourceDigest(root);
 function run(command, args, quiet = false) {
@@ -22,7 +22,6 @@ if (cli !== `wasm-bindgen ${current.wasmBindgen}`)
   throw Error(
     `Install matching CLI: cargo install wasm-bindgen-cli --version ${current.wasmBindgen} --locked`,
   );
-buildTokenizerWasm();
 const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'target');
 run('cargo', [
   'build',

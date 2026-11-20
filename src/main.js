@@ -59,7 +59,6 @@ import { insertableControls } from './control-catalog.js';
 import { createComponentCatalog, domLayoutSnapshot } from './dom-layout-snapshot.js';
 import { nativeInspectionModel } from './native-inspection.js';
 import { createSpacingOverlay } from './spacing-overlay.js';
-import { nativeSnapshot } from './native-snapshot.js';
 import { buildNativeRustExport } from './native-export.js';
 import { loadVectorRuntime, createVectorPreview } from './vector-preview.js';
 import { createComponentCompiler, sceneControlNodes } from './components.js';
@@ -413,18 +412,12 @@ function output() {
 function syncHotRunningApp() {
   if (!import.meta.hot || error || !compiled) return;
   try {
-    if (renderer === 'vector' && vectorPreview) {
-      const linked = compileComponents(files, entry, state, {
-        measureText: vectorPreview.measureText,
-        designState: scenario < 0 ? null : (compiled?.states[scenario]?.name ?? null),
-      });
-      nativeSource = { entry, source: files[entry], nodes: structuredClone(compiled?.nodes ?? []) };
-      import.meta.hot.send('forma:vector-update', linked);
-    } else if (renderer === 'html') {
-      import.meta.hot.send('forma:native-update', {
-        snapshot: nativeSnapshot($('preview'), compiled),
-      });
-    }
+    const linked = compileComponents(files, entry, state, {
+      ...(vectorPreview ? { measureText: vectorPreview.measureText } : {}),
+      designState: scenario < 0 ? null : (compiled?.states[scenario]?.name ?? null),
+    });
+    nativeSource = { entry, source: files[entry], nodes: structuredClone(compiled?.nodes ?? []) };
+    import.meta.hot.send('forma:vector-update', linked);
   } catch {}
 }
 function compile(reset = false) {
@@ -1900,7 +1893,6 @@ const ideCommand = createIdeCommands({
   resetProjectEditing,
   dispatch,
   liveSource,
-  nativeSnapshot,
   propertyInput: name =>
     Array.from(document.querySelectorAll('[data-prop]')).find(el => el.dataset.prop === name),
 });

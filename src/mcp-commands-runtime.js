@@ -16,45 +16,35 @@ export function createRuntimeCommands(studio, helpers) {
         };
       }
       if (renderer === 'vector') {
-        studio.nativeSource = {
-          entry,
-          source: files[entry],
-          nodes: structuredClone(compiled?.nodes ?? []),
-        };
         if (error || !vectorPreview) throw Error(error || 'Векторный renderer не готов');
-        const backend = args.backend ?? studio.backend,
-          platform = args.platform ?? studio.platform;
-        hot.send('forma:vector-run', {
-          ...studio.compileComponents(files, entry, state, {
-            measureText: vectorPreview.measureText,
-            designState:
-              studio.scenario < 0 ? null : (compiled?.states[studio.scenario]?.name ?? null),
-          }),
-          ...(backend && backend !== 'ask' ? { backend } : {}),
-          ...(platform && platform !== 'desktop' ? { platform } : {}),
-        });
-        return {
-          status: 'requested',
-          renderer,
-          backend: backend ?? 'ask',
-          platform: platform ?? 'desktop',
-        };
+      } else if (error || !compiled) {
+        throw Error('Исправьте разметку');
       }
-      if (error || !compiled) throw Error('Исправьте разметку');
-      studio.render(false);
-      try {
-        hot.send('forma:native-run', {
-          files,
-          snapshot: studio.nativeSnapshot($('preview'), compiled),
-        });
-      } finally {
-        studio.render();
-      }
-      return { status: 'requested' };
+      studio.nativeSource = {
+        entry,
+        source: files[entry],
+        nodes: structuredClone(compiled?.nodes ?? []),
+      };
+      const backend = args.backend ?? studio.backend,
+        platform = args.platform ?? studio.platform;
+      hot.send('forma:vector-run', {
+        ...studio.compileComponents(files, entry, state, {
+          ...(vectorPreview ? { measureText: vectorPreview.measureText } : {}),
+          designState:
+            studio.scenario < 0 ? null : (compiled?.states[studio.scenario]?.name ?? null),
+        }),
+        ...(backend && backend !== 'ask' ? { backend } : {}),
+        ...(platform && platform !== 'desktop' ? { platform } : {}),
+      });
+      return {
+        status: 'requested',
+        renderer: 'vector',
+        backend: backend ?? 'ask',
+        platform: platform ?? 'desktop',
+      };
     },
     app_stop() {
       hot.send('forma:rust-stop', {});
-      hot.send('forma:native-stop', {});
       hot.send('forma:vector-stop', {});
       return { status: 'requested' };
     },

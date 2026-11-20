@@ -1,0 +1,17 @@
+[package]
+name = "forma-build"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+publish = false
+description = "Standalone .ui component linker, SVG shape parser and typed Rust form code generator"
+license = "MIT OR Apache-2.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "1c83ab03d879b085ec53ec5badf8abcc82c2ee3c", version = "0.8.0" }

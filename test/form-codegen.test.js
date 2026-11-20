@@ -111,6 +111,17 @@ test('generator supports typed and ViewModel submitted handlers with existing ev
 });
 
 test('generated Rust compiles, exercises the renderer, and rejects wrong fields and types', () => {
+  // Strip any directory containing `node` from PATH to prove Cargo builds examples via forma-build alone.
+  const noNodePath = (process.env.PATH ?? '')
+    .split(':')
+    .filter(dir => {
+      try {
+        return !readdirSync(dir).includes('node');
+      } catch {
+        return true;
+      }
+    })
+    .join(':');
   const build = spawnSync(
     'cargo',
     ['test', '--locked', '--manifest-path', join(project, 'Cargo.toml'), '--message-format=json'],
@@ -118,7 +129,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
       encoding: 'utf8',
       timeout: 180000,
       maxBuffer: 8 * 1024 * 1024,
-      env: { ...process.env, FORMA_NODE: process.execPath },
+      env: { ...process.env, PATH: noNodePath },
     },
   );
   assert.equal(
@@ -496,4 +507,21 @@ test('project staging generates all forms and maps Rust field errors to UI locat
     mapFormDiagnostic(`--> /tmp/project/src/forma_generated.rs:${line}:10`, result.sourceMap),
     /ui\/CustomerForm.ui:/,
   );
+});
+
+test('single-pass SVG codegen preserves currentColor and literal #010203 without collision', () => {
+  const result = generateForm(
+    {
+      ...files,
+      'assets/probe.svg':
+        '<svg viewBox="0 0 24 24"><rect x="1" y="1" width="8" height="8" fill="currentColor"/><rect x="12" y="1" width="8" height="8" fill="#010203"/></svg>',
+      'components/ProbeIcon.ui':
+        "component ProbeIcon { width: 40; height: 40; Image { source: 'assets/probe.svg'; } }",
+      'ui/SvgProbe.ui':
+        "component SvgProbe { contextType: 'crate::Vm'; Frame { width: 100; height: 100; ProbeIcon {} } }",
+    },
+    'ui/SvgProbe.ui',
+  );
+  assert.match(result.rust, /r#"currentColor"#\.into\(\)/);
+  assert.match(result.rust, /r#"#010203"#\.into\(\)/);
 });

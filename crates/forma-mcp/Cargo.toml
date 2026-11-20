@@ -2,7 +2,7 @@
 name = "forma-mcp"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.92"
 publish = false
 description = "Model Context Protocol stdio server bridging MCP hosts to Forma Studio and Forma Runtime"
 license = "MIT OR Apache-2.0"

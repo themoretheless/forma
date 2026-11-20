@@ -4,12 +4,36 @@
 [едином плане развития](../ROADMAP.md), а пофайловый статус модулей — в
 [инвентаризации](INVENTORY.md). Здесь фиксируется текущее соответствие целевой структуре.
 
+## Границы продукта
+
+- **Единственный рекомендуемый путь приложения на Forma:** декларативный UI на `.ui`, сборка
+  типизированных форм в Rust через крейт `forma-build` (`build.rs`, автономно без Node.js) поверх
+  типизированной `ViewModel` (`forma::binding::{Context, Property}`), исполнение на десктопе через
+  `forma::native_window` (`NativeApp`) и в браузере через WASM-сборку `crates/forma`
+  (`public/vector-pkg`). Legacy WebView-хост `native-app` (`tao`/`wry`) выведен из эксплуатации.
+- **Роль `svet-engine` (`packages/svet`):** самостоятельный реактивный UI/DOM/WebGPU-движок; из
+  корневого workspace с `forma` его связывает только чистый DAG-крейт `crates/svet-graph` без
+  обратных зависимостей в браузерный рантайм.
+- **Изоляция GPU и вычислительных/ML-крейтов:** `gpu-shader`, `gpu-runtime`, `gpu-compute`,
+  `gpu-kit`, `raster-core`, `math-core`, `math-compute`, `tensor-core`, `compute-core`,
+  `compute-mlx`, `compute-cuda` и `swap-store` отделены строгим ациклическим графом зависимостей
+  (`scripts/check-layering.mjs`), так что `forma` не зависит от прикладных ML/CUDA/compute-крейтов.
+- **Политика компилятора Rust:** минимально поддерживаемый стабильный компилятор по workspace —
+  `rust-version = "1.92"`; точный воспроизводимый toolchain для WASM-артефактов и lint-ratchet в CI
+  закреплён в `rust-toolchain.toml` (`1.97.1`).
+
 ## Сделано
 
 - Каталог ядра называется так же, как пакет: `crates/forma`.
-- Корневой Cargo workspace: один lock, один `target/`, общий профиль `release`; `gpu-compute`, `gpu-kit`, `svet-wasm` и `forma-native` вне его со своими lock-файлами (ADR 0001).
+- Корневой Cargo workspace: один lock (`Cargo.lock`), один `target/`, общий профиль `release`, включая
+  `gpu-compute`, `gpu-kit`, `forma-build` и примеры `binding-app`/`language-app`; вне workspace остаётся
+  только самодостаточный npm-пакет `svet-wasm` (ADR 0001). Legacy хост `native-app` удалён.
 - Строгий ациклический граф (DAG) на всех уровнях репозитория:
-  - Все 21 Cargo-крейт (включая `svet-graph`, `svet-reconcile`, `svet-gpu-arena` и standalone-манифесты `gpu-compute`, `gpu-kit`, `svet-wasm`, `forma-native` и `swap-store`) проверяются в `scripts/check-layering.mjs` и `test/check-layering.test.js` на отсутствие циклов и неразрешённых рёбер; `crates/forma` зависит только от `crates/svet-graph` внутри корневого workspace без обратных ссылок в `packages/svet/crates/svet-wasm`.
+  - Все 21 Cargo-крейт (включая `forma-build`, `svet-graph`, `svet-reconcile`, `svet-gpu-arena`,
+    `gpu-compute`, `gpu-kit`, `swap-store` и standalone-манифест `svet-wasm`) проверяются в
+    `scripts/check-layering.mjs` и `test/check-layering.test.js` на отсутствие циклов и
+    неразрешённых рёбер; `crates/forma` зависит только от `crates/svet-graph` внутри корневого
+    workspace без обратных ссылок в `packages/svet/crates/svet-wasm`.
   - Внутри `crates/forma/src` все 27 модулей образуют строгий послойный DAG (слои `0..=10`, `layer(to) < layer(from)`, 0 циклов, `KNOWN_VIOLATIONS = &[]` в `crates/forma/tests/architecture.rs`); подсистемы `form_document/*`, `control_state/*`, `text/*` и `runtime/{a11y,canvas,links,modal,popup,raster,wasm_api}.rs` разнесены по модулям.
   - Графы импортов Studio JS (`protocol/`, `dev-server/`, `mcp/`, `src/`) и `packages/svet/src/**/*.ts` покрыты проверкой отсутствия циклов и соблюдения границ слоёв в `test/check-layering.test.js`.
 - В `crates/forma` добавлены прикладной контрол `Canvas` (`canvas.rs`, `runtime/canvas.rs`), шрифтовые начертания `FontFamily::Mono` (`IBMPlexMono-Regular`) и `FontFamily::SansBold` (`Ubuntu-Bold`) со стилизованными текстовыми фрагментами и ссылками (`text/runs.rs`, `form_document/text_runs.rs`, `runtime/links.rs`), якорные немодальные попапы/меню/тултипы (`runtime/popup.rs`), приём внешних обновлений `StatePush` в `Runtime` и режим `HostMode::Application` с `NativeWaker` в `native_window.rs`.

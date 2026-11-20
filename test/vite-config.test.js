@@ -8,7 +8,6 @@ import { loadConfigFromFile } from 'vite';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const stubs = {
   'rust-runner.js': 'export function createRustRunner(){return {};}\n',
-  'native-runner.js': 'export function createNativeRunner(){return {};}\n',
   'design-data-runner.js': 'export async function evaluateDesignData(){}\n',
   'vector-runner.js': 'export function createVectorRunner(){return {};}\n',
 };

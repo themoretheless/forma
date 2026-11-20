@@ -1,21 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { createNativeRunner } from '../native-runner.js';
 import { createRustRunner } from '../rust-runner.js';
 
 test('malformed runner requests report errors and release busy state without spawning', async () => {
-  for (const create of [createNativeRunner, createRustRunner]) {
-    const messages = [];
-    const runner = create(message => messages.push(message));
-    for (const payload of [null, undefined, [], {}, 42]) {
-      await runner.run(payload);
-      assert.equal(messages.at(-1).kind, 'error');
-      assert.doesNotMatch(messages.at(-1).text, /уже запущен|уже запущено/);
-    }
-    assert.equal(messages.length, 5);
-    runner.stop();
+  const messages = [];
+  const runner = createRustRunner(message => messages.push(message));
+  for (const payload of [null, undefined, [], {}, 42]) {
+    await runner.run(payload);
+    assert.equal(messages.at(-1).kind, 'error');
+    assert.doesNotMatch(messages.at(-1).text, /уже запущен/);
   }
+  assert.equal(messages.length, 5);
+  runner.stop();
 });
 
 test('rust runner cleans up its temporary directory on process close and spawn error', async () => {
@@ -97,61 +94,51 @@ test('rust runner enables native only for a native generated-form launch', async
   children[1].emit('close', 0, null);
 });
 
-test('rust and native runners terminate the Unix process group and guard against stale close after error', async () => {
-  for (const [kind, create, payload] of [
-    [
-      'rust',
-      createRustRunner,
-      { 'Cargo.toml': '[package]\nname="a"\nversion="0.1.0"\n', 'src/main.rs': 'fn main(){}' },
-    ],
-    [
-      'native',
-      createNativeRunner,
-      { files: { 'src/actions.rs': 'pub fn init() {}' }, snapshot: { html: '<div/>' } },
-    ],
-  ]) {
-    const events = [],
-      signals = [],
-      spawns = [],
-      children = [];
-    const runner = create(e => events.push(e), {
-      platform: 'darwin',
-      root: '/project',
-      async mkdtemp(prefix) {
-        return `${prefix}${children.length + 1}`;
-      },
-      async mkdir() {},
-      async writeFile() {},
-      async rm() {},
-      kill(...args) {
-        signals.push(args);
-      },
-      spawn(...args) {
-        spawns.push(args);
-        const child = new EventEmitter();
-        child.pid = 200 + children.length;
-        child.stdout = new EventEmitter();
-        child.stderr = new EventEmitter();
-        child.kill = sig => signals.push([child.pid, sig]);
-        children.push(child);
-        return child;
-      },
-    });
-    await runner.run(payload);
-    assert.equal(spawns[0][2].detached, true, `${kind} must spawn detached on Unix`);
-    runner.stop();
-    runner.stop();
-    assert.deepEqual(signals, [[-200, 'SIGTERM']], `${kind} must signal -pid once`);
-    children[0].emit('close', null, 'SIGTERM');
+test('rust runner terminates the Unix process group and guards against stale close after error', async () => {
+  const events = [],
+    signals = [],
+    spawns = [],
+    children = [];
+  const runner = createRustRunner(e => events.push(e), {
+    platform: 'darwin',
+    async mkdtemp(prefix) {
+      return `${prefix}${children.length + 1}`;
+    },
+    async mkdir() {},
+    async writeFile() {},
+    async rm() {},
+    kill(...args) {
+      signals.push(args);
+    },
+    spawn(...args) {
+      spawns.push(args);
+      const child = new EventEmitter();
+      child.pid = 200 + children.length;
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = sig => signals.push([child.pid, sig]);
+      children.push(child);
+      return child;
+    },
+  });
+  const payload = {
+    'Cargo.toml': '[package]\nname="a"\nversion="0.1.0"\n',
+    'src/main.rs': 'fn main(){}',
+  };
+  await runner.run(payload);
+  assert.equal(spawns[0][2].detached, true, 'rust must spawn detached on Unix');
+  runner.stop();
+  runner.stop();
+  assert.deepEqual(signals, [[-200, 'SIGTERM']], 'rust must signal -pid once');
+  children[0].emit('close', null, 'SIGTERM');
 
-    // A spawn error followed by a stale close must not clear a newly started run.
-    await runner.run(payload);
-    children[1].emit('error', new Error('spawn failed'));
-    await runner.run(payload);
-    children[1].emit('close', -2, null);
-    await runner.run(payload);
-    assert.equal(spawns.length, 3, `${kind} must keep third run busy despite stale close`);
-    assert.match(events.at(-1).text, /уже запущен|уже запущено/);
-    children[2].emit('close', 0, null);
-  }
+  // A spawn error followed by a stale close must not clear a newly started run.
+  await runner.run(payload);
+  children[1].emit('error', new Error('spawn failed'));
+  await runner.run(payload);
+  children[1].emit('close', -2, null);
+  await runner.run(payload);
+  assert.equal(spawns.length, 3, 'rust must keep third run busy despite stale close');
+  assert.match(events.at(-1).text, /уже запущен/);
+  children[2].emit('close', 0, null);
 });

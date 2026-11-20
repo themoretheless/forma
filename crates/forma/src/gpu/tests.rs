@@ -14,19 +14,7 @@ fn invalid_timestamp_pairs_are_unavailable_not_wrapped_durations() {
 
 #[test]
 fn memory_architecture_distinguishes_uma_and_duma_adapters() {
-    let make = |device_type, backend| wgpu::AdapterInfo {
-        name: "test".into(),
-        vendor: 0,
-        device: 0,
-        device_type,
-        device_pci_bus_id: String::new(),
-        driver: String::new(),
-        driver_info: String::new(),
-        backend,
-        subgroup_min_size: 4,
-        subgroup_max_size: 64,
-        transient_saves_memory: false,
-    };
+    let make = wgpu::AdapterInfo::new;
     let uma_igpu = MemoryArchitecture::from_adapter_info(&make(
         wgpu::DeviceType::IntegratedGpu,
         wgpu::Backend::Metal,
@@ -84,18 +72,11 @@ fn missing_pipeline_validation_accepts_only_known_backend_messages() {
 
 #[test]
 fn gpu_test_adapters_are_hardware_or_mesa_lavapipe() {
-    let make = |device_type, backend, name: &str, driver: &str| wgpu::AdapterInfo {
-        name: name.into(),
-        vendor: 0,
-        device: 0,
-        device_type,
-        device_pci_bus_id: String::new(),
-        driver: driver.into(),
-        driver_info: String::new(),
-        backend,
-        subgroup_min_size: 4,
-        subgroup_max_size: 64,
-        transient_saves_memory: false,
+    let make = |device_type, backend, name: &str, driver: &str| {
+        let mut info = wgpu::AdapterInfo::new(device_type, backend);
+        info.name = name.into();
+        info.driver = driver.into();
+        info
     };
     assert!(gpu_test_adapter_supported(&make(
         wgpu::DeviceType::DiscreteGpu,

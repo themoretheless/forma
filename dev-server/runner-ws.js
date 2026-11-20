@@ -1,5 +1,4 @@
 import { createRustRunner } from '../rust-runner.js';
-import { createNativeRunner } from '../native-runner.js';
 import { evaluateDesignData } from '../design-data-runner.js';
 import { createVectorRunner } from '../vector-runner.js';
 import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from '../protocol/enums.js';
@@ -11,7 +10,6 @@ export function registerRunnerWebSockets(server, getClient) {
 
   const forwardOutput = data => getClient()?.send('forma:rust-output', data);
   const runner = createRustRunner(forwardOutput);
-  const native = createNativeRunner(forwardOutput);
   const vector = createVectorRunner(forwardOutput);
 
   server.ws.on('forma:backend', (data, sender) => {
@@ -59,16 +57,6 @@ export function registerRunnerWebSockets(server, getClient) {
     }
   });
 
-  server.ws.on('forma:native-run', (data, sender) => {
-    if (sender === getClient()) native.run(data);
-  });
-  server.ws.on('forma:native-update', (data, sender) => {
-    if (sender === getClient()) native.update(data);
-  });
-  server.ws.on('forma:native-stop', (_, sender) => {
-    if (sender === getClient()) native.stop();
-  });
-
   server.ws.on('forma:form-run', (data, sender) => {
     if (sender === getClient())
       runner.run(data?.files, {
@@ -87,7 +75,6 @@ export function registerRunnerWebSockets(server, getClient) {
 
   server.httpServer?.once('close', () => {
     vector.stop?.();
-    native.stop?.();
     runner.stop?.();
   });
 }

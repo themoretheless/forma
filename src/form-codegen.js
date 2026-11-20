@@ -36,9 +36,8 @@ function cachedSvgShapes(name, source) {
   const width = view?.[2] ?? Number(source.match(/\bwidth=['"]([^'"]+)/)?.[1]),
     height = view?.[3] ?? Number(source.match(/\bheight=['"]([^'"]+)/)?.[1]),
     box = [0, 0, width, height];
-  const first = svgShapes(source, box, '#010203'),
-    second = source.includes('currentColor') ? svgShapes(source, box, '#fe0203') : null;
-  const entry = `(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${first.map((shape, i) => `(vec![${shape.points.map(([x, y]) => `[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(second && shape.color !== second[i].color ? 'currentColor' : shape.color)}.into())`).join(',')}]})`;
+  const shapes = svgShapes(source, box, 'currentColor');
+  const entry = `(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${shapes.map(shape => `(vec![${shape.points.map(([x, y]) => `[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(shape.color)}.into())`).join(',')}]})`;
   if (svgPairCache.size >= 256) svgPairCache.delete(svgPairCache.keys().next().value);
   svgPairCache.set(key, entry);
   return entry;

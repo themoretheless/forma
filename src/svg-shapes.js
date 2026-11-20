@@ -269,7 +269,10 @@ export function parseSvgShapes(source, currentColor = '#ffffff') {
   }
   function ink(v) {
     if (v === 'none') return null;
-    if (v === 'currentColor') v = currentColor;
+    if (v === 'currentColor') {
+      if (currentColor === 'currentColor') return 'currentColor';
+      v = currentColor;
+    }
     if (!HEX_COLOR_RE.test(v)) throw Error('SVG: поддерживаются hex и currentColor');
     return v;
   }

@@ -14,10 +14,10 @@ git-зависимости с `branch = "release"`.
 До 0.3.0 включительно компоненты выпускались отдельными тегами `forma-vX.Y.Z`
 и `studio-vX.Y.Z`. Эти теги остаются в истории, но больше не являются релизными.
 
-`native-app` — вспомогательный WebView-хост Studio, его версия синхронизируется
-со Studio. Это не третий независимо выпускаемый продукт. Нативный векторный
-пример в `crates/forma` относится к библиотеке Forma. Rust crate и demo-бинарник
-называются `forma`; WASM-архив содержит `forma.js` и `forma_bg.wasm`.
+`forma` (библиотека Rust + нативное векторное окно `forma::native_window`), `forma-build`
+(автономный генератор Rust-форм), Studio (веб-редактор и dev-сервер) и `svet` выпускаются в едином
+синхронизированном релизе (`vX.Y.Z`). Legacy WebView-хост `native-app` выведен из эксплуатации.
+Rust crate и demo-бинарник называются `forma`; WASM-архив содержит `forma.js` и `forma_bg.wasm`.
 Внутреннее имя компонента в командах и metadata остаётся `runtime`.
 
 Manifest хранит версию разработки. Тег фиксирует конкретный выпуск. Версия
@@ -54,18 +54,15 @@ checkout. Не подкачиваем «последний Runtime» во вре
 
 - Ubuntu 24.04, macOS 15, Windows 2022: Rust unit/integration tests с `gpu`,
   проверка компиляции нативного векторного окна.
-- macOS: проверка старого WebView-хоста Studio с явным тестовым `actions.rs`.
 - Ubuntu: `npm ci`, проверка manifest/lockfile, сборка WASM, JS-тесты с настоящим
   WASM, production Studio, упаковка двух архивов и SHA-256.
 - Артефакт Actions `release-bundles` хранится 14 дней; для PR это сборки проверки,
   а не опубликованные релизы.
 
-Rust закреплён в `rust-toolchain.toml` (1.97.1), Node в `.node-version`
-(22.23.2). То же значение стоит в `rust-version` в `crates/forma/Cargo.toml`:
-проект с git-зависимостью от Forma не читает наш `rust-toolchain.toml`, и на
-более старом компиляторе Cargo сразу называет требуемую версию. При смене
-toolchain меняем оба места. CLI wasm-bindgen должен в точности соответствовать зависимости
-Runtime (сейчас 0.2.125). Версии GitHub Actions закреплены полными SHA:
+Rust для воспроизводимой сборки CI и Clippy-ratchet закреплён в `rust-toolchain.toml` (1.97.1),
+Node — в `.node-version` (22.23.2). Минимально поддерживаемый стабильный компилятор для Cargo-потребителей
+в `Cargo.toml` задан как `rust-version = "1.92"`. CLI `wasm-bindgen` должен точно соответствовать
+зависимости Runtime (сейчас `0.2.130`). Версии GitHub Actions закреплены полными SHA:
 [checkout](https://github.com/actions/checkout),
 [setup-node](https://github.com/actions/setup-node),
 [cache](https://github.com/actions/cache),
@@ -96,9 +93,8 @@ npm run version:set -- all 0.4.0
 npm run version:check
 ```
 
-Для Studio команда также обновляет версию `native-app`. Поэтому обычный
-`npm version` отдельно от этой команды использовать не следует: он не знает
-о Rust-хосте. Номера выбираются вручную; автоматического повышения по сообщениям
+Для согласованного обновления версий runtime, Studio и svet используйте `version:set`
+вместо ручного `npm version`: он одновременно обновляет Cargo и npm lock-файлы. Номера выбираются вручную; автоматического повышения по сообщениям
 коммитов пока нет.
 
 Дальше закоммить изменения, дождись CI и слей их в `main`. На нужном коммите:
@@ -137,11 +133,9 @@ Studio-архив — статическая web-сборка. Запуск ло
 ## Локальная проверка
 
 ```sh
-cargo install wasm-bindgen-cli --version 0.2.125 --locked
-npm run tokenizer -- checkout install
-# npm ci запускает prepare пакета tokenizer (сборку WASM языка) toolchain'ом по умолчанию:
-# в нём должен быть target wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
 npm ci
+npm run tokenizer -- check
 npm run build:wasm
 npm test
 npm run build

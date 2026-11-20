@@ -14,9 +14,7 @@ pub fn assert_golden(name: &str, actual: &str) {
         return;
     }
     let expected = std::fs::read_to_string(&path)
-        .unwrap_or_else(|error| {
-            panic!("{}: {error}; record it with FORMA_BLESS=1", path.display())
-        })
+        .unwrap_or_else(|error| panic!("{}: {error}; record it with FORMA_BLESS=1", path.display()))
         // A checkout that converted line endings must not count as a behaviour change.
         .replace("\r\n", "\n");
     if expected == actual {

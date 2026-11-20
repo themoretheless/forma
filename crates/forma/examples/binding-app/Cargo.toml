@@ -2,6 +2,7 @@
 name = "forma-binding-example"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.92"
 publish = false
 
 [features]
@@ -11,3 +12,6 @@ native = ["dep:winit", "dep:softbuffer"]
 forma = { path = "../.." }
 winit = { version = "0.30", optional = true }
 softbuffer = { version = "0.4", optional = true }
+
+[build-dependencies]
+forma-build = { path = "../../../forma-build" }

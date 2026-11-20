@@ -4,7 +4,6 @@ import { hostname, release, cpus, loadavg } from 'node:os';
 import { resolve } from 'node:path';
 import { root, versions } from './versions.mjs';
 import { runtimeSourceDigest, artifactDigests, runtimeArtifacts } from './runtime-digest.mjs';
-import { PACKAGE_LINK, linkTokenizerPackage, tokenizerDir } from './tokenizer.mjs';
 
 // CI sat red on two of three runner platforms for eleven runs while every local command stayed
 // green, because no single local step builds the native bin for a foreign target. This is that
@@ -42,6 +41,7 @@ export const WORKSPACE_CRATES = [
   'svet-graph',
   'svet-reconcile',
   'svet-gpu-arena',
+  'forma-build',
   'forma-mcp',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
@@ -49,7 +49,7 @@ export function steps({ platform, installedTargets, viteEntry }) {
     list: [
       {
         id: 'tokenizer',
-        name: 'Sibling tokenizer matches the release locked in Cargo.lock',
+        name: 'Vendored tokenizer tarball matches Cargo.lock pin and SHA-256',
         argv: process.execPath,
         args: ['scripts/tokenizer.mjs', 'check'],
         requiresOutput: true,
@@ -267,26 +267,24 @@ export function steps({ platform, installedTargets, viteEntry }) {
             },
           ]
         : []),
-      // gpu-kit stays outside the workspace for the same reason and has its own lockfile.
       {
         id: 'crates-gpu-kit',
-        name: 'gpu-kit builds and passes on its own lockfile',
+        name: 'gpu-kit builds and passes in the workspace',
         argv: 'cargo',
         // Its GPU render tests are #[ignore]d for machines without a GPU; a Mac has Metal.
         args: [
           'test',
           '--locked',
-          '--manifest-path',
-          'crates/gpu-kit/Cargo.toml',
+          '-p',
+          'gpu-kit',
           ...(platform === 'darwin' ? ['--', '--include-ignored'] : []),
         ],
       },
-      // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
       {
         id: 'crates-gpu-compute',
-        name: 'gpu-compute builds and passes on its own lockfile',
+        name: 'gpu-compute builds and passes in the workspace',
         argv: 'cargo',
-        args: ['test', '--locked', '--manifest-path', 'crates/gpu-compute/Cargo.toml'],
+        args: ['test', '--locked', '-p', 'gpu-compute'],
         // A developer Mac has real GPU timers, so the profiling duration ratios are checked here;
         // CI runners have virtualized GPUs and skip them.
         flags:
@@ -329,18 +327,6 @@ export function steps({ platform, installedTargets, viteEntry }) {
           args: ['check', '--locked', '-p', 'forma', ...args, '--target', target],
         }),
       ),
-      // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
-      ...(platform === 'darwin'
-        ? [
-            {
-              id: 'studio-legacy',
-              name: 'Studio legacy WebView host',
-              argv: 'cargo',
-              args: ['check', '--locked', '--manifest-path', 'native-app/Cargo.toml'],
-              env: { FORMA_ACTIONS: '.github/fixtures/actions.rs' },
-            },
-          ]
-        : []),
     ],
     skipped: [
       ...MOBILE_TARGETS.filter(({ target }) => !installedTargets.includes(target)).map(
@@ -466,16 +452,6 @@ if (invoked) {
     `forma full gate · ${env.branch}@${env.head}${env.dirty ? ' (dirty)' : ''} · ${env.system}, ${env.cores} cores, load ${env.load.join(' ')}`,
   );
   console.log(`  node ${env.node} · ${env.rustc} · wasm-bindgen ${env.wasmBindgen}`);
-  // The JS steps must test the tokenizer checkout the `tokenizer` step verifies.
-  const restoreTokenizer = linkTokenizerPackage();
-  if (process.env.FORMA_TOKENIZER_DIR)
-    console.log(`  tokenizer ${tokenizerDir} (npm link ${PACKAGE_LINK} for this run)`);
-  process.on('exit', restoreTokenizer);
-  for (const signal of ['SIGINT', 'SIGTERM'])
-    process.on(signal, () => {
-      restoreTokenizer();
-      process.exit(130);
-    });
   const results = [];
   for (const step of chosen) {
     const started = Date.now();
@@ -505,7 +481,6 @@ if (invoked) {
     if (!verdict.ok && process.env.GATE_VERBOSE)
       console.log(output.trimEnd().replace(/^/gm, '       '));
   }
-  restoreTokenizer();
   for (const target of skipped) console.log(`  skip ${target.id.padEnd(30)}${target.reason}`);
   const source = provenance();
   console.log(
