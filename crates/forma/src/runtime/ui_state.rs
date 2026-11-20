@@ -100,6 +100,7 @@ impl Runtime {
             };
             next.preserve_binding_interaction(self);
             next.keep_area_scroll(self);
+            next.announcement = self.announcement.clone();
             next.ui_binding_scene = ir.controls;
             next.ui_binding_states = doc.states.clone();
             next.ui_document = Some(doc);

@@ -54,13 +54,18 @@ impl ImeSession {
         self.owner = None;
     }
 
-    pub(super) fn preedit(&mut self, runtime: &mut crate::Runtime, text: &str) {
+    pub(super) fn preedit_with_cursor(
+        &mut self,
+        runtime: &mut crate::Runtime,
+        text: &str,
+        cursor: Option<(usize, usize)>,
+    ) {
         let previous = self.owner;
         self.composing = !text.is_empty();
         if !text.is_empty() {
             self.cancelled = false;
             self.owner = runtime.native_editor_session();
-            runtime.text_preedit(text);
+            runtime.text_preedit_with_cursor(text, cursor);
         } else if previous.is_none() || runtime.native_editor_session() == previous {
             // An empty preedit removes marked pixels, but does not end the ownership of the
             // commit which commonly follows it.
@@ -95,7 +100,7 @@ impl ImeSession {
         match event {
             Ime::Enabled => self.enabled(),
             Ime::Disabled => self.cancel(runtime),
-            Ime::Preedit(text, _) => self.preedit(runtime, &text),
+            Ime::Preedit(text, cursor) => self.preedit_with_cursor(runtime, &text, cursor),
             Ime::Commit(text) => self.commit(runtime, &text),
         }
     }

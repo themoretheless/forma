@@ -18,6 +18,14 @@ fn allocate_semantic_revision(counter: &std::sync::atomic::AtomicU32) -> u32 {
         .unwrap_or(0)
 }
 
+fn clamp_char_boundary(s: &str, byte: usize) -> usize {
+    let mut at = byte.min(s.len());
+    while at > 0 && !s.is_char_boundary(at) {
+        at -= 1;
+    }
+    at
+}
+
 pub(crate) use crate::template::Input;
 #[derive(Clone)]
 pub(crate) struct Editor {
@@ -25,6 +33,7 @@ pub(crate) struct Editor {
     pub model: TextEdit,
     pub base: Vec<Content>,
     pub preedit: String,
+    pub preedit_cursor: Option<(usize, usize)>,
     offset: [f32; 2],
     preferred_x: Option<f32>,
     focused: bool,
@@ -53,6 +62,7 @@ impl Editor {
             model,
             base,
             preedit: String::new(),
+            preedit_cursor: None,
             offset: [0.; 2],
             preferred_x: None,
             focused: false,
@@ -70,13 +80,35 @@ impl Editor {
         self.dirty = true;
     }
     pub(crate) fn set_preedit(&mut self, text: &str) {
+        self.set_preedit_with_cursor(text, None);
+    }
+    pub(crate) fn set_preedit_with_cursor(&mut self, text: &str, cursor: Option<(usize, usize)>) {
         if self.spec.read_only && !text.is_empty() {
             return;
         }
-        if self.preedit != text {
+        let cursor = cursor.filter(|_| !text.is_empty()).map(|(a, b)| {
+            let a = clamp_char_boundary(text, a);
+            let b = clamp_char_boundary(text, b);
+            (a.min(b), a.max(b))
+        });
+        if self.preedit != text || self.preedit_cursor != cursor {
             self.preedit.clear();
             self.preedit.push_str(text);
+            self.preedit_cursor = cursor;
             self.dirty = true;
+        }
+    }
+    fn clear_preedit(&mut self) {
+        self.preedit.clear();
+        self.preedit_cursor = None;
+    }
+    fn preedit_caret_offset(&self) -> f32 {
+        if self.preedit.is_empty() {
+            return 0.;
+        }
+        match self.preedit_cursor {
+            Some((start, _)) => self.width(&self.preedit[..start]),
+            None => self.width(&self.preedit),
         }
     }
     pub(crate) fn is_animating(&self) -> bool {
@@ -116,15 +148,34 @@ impl Editor {
     fn width(&self, s: &str) -> f32 {
         crate::text::measure_line(s, self.spec.font_size)[0]
     }
+    fn row_align_x(&self, line: &str) -> f32 {
+        if crate::text::resolve_direction(line, self.spec.direction)
+            == crate::text::ResolvedDirection::Rtl
+        {
+            (self.spec.bounds[2] - self.width(line)).max(0.)
+        } else {
+            0.
+        }
+    }
     /// Where the caret stands on `line` for a byte offset into it. A line with right-to-left
     /// text is laid out in visual order; any other line is a plain prefix width.
     fn caret_on(&self, line: &str, offset: usize) -> f32 {
-        if crate::text::has_rtl(line) {
-            let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
+        let align = self.row_align_x(line);
+        let pos = if crate::text::has_rtl(line)
+            || crate::text::resolve_direction(line, self.spec.direction)
+                == crate::text::ResolvedDirection::Rtl
+        {
+            let clusters = crate::text::visual_line_with_dir(
+                Default::default(),
+                line,
+                self.spec.font_size,
+                self.spec.direction,
+            );
             crate::text::caret_x(&clusters, offset)
         } else {
             self.width(&line[..offset])
-        }
+        };
+        align + pos
     }
     fn line_height(&self) -> f32 {
         self.spec.font_size * 1.5
@@ -202,11 +253,20 @@ impl Editor {
         if start + line.len() < self.model.value().len() {
             line = line.strip_suffix('\r').unwrap_or(line);
         }
-        let pos = if crate::text::has_rtl(line) {
-            let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
-            crate::text::hit_visual(&clusters, x)
+        let local_x = x - self.row_align_x(line);
+        let pos = if crate::text::has_rtl(line)
+            || crate::text::resolve_direction(line, self.spec.direction)
+                == crate::text::ResolvedDirection::Rtl
+        {
+            let clusters = crate::text::visual_line_with_dir(
+                Default::default(),
+                line,
+                self.spec.font_size,
+                self.spec.direction,
+            );
+            crate::text::hit_visual(&clusters, local_x)
         } else {
-            crate::text::hit_grapheme(line, self.spec.font_size, x)
+            crate::text::hit_grapheme(line, self.spec.font_size, local_x)
         };
         let anchor = if extend {
             self.model.anchor()
@@ -289,7 +349,7 @@ impl Editor {
             _ => unreachable!(),
         }
         self.semantic_revision = next_semantic_revision();
-        self.preedit.clear();
+        self.clear_preedit();
         true
     }
     /// Moves the caret one stop left or right as the line is drawn, when the line has
@@ -311,10 +371,17 @@ impl Editor {
         let line = value[start..end]
             .strip_suffix('\r')
             .unwrap_or(&value[start..end]);
-        if !crate::text::has_rtl(line) || caret - start > line.len() {
+        let line_rtl = crate::text::resolve_direction(line, self.spec.direction)
+            == crate::text::ResolvedDirection::Rtl;
+        if (!crate::text::has_rtl(line) && !line_rtl) || caret - start > line.len() {
             return false;
         }
-        let clusters = crate::text::visual_line(Default::default(), line, self.spec.font_size);
+        let clusters = crate::text::visual_line_with_dir(
+            Default::default(),
+            line,
+            self.spec.font_size,
+            self.spec.direction,
+        );
         let target = match crate::text::step_visual(&clusters, caret - start, right) {
             Some(offset) => start + offset,
             None if right && end < value.len() => end + 1,
@@ -367,7 +434,7 @@ impl Editor {
             }
             self.preferred_x = None;
             self.semantic_revision = next_semantic_revision();
-            self.preedit.clear();
+            self.clear_preedit();
             return true;
         }
         match key {
@@ -431,7 +498,7 @@ impl Editor {
             self.preferred_x = None;
         }
         self.semantic_revision = next_semantic_revision();
-        self.preedit.clear();
+        self.clear_preedit();
         true
     }
     pub(crate) fn insert(&mut self, text: &str) {
@@ -441,7 +508,7 @@ impl Editor {
         self.semantic_revision = next_semantic_revision();
         self.preferred_x = None;
         self.dirty = true;
-        self.preedit.clear();
+        self.clear_preedit();
         let clean = text.replace("\r\n", "\n").replace('\r', "\n");
         let clean = if self.spec.multiline {
             clean
@@ -470,16 +537,23 @@ impl Editor {
         }
     }
     fn push_visual_row(&self, ctx: &mut VisualRowContext<'_>, py: f32, start: usize, line: &str) {
+        let align = self.row_align_x(line);
+        let row_rtl = crate::text::has_rtl(line)
+            || crate::text::resolve_direction(line, self.spec.direction)
+                == crate::text::ResolvedDirection::Rtl;
         if ctx.focused && !ctx.selection.is_empty() {
             let a = ctx.selection.start.max(start);
             let b = ctx.selection.end.min(start + line.len());
-            let rtl = crate::text::has_rtl(line);
-            if rtl && a <= b && ctx.selection.end > start {
-                let clusters =
-                    crate::text::visual_line(Default::default(), line, self.spec.font_size);
+            if row_rtl && a <= b && ctx.selection.end > start {
+                let clusters = crate::text::visual_line_with_dir(
+                    Default::default(),
+                    line,
+                    self.spec.font_size,
+                    self.spec.direction,
+                );
                 for [left, right] in crate::text::selection_spans(&clusters, a - start..b - start) {
                     ctx.out.push(rect(
-                        ctx.px + left,
+                        ctx.px + align + left,
                         py,
                         right - left,
                         ctx.lh,
@@ -488,8 +562,13 @@ impl Editor {
                 }
                 if ctx.selection.end > start + line.len() {
                     let end = self.width(line);
-                    ctx.out
-                        .push(rect(ctx.px + end, py, 5., ctx.lh, [222, 106, 25, 90]));
+                    ctx.out.push(rect(
+                        ctx.px + align + end,
+                        py,
+                        5.,
+                        ctx.lh,
+                        [222, 106, 25, 90],
+                    ));
                 }
             } else if a <= b
                 && ctx.selection.end > start
@@ -498,7 +577,7 @@ impl Editor {
                 let left = self.width(&line[..a.saturating_sub(start).min(line.len())]);
                 let right = self.width(&line[..b.saturating_sub(start).min(line.len())]);
                 ctx.out.push(rect(
-                    ctx.px + left,
+                    ctx.px + align + left,
                     py,
                     (right - left).max(if ctx.selection.end > start + line.len() {
                         5.
@@ -514,14 +593,15 @@ impl Editor {
             return;
         }
         // A line with right-to-left text is drawn whole: its pieces do not sit at prefix widths.
-        if self.fades.is_empty() || crate::text::has_rtl(line) {
+        if self.fades.is_empty() || row_rtl {
             ctx.out.push(Content::Text {
-                bounds: [ctx.px, py, self.width(line), ctx.lh],
+                bounds: [ctx.px + align, py, self.width(line), ctx.lh],
                 text: Text {
                     family: Default::default(),
                     text: line.into(),
                     font_size: self.spec.font_size,
                     color: self.spec.color,
+                    direction: self.spec.direction,
                 },
             });
         } else {
@@ -547,7 +627,7 @@ impl Editor {
                 }
                 ctx.out.push(Content::Text {
                     bounds: [
-                        ctx.px + self.width(&line[..run[0]]),
+                        ctx.px + align + self.width(&line[..run[0]]),
                         py,
                         self.width(text),
                         ctx.lh,
@@ -557,6 +637,7 @@ impl Editor {
                         text: text.into(),
                         font_size: self.spec.font_size,
                         color,
+                        direction: self.spec.direction,
                     },
                 });
             }
@@ -583,9 +664,10 @@ impl Editor {
             if wrapped.is_some() {
                 self.offset[0] = 0.;
             } else {
+                let pre_extent = self.width(&self.preedit).max(self.preedit_caret_offset());
                 self.offset[0] = self.offset[0]
                     .min(p[0])
-                    .max((p[0] + self.width(&self.preedit) + 2. - w).max(0.));
+                    .max((p[0] + pre_extent + 2. - w).max(0.));
             }
             self.offset[1] = self.offset[1].min(p[1]).max((p[1] + lh - h).max(0.));
         }
@@ -632,13 +714,20 @@ impl Editor {
             }
         }
         if value.is_empty() && self.preedit.is_empty() {
+            let align = self.row_align_x(&self.spec.placeholder);
             out.push(Content::Text {
-                bounds: [x, y + self.top(), self.width(&self.spec.placeholder), lh],
+                bounds: [
+                    x + align,
+                    y + self.top(),
+                    self.width(&self.spec.placeholder),
+                    lh,
+                ],
                 text: Text {
                     family: Default::default(),
                     text: self.spec.placeholder.clone(),
                     font_size: self.spec.font_size,
                     color: self.spec.placeholder_color,
+                    direction: self.spec.direction,
                 },
             });
         }
@@ -647,6 +736,12 @@ impl Editor {
             let cy = y + self.top() + p[1] - self.offset[1];
             let pre = self.width(&self.preedit);
             if !self.preedit.is_empty() {
+                if let Some((start, end)) = self.preedit_cursor.filter(|(s, e)| e > s) {
+                    let x0 = self.width(&self.preedit[..start]);
+                    let x1 = self.width(&self.preedit[..end]);
+                    out.push(rect(cx + x0, cy, x1 - x0, lh, [110, 150, 255, 70]));
+                    out.push(rect(cx + x0, cy + lh - 2., x1 - x0, 2., self.spec.color));
+                }
                 out.push(Content::Text {
                     bounds: [cx, cy, pre, lh],
                     text: Text {
@@ -654,13 +749,15 @@ impl Editor {
                         text: self.preedit.clone(),
                         font_size: self.spec.font_size,
                         color: self.spec.color,
+                        direction: self.spec.direction,
                     },
                 });
                 out.push(rect(cx, cy + lh - 1., pre, 1., self.spec.color));
             }
+            let caret_offset = self.preedit_caret_offset();
             let mut color = self.spec.color;
             color[3] = (color[3] as f32 * self.caret_alpha()).round() as u8;
-            out.push(rect(cx + pre, cy, 1., lh, color));
+            out.push(rect(cx + caret_offset, cy, 1., lh, color));
         }
         out.push(Content::ClipEnd);
         self.dirty = false;
@@ -669,7 +766,7 @@ impl Editor {
     pub(crate) fn caret_rect(&self) -> [f32; 4] {
         let p = self.caret_point();
         [
-            self.spec.bounds[0] + p[0] - self.offset[0],
+            self.spec.bounds[0] + p[0] + self.preedit_caret_offset() - self.offset[0],
             self.spec.bounds[1] + self.top() + p[1] - self.offset[1],
             1.,
             self.line_height(),

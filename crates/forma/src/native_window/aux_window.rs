@@ -4,6 +4,55 @@ use super::*;
 use crate::native_gpu::GpuWindow;
 use std::collections::HashMap;
 
+/// Windowless scene and pointer routing for a secondary window so multi-window logic can be
+/// exercised deterministically in unit/integration tests as well as real OS event loops.
+pub(super) struct AuxiliaryScene {
+    pub(super) runtime: crate::Runtime,
+    pub(super) pointer: (f32, f32),
+}
+
+impl AuxiliaryScene {
+    pub(super) fn popup() -> Result<Self, String> {
+        let popup_source = "component Popup { Frame { width:260; height:110; padding:12; gap:8; Button { key:'popup-action'; width:236; height:38; text:'Нативный попап (F10)'; clicked -> actions.confirm_popup(); } } }";
+        let runtime = crate::Runtime::from_sources(popup_source, crate::BUTTON_COMPONENT)?;
+        Ok(Self {
+            runtime,
+            pointer: (-1.0, -1.0),
+        })
+    }
+
+    pub(super) fn handle_pointer_move(
+        &mut self,
+        physical_x: f64,
+        physical_y: f64,
+        scale: f64,
+    ) -> bool {
+        let rev = self.runtime.visual_revision();
+        let scale = if scale.is_finite() && scale > 0. {
+            scale
+        } else {
+            1.
+        };
+        let (x, y) = ((physical_x / scale) as f32, (physical_y / scale) as f32);
+        self.pointer = (x, y);
+        self.runtime.pointer(x, y, 0);
+        self.runtime.visual_revision() != rev || self.runtime.is_animating()
+    }
+
+    pub(super) fn handle_pointer_leave(&mut self) -> bool {
+        let rev = self.runtime.visual_revision();
+        self.runtime.pointer(-1.0, -1.0, 3);
+        self.runtime.visual_revision() != rev || self.runtime.is_animating()
+    }
+
+    pub(super) fn handle_primary_button(&mut self, pressed: bool) -> bool {
+        let rev = self.runtime.visual_revision();
+        self.runtime
+            .pointer(self.pointer.0, self.pointer.1, if pressed { 1 } else { 2 });
+        self.runtime.visual_revision() != rev || self.runtime.is_animating()
+    }
+}
+
 /// Independent native window surface managed by the multi-window host (primary scene window,
 /// detached popups, tooltips, or secondary inspector windows).
 struct AuxiliaryWindow {
@@ -11,8 +60,7 @@ struct AuxiliaryWindow {
     surface: Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
     gpu: Option<GpuWindow>,
     surface_size: Option<(u32, u32)>,
-    runtime: crate::Runtime,
-    pointer: (f32, f32),
+    scene: AuxiliaryScene,
 }
 
 /// The secondary windows of one event loop, by window id.
@@ -29,17 +77,15 @@ impl AuxiliaryWindows {
             println!("F10: вторичное окно попапа/инспектора закрыто");
             return;
         }
-        let popup_source = "component Popup { Frame { width:260; height:110; padding:12; gap:8; Button { key:'popup-action'; width:236; height:38; text:'Нативный попап (F10)'; clicked -> actions.confirm_popup(); } } }";
-        let Ok(popup_runtime) = crate::Runtime::from_sources(popup_source, crate::BUTTON_COMPONENT)
-        else {
+        let Ok(scene) = AuxiliaryScene::popup() else {
             return;
         };
         let Ok(raw_win) = event_loop.create_window(
             Window::default_attributes()
                 .with_title("Forma · Detached Popup / Inspector")
                 .with_inner_size(LogicalSize::new(
-                    popup_runtime.render_width(),
-                    popup_runtime.render_height(),
+                    scene.runtime.render_width(),
+                    scene.runtime.render_height(),
                 )),
         ) else {
             return;
@@ -51,8 +97,9 @@ impl AuxiliaryWindows {
             gpu = pollster::block_on(GpuWindow::new(win.clone())).ok();
         }
         let surface = if gpu.is_none() {
-            let context = softbuffer::Context::new(win.clone()).unwrap();
-            Some(softbuffer::Surface::new(&context, win.clone()).unwrap())
+            softbuffer::Context::new(win.clone())
+                .ok()
+                .and_then(|context| softbuffer::Surface::new(&context, win.clone()).ok())
         } else {
             None
         };
@@ -64,8 +111,7 @@ impl AuxiliaryWindows {
                 surface,
                 gpu,
                 surface_size: None,
-                runtime: popup_runtime,
-                pointer: (-1.0, -1.0),
+                scene,
             },
         );
         println!("F10: открыто вторичное нативное окно (Multi-Window popup)");
@@ -79,43 +125,35 @@ impl AuxiliaryWindows {
         let Some(aux) = self.windows.get_mut(&window_id) else {
             return;
         };
-        let rev = aux.runtime.visual_revision();
-        match event {
+        let needs_redraw = match event {
             WindowEvent::CursorMoved { position, .. } => {
-                let p = position.to_logical::<f32>(aux.window.scale_factor());
-                aux.pointer = (p.x, p.y);
-                aux.runtime.pointer(p.x, p.y, 0);
+                aux.scene
+                    .handle_pointer_move(position.x, position.y, aux.window.scale_factor())
             }
-            WindowEvent::CursorLeft { .. } => aux.runtime.pointer(-1.0, -1.0, 3),
+            WindowEvent::CursorLeft { .. } => aux.scene.handle_pointer_leave(),
             WindowEvent::MouseInput {
                 state,
                 button: MouseButton::Left,
                 ..
-            } => {
-                aux.runtime.pointer(
-                    aux.pointer.0,
-                    aux.pointer.1,
-                    if state == ElementState::Pressed { 1 } else { 2 },
-                );
-            }
-            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                aux.window.request_redraw();
-            }
+            } => aux
+                .scene
+                .handle_primary_button(state == ElementState::Pressed),
+            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => true,
             WindowEvent::RedrawRequested => {
-                aux.runtime.tick(16.0);
+                aux.scene.runtime.tick(16.0);
                 let size = aux.window.inner_size();
                 if let (Some(w), Some(h)) =
                     (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
                 {
                     if let Some(gpu) = &mut aux.gpu {
-                        let _ = gpu.draw(&aux.runtime, &aux.window);
+                        let _ = gpu.draw(&aux.scene.runtime, &aux.window);
                     } else if let Some(surface) = &mut aux.surface {
                         if aux.surface_size != Some((size.width, size.height)) {
                             let _ = surface.resize(w, h);
                             aux.surface_size = Some((size.width, size.height));
                         }
                         if let Ok(mut buf) = surface.buffer_mut() {
-                            let _ = aux.runtime.paint_native(
+                            let _ = aux.scene.runtime.paint_native(
                                 &mut buf,
                                 size.width,
                                 size.height,
@@ -125,12 +163,28 @@ impl AuxiliaryWindows {
                         }
                     }
                 }
-                return;
+                false
             }
-            _ => {}
-        }
-        if aux.runtime.visual_revision() != rev || aux.runtime.is_animating() {
+            _ => false,
+        };
+        if needs_redraw {
             aux.window.request_redraw();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auxiliary_scene_handles_popup_pointer_activation_and_fractional_scale() {
+        let mut scene = AuxiliaryScene::popup().expect("popup scene loads");
+        assert!(scene.handle_pointer_move(24.0 * 1.5, 24.0 * 1.5, 1.5));
+        assert!(scene.handle_primary_button(true));
+        scene.handle_primary_button(false);
+        assert_eq!(scene.runtime.clicks(), 1);
+        assert_eq!(scene.runtime.action(), "actions.confirm_popup");
+        scene.handle_pointer_leave();
     }
 }

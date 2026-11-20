@@ -10,8 +10,11 @@ use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 mod arabic;
 mod bidi;
+mod color_emoji;
 mod fonts;
+mod linebreak;
 mod metrics;
+mod opentype;
 mod outline;
 mod raster;
 mod runs;
@@ -19,12 +22,19 @@ mod shaping;
 mod unicode;
 mod wrap;
 
+pub use bidi::{ResolvedDirection, TextDirection, resolve_direction};
 pub(crate) use bidi::{
-    caret_x, has_rtl, hit as hit_visual, selection_spans, step as step_visual, visual_line,
+    caret_x, has_rtl, hit as hit_visual, selection_spans, step as step_visual, visual_line_with_dir,
 };
+#[doc(hidden)]
+pub use color_emoji::{colr_cpal_layers, is_color_emoji_scalar};
 pub use fonts::*;
 pub use metrics::*;
+#[doc(hidden)]
+pub use opentype::{MarkOffset, OpenTypeTables, PairAdjustment};
 pub(crate) use outline::*;
+#[doc(hidden)]
+pub use outline::{GlyphEdges, TextDraw, VectorScratch, vector_colored_glyphs};
 pub use raster::*;
 pub use runs::{RunFragment, RunLayout, layout_runs};
 pub use shaping::*;

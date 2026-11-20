@@ -317,8 +317,10 @@ export function flatten(n, box, files, output, metrics) {
   }
   if (n.children?.length) throw Error(`${n.type} не принимает дочерние элементы`);
   if (n.type === 'TextInput') {
+    const dir = String(p.direction ?? p.dir ?? 'ltr').trim() || 'ltr';
+    const dirField = dir !== 'ltr' ? ` direction: ${literal(dir)};` : '';
     output.push(
-      `ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value ?? ''))}; placeholder: ${literal(String(p.placeholder ?? ''))}; color: ${literal(p.color ?? { expr: '#ffffff' })}; placeholderColor: ${literal(p.placeholderColor ?? { expr: '#999999' })}; fontSize: ${num(p.fontSize ?? 15, 'fontSize')}; multiline: ${Boolean(p.multiline)}; }`,
+      `ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value ?? ''))}; placeholder: ${literal(String(p.placeholder ?? ''))}; color: ${literal(p.color ?? { expr: '#ffffff' })}; placeholderColor: ${literal(p.placeholderColor ?? { expr: '#999999' })}; fontSize: ${num(p.fontSize ?? 15, 'fontSize')}; multiline: ${Boolean(p.multiline)};${dirField} }`,
     );
     return;
   }
@@ -327,21 +329,31 @@ export function flatten(n, box, files, output, metrics) {
       throw Error('Text.wrap ожидает boolean');
     const text = String(p.text ?? ''),
       fontSize = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize'),
-      family = fontFamily(p);
+      family = fontFamily(p),
+      dir = String(p.direction ?? p.dir ?? 'ltr').trim() || 'ltr',
+      dirField = dir !== 'ltr' ? ` direction: ${literal(dir)};` : '';
     if (p.wrap && !metrics?.measureText) throw Error('Перенос текста требует метрик Rust runtime');
     const lines = p.wrap ? wrapLines(text, fontSize, w, metrics, family) : text.split('\n');
     if (lines.length === 1)
       output.push(
-        `ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)} }`,
+        `ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)}${dirField} }`,
       );
     else {
       if (!metrics?.measureText) throw Error('Многострочный текст требует метрик Rust runtime');
       output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: 0; }`);
-      lines.forEach((line, i) =>
+      lines.forEach((line, i) => {
+        const lineW = metrics.measureText(line, fontSize, family)[0];
+        const rtl =
+          dir === 'rtl' ||
+          (dir === 'auto' &&
+            /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff]/.test(
+              line.replace(/^[^A-Za-z\u00C0-\u024F\u0400-\u04FF\u0590-\u08FF]*/, ''),
+            ));
+        const lx = rtl && w > lineW ? x + (w - lineW) : x;
         output.push(
-          `ContentText { x: ${x}; y: ${y + i * fontSize * 1.5}; width: ${metrics.measureText(line, fontSize, family)[0]}; height: ${fontSize * 1.5}; text: ${literal(line)}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)} }`,
-        ),
-      );
+          `ContentText { x: ${lx}; y: ${y + i * fontSize * 1.5}; width: ${lineW}; height: ${fontSize * 1.5}; text: ${literal(line)}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)}${dirField} }`,
+        );
+      });
       output.push('ContentClipEnd {}');
     }
     return;

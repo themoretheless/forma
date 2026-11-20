@@ -54,8 +54,8 @@ pub fn wrap_text_ranges_in(
         return Vec::new();
     }
     let measure_shaped_text = |value: &str, size: f32| match family {
-        FontFamily::Sans => measure_shaped_text(value, size),
-        FontFamily::Mono | FontFamily::SansBold => measure_text_in(family, value, size),
+        FontFamily::Sans | FontFamily::SansBold => measure_shaped_text_in(family, value, size),
+        FontFamily::Mono => measure_text_in(family, value, size),
     };
     let unbounded = !max_width.is_finite() || max_width <= 0.;
     let mut result = Vec::new();
@@ -81,19 +81,15 @@ pub fn wrap_text_ranges_in(
             let mut running_w = 0.0_f32;
             let mut trailing_ws_w = 0.0_f32;
             let mut overflowed = false;
-            for (seg_idx, seg) in rest.split_word_bound_indices() {
-                let end = seg_idx + seg.len();
+            for (seg_range, cls) in super::linebreak::segment_units(rest) {
+                let seg = &rest[seg_range.clone()];
+                let end = seg_range.end;
                 let seg_w = measure_shaped_text(seg, font_size);
                 running_w += seg_w;
-                if seg.bytes().all(|b| b == b' ' || b == b'\t') {
+                if cls == super::linebreak::BreakClass::Space {
                     trailing_ws_w += seg_w;
                 } else {
-                    let trimmed_seg = seg.trim_end_matches([' ', '\t']);
-                    trailing_ws_w = if trimmed_seg.len() == seg.len() {
-                        0.0
-                    } else {
-                        measure_shaped_text(&seg[trimmed_seg.len()..], font_size)
-                    };
+                    trailing_ws_w = 0.0;
                 }
                 let w = (running_w - trailing_ws_w).max(0.0);
                 if w <= max_width && end > 0 {

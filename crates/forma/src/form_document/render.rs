@@ -540,6 +540,18 @@ impl SceneEmitter {
                 &mut self.content,
             )?;
         }
+        if !visual.props.contains_key("live") {
+            if let Some(v) = resolved.get("live") {
+                let raw = v.text()?;
+                match crate::template::A11yLive::parse(&raw)? {
+                    crate::template::A11yLive::Off => {}
+                    crate::template::A11yLive::Polite => self.content.push_str("live: 'polite'; "),
+                    crate::template::A11yLive::Assertive => {
+                        self.content.push_str("live: 'assertive'; ")
+                    }
+                }
+            }
+        }
         visual.children.clear();
         self.template.clear();
         self.template.push_str("component Button { ");

@@ -60,6 +60,11 @@ fn text_position(runs: &[TextRun<'_>], offset: u32) -> accesskit::TextPosition {
 /// Text input children expose grapheme units through per-line AccessKit text runs.
 /// A grapheme exceeding the u8 byte-length format disables text-run selection.
 pub fn tree_update(tree: &A11yTree) -> TreeUpdate {
+    const ANNOUNCEMENT_ID: NodeId = NodeId((1u64 << 62) | 1);
+    let announcement = tree
+        .announcement
+        .as_ref()
+        .filter(|(msg, level)| !msg.is_empty() && *level != crate::template::A11yLive::Off);
     let mut text_nodes = Vec::new();
     let mut nodes: Vec<_> = tree
         .nodes
@@ -81,7 +86,11 @@ pub fn tree_update(tree: &A11yTree) -> TreeUpdate {
                 A11yRole::StaticText => Role::Label,
             };
             let mut node = Node::new(role);
-            node.set_children(source.children.iter().copied().map(id).collect::<Vec<_>>());
+            let mut children: Vec<NodeId> = source.children.iter().copied().map(id).collect();
+            if source.id == tree.root_id && announcement.is_some() {
+                children.push(ANNOUNCEMENT_ID);
+            }
+            node.set_children(children);
             if source.role == A11yRole::StaticText {
                 node.set_value(source.label.clone());
             } else {
@@ -139,12 +148,19 @@ pub fn tree_update(tree: &A11yTree) -> TreeUpdate {
                     node.add_action(action);
                 }
             }
-            if source.role == A11yRole::Dialog {
-                if !source.disabled {
-                    node.set_live(accesskit::Live::Polite);
-                }
-                if source.actions.contains(&"dismiss") && !source.modal_blocked {
-                    node.add_action(Action::Collapse);
+            if source.role == A11yRole::Dialog
+                && source.actions.contains(&"dismiss")
+                && !source.modal_blocked
+            {
+                node.add_action(Action::Collapse);
+            }
+            if !source.disabled {
+                match source.live {
+                    crate::template::A11yLive::Off => {}
+                    crate::template::A11yLive::Polite => node.set_live(accesskit::Live::Polite),
+                    crate::template::A11yLive::Assertive => {
+                        node.set_live(accesskit::Live::Assertive)
+                    }
                 }
             }
             if source.role == A11yRole::TextInput {
@@ -175,6 +191,17 @@ pub fn tree_update(tree: &A11yTree) -> TreeUpdate {
         })
         .collect();
     nodes.extend(text_nodes);
+    if let Some((message, level)) = announcement {
+        let (role, live) = match level {
+            crate::template::A11yLive::Assertive => (Role::Alert, accesskit::Live::Assertive),
+            crate::template::A11yLive::Polite => (Role::Status, accesskit::Live::Polite),
+            crate::template::A11yLive::Off => unreachable!("filtered out above"),
+        };
+        let mut node = Node::new(role);
+        node.set_live(live);
+        node.set_label(message.clone());
+        nodes.push((ANNOUNCEMENT_ID, node));
+    }
     TreeUpdate {
         nodes,
         tree: Some(TreeInfo::new(id(tree.root_id))),

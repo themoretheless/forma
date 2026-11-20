@@ -112,7 +112,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         match phase {
             TouchPhase::Started => {
                 self.touch_last = Some((x, y));
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.pointer(x, y, 0);
                     chooser.pointer(x, y, 1);
                 } else {
@@ -128,7 +128,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             TouchPhase::Moved => {
                 let scroll = touch_scroll_step(&mut self.touch_last, x, y);
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.pointer(x, y, 0);
                     if let Some((dx, dy)) = scroll {
                         chooser.scroll(dx, dy);
@@ -144,7 +144,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             TouchPhase::Ended => {
                 self.touch_last = None;
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     let pick = chooser_pick(chooser, |chooser| {
                         chooser.pointer(x, y, 2);
                     });
@@ -157,7 +157,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             TouchPhase::Cancelled => {
                 self.touch_last = None;
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.pointer(-1., -1., 3);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(-1., -1., 3))?;
@@ -180,7 +180,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.touch_owner = None;
         }
         let mut remembered = self.blurred_editor.take();
-        if let Some(chooser) = &mut self.chooser {
+        if let Some(chooser) = &mut self.shell.chooser {
             chooser.focus(focused);
             if !focused {
                 chooser.pointer(-1., -1., 3);
@@ -189,7 +189,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             let result = self.app.update(&mut |runtime| {
                 if !focused {
                     if runtime.text_editing() {
-                        remembered = Some(runtime.control_key(runtime.focused_index() as usize));
+                        let idx = runtime.focused_index() as usize;
+                        let key = runtime.control_key(idx);
+                        let origin = runtime.control_origin(idx);
+                        let origin = (!origin.is_empty()).then_some(origin);
+                        remembered = Some((key, origin));
                     }
                     runtime.focus(false);
                     runtime.pointer(-1., -1., 3);
@@ -200,13 +204,21 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     if runtime.focused_index() >= 0 {
                         return;
                     }
-                    // Resolve the stable key again: controls may reorder while the
-                    // window is inactive. Ambiguous/noneditable/disabled targets
-                    // fall back to the runtime's ordinary focus admission.
-                    let restored = remembered.as_ref().is_some_and(|key| {
-                        let target = {
-                            let mut matches = (0..runtime.control_count())
-                                .filter(|index| runtime.control_key(*index) == *key);
+                    // Resolve the stable key first (or origin for unkeyed editors): controls may
+                    // reorder or receive inserted siblings while inactive.
+                    fn is_unkeyed_synthesized_key(key: &str) -> bool {
+                        let leaf = key.rsplit_once('/').map_or(key, |(_, tail)| tail);
+                        let Some(rest) = leaf.strip_prefix('@') else {
+                            return false;
+                        };
+                        let Some((id, tail)) = rest.split_once(':') else {
+                            return false;
+                        };
+                        !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()) && tail == "0:"
+                    }
+                    let unique_match =
+                        |rt: &crate::Runtime, pred: &dyn Fn(usize) -> bool| -> Option<usize> {
+                            let mut matches = (0..rt.control_count()).filter(|i| pred(*i));
                             let first = matches.next();
                             if matches.next().is_some() {
                                 None
@@ -214,9 +226,29 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                                 first
                             }
                         };
-                        target.is_some_and(|index| {
-                            runtime.control_editable(index) && runtime.focus_control(index)
-                        })
+                    let target = remembered.as_ref().and_then(|(key, origin)| {
+                        let is_unkeyed = is_unkeyed_synthesized_key(key) && origin.is_some();
+                        if !key.is_empty() && !is_unkeyed {
+                            unique_match(runtime, &|i| runtime.control_key(i) == *key)
+                        } else {
+                            origin
+                                .as_ref()
+                                .and_then(|o| {
+                                    unique_match(runtime, &|i| runtime.control_origin(i) == *o)
+                                })
+                                .or_else(|| {
+                                    (!key.is_empty())
+                                        .then(|| {
+                                            unique_match(runtime, &|i| {
+                                                runtime.control_key(i) == *key
+                                            })
+                                        })
+                                        .flatten()
+                                })
+                        }
+                    });
+                    let restored = target.is_some_and(|index| {
+                        runtime.control_editable(index) && runtime.focus_control(index)
                     });
                     if !restored {
                         runtime.focus(true);
@@ -241,12 +273,15 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             cfg!(feature = "native-test-hooks"),
         ) {
             Some(HostShortcut::NextPlatform) => {
-                let next = self.platform.next();
+                let next = self.shell.platform.next();
                 self.select_platform(next);
                 return Ok(());
             }
             Some(HostShortcut::ToggleBackend) => {
-                let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
+                let next = self
+                    .shell
+                    .backend
+                    .map_or(UiBackend::Svet, UiBackend::toggle);
                 self.select_backend(next);
                 return Ok(());
             }
@@ -262,7 +297,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             None => {}
         }
-        if let Some(chooser) = &mut self.chooser {
+        if let Some(chooser) = &mut self.shell.chooser {
             if pressed && !event.repeat {
                 match &event.logical_key {
                     Key::Character(c) if c.as_str() == "1" || c.eq_ignore_ascii_case("e") => {

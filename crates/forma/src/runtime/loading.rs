@@ -364,6 +364,7 @@ impl Runtime {
             area_nodes: Vec::new(),
             control_homes: Vec::new(),
             ui_binding_states: Vec::new(),
+            announcement: None,
             #[cfg(not(target_arch = "wasm32"))]
             svet_document: None,
         };

@@ -215,4 +215,44 @@ impl Runtime {
         self.refresh_editors();
         true
     }
+
+    /// Queue or replace a live-region status/alert announcement for assistive technologies.
+    pub fn announce(&mut self, message: &str, assertive: bool) {
+        let trimmed = message.trim();
+        let next = if trimmed.is_empty() {
+            None
+        } else {
+            let level = if assertive {
+                super::A11yLive::Assertive
+            } else {
+                super::A11yLive::Polite
+            };
+            Some((trimmed.to_owned(), level))
+        };
+        if self.announcement != next {
+            self.announcement = next;
+            self.revision = self.revision.wrapping_add(1);
+        }
+    }
+
+    /// Clear any active live-region announcement.
+    pub fn clear_announcement(&mut self) {
+        if self.announcement.take().is_some() {
+            self.revision = self.revision.wrapping_add(1);
+        }
+    }
+
+    /// Current live-region announcement message, if any.
+    pub fn live_announcement(&self) -> Option<String> {
+        self.announcement.as_ref().map(|(msg, _)| msg.clone())
+    }
+
+    /// Politeness level of the current announcement (`""`, `"polite"`, or `"assertive"`).
+    pub fn live_politeness(&self) -> String {
+        match self.announcement.as_ref().map(|(_, level)| *level) {
+            Some(super::A11yLive::Polite) => "polite".into(),
+            Some(super::A11yLive::Assertive) => "assertive".into(),
+            _ => String::new(),
+        }
+    }
 }

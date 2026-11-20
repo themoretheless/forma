@@ -231,6 +231,14 @@ impl Document {
                 });
             }
             Some(BuiltinKind::TextInput) => {
+                if n.props.contains_key("direction") && n.props.contains_key("dir") {
+                    return Err("direction and dir are the same property".into());
+                }
+                let dir_val = n.props.get("direction").or_else(|| n.props.get("dir"));
+                let direction = match dir_val {
+                    Some(v) => crate::text::TextDirection::parse(&v.text()?)?,
+                    None => crate::text::TextDirection::Ltr,
+                };
                 let mut input = crate::template::Input {
                     bounds: [x as f32, y as f32, w as f32, h as f32],
                     value: text_ref(&n.props, "value", "")?.into_owned(),
@@ -243,6 +251,7 @@ impl Document {
                     font_size: num(&n.props, "fontSize", 15.)? as f32,
                     multiline: boolean(&n.props, "multiline", false)?,
                     wrap: boolean(&n.props, "wrap", false)?,
+                    direction,
                 };
                 if n.props.get("placeholderColor").is_none() {
                     input.placeholder_color = parse_hex_color("#999999", "placeholderColor")?;
@@ -268,6 +277,13 @@ impl Document {
                 }
             }
             Some(BuiltinKind::Text) => {
+                if n.props.contains_key("direction") && n.props.contains_key("dir") {
+                    return Err("direction and dir are the same property".into());
+                }
+                let direction = match n.props.get("direction").or_else(|| n.props.get("dir")) {
+                    Some(v) => crate::text::TextDirection::parse(&v.text()?)?,
+                    None => crate::text::TextDirection::Ltr,
+                };
                 let value = text_ref(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = optional_color_prop(&n.props, "color")?.unwrap_or([255; 4]);
@@ -282,18 +298,27 @@ impl Document {
                     }
                     for (i, (byte_range, line_w)) in wrapped.iter().enumerate() {
                         let line = &value[byte_range.clone()];
-                        let (bw, bh) = if multiline {
-                            (*line_w, (fs * 1.5) as f32)
+                        let (bx, bw, bh) = if multiline {
+                            let align = if direction != crate::text::TextDirection::Ltr
+                                && crate::text::resolve_direction(line, direction)
+                                    == crate::text::ResolvedDirection::Rtl
+                            {
+                                (w - f64::from(*line_w)).max(0.)
+                            } else {
+                                0.
+                            };
+                            ((x + align) as f32, *line_w, (fs * 1.5) as f32)
                         } else {
-                            (w as f32, h as f32)
+                            (x as f32, w as f32, h as f32)
                         };
                         template.content.push(crate::template::Content::Text {
-                            bounds: [x as f32, (y + i as f64 * fs * 1.5) as f32, bw, bh],
+                            bounds: [bx, (y + i as f64 * fs * 1.5) as f32, bw, bh],
                             text: crate::template::Text {
                                 text: line.to_owned(),
                                 color,
                                 font_size: fs as f32,
                                 family,
+                                direction,
                             },
                         });
                     }
@@ -306,21 +331,28 @@ impl Document {
                         push_clip(&mut template.content, 0.);
                     }
                     for (i, line) in value.split('\n').enumerate() {
-                        let (bw, bh) = if multiline {
-                            (
-                                crate::text::measure_line_in(family, line, fs as f32)[0],
-                                (fs * 1.5) as f32,
-                            )
+                        let (bx, bw, bh) = if multiline {
+                            let line_w = crate::text::measure_line_in(family, line, fs as f32)[0];
+                            let align = if direction != crate::text::TextDirection::Ltr
+                                && crate::text::resolve_direction(line, direction)
+                                    == crate::text::ResolvedDirection::Rtl
+                            {
+                                (w - f64::from(line_w)).max(0.)
+                            } else {
+                                0.
+                            };
+                            ((x + align) as f32, line_w, (fs * 1.5) as f32)
                         } else {
-                            (w as f32, h as f32)
+                            (x as f32, w as f32, h as f32)
                         };
                         template.content.push(crate::template::Content::Text {
-                            bounds: [x as f32, (y + i as f64 * fs * 1.5) as f32, bw, bh],
+                            bounds: [bx, (y + i as f64 * fs * 1.5) as f32, bw, bh],
                             text: crate::template::Text {
                                 text: line.to_owned(),
                                 color,
                                 font_size: fs as f32,
                                 family,
+                                direction,
                             },
                         });
                     }
@@ -432,6 +464,7 @@ fn build_slider_range_ir(
             reveal: None,
             text: None,
             clickable: false,
+            live: crate::template::A11yLive::Off,
             content: Vec::new(),
             inputs: Vec::new(),
             range: None,
@@ -474,6 +507,7 @@ fn build_template_shell(
         reveal: None,
         text: None,
         clickable: false,
+        live: crate::template::A11yLive::Off,
         content: Vec::new(),
         inputs: Vec::new(),
         range: None,
@@ -493,12 +527,22 @@ fn build_template_shell(
         match k.as_str() {
             "radius" => template.radius = v.number()? as f32,
             "background" => template.fill = Some(parse_brush_value(v, control_props)?),
+            "live" => {
+                let raw = v.text()?;
+                template.live = crate::template::A11yLive::parse(&raw)?;
+            }
             "Border" | "Reveal" | "Text" | "PointerArea" => {}
             other => {
                 return Err(format!(
                     "Unsupported Rectangle field or primitive '{other}'"
                 ));
             }
+        }
+    }
+    if !visual.props.contains_key("live") {
+        if let Some(v) = control_props.get("live") {
+            let raw = v.text()?;
+            template.live = crate::template::A11yLive::parse(&raw)?;
         }
     }
     Ok(template)

@@ -38,19 +38,12 @@ enum Class {
     Newline,
 }
 
-fn class(ch: char) -> Class {
-    match ch {
-        '\n' => Class::Newline,
-        ' ' | '\t' => Class::Space,
-        _ => Class::Word,
-    }
-}
-
 struct Atom {
     run: usize,
     range: Range<usize>,
     class: Class,
     width: f32,
+    break_before: bool,
 }
 
 struct Placer<'a> {
@@ -133,26 +126,38 @@ pub fn layout_runs(
     font_size: f32,
     max_width: Option<f32>,
 ) -> RunLayout {
-    let mut atoms = Vec::new();
+    use unicode_segmentation::UnicodeSegmentation;
+    let mut raw_atoms: Vec<(usize, Range<usize>, Class, bool)> = Vec::new();
     for (run, &(_, text)) in runs.iter().enumerate() {
-        let mut start = 0;
-        let mut current: Option<Class> = None;
-        for (i, ch) in text.char_indices() {
-            let c = class(ch);
-            // Each newline is its own atom; other classes group.
-            if let Some(k) = current.filter(|&k| k != c || c == Class::Newline) {
-                atoms.push((run, start..i, k));
-                start = i;
-            }
-            current = Some(c);
-        }
-        if let Some(k) = current {
-            atoms.push((run, start..text.len(), k));
+        let segs = super::linebreak::segment_atoms(text);
+        for (idx, (range, cls)) in segs.into_iter().enumerate() {
+            let c = match cls {
+                super::linebreak::BreakClass::Newline => Class::Newline,
+                super::linebreak::BreakClass::Space => Class::Space,
+                super::linebreak::BreakClass::Unit => Class::Word,
+            };
+            let break_before = if c != Class::Word {
+                false
+            } else if idx > 0 {
+                raw_atoms
+                    .last()
+                    .is_some_and(|(_, _, prev_c, _)| *prev_c == Class::Word)
+            } else if let Some(&(prev_run, ref prev_range, Class::Word, _)) = raw_atoms.last() {
+                let prev_last = runs[prev_run].1[prev_range.clone()]
+                    .graphemes(true)
+                    .next_back()
+                    .unwrap_or("");
+                let cur_first = text[range.clone()].graphemes(true).next().unwrap_or("");
+                super::linebreak::can_break_between(prev_last, cur_first)
+            } else {
+                false
+            };
+            raw_atoms.push((run, range, c, break_before));
         }
     }
-    let atoms: Vec<Atom> = atoms
+    let atoms: Vec<Atom> = raw_atoms
         .into_iter()
-        .map(|(run, range, class)| {
+        .map(|(run, range, class, break_before)| {
             let (family, text) = runs[run];
             let width = if class == Class::Newline {
                 0.
@@ -164,6 +169,7 @@ pub fn layout_runs(
                 range,
                 class,
                 width,
+                break_before,
             }
         })
         .collect();
@@ -197,15 +203,19 @@ pub fn layout_runs(
                         range: atom.range.clone(),
                         class: atom.class,
                         width: atom.width,
+                        break_before: atom.break_before,
                     });
                 }
                 i += 1;
             }
             Class::Word => {
-                let end = atoms[i..]
-                    .iter()
-                    .position(|a| a.class != Class::Word)
-                    .map_or(atoms.len(), |p| i + p);
+                let mut end = i + 1;
+                while end < atoms.len()
+                    && atoms[end].class == Class::Word
+                    && !atoms[end].break_before
+                {
+                    end += 1;
+                }
                 placer.place_word(&atoms[i..end], &spaces);
                 spaces.clear();
                 line_start = false;

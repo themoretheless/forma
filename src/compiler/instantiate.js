@@ -95,18 +95,25 @@ export function createInstantiator({
         !own(linked.propDefinitions ?? {}, k) &&
         !presenterKeys.has(k) &&
         !groupedNames.has(k) &&
-        !(k === 'font.size' && own(linked.defaults, 'fontSize'))
+        !(k === 'font.size' && own(linked.defaults, 'fontSize')) &&
+        !(k === 'dir' && own(linked.defaults, 'direction'))
       )
         throw Error(`Неизвестное свойство ${instance.type}.${k}`);
     if (instance.props['font.size'] !== undefined && instance.props.fontSize !== undefined)
       throw Error('fontSize и font.size — одно свойство');
+    if (instance.props.dir !== undefined && instance.props.direction !== undefined)
+      throw Error('direction и dir — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.
     // Arguments and supplied children have already been resolved in the caller.
     const rawSlotFills = {};
     for (const key of presenterKeys)
       if (own(instance.props, key) && instance.props[key]?.slotParams?.length)
         rawSlotFills[key] = instance.props[key];
-    const props = { ...(top ? fallback : {}), ...linked.defaults, ...instance.props };
+    const normalizedInstanceProps =
+      instance.props.dir !== undefined
+        ? { ...instance.props, direction: instance.props.dir }
+        : instance.props;
+    const props = { ...(top ? fallback : {}), ...linked.defaults, ...normalizedInstanceProps };
     const compStateDefaults = Object.fromEntries(
       Object.entries(linked.stateDefinitions ?? {})
         .filter(([, d]) => d.default !== undefined)

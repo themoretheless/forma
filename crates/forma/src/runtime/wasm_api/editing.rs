@@ -165,13 +165,28 @@ impl Runtime {
     }
 
     pub fn text_preedit(&mut self, text: &str) {
-        if self.text_editing() {
-            self.editors[self.focused.unwrap()]
-                .as_mut()
-                .unwrap()
-                .set_preedit(text);
-            self.refresh_editors();
-        }
+        self.text_preedit_with_cursor(text, None);
+    }
+
+    /// Sets marked preedit text using UTF-16 code-unit clause bounds (or negative to omit cursor).
+    pub fn text_preedit_utf16(&mut self, text: &str, start_utf16: i32, end_utf16: i32) {
+        let to_byte = |target: i32| -> usize {
+            if target <= 0 {
+                return 0;
+            }
+            let target = target as usize;
+            let mut utf16 = 0usize;
+            for (idx, ch) in text.char_indices() {
+                if utf16 >= target {
+                    return idx;
+                }
+                utf16 += ch.len_utf16();
+            }
+            text.len()
+        };
+        let cursor = (start_utf16 >= 0 && end_utf16 >= 0)
+            .then(|| (to_byte(start_utf16), to_byte(end_utf16)));
+        self.text_preedit_with_cursor(text, cursor);
     }
 
     /// Host-normalized word modifier (Option on macOS, Ctrl on Windows/Linux).
@@ -240,5 +255,18 @@ impl Runtime {
             .hit_soft_wrapped(x - b[0], y - b[1], extend);
         self.refresh_editors();
         true
+    }
+}
+
+impl Runtime {
+    /// Sets marked IME preedit text with an optional UTF-8 byte clause cursor range `(start, end)`.
+    pub fn text_preedit_with_cursor(&mut self, text: &str, cursor: Option<(usize, usize)>) {
+        if self.text_editing() {
+            self.editors[self.focused.unwrap()]
+                .as_mut()
+                .unwrap()
+                .set_preedit_with_cursor(text, cursor);
+            self.refresh_editors();
+        }
     }
 }

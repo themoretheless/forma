@@ -65,6 +65,8 @@ impl SeenFields {
             "max" => 46,
             "font.weight" | "fontWeight" => 47,
             "link" => 48,
+            "live" => 49,
+            "direction" | "dir" => 50,
             _ => return None,
         };
         Some(1u64 << index)
@@ -95,6 +97,20 @@ pub(in crate::template) struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    pub(in crate::template) fn text_direction(
+        &mut self,
+    ) -> Result<crate::text::TextDirection, String> {
+        let raw = match &self.current.kind {
+            Kind::Ident(s) => s.to_string(),
+            Kind::String(_) => self.text_value()?.into_owned(),
+            _ => return Err(self.error("Unsupported text direction")),
+        };
+        if matches!(self.current.kind, Kind::Ident(_)) {
+            self.advance()?;
+        }
+        crate::text::TextDirection::parse(&raw).map_err(|e| self.error(&e))
+    }
+
     pub(in crate::template) fn new(source: &'a str, props: &'a ButtonSpec) -> Result<Self, String> {
         let mut lexer = Lexer { source, offset: 0 };
         let current = lexer.next()?;
@@ -176,6 +192,7 @@ impl<'a> Parser<'a> {
             reveal: None,
             text: None,
             clickable: false,
+            live: A11yLive::Off,
             content: Vec::new(),
             inputs: Vec::new(),
             range: None,
@@ -253,6 +270,19 @@ impl<'a> Parser<'a> {
                 "Reveal" => template.reveal = Some(self.reveal()?),
                 "Text" => template.text = Some(self.text()?),
                 "PointerArea" => template.clickable = self.pointer_area()?,
+                "live" => {
+                    self.colon()?;
+                    let raw = match &self.current.kind {
+                        Kind::Ident(s) => s.to_string(),
+                        Kind::String(_) => self.text_value()?.into_owned(),
+                        _ => return Err(self.error("Unsupported live region mode")),
+                    };
+                    if matches!(self.current.kind, Kind::Ident(_)) {
+                        self.advance()?;
+                    }
+                    template.live = A11yLive::parse(&raw).map_err(|e| self.error(&e))?;
+                    self.semi()?;
+                }
                 _ => {
                     return Err(self.error(&format!(
                         "Unsupported Rectangle field or primitive '{name}'"
@@ -279,6 +309,7 @@ impl<'a> Parser<'a> {
             color: [255; 4],
             font_size: 16.,
             family: Default::default(),
+            direction: Default::default(),
         };
         let mut points = None;
         let mut radius = 0.;
@@ -307,6 +338,7 @@ impl<'a> Parser<'a> {
                 ("ContentText", "text") => text.text = self.text_value()?.into_owned(),
                 ("ContentText", "fontSize") => text.font_size = self.scalar(&name, true)?,
                 ("ContentText", "fontFamily") => text.family = self.scene_font_family()?,
+                ("ContentText", "direction" | "dir") => text.direction = self.text_direction()?,
                 (_, "color") => text.color = self.color("color")?,
                 ("ContentShape", "points") => {
                     // One pass straight into pairs: no intermediate scalar vector.

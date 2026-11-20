@@ -24,6 +24,7 @@ mod config;
 mod demo;
 mod dev_app;
 mod dev_project;
+mod emulation;
 mod extension;
 mod frame;
 mod ime;
@@ -38,6 +39,8 @@ pub use config::*;
 pub use demo::*;
 pub use dev_app::*;
 pub use dev_project::*;
+use emulation::*;
+pub use emulation::{TargetPlatform, apply_egui_frame_bar, apply_mobile_chrome};
 use extension::*;
 use frame::*;
 use ime_session::{ImeSession, ime_target, place_ime_caret};
@@ -158,9 +161,7 @@ fn paint_app<A: NativeApp>(
 struct NativeHost<A: NativeApp + 'static> {
     app: A,
     config: NativeWindowConfig,
-    backend: Option<UiBackend>,
-    platform: TargetPlatform,
-    chooser: Option<crate::Runtime>,
+    shell: HostShell,
     accessibility: Option<accesskit_winit::Adapter>,
     waker: Option<NativeWaker>,
     accessibility_active: bool,
@@ -183,7 +184,7 @@ struct NativeHost<A: NativeApp + 'static> {
     control: bool,
     alt: bool,
     ime: ImeSession,
-    blurred_editor: Option<String>,
+    blurred_editor: Option<(String, Option<String>)>,
     clicks: ClickTracker,
     last_frame: Instant,
     extension: Extension<A>,
@@ -217,7 +218,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     .scale_factor() as f32;
                 self.pointer = (position.x as f32 / scale, position.y as f32 / scale);
                 let (x, y) = self.pointer;
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.pointer(x, y, 0);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))?;
@@ -230,7 +231,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
             }
             WindowEvent::CursorLeft { .. } => {
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.pointer(-1., -1., 3);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.pointer(-1., -1., 3))?;
@@ -244,7 +245,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 let (x, y) = self.pointer;
                 let pressed = state == ElementState::Pressed;
                 let kind = if pressed { 1 } else { 2 };
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     let pick = chooser_pick(chooser, |chooser| {
                         chooser.pointer(x, y, kind);
                     });
@@ -257,7 +258,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let kind = button_pointer_kind(button, state == ElementState::Pressed);
-                if let (Some(kind), None) = (kind, &self.chooser) {
+                if let (Some(kind), None) = (kind, &self.shell.chooser) {
                     self.pointer_event(kind)?;
                 }
             }
@@ -268,7 +269,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     .ok_or_else(|| "Native window is not initialized".to_owned())?
                     .scale_factor() as f32;
                 let (dx, dy) = wheel_scroll(delta, scale);
-                if let Some(chooser) = &mut self.chooser {
+                if let Some(chooser) = &mut self.shell.chooser {
                     chooser.scroll(dx, dy);
                 } else {
                     self.focus_sensitive_input(&mut |runtime| runtime.scroll(dx, dy))?;
@@ -451,17 +452,7 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
         if self.window.is_some() {
             return;
         }
-        let (plat_w, plat_h) = self
-            .platform
-            .viewport_size(self.config.width, self.config.height);
-        let init_w = self
-            .chooser
-            .as_ref()
-            .map_or(plat_w, |c| c.render_width().max(plat_w));
-        let init_h = self
-            .chooser
-            .as_ref()
-            .map_or(plat_h, |c| c.render_height().max(plat_h));
+        let (init_w, init_h) = self.shell.initial_viewport(&self.config);
         type CpuWindowSurface = (
             Arc<Window>,
             Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
@@ -563,13 +554,7 @@ fn run_host<A: NativeApp + 'static>(
     config: NativeWindowConfig,
     extension: Extension<A>,
 ) -> Result<(), String> {
-    let backend = config.resolved_backend();
-    let platform = config.platform;
-    let chooser = if backend.is_none() {
-        Some(build_chooser_runtime()?)
-    } else {
-        None
-    };
+    let shell = HostShell::from_config(&config)?;
     let event_loop = EventLoop::<HostEvent>::with_user_event()
         .build()
         .map_err(|e| e.to_string())?;
@@ -579,9 +564,7 @@ fn run_host<A: NativeApp + 'static>(
         .run_app(&mut NativeHost {
             app,
             config,
-            backend,
-            platform,
-            chooser,
+            shell,
             accessibility: None,
             waker: Some(waker),
             accessibility_active: false,

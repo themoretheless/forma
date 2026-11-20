@@ -196,6 +196,7 @@ fn shape_points_boundaries_and_string_escapes() {
                 color: [255; 4],
                 font_size: 16.,
                 family: Default::default(),
+                direction: Default::default(),
             }
         }
     );
@@ -300,7 +301,8 @@ fn omitted_primitives_are_absent_and_do_not_get_painted() {
             border: None,
             reveal: None,
             text: None,
-            clickable: false
+            clickable: false,
+            live: A11yLive::Off,
         }
     );
     assert!(!body("PointerArea {}").unwrap().clickable);

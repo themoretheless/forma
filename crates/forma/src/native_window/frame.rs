@@ -2,23 +2,6 @@
 
 use super::*;
 
-/// Whether a frame goes to the GPU surface. A desktop window uses it for the Svet backend and
-/// falls back to the software surface for the egui profile, an emulated phone and the backend
-/// chooser. On iOS the window is the device screen and everything is drawn by the GPU.
-pub(super) fn uses_gpu(
-    ios: bool,
-    backend: Option<UiBackend>,
-    platform: TargetPlatform,
-    choosing: bool,
-) -> bool {
-    ios || (backend == Some(UiBackend::Svet) && platform == TargetPlatform::Desktop && !choosing)
-}
-
-/// The Dynamic Island and navigation pill are painted where a phone is emulated, not on one.
-pub(super) fn emulates_device_chrome() -> bool {
-    cfg!(not(any(target_os = "ios", target_os = "android")))
-}
-
 pub(super) fn software_surface(
     window: &Arc<Window>,
 ) -> Result<softbuffer::Surface<Arc<Window>, Arc<Window>>, String> {
@@ -31,13 +14,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let status = self.status();
         let title = match self.extension() {
             Some(extension) => extension.title(&status, Instant::now()),
-            None => window_title(
-                self.config.mode,
-                &self.config.title,
-                self.backend,
-                self.platform,
-                self.gpu.is_some(),
-            ),
+            None => self.shell.title(&self.config.title, self.gpu.is_some()),
         };
         if let Some(window) = &self.window {
             window.set_title(&title);
@@ -46,62 +23,31 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     /// Startup lines of the demo; an application owns its stdout.
     pub(super) fn announce_startup(&self) {
-        if self.config.mode == HostMode::Application {
-            return;
-        }
-        if self.platform != TargetPlatform::Desktop {
-            println!(
-                "Платформа Forma: {} ({}) · F6 — переключить на лету",
-                self.platform.as_str(),
-                self.platform.label()
-            );
-        }
-        if let Some(b) = self.backend {
-            println!(
-                "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
-                b.as_str(),
-                b.label()
-            );
-        } else {
-            println!(
-                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
-            );
-        }
+        self.shell.announce_startup();
     }
 
     pub(super) fn select_platform(&mut self, platform: TargetPlatform) {
-        self.platform = platform;
-        println!(
-            "Активна платформа: {} ({}) · F6 — переключить на лету",
-            platform.as_str(),
-            platform.label()
-        );
+        let (w, h) = self.shell.select_platform(platform, &self.config);
         if let Some(extension) = self.extension() {
             extension.platform_selected(platform);
         }
         self.sync_window_title();
         if let Some(window) = &self.window {
-            let (w, h) = platform.viewport_size(self.config.width, self.config.height);
             let _ = window.request_inner_size(LogicalSize::new(w, h));
             window.request_redraw();
         }
     }
 
     pub(super) fn select_backend(&mut self, backend: UiBackend) {
-        self.backend = Some(backend);
         self.gpu_attempted = self.gpu.is_some();
         self.retry_at = None;
         self.animation_at = None;
-        self.chooser = None;
-        println!("Активен бэкенд: {} ({})", backend.as_str(), backend.label());
+        let (w, h) = self.shell.select_backend(backend, &self.config);
         if let Some(extension) = self.extension() {
             extension.backend_selected(backend);
         }
         self.sync_window_title();
         if let Some(window) = &self.window {
-            let (w, h) = self
-                .platform
-                .viewport_size(self.config.width, self.config.height);
             let _ = window.request_inner_size(LogicalSize::new(w, h));
             window.request_redraw();
         }
@@ -130,7 +76,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let delta_ms = (now - self.last_frame).as_secs_f32() * 1000.;
         self.last_frame = now;
         let mut animating = false;
-        if let Some(chooser) = &mut self.chooser {
+        if let Some(chooser) = &mut self.shell.chooser {
             chooser.tick(delta_ms.min(100.));
             animating = chooser.is_animating();
         } else {
@@ -147,12 +93,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let (gpu_allowed, continuous) = self.extension().map_or((true, false), |extension| {
             (extension.allows_gpu(), extension.redraws_continuously())
         });
-        let use_gpu = uses_gpu(
-            cfg!(target_os = "ios"),
-            self.backend,
-            self.platform,
-            self.chooser.is_some(),
-        );
+        let use_gpu = self.shell.uses_gpu(cfg!(target_os = "ios"));
         if use_gpu && gpu_allowed && self.gpu.is_none() && !self.gpu_attempted {
             self.gpu_attempted = true;
             match pollster::block_on(crate::native_gpu::GpuWindow::new(window.clone())) {
@@ -176,7 +117,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             if let Some(gpu) = &mut self.gpu {
                 let mut presentation =
                     Err("NativeApp.inspect did not observe a runtime".to_owned());
-                if let Some(chooser) = &self.chooser {
+                if let Some(chooser) = &self.shell.chooser {
                     presentation = gpu.draw(chooser, &window);
                 } else {
                     self.app.inspect(&mut |runtime| {
@@ -186,7 +127,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 }
                 match presentation {
                     Ok(crate::native_gpu::Presentation::Presented) => {
-                        if self.chooser.is_none() {
+                        if self.shell.chooser.is_none() {
                             self.app.on_frame_presented(NativeRenderer::Gpu)?;
                         }
                         self.retry_at = None;
@@ -230,21 +171,17 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         surface.resize(width, height).map_err(|e| e.to_string())?;
         let mut buffer = surface.buffer_mut().map_err(|e| e.to_string())?;
         let scale = window.scale_factor() as f32;
-        if let Some(chooser) = &mut self.chooser {
+        if let Some(chooser) = &mut self.shell.chooser {
             chooser
                 .paint_native(&mut buffer, size.width, size.height, scale)
                 .map_err(str::to_owned)?;
         } else {
             animating = paint_app(&self.app, &mut buffer, size.width, size.height, scale)?;
-            if shows_frame_bar(self.config.mode, self.backend) {
-                apply_egui_frame_bar(&mut buffer, size.width, size.height);
-            }
-            if emulates_device_chrome() {
-                apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
-            }
+            self.shell
+                .decorate_software_frame(&mut buffer, size.width, size.height, scale);
         }
         buffer.present().map_err(|e| e.to_string())?;
-        if self.chooser.is_none() {
+        if self.shell.chooser.is_none() {
             self.app.on_frame_presented(NativeRenderer::Cpu)?;
         }
 
@@ -266,7 +203,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         if let Some(waker) = &self.waker {
             finish_wake(&waker.shared.pending);
         }
-        if self.chooser.is_some() {
+        if self.shell.chooser.is_some() {
             return Ok(());
         }
         self.app.update(&mut |_| {})?;
@@ -294,17 +231,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     /// Rebuilds the backend chooser for a screen it does not fill. A phone gives the window
     /// its size, so the chooser follows it instead of asking for its own.
     pub(super) fn fit_chooser(&mut self, width: f32, height: f32) {
-        let Some(chooser) = &mut self.chooser else {
-            return;
-        };
-        if (chooser.width() - width).abs() <= 1. && (chooser.height() - height).abs() <= 1. {
-            return;
-        }
-        let source = chooser_ui_for_viewport(width, height);
-        if let Ok(mut next) = crate::Runtime::from_sources(&source, crate::BUTTON_COMPONENT) {
-            next.preserve_interaction(chooser);
-            *chooser = next;
-        }
+        self.shell.fit_chooser(width, height);
     }
 
     pub(super) fn scheduled_redraw(&mut self, now: Instant) -> (bool, Option<Instant>) {

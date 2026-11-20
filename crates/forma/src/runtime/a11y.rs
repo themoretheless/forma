@@ -2,6 +2,7 @@
 //! and semantic action dispatch helpers for [`Runtime`].
 
 use super::{NodeKind, Runtime};
+pub use crate::template::A11yLive;
 
 /// AccessKit-compatible semantic role for a node in the accessibility tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -54,6 +55,8 @@ pub struct A11yNode {
     /// Anchor/caret UTF-16 offsets in this node's original value (CRLF retained).
     pub selection_utf16: Option<[u32; 2]>,
     pub modal_blocked: bool,
+    #[serde(skip_serializing_if = "A11yLive::is_off")]
+    pub live: A11yLive,
     pub actions: Vec<&'static str>,
 }
 
@@ -64,6 +67,8 @@ pub struct A11yTree {
     pub root_id: usize,
     pub focused_id: Option<usize>,
     pub active_modal_id: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub announcement: Option<(String, A11yLive)>,
     pub nodes: Vec<A11yNode>,
 }
 
@@ -103,6 +108,7 @@ impl Runtime {
                         selection_utf16: None,
                         read_only: false,
                         modal_blocked: false,
+                        live: A11yLive::Off,
                         actions: Vec::new(),
                     });
                 }
@@ -132,6 +138,7 @@ impl Runtime {
                         selection_utf16: None,
                         read_only: false,
                         modal_blocked: active_modal.is_some(),
+                        live: A11yLive::Off,
                         actions: vec!["scroll"],
                     });
                 }
@@ -163,6 +170,11 @@ impl Runtime {
                         selection_utf16: None,
                         read_only: false,
                         modal_blocked: active_modal.is_some() && active_modal != Some(modal_idx),
+                        live: if open {
+                            A11yLive::Polite
+                        } else {
+                            A11yLive::Off
+                        },
                         actions: if open && m_spec.dismiss {
                             vec!["dismiss"]
                         } else {
@@ -265,6 +277,7 @@ impl Runtime {
                         }),
                         read_only: self.control_readonly(idx),
                         modal_blocked: blocked,
+                        live: self.controls[idx].template.live,
                         actions,
                     });
                 }
@@ -275,6 +288,7 @@ impl Runtime {
             root_id: 0,
             focused_id: focused_node_id,
             active_modal_id: active_modal_node_id,
+            announcement: self.announcement.clone(),
             nodes: a11y_nodes,
         }
     }

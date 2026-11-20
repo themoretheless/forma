@@ -1402,8 +1402,9 @@ fn lam_and_alef_are_drawn_as_one_ligature() {
         forms("لأ لإ لآ"),
         [0xFEF7, 0, 0x20, 0xFEF9, 0, 0x20, 0xFEF5, 0]
     );
-    // A mark between them keeps them apart; a lam before another letter is an ordinary lam.
-    assert_eq!(forms("لَا"), [0xFEDF, 0x64E, 0xFE8E]);
+    // Vocalized Lam-Alef ligates across transparent tashkil marks; a lam before another letter is an ordinary lam.
+    assert_eq!(forms("لَا"), [0xFEFB, 0x64E, 0]);
+    assert_eq!(forms("سلَام"), [0xFEB3, 0xFEFC, 0x64E, 0, 0xFEE1]);
     assert_eq!(forms("لب"), [0xFEDF, 0xFE90]);
 
     let table = font_table();

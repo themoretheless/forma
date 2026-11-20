@@ -2,6 +2,31 @@
 
 use super::*;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum A11yLive {
+    #[default]
+    Off,
+    Polite,
+    Assertive,
+}
+
+impl A11yLive {
+    #[inline]
+    pub fn is_off(&self) -> bool {
+        *self == Self::Off
+    }
+
+    pub fn parse(mode: &str) -> Result<Self, String> {
+        match mode {
+            "" | "off" | "none" => Ok(Self::Off),
+            "polite" => Ok(Self::Polite),
+            "assertive" => Ok(Self::Assertive),
+            other => Err(format!("Unsupported live region mode '{other}'")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Template {
     pub props: ButtonSpec,
@@ -11,6 +36,7 @@ pub struct Template {
     pub reveal: Option<crate::reveal::Reveal>,
     pub text: Option<Text>,
     pub clickable: bool,
+    pub live: A11yLive,
     pub content: Vec<Content>,
     pub inputs: Vec<Input>,
     pub range: Option<RangeInput>,
@@ -41,6 +67,7 @@ pub struct Input {
     pub font_size: f32,
     pub multiline: bool,
     pub wrap: bool,
+    pub direction: crate::text::TextDirection,
 }
 
 impl Default for Input {
@@ -56,6 +83,7 @@ impl Default for Input {
             font_size: 15.,
             multiline: false,
             wrap: false,
+            direction: crate::text::TextDirection::Ltr,
         }
     }
 }
@@ -121,6 +149,7 @@ pub struct Text {
     pub color: [u8; 4],
     pub font_size: f32,
     pub family: crate::text::FontFamily,
+    pub direction: crate::text::TextDirection,
 }
 
 #[derive(Debug, Clone, PartialEq)]

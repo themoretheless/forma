@@ -87,9 +87,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             size.width == 0 || size.height == 0
         });
         HostStatus {
-            backend: self.backend,
-            platform: self.platform,
-            choosing: self.chooser.is_some(),
+            backend: self.shell.backend,
+            platform: self.shell.platform,
+            choosing: self.shell.chooser.is_some(),
             gpu: self.gpu.is_some(),
             surface: if self.occluded {
                 Presentation::Occluded
@@ -109,7 +109,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         event: &winit::event::KeyEvent,
         event_loop: &ActiveEventLoop,
     ) -> bool {
-        if self.chooser.is_some() {
+        if self.shell.chooser.is_some() {
             return false;
         }
         let pressed = event.state == ElementState::Pressed;

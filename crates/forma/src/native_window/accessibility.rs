@@ -13,7 +13,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         let pending_ime = self.ime.pending();
         let mut accepted = false;
         let published = std::mem::take(&mut self.accessibility_ids);
-        let result = if let Some(chooser) = &mut self.chooser {
+        let result = if let Some(chooser) = &mut self.shell.chooser {
             accepted = published.apply(chooser, request);
             Ok(())
         } else {
@@ -47,7 +47,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             .map_or(1., |window| window.scale_factor());
         let mut update = None;
         let published = &mut self.accessibility_ids;
-        if let Some(chooser) = &self.chooser {
+        if let Some(chooser) = &self.shell.chooser {
             update = Some(published.update_if_changed(chooser, scale));
         } else {
             self.app.inspect(&mut |runtime| {

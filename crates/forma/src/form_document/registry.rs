@@ -709,6 +709,24 @@ pub const PROPERTIES: &[PropertySpec] = &[
         false,
         false,
     ),
+    prop(
+        "live",
+        None,
+        PropertyType::Text,
+        InvalidationClass::Paint,
+        BindingCapability::OneWay,
+        false,
+        false,
+    ),
+    prop(
+        "direction",
+        Some("dir"),
+        PropertyType::Text,
+        InvalidationClass::Paint,
+        BindingCapability::OneWay,
+        true,
+        false,
+    ),
 ];
 
 /// Finds the canonical registry entry for a property name or its alias.
@@ -825,6 +843,7 @@ const RECTANGLE_PROPS: &[&str] = &[
     "maxHeight",
     "background",
     "radius",
+    "live",
     "transition",
 ];
 const TEXT_PROPS: &[&str] = &[
@@ -850,6 +869,9 @@ const TEXT_PROPS: &[&str] = &[
     "fontWeight",
     "font.weight",
     "wrap",
+    "live",
+    "direction",
+    "dir",
     "transition",
 ];
 const TEXT_INPUT_PROPS: &[&str] = &[
@@ -876,6 +898,9 @@ const TEXT_INPUT_PROPS: &[&str] = &[
     "readOnly",
     "wrap",
     "disabled",
+    "live",
+    "direction",
+    "dir",
     "transition",
 ];
 const IMAGE_PROPS: &[&str] = &[

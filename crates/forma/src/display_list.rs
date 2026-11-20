@@ -343,15 +343,19 @@ impl DisplayList {
             return;
         }
         self.push(bounds, 0.);
-        text::vector_glyphs(
-            t.family,
-            &t.text,
-            t.font_size,
-            bounds,
-            scale,
+        text::vector_colored_glyphs(
+            &text::TextDraw {
+                family: t.family,
+                dir: t.direction,
+                text: &t.text,
+                font_size: t.font_size,
+                rect: bounds,
+                scale,
+                color: t.color,
+            },
             scratch,
-            |glyph| {
-                self.path(glyph, t.color, true);
+            |glyph, color| {
+                self.path(glyph, color, true);
             },
         );
         self.pop();

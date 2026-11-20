@@ -102,15 +102,23 @@ export function createInstanceCompiler({
       events: instance.events.clicked ? { clicked: runtimeAction(instance.events.clicked) } : {},
       props: Object.fromEntries(
         Object.entries(resolved).filter(
-          ([k]) => standard.has(k) && k !== 'font.size' && k !== 'transition',
+          ([k]) => standard.has(k) && k !== 'font.size' && k !== 'transition' && k !== 'live',
         ),
       ),
       children: [],
     };
+    const liveField =
+      root.props.live === undefined &&
+      typeof resolved.live === 'string' &&
+      resolved.live &&
+      resolved.live !== 'off' &&
+      resolved.live !== 'none'
+        ? ` live: ${literal(resolved.live)};`
+        : '';
     const template = `component Button { Rectangle { ${Object.entries(root.props)
       .filter(([k]) => k !== 'key' && k !== 'transition')
       .map(([k, v]) => `${k}: ${literal(v)};`)
-      .join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
+      .join(' ')}${liveField} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
     visualNodes.push(
       {
         id: -2,

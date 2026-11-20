@@ -19,7 +19,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     }
 
     pub(super) fn update_ime(&mut self) -> Result<(), String> {
-        if self.chooser.is_some() {
+        if self.shell.chooser.is_some() {
             if let Some(window) = &self.window {
                 window.set_ime_allowed(false);
             }
@@ -38,7 +38,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     pub(super) fn ime_event(&mut self, event: Ime) -> Result<(), String> {
         self.app.on_ime_event(&event)?;
         match event {
-            Ime::Preedit(text, _) => self.preedit_ime(&text),
+            Ime::Preedit(text, cursor) => self.preedit_ime_cursor(&text, cursor),
             Ime::Commit(text) => self.commit_ime(&text),
             Ime::Enabled => {
                 self.ime.enabled();
@@ -51,9 +51,19 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         }
     }
 
+    #[cfg(test)]
     pub(super) fn preedit_ime(&mut self, text: &str) -> Result<(), String> {
+        self.preedit_ime_cursor(text, None)
+    }
+
+    pub(super) fn preedit_ime_cursor(
+        &mut self,
+        text: &str,
+        cursor: Option<(usize, usize)>,
+    ) -> Result<(), String> {
         let ime = &mut self.ime;
-        self.app.update(&mut |runtime| ime.preedit(runtime, text))
+        self.app
+            .update(&mut |runtime| ime.preedit_with_cursor(runtime, text, cursor))
     }
 
     pub(super) fn commit_ime(&mut self, text: &str) -> Result<(), String> {

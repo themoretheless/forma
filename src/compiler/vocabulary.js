@@ -3,7 +3,7 @@
 import { containerTypes } from '../component-layout.js';
 
 export const standard = new Set(
-  'key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition'.split(
+  'key x y width height text fontSize font.size color radius disabled hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition background live'.split(
     ' ',
   ),
 );
@@ -20,7 +20,7 @@ export const contentProps = new Map(
     Column: ['gap', 'padding', 'clip', 'radius', 'capture'],
     Grid: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius', 'capture'],
     Stack: ['gap', 'padding', 'clip', 'radius', 'capture'],
-    Rectangle: ['background', 'radius'],
+    Rectangle: ['background', 'radius', 'live'],
     TextInput: [
       'value',
       'placeholder',
@@ -31,6 +31,9 @@ export const contentProps = new Map(
       'multiline',
       'readOnly',
       'wrap',
+      'live',
+      'direction',
+      'dir',
     ],
     Text: [
       'text',
@@ -43,6 +46,9 @@ export const contentProps = new Map(
       'fontWeight',
       'font.weight',
       'wrap',
+      'live',
+      'direction',
+      'dir',
     ],
     Image: ['source', 'color'],
   }).map(([type, props]) => [type, new Set([...layoutProps, ...props])]),

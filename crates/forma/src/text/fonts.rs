@@ -100,6 +100,24 @@ pub fn font_face(index: u8) -> Option<&'static Face<'static>> {
     (index <= 6).then(|| glyph_face(index))
 }
 
+pub(super) const CJK: &[u8] = include_bytes!("../../assets/fallback/NotoSansSC.ttf");
+pub(super) const EMOJI: &[u8] = include_bytes!("../../assets/fallback/FormaEmoji-Regular.ttf");
+pub(super) const HEBREW: &[u8] = include_bytes!("../../assets/fallback/NotoSansHebrew.ttf");
+pub(super) const ARABIC: &[u8] = include_bytes!("../../assets/fallback/NotoSansArabic.ttf");
+
+pub(super) fn font_bytes(index: u8) -> Option<&'static [u8]> {
+    match index {
+        0 => Some(FONT),
+        1 => Some(CJK),
+        2 => Some(EMOJI),
+        3 => Some(MONO),
+        4 => Some(BOLD),
+        5 => Some(HEBREW),
+        6 => Some(ARABIC),
+        _ => None,
+    }
+}
+
 pub(super) fn glyph_face(index: u8) -> &'static Face<'static> {
     fn parsed(bytes: &'static [u8]) -> Face<'static> {
         let mut face = Face::parse(bytes, 0).expect("embedded fallback font");
@@ -108,30 +126,24 @@ pub(super) fn glyph_face(index: u8) -> &'static Face<'static> {
     }
     match index {
         1 => {
-            static CJK: OnceLock<Face<'static>> = OnceLock::new();
-            CJK.get_or_init(|| parsed(include_bytes!("../../assets/fallback/NotoSansSC.ttf")))
+            static CJK_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            CJK_FACE.get_or_init(|| parsed(CJK))
         }
         2 => {
-            static EMOJI: OnceLock<Face<'static>> = OnceLock::new();
-            EMOJI.get_or_init(|| {
-                parsed(include_bytes!(
-                    "../../assets/fallback/FormaEmoji-Regular.ttf"
-                ))
-            })
+            static EMOJI_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            EMOJI_FACE.get_or_init(|| parsed(EMOJI))
         }
         3 => {
             static MONO_FACE: OnceLock<Face<'static>> = OnceLock::new();
             MONO_FACE.get_or_init(|| Face::parse(MONO, 0).expect("embedded monospace font"))
         }
         5 => {
-            static HEBREW: OnceLock<Face<'static>> = OnceLock::new();
-            HEBREW
-                .get_or_init(|| parsed(include_bytes!("../../assets/fallback/NotoSansHebrew.ttf")))
+            static HEBREW_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            HEBREW_FACE.get_or_init(|| parsed(HEBREW))
         }
         6 => {
-            static ARABIC: OnceLock<Face<'static>> = OnceLock::new();
-            ARABIC
-                .get_or_init(|| parsed(include_bytes!("../../assets/fallback/NotoSansArabic.ttf")))
+            static ARABIC_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            ARABIC_FACE.get_or_init(|| parsed(ARABIC))
         }
         4 => {
             static BOLD_FACE: OnceLock<Face<'static>> = OnceLock::new();

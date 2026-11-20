@@ -66,38 +66,6 @@ impl Default for NativeWindowConfig {
     }
 }
 
-/// Window title. An application gets its own title untouched; the demo appends the
-/// active backend, the emulated platform and the function-key hints.
-pub(super) fn window_title(
-    mode: HostMode,
-    title: &str,
-    backend: Option<UiBackend>,
-    platform: TargetPlatform,
-    gpu_active: bool,
-) -> String {
-    if mode == HostMode::Application {
-        return title.to_owned();
-    }
-    let plat_suffix = if platform != TargetPlatform::Desktop {
-        format!(" · {}", platform.short_label())
-    } else {
-        String::new()
-    };
-    match backend {
-        Some(b) => format!(
-            "{} [{}{}] · F6: платформа · F7: бэкенд",
-            title,
-            if gpu_active && b == UiBackend::Svet && platform == TargetPlatform::Desktop {
-                "svet/GPU"
-            } else {
-                b.as_str()
-            },
-            plat_suffix
-        ),
-        None => format!("{title}{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet"),
-    }
-}
-
 /// Function keys the demo host keeps for itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum HostShortcut {
@@ -124,10 +92,4 @@ pub(super) fn host_shortcut(
         Key::Named(NamedKey::F8) if test_hooks => Some(HostShortcut::InjectDeviceLoss),
         _ => None,
     }
-}
-
-/// The egui accent bar marks the demo's compatibility profile; an application frame
-/// is presented as painted.
-pub(super) fn shows_frame_bar(mode: HostMode, backend: Option<UiBackend>) -> bool {
-    mode == HostMode::Demo && backend == Some(UiBackend::Egui)
 }

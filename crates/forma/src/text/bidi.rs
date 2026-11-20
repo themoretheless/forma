@@ -1,13 +1,57 @@
-//! Visual order of one line that mixes left-to-right and right-to-left text.
-//!
-//! The paragraph direction is always left to right. Inside it a run of right-to-left clusters
-//! is laid out mirrored: its first cluster ends up rightmost. Neutral clusters (spaces,
-//! punctuation) between two right-to-left clusters join their run; digits and everything else
-//! keep the left-to-right direction. Bracket mirroring and Arabic joining are not done here.
+//! Visual order and paragraph direction for text mixing LTR and RTL runs.
 
 use super::*;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
+
+/// Declared base direction of a text or input block (`ltr` default, `rtl`, or `auto` first-strong).
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum TextDirection {
+    #[default]
+    Ltr,
+    Rtl,
+    Auto,
+}
+
+impl TextDirection {
+    pub fn parse(mode: &str) -> Result<Self, String> {
+        match mode.trim() {
+            "" | "ltr" => Ok(Self::Ltr),
+            "rtl" => Ok(Self::Rtl),
+            "auto" => Ok(Self::Auto),
+            other => Err(format!("Unsupported text direction '{other}'")),
+        }
+    }
+}
+
+/// Concrete paragraph direction after resolving `TextDirection::Auto` (UAX #9 P2/P3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResolvedDirection {
+    Ltr,
+    Rtl,
+}
+
+/// Resolves `dir` against `text` using the first strongly directional character when `Auto`.
+pub fn resolve_direction(text: &str, dir: TextDirection) -> ResolvedDirection {
+    match dir {
+        TextDirection::Ltr => ResolvedDirection::Ltr,
+        TextDirection::Rtl => ResolvedDirection::Rtl,
+        TextDirection::Auto => {
+            for ch in text.chars() {
+                if is_rtl_char(ch) {
+                    return ResolvedDirection::Rtl;
+                }
+                if is_strong_ltr_char(ch) {
+                    return ResolvedDirection::Ltr;
+                }
+            }
+            ResolvedDirection::Ltr
+        }
+    }
+}
 
 /// Whether the line needs visual reordering at all. Lines without such characters keep the
 /// plain prefix-sum layout and never reach the rest of this module.
@@ -27,9 +71,20 @@ pub(crate) struct VisualCluster {
     pub width: f32,
 }
 
-/// The clusters of `line` in logical order, each with its place on the line.
+/// The clusters of `line` in logical order, each with its place on the line (LTR paragraph).
 pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec<VisualCluster> {
+    visual_line_with_dir(family, line, font_size, TextDirection::Ltr)
+}
+
+/// The clusters of `line` in logical order, laid out under `dir` (`Ltr`, `Rtl`, or `Auto`).
+pub(crate) fn visual_line_with_dir(
+    family: FontFamily,
+    line: &str,
+    font_size: f32,
+    dir: TextDirection,
+) -> Vec<VisualCluster> {
     let table = font_table_for(family);
+    let base_rtl = resolve_direction(line, dir) == ResolvedDirection::Rtl;
     // Arabic letters measure in the form their neighbours give them, as they are drawn.
     let forms = arabic::has_arabic(line).then(|| arabic::joined(line));
     let mut position = 0;
@@ -50,19 +105,25 @@ pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec
             (start..start + cluster.len(), rtl, strong, units)
         })
         .collect();
-    // A neutral cluster takes the direction of its neighbours when both are right-to-left.
-    let mut before = false;
+    // Resolve neutral/whitespace BiDi runs against adjacent strong characters and paragraph base.
+    let mut before: Option<bool> = None;
     let mut index = 0;
     while index < clusters.len() {
         if clusters[index].2 {
-            before = clusters[index].1;
+            before = Some(clusters[index].1);
             index += 1;
             continue;
         }
         let end = (index..clusters.len())
             .find(|&next| clusters[next].2)
             .unwrap_or(clusters.len());
-        if before && clusters.get(end).is_some_and(|next| next.1) {
+        let after = clusters.get(end).map(|next| next.1);
+        let neutral_rtl = match (before, after) {
+            (Some(true), Some(true)) => true,
+            (Some(false), Some(false)) => false,
+            _ => base_rtl,
+        };
+        if neutral_rtl {
             for neutral in &mut clusters[index..end] {
                 neutral.1 = true;
             }
@@ -71,7 +132,8 @@ pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec
     }
     let pixels = |units: f32| pixels_from_units(units, font_size, table.units_per_em);
     let mut placed = Vec::with_capacity(clusters.len());
-    let mut units = 0.;
+    let total_units: f32 = clusters.iter().map(|cluster| cluster.3).sum();
+    let mut units = if base_rtl { total_units } else { 0. };
     let mut start = 0;
     while start < clusters.len() {
         let rtl = clusters[start].1;
@@ -79,7 +141,15 @@ pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec
             .find(|&next| clusters[next].1 != rtl)
             .unwrap_or(clusters.len());
         let run: f32 = clusters[start..end].iter().map(|cluster| cluster.3).sum();
-        let mut pen = if rtl { units + run } else { units };
+        let run_left = if base_rtl {
+            units -= run;
+            units
+        } else {
+            let left = units;
+            units += run;
+            left
+        };
+        let mut pen = if rtl { run_left + run } else { run_left };
         for (range, _, _, advance) in &clusters[start..end] {
             let left = if rtl {
                 pen -= advance;
@@ -96,15 +166,20 @@ pub(crate) fn visual_line(family: FontFamily, line: &str, font_size: f32) -> Vec
                 width: pixels(left + advance) - pixels(left),
             });
         }
-        units += run;
         start = end;
     }
     placed
 }
 
 /// Where the caret stands for a byte offset of the line: after the cluster that ends there, on
-/// the side that cluster's direction continues to.
+/// the side that cluster's direction continues to (or visual left edge at end of RTL paragraph).
 pub(crate) fn caret_x(clusters: &[VisualCluster], offset: usize) -> f32 {
+    if let (Some(first), Some(last)) = (clusters.first(), clusters.last()) {
+        let rtl_para = clusters.len() > 1 && first.x > last.x + 0.01;
+        if rtl_para && offset >= last.range.end && !last.rtl {
+            return 0.;
+        }
+    }
     let before = clusters
         .iter()
         .rev()
@@ -199,18 +274,20 @@ pub(crate) fn mirrored(ch: char) -> Option<char> {
 /// cluster stay together and in their own order, so a mark still follows its base. A bracket in
 /// a right-to-left run is drawn mirrored (`mirror` resolves the glyph) and keeps its own advance,
 /// so the line measures the same.
-pub(super) fn reorder_glyphs<G: Copy>(
+pub(super) fn reorder_glyphs_with_dir<G: Copy>(
     family: FontFamily,
     text: &str,
+    dir: TextDirection,
     glyphs: &mut Vec<(G, f32)>,
     mirror: impl Fn(char) -> G,
 ) {
-    let clusters = visual_line(family, text, 1.);
+    let clusters = visual_line_with_dir(family, text, 1., dir);
     // Byte offset of every character, to turn a cluster's byte range into glyph indices.
     let offsets: Vec<usize> = text.char_indices().map(|(offset, _)| offset).collect();
     if offsets.len() != glyphs.len() {
         return;
     }
+    let base_rtl = resolve_direction(text, dir) == ResolvedDirection::Rtl;
     let logical = std::mem::take(glyphs);
     let mut take = |cluster: &VisualCluster| {
         let from = offsets.partition_point(|&offset| offset < cluster.range.start);
@@ -224,11 +301,20 @@ pub(super) fn reorder_glyphs<G: Copy>(
             glyphs.push((swapped.map_or(glyph, &mirror), advance));
         }
     };
-    for run in clusters.chunk_by(|a, b| a.rtl == b.rtl) {
+    let mut emit_run = |run: &[VisualCluster]| {
         if run[0].rtl {
             run.iter().rev().for_each(&mut take);
         } else {
             run.iter().for_each(&mut take);
+        }
+    };
+    if base_rtl {
+        for run in clusters.chunk_by(|a, b| a.rtl == b.rtl).rev() {
+            emit_run(run);
+        }
+    } else {
+        for run in clusters.chunk_by(|a, b| a.rtl == b.rtl) {
+            emit_run(run);
         }
     }
 }

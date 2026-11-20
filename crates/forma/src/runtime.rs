@@ -19,7 +19,7 @@ mod ui_state;
 mod vector;
 mod wasm_api;
 
-pub use a11y::{A11yNode, A11yRole, A11yTree};
+pub use a11y::{A11yLive, A11yNode, A11yRole, A11yTree};
 pub use canvas::MAX_CANVAS_EVENTS;
 use canvas::{CanvasEntry, CanvasInput};
 pub use links::{MAX_TEXT_LINK_EVENTS, TextLinkEvent};
@@ -131,6 +131,7 @@ pub struct Runtime {
     // State of the last successfully displayed retained scene. Documents are
     // private to Runtime; project/source replacement installs a new Runtime.
     ui_binding_states: Vec<crate::form_document::Properties>,
+    announcement: Option<(String, A11yLive)>,
     #[cfg(not(target_arch = "wasm32"))]
     svet_document: Option<crate::native_document_graph::DocumentGraph>,
     #[cfg(not(target_arch = "wasm32"))]

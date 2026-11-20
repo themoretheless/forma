@@ -544,3 +544,41 @@
   Studio (`src/compiler/vocabulary.js`), строковые имена встроенных узлов заменены на
   `NodeKind`/`BuiltinKind`, `eval.rs` разбит на `eval/{error,lookup,operators}.rs` с типизированным
   `EvalError`, а `Form::sync` и `Form::update` вынесены в `binding/{sync,update}.rs`.
+
+## 31. Разделение оконного хоста и эмуляции, квалификация ввода и полнота типографики
+
+- **Разделение оконного хоста и платформенной эмуляции:** слой демо/хрома и выбора платформы
+  перенесён в `crates/forma/src/native_window/emulation.rs` (`HostShell`, `TargetPlatform`,
+  `apply_egui_frame_bar`, `apply_mobile_chrome`, `chooser_pick`), а вторичные окна
+  (`native_window/aux_window.rs`) выделяют тестируемую бесэкранную сцену `AuxiliaryScene` без
+  `unwrap()` при инициализации `softbuffer`.
+- **Квалификация нативного ввода, IME и live-регионов доступности:**
+  - Потеря/возврат фокуса окна восстанавливает неименованные `@`-редакторы по уникальному
+    `control_origin` при сдвиге индексов соседями.
+  - Добавлен субкластерный курсор/выделение IME преедита: `Runtime::text_preedit_with_cursor`, WASM
+    `Runtime::text_preedit_utf16`, связка `ImeSession::preedit_with_cursor` и визуальная подсветка
+    активного фрагмента композиции.
+  - Введены декларативный режим `live: 'off'|'polite'|'assertive'` (`A11yLive` в шаблонах, `.ui`,
+    `SceneIr` и `A11yNode.live`) и императивные методы `Runtime::announce` /
+    `clear_announcement` / `live_announcement` / `live_politeness` с публикацией синтетических узлов
+    `Role::Status` / `Role::Alert` в `native_accessibility::PublishedTree`.
+  - Добавлен набор `crates/forma/tests/native_input_qualification.rs` и безопасные pipe-child
+    тесты `native_clipboard` без обращения к живому OS-буферу (физический iOS
+    simulator/устройство и аппаратный тачскрин на данном хосте отсутствуют: `xcrun simctl` не
+    установлен).
+- **Полнота текста, скриптов и цветных emoji:**
+  - Направление абзаца (`TextDirection`: `'ltr' | 'rtl' | 'auto'` и свойство `.ui` `direction` /
+    `dir`), правое выравнивание RTL-строк в `Text` и `TextInput`, биекция границ каретки в
+    смешанных BiDi-прогонах.
+  - Расширенный арабский алфавит (`U+0671..=U+06FF`, персидский/урду/курдский/пушту/уйгурский,
+    формы PFA `U+FB50..=U+FDFF`) и огласованная лигатура Lam-Alef с сохранением харакатов.
+  - Безопасный парсер таблиц OpenType `GDEF`/`GSUB`/`GPOS` (`crates/forma/src/text/opentype.rs`:
+    `SingleSubst`, `LigatureSubst` с `IGNORE_MARKS`, `PairPos`, `MarkToBase`, `MarkToMark`,
+    extension-таблицы 7/9) подключён к `shape_text` / `shape_text_in` / `shape_text_with_dir` /
+    `measure_shaped_text_in` и `wrap_text_ranges_in` для `SansBold`.
+  - Цветные emoji (`crates/forma/src/text/color_emoji.rs`): поддержка OpenType `COLR`/`CPAL` v0 и
+    многотоновой палитры `FormaEmoji` с учётом `U+FE0E` (монохромный селектор), `U+FE0F` и
+    модификаторов оттенка кожи Фитцпатрика `U+1F3FB..=U+1F3FF` на CPU и в GPU `DisplayList`.
+  - Правила UAX #14 и японского кинсоку (`crates/forma/src/text/linebreak.rs`) объединены для
+    `text::wrap` и `text::runs`, закреплены тестом `crates/forma/tests/typography_scripts.rs` и
+    эталоном `crates/forma/tests/golden/typography_scripts.txt`.

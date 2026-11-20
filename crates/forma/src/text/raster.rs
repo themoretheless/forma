@@ -6,7 +6,6 @@ use std::cell::RefCell;
 
 #[derive(Default)]
 pub(super) struct CpuRasterScratch {
-    pub(super) ids: Vec<(FontGlyph, f32)>,
     pub(super) edges: Vec<(Point, Point)>,
     pub(super) area: Vec<f32>,
     pub(super) full: Vec<f32>,
@@ -77,8 +76,9 @@ pub fn draw_text_in(
     rect: [f32; 4],
     color: [u8; 4],
 ) {
-    draw_text_region(
+    draw_text_dir_region(
         family,
+        TextDirection::Ltr,
         &mut RasterCanvas::full(canvas.pixels, canvas.width, canvas.height, canvas.scale),
         text,
         font_size,
@@ -88,8 +88,30 @@ pub fn draw_text_in(
 }
 
 /// Draw into a physical subregion while retaining global contour coordinates.
+#[cfg(test)]
 pub(crate) fn draw_text_region(
     family: FontFamily,
+    canvas: &mut RasterCanvas<'_>,
+    text: &str,
+    font_size: f32,
+    rect: [f32; 4],
+    color: [u8; 4],
+) {
+    draw_text_dir_region(
+        family,
+        TextDirection::Ltr,
+        canvas,
+        text,
+        font_size,
+        rect,
+        color,
+    );
+}
+
+/// Draw into a physical subregion with explicit [`TextDirection`] alignment and color emoji layers.
+pub(crate) fn draw_text_dir_region(
+    family: FontFamily,
+    dir: TextDirection,
     canvas: &mut RasterCanvas<'_>,
     text: &str,
     font_size: f32,
@@ -131,47 +153,32 @@ pub(crate) fn draw_text_region(
     if !clip.iter().all(|n| n.is_finite()) || clip[0] >= clip[2] || clip[1] >= clip[3] {
         return;
     }
-    let face = glyph_face(family.primary());
-    let units_to_pixels = font_size * scale / face.units_per_em() as f32;
-    let (mut ids, mut edges) = CPU_SCRATCH.with(|cell| {
-        let mut s = cell.borrow_mut();
-        (std::mem::take(&mut s.ids), std::mem::take(&mut s.edges))
-    });
-    let text_width = glyph_ids(family, text, &mut ids) * units_to_pixels;
-    let origin = Point {
-        x: (rect[0] + rect[2] * 0.5) * scale - text_width * 0.5,
-        y: (rect[1] + rect[3] * 0.5) * scale
-            + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
-    };
-    if !units_to_pixels.is_finite() || !origin.x.is_finite() || !origin.y.is_finite() {
-        CPU_SCRATCH.with(|cell| {
-            let mut s = cell.borrow_mut();
-            s.ids = ids;
-            s.edges = edges;
-        });
-        return;
-    }
-    edges.clear();
-    let mut contours = Contours {
-        #[cfg(test)]
-        tolerance: CURVE_TOLERANCE,
-        edges,
-        current: origin,
-        start: origin,
-        origin,
-        units_to_pixels,
-    };
-    for &(glyph, adv) in &ids {
-        let resolved_face = glyph_face(glyph.face);
-        contours.units_to_pixels = font_size * scale / resolved_face.units_per_em() as f32;
-        resolved_face.outline_glyph(glyph.id, &mut contours);
-        contours.origin.x += adv * units_to_pixels;
-    }
-    rasterize_region(pixels, width, height, region, &contours.edges, clip, color);
+    let mut edges = CPU_SCRATCH.with(|cell| std::mem::take(&mut cell.borrow_mut().edges));
+    super::outline::emit_colored_glyph_outlines(
+        &super::outline::TextDraw {
+            family,
+            dir,
+            text,
+            font_size,
+            rect,
+            scale,
+            color,
+        },
+        &mut edges,
+        |layer_edges, layer_color| {
+            rasterize_region(
+                pixels,
+                width,
+                height,
+                region,
+                layer_edges,
+                clip,
+                layer_color,
+            );
+        },
+    );
     CPU_SCRATCH.with(|cell| {
-        let mut s = cell.borrow_mut();
-        s.ids = ids;
-        s.edges = contours.edges;
+        cell.borrow_mut().edges = edges;
     });
 }
 

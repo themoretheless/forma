@@ -288,11 +288,17 @@ impl Document {
                     "maxWidth",
                     "minHeight",
                     "maxHeight",
+                    "live",
+                    "dir",
+                    "direction",
                 ]
                 .contains(&key.as_str())
             {
                 return Err(format!("Unknown property {}.{key}", instance.kind));
             }
+        }
+        if instance.props.contains_key("direction") && instance.props.contains_key("dir") {
+            return Err("direction and dir are the same property".into());
         }
         let has_required_contracts = matches!(
             definition.defaults.get("__contracts"),
@@ -310,6 +316,9 @@ impl Document {
             definition.defaults.clone()
         };
         props.extend(instance.props.clone());
+        if let Some(dir_val) = instance.props.get("dir").cloned() {
+            props.entry("direction".into()).or_insert(dir_val);
+        }
         let transferred_snapshot = owned_snapshot.is_some();
         if let Some(snapshot) = owned_snapshot.take() {
             props.insert("__state".into(), snapshot);
@@ -439,6 +448,7 @@ impl Document {
                     "maxWidth",
                     "minHeight",
                     "maxHeight",
+                    "live",
                 ] {
                     if let Some(value) = resolved.get(key) {
                         root.props.insert(key.into(), value.clone());
@@ -556,6 +566,13 @@ impl Document {
                 );
             }
             Some(BuiltinKind::TextInput) => {
+                if n.props.contains_key("direction") && n.props.contains_key("dir") {
+                    return Err("direction and dir are the same property".into());
+                }
+                let dir = match n.props.get("direction").or_else(|| n.props.get("dir")) {
+                    Some(v) => crate::text::TextDirection::parse(&v.text()?)?,
+                    None => crate::text::TextDirection::Ltr,
+                };
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
@@ -565,10 +582,15 @@ impl Document {
                 write_str_literal(&text_ref(&n.props, "label", "")?, out);
                 out.push_str("; placeholder:");
                 write_str_literal(&text_ref(&n.props, "placeholder", "")?, out);
+                let dir_suffix = match dir {
+                    crate::text::TextDirection::Ltr => "",
+                    crate::text::TextDirection::Rtl => " direction:'rtl';",
+                    crate::text::TextDirection::Auto => " direction:'auto';",
+                };
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!(
-                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; wrap:{}; }} ",
+                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; wrap:{};{dir_suffix} }} ",
                         text_ref(&n.props, "color", "#ffffff")?,
                         text_ref(&n.props, "placeholderColor", "#999999")?,
                         num(&n.props, "fontSize", 15.)?,
@@ -590,6 +612,18 @@ impl Document {
                 }
             }
             Some(BuiltinKind::Text) => {
+                if n.props.contains_key("direction") && n.props.contains_key("dir") {
+                    return Err("direction and dir are the same property".into());
+                }
+                let dir = match n.props.get("direction").or_else(|| n.props.get("dir")) {
+                    Some(v) => crate::text::TextDirection::parse(&v.text()?)?,
+                    None => crate::text::TextDirection::Ltr,
+                };
+                let dir_suffix = match dir {
+                    crate::text::TextDirection::Ltr => "",
+                    crate::text::TextDirection::Rtl => " direction:'rtl';",
+                    crate::text::TextDirection::Auto => " direction:'auto';",
+                };
                 let value = text_ref(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = text_ref(&n.props, "color", "#ffffff")?;
@@ -605,22 +639,32 @@ impl Document {
                     }
                     for (i, (byte_range, line_w)) in wrapped.iter().enumerate() {
                         let line = &value[byte_range.clone()];
-                        let (width, height) = if multiline {
-                            (*line_w as f64, fs * 1.5)
+                        let (lx, width, height) = if multiline {
+                            let align = if dir != crate::text::TextDirection::Ltr
+                                && crate::text::resolve_direction(line, dir)
+                                    == crate::text::ResolvedDirection::Rtl
+                            {
+                                (w - f64::from(*line_w)).max(0.)
+                            } else {
+                                0.
+                            };
+                            (x + align, *line_w as f64, fs * 1.5)
                         } else {
-                            (w, h)
+                            (x, w, h)
                         };
                         let _ = std::fmt::Write::write_fmt(
                             out,
                             format_args!(
-                                "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
+                                "ContentText {{ x:{lx}; y:{}; width:{width}; height:{height}; text:",
                                 y + i as f64 * fs * 1.5
                             ),
                         );
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
+                            format_args!(
+                                "; color:{color}; fontSize:{fs};{family_field}{dir_suffix} }} "
+                            ),
                         );
                     }
                     if multiline {
@@ -632,25 +676,34 @@ impl Document {
                         clip(out, 0.);
                     }
                     for (i, line) in value.split('\n').enumerate() {
-                        let (width, height) = if multiline {
-                            (
-                                crate::text::measure_line_in(family, line, fs as f32)[0] as f64,
-                                fs * 1.5,
-                            )
+                        let (lx, width, height) = if multiline {
+                            let line_w =
+                                crate::text::measure_line_in(family, line, fs as f32)[0] as f64;
+                            let align = if dir != crate::text::TextDirection::Ltr
+                                && crate::text::resolve_direction(line, dir)
+                                    == crate::text::ResolvedDirection::Rtl
+                            {
+                                (w - line_w).max(0.)
+                            } else {
+                                0.
+                            };
+                            (x + align, line_w, fs * 1.5)
                         } else {
-                            (w, h)
+                            (x, w, h)
                         };
                         let _ = std::fmt::Write::write_fmt(
                             out,
                             format_args!(
-                                "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
+                                "ContentText {{ x:{lx}; y:{}; width:{width}; height:{height}; text:",
                                 y + i as f64 * fs * 1.5
                             ),
                         );
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
+                            format_args!(
+                                "; color:{color}; fontSize:{fs};{family_field}{dir_suffix} }} "
+                            ),
                         );
                     }
                     if multiline {

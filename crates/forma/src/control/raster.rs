@@ -107,8 +107,9 @@ impl Button {
         }
         let r = b.radius.min(b.width / 2.).min(b.height / 2.);
         if let Some(t) = &self.template.text {
-            text::draw_text_in(
+            text::draw_text_dir_region(
                 t.family,
+                t.direction,
                 &mut text::RasterCanvas::full(&mut out, width, height, scale),
                 &t.text,
                 t.font_size,
@@ -155,8 +156,9 @@ impl Button {
                         out = parent;
                     }
                 }
-                template::Content::Text { bounds, text: t } => text::draw_text_in(
+                template::Content::Text { bounds, text: t } => text::draw_text_dir_region(
                     t.family,
+                    t.direction,
                     &mut text::RasterCanvas::full(&mut out, width, height, scale),
                     &t.text,
                     t.font_size,

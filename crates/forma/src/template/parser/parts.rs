@@ -132,6 +132,7 @@ impl<'a> Parser<'a> {
                         _ => return Err(self.error("Expected boolean")),
                     };
                 }
+                "direction" | "dir" => input.direction = self.text_direction()?,
                 _ => return Err(self.error("Unknown ContentInput property")),
             }
             self.semi()?;
@@ -147,6 +148,7 @@ impl<'a> Parser<'a> {
             color: [0, 0, 0, 255],
             font_size: 16.,
             family: Default::default(),
+            direction: Default::default(),
         };
         let mut seen = SeenFields::default();
         let mut weight = crate::text::FontWeight::Regular;
@@ -173,6 +175,7 @@ impl<'a> Parser<'a> {
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
                 "font.family" | "fontFamily" => text.family = self.font_family()?,
+                "direction" | "dir" => text.direction = self.text_direction()?,
                 "font.weight" | "fontWeight" => {
                     let w = match &self.current.kind {
                         Kind::Ident(name) => crate::text::FontWeight::from_name(name.text()),

@@ -1,0 +1,5 @@
+rtl.bijection_stops=[0, 1, 2, 3, 4, 5, 7, 6, 8]
+arabic.extended_gids=persian:6,urdu:7,pashto:[639, 1302, 635],lam_alef:4
+opentype.synthetic=ok; bold_AV_adv=33.07; To_w=26.06; arabic_bidi_glyphs=13
+color_emoji.dl_layers=[[255, 204, 77, 255], [85, 68, 25, 255]]
+linebreak.kinsoku=["「こん", "にち", "は。」"]; punct=["foo ", "(bar)!"]; runs=["「こん", "にち", "は。」"]

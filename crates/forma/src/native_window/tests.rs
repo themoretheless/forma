@@ -9,9 +9,12 @@ fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -99,9 +102,12 @@ fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -189,9 +195,12 @@ fn activation_focus_does_not_overwrite_new_pointer_selection() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -270,9 +279,12 @@ fn window_refocus_restores_stable_editor_key_after_reorder() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -337,9 +349,12 @@ fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
                 let mut host = NativeHost {
                     app: runtime,
                     config: NativeWindowConfig::default(),
-                    backend: Some(UiBackend::Svet),
-                    platform: TargetPlatform::Desktop,
-                    chooser: None,
+                    shell: HostShell {
+                        mode: HostMode::Demo,
+                        backend: Some(UiBackend::Svet),
+                        platform: TargetPlatform::Desktop,
+                        chooser: None,
+                    },
                     accessibility: None,
                     waker: None,
                     accessibility_active: false,
@@ -447,9 +462,12 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -546,9 +564,12 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -619,9 +640,12 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -812,9 +836,12 @@ fn composition_reconciles_replacement_after_input_callback() {
             fail: false,
         },
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -902,9 +929,12 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -996,9 +1026,12 @@ fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -1066,9 +1099,12 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -1149,9 +1185,12 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
         let mut host = NativeHost {
             app: runtime,
             config: NativeWindowConfig::default(),
-            backend: Some(UiBackend::Svet),
-            platform: TargetPlatform::Desktop,
-            chooser: None,
+            shell: HostShell {
+                mode: HostMode::Demo,
+                backend: Some(UiBackend::Svet),
+                platform: TargetPlatform::Desktop,
+                chooser: None,
+            },
             accessibility: None,
             waker: None,
             accessibility_active: false,
@@ -1242,9 +1281,12 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -1305,9 +1347,12 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
     let mut host = NativeHost {
         app: runtime,
         config: NativeWindowConfig::default(),
-        backend: Some(UiBackend::Svet),
-        platform: TargetPlatform::Desktop,
-        chooser: None,
+        shell: HostShell {
+            mode: HostMode::Demo,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::Desktop,
+            chooser: None,
+        },
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -1558,10 +1603,8 @@ pub(super) fn windowless_host<A: NativeApp + 'static>(
 ) -> NativeHost<A> {
     NativeHost {
         app,
-        backend: config.resolved_backend(),
-        platform: config.platform,
+        shell: HostShell::windowless(&config),
         config,
-        chooser: None,
         accessibility: None,
         waker: None,
         accessibility_active: false,
@@ -1871,7 +1914,7 @@ fn wake_updates_the_application_even_when_nothing_is_drawn() {
     assert_eq!(host.app.updates, 2, "one update per served wake");
 
     // The demo chooser precedes the application: it is not updated behind it.
-    host.chooser = Some(build_chooser_runtime().unwrap());
+    host.shell.chooser = Some(build_chooser_runtime().unwrap());
     host.woken().unwrap();
     assert_eq!(host.app.updates, 2);
 }
@@ -2311,7 +2354,7 @@ fn an_extension_hears_backend_and_platform_changes_and_names_the_window() {
         host.status().surface,
         crate::native_gpu::Presentation::Occluded
     );
-    host.chooser = Some(build_chooser_runtime().unwrap());
+    host.shell.chooser = Some(build_chooser_runtime().unwrap());
     assert!(host.status().choosing);
 }
 
@@ -2390,20 +2433,23 @@ fn the_gpu_draws_desktop_svet_frames_and_everything_on_ios() {
 fn the_chooser_is_rebuilt_for_a_screen_it_does_not_fill_and_keeps_its_focus() {
     let mut host = windowless_host(two_buttons(), NativeWindowConfig::application("fit"));
     host.fit_chooser(393., 852.);
-    assert!(host.chooser.is_none(), "nothing to fit without a chooser");
+    assert!(
+        host.shell.chooser.is_none(),
+        "nothing to fit without a chooser"
+    );
 
     let mut chooser = build_chooser_runtime().unwrap();
     assert!(chooser.focus_control(1));
-    host.chooser = Some(chooser);
+    host.shell.chooser = Some(chooser);
     host.fit_chooser(393., 852.);
-    let fitted = host.chooser.as_ref().unwrap();
+    let fitted = host.shell.chooser.as_ref().unwrap();
     assert_eq!((fitted.width(), fitted.height()), (393., 852.));
     assert_eq!(fitted.control_key(1), "choose_svet");
     assert_eq!(fitted.focused_index(), 1);
     let revision = fitted.visual_revision();
     // A size within a pixel is the same screen.
     host.fit_chooser(393.6, 851.5);
-    let kept = host.chooser.as_ref().unwrap();
+    let kept = host.shell.chooser.as_ref().unwrap();
     assert_eq!((kept.width(), kept.height()), (393., 852.));
     assert_eq!(kept.visual_revision(), revision);
 }

@@ -197,3 +197,39 @@ fn unavailable_editor_and_empty_copy_do_not_access_clipboard() {
     runtime.set_binding_disabled(0, true).unwrap();
     assert!(!handle_with(&mut runtime, "v", || panic!(), |_| panic!()));
 }
+
+#[cfg(unix)]
+#[test]
+fn clipboard_reader_handles_utf8_failures_and_timeout_without_touching_os_clipboard() {
+    let ok_child = std::process::Command::new("/bin/sh")
+        .args(["-c", "printf 'Привет🙂\\nمرحبا'"])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let bytes = read_clipboard_child(ok_child).unwrap();
+    assert_eq!(decode_clipboard(bytes).unwrap(), "Привет🙂\nمرحبا");
+
+    let fail_child = std::process::Command::new("/bin/sh")
+        .args(["-c", "printf 'partial'; exit 3"])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    assert!(read_clipboard_child(fail_child).is_err());
+
+    let no_pipe = std::process::Command::new("/usr/bin/true").spawn().unwrap();
+    assert!(read_clipboard_child(no_pipe).is_err());
+
+    let slow = std::process::Command::new("/bin/sleep")
+        .arg("2")
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let pid = slow.id() as libc::pid_t;
+    let err = read_clipboard_child(slow).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::TimedOut);
+    let mut status = 0;
+    assert_eq!(
+        unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) },
+        -1
+    );
+}

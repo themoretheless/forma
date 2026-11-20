@@ -380,11 +380,11 @@ pub(super) fn builtin_definitions() -> &'static [(&'static str, Definition); 4] 
             [
                 (
                     "Text",
-                    "component Text { width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false; fontFamily: 'sans'; fontWeight: 'regular'; runs: null; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; fontFamily: props.fontFamily; fontWeight: props.fontWeight; runs: props.runs; } } }",
+                    "component Text { width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false; fontFamily: 'sans'; fontWeight: 'regular'; runs: null; direction: 'ltr'; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; fontFamily: props.fontFamily; fontWeight: props.fontWeight; runs: props.runs; direction: props.direction; } } }",
                 ),
                 (
                     "TextInput",
-                    "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; wrap: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, wrap, readOnly, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+                    "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; wrap: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; direction: 'ltr'; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, wrap, readOnly, fontSize, color, placeholderColor, direction }; } PointerArea { clicked -> events.clicked(); } } }",
                 ),
                 // The pressable area a container with a `clicked` handler lays under its children.
                 (

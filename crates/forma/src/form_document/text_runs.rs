@@ -291,6 +291,7 @@ pub(super) fn flatten_ir(
                 color: parse_color(&run.color, "color")?,
                 font_size: font_size as f32,
                 family: run.family,
+                direction: Default::default(),
             },
         });
     }
