@@ -233,6 +233,7 @@ fn launch_upload_and_exec_destroy_errors_do_not_leak_graph() {
 }
 #[test]
 fn absent_driver_is_explicit_and_error_formatting_needs_no_driver() {
+    // SAFETY: `is_culib_present` only checks whether the CUDA shared library can be loaded.
     if !unsafe { sys::is_culib_present() } {
         assert!(matches!(
             CudaGraphApi::load(),

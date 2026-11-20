@@ -8,21 +8,7 @@ pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: b
     }
     match &module.types[handle].inner {
         TypeInner::Scalar(s) => msl_scalar(*s).to_string(),
-        TypeInner::Vector { size, scalar } => {
-            let prefix = match (scalar.kind, scalar.width) {
-                (ScalarKind::Float, 2) => "half",
-                (ScalarKind::Float, _) => "float",
-                (ScalarKind::Sint, _) => "int",
-                (ScalarKind::Uint, _) => "uint",
-                (ScalarKind::Bool, _) => "bool",
-            };
-            let n = size.as_u32();
-            if packed_vec3 && n == 3 {
-                format!("packed_{prefix}3")
-            } else {
-                format!("{prefix}{n}")
-            }
-        }
+        TypeInner::Vector { size, scalar } => msl_vector_type(*size, *scalar, packed_vec3),
         TypeInner::Matrix {
             columns,
             rows,
@@ -47,58 +33,14 @@ pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: b
         }
         TypeInner::Pointer { base, space } => {
             let elem = msl_type_for_handle(module, *base, false);
-            let qual = match space {
-                AddressSpace::WorkGroup => "threadgroup",
-                AddressSpace::Storage {
-                    access: StorageAccess::Read,
-                } => "const device",
-                AddressSpace::Storage { .. } => "device",
-                AddressSpace::Uniform | AddressSpace::Immediate | AddressSpace::PushConstant => {
-                    "constant"
-                }
-                _ => "thread",
-            };
+            let qual = msl_pointer_qualifier(*space);
             format!("{qual} {elem}*")
         }
         TypeInner::Image {
             dim,
             arrayed,
             class,
-        } => {
-            let dim_str = match (dim, arrayed) {
-                (crate::ImageDimension::D1, false) => "1d",
-                (crate::ImageDimension::D1, true) => "1d_array",
-                (crate::ImageDimension::D2, false) => "2d",
-                (crate::ImageDimension::D2, true) => "2d_array",
-                (crate::ImageDimension::D3, _) => "3d",
-                (crate::ImageDimension::Cube, false) => "cube",
-                (crate::ImageDimension::Cube, true) => "cube_array",
-            };
-            match class {
-                ImageClass::Depth { .. } => format!("depth{dim_str}<float>"),
-                ImageClass::Sampled { kind, .. } => {
-                    let s = match kind {
-                        ScalarKind::Sint => "int",
-                        ScalarKind::Uint => "uint",
-                        _ => "float",
-                    };
-                    format!("texture{dim_str}<{s}>")
-                }
-                ImageClass::Storage { format, access } => {
-                    let acc = match access {
-                        StorageAccess::Read => "access::read",
-                        StorageAccess::Write => "access::write",
-                        StorageAccess::ReadWrite => "access::read_write",
-                    };
-                    let component = match format.scalar_kind() {
-                        ScalarKind::Uint => "uint",
-                        ScalarKind::Sint => "int",
-                        _ => "float",
-                    };
-                    format!("texture{dim_str}<{component}, {acc}>")
-                }
-            }
-        }
+        } => msl_image_type(*dim, *arrayed, *class),
         TypeInner::Sampler { .. } => "sampler".to_string(),
         TypeInner::Struct { .. } => module.types[handle]
             .name
@@ -107,21 +49,75 @@ pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: b
     }
 }
 
+fn msl_vector_type(size: VectorSize, scalar: Scalar, packed_vec3: bool) -> String {
+    let prefix = match (scalar.kind, scalar.width) {
+        (ScalarKind::Float, 2) => "half",
+        (ScalarKind::Float, _) => "float",
+        (ScalarKind::Sint, _) => "int",
+        (ScalarKind::Uint, _) => "uint",
+        (ScalarKind::Bool, _) => "bool",
+    };
+    let n = size.as_u32();
+    if packed_vec3 && n == 3 {
+        format!("packed_{prefix}3")
+    } else {
+        format!("{prefix}{n}")
+    }
+}
+
+fn msl_image_type(dim: crate::ImageDimension, arrayed: bool, class: ImageClass) -> String {
+    let dim_str = match (dim, arrayed) {
+        (crate::ImageDimension::D1, false) => "1d",
+        (crate::ImageDimension::D1, true) => "1d_array",
+        (crate::ImageDimension::D2, false) => "2d",
+        (crate::ImageDimension::D2, true) => "2d_array",
+        (crate::ImageDimension::D3, _) => "3d",
+        (crate::ImageDimension::Cube, false) => "cube",
+        (crate::ImageDimension::Cube, true) => "cube_array",
+    };
+    match class {
+        ImageClass::Depth { .. } => format!("depth{dim_str}<float>"),
+        ImageClass::Sampled { kind, .. } => {
+            let s = match kind {
+                ScalarKind::Sint => "int",
+                ScalarKind::Uint => "uint",
+                _ => "float",
+            };
+            format!("texture{dim_str}<{s}>")
+        }
+        ImageClass::Storage { format, access } => {
+            let acc = match access {
+                StorageAccess::Read => "access::read",
+                StorageAccess::Write => "access::write",
+                StorageAccess::ReadWrite => "access::read_write",
+            };
+            let component = match format.scalar_kind() {
+                ScalarKind::Uint => "uint",
+                ScalarKind::Sint => "int",
+                _ => "float",
+            };
+            format!("texture{dim_str}<{component}, {acc}>")
+        }
+    }
+}
+
+fn msl_pointer_qualifier(space: AddressSpace) -> &'static str {
+    match space {
+        AddressSpace::WorkGroup => "threadgroup",
+        AddressSpace::Storage {
+            access: StorageAccess::Read,
+        } => "const device",
+        AddressSpace::Storage { .. } => "device",
+        AddressSpace::Uniform | AddressSpace::Immediate | AddressSpace::PushConstant => "constant",
+        _ => "thread",
+    }
+}
+
 pub(super) fn msl_param_type(module: &Module, handle: Handle<Type>) -> String {
     match &module.types[handle].inner {
         TypeInner::Pointer { base, space } => {
             let elem = msl_type_for_handle(module, *base, false);
-            let qual = match space {
-                AddressSpace::WorkGroup => "threadgroup",
-                AddressSpace::Storage {
-                    access: StorageAccess::Read,
-                } => "const device",
-                AddressSpace::Storage { .. } => "device",
-                AddressSpace::Uniform | AddressSpace::Immediate | AddressSpace::PushConstant => {
-                    "constant"
-                }
-                _ => "thread",
-            };
+            let qual = msl_pointer_qualifier(*space);
             format!("{qual} {elem}*")
         }
         _ => msl_type_for_handle(module, handle, false),

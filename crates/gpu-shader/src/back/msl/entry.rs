@@ -94,50 +94,13 @@ pub(super) fn msl_global_param_decl(module: &Module, gh: Handle<GlobalVariable>)
     let gv = &module.global_variables[gh];
     let gname = gv.name.as_deref().unwrap_or("g");
     match gv.space {
-        AddressSpace::Uniform => {
+        AddressSpace::Uniform | AddressSpace::Immediate | AddressSpace::PushConstant => {
             let ty = msl_type_for_handle(module, gv.ty, false);
             format!("constant {ty}& {gname}")
         }
-        AddressSpace::Immediate | AddressSpace::PushConstant => {
-            let ty = msl_type_for_handle(module, gv.ty, false);
-            format!("constant {ty}& {gname}")
-        }
-        AddressSpace::Storage { access } => {
-            let qual = if access == StorageAccess::Read {
-                "const device"
-            } else {
-                "device"
-            };
-            match &module.types[gv.ty].inner {
-                TypeInner::Array {
-                    base,
-                    size: ArraySize::Dynamic,
-                    ..
-                } => {
-                    let elem_ty = msl_type_for_handle(module, *base, false);
-                    format!("{qual} {elem_ty}* {gname}")
-                }
-                _ => {
-                    let ty = msl_type_for_handle(module, gv.ty, false);
-                    format!("{qual} {ty}& {gname}")
-                }
-            }
-        }
-        AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
-            TypeInner::Array {
-                base,
-                size: ArraySize::Constant(_),
-                ..
-            } => {
-                let elem_ty = msl_type_for_handle(module, *base, false);
-                format!("threadgroup {elem_ty}* {gname}")
-            }
-            _ => {
-                let ty = msl_type_for_handle(module, gv.ty, false);
-                format!("threadgroup {ty}& {gname}")
-            }
-        },
-        AddressSpace::Private => {
+        AddressSpace::Storage { access } => msl_storage_param_decl(module, gv.ty, gname, access),
+        AddressSpace::WorkGroup => msl_workgroup_param_decl(module, gv.ty, gname),
+        AddressSpace::Private | AddressSpace::Function => {
             let ty = msl_type_for_handle(module, gv.ty, false);
             format!("thread {ty}& {gname}")
         }
@@ -145,64 +108,70 @@ pub(super) fn msl_global_param_decl(module: &Module, gh: Handle<GlobalVariable>)
             let ty = msl_type_for_handle(module, gv.ty, false);
             format!("{ty} {gname}")
         }
-        AddressSpace::Function => {
-            let ty = msl_type_for_handle(module, gv.ty, false);
-            format!("thread {ty}& {gname}")
-        }
     }
 }
 
-pub(super) fn emit_helper_function_prototype(
-    out: &mut String,
+fn msl_storage_param_decl(
     module: &Module,
-    func: &Function,
-    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
-    _fh: Handle<Function>,
-    _binding_map: &BindingMap,
-) {
-    let raw_fname = func.name.as_deref().unwrap_or("helper");
-    let fname = if raw_fname == "main" {
-        "_wgpu_helper_main"
+    ty: Handle<Type>,
+    gname: &str,
+    access: StorageAccess,
+) -> String {
+    let qual = if access == StorageAccess::Read {
+        "const device"
     } else {
-        msl_escape_ident(raw_fname)
+        "device"
     };
-    let ret_ty = func
-        .result
-        .as_ref()
-        .map(|r| msl_type_for_handle(module, r.ty, false))
-        .unwrap_or_else(|| "void".to_string());
-
-    let mut params = Vec::new();
-    for arg in &func.arguments {
-        let raw_aname = arg.name.as_deref().unwrap_or("arg");
-        let aname = msl_escape_ident(raw_aname);
-        let aty = msl_param_type(module, arg.ty);
-        params.push(format!("{aty} {aname}"));
-    }
-    if let Some(globals) = func_globals.get(raw_fname) {
-        for &gh in globals {
-            params.push(msl_global_param_decl(module, gh));
+    match &module.types[ty].inner {
+        TypeInner::Array {
+            base,
+            size: ArraySize::Dynamic,
+            ..
+        } => {
+            let elem_ty = msl_type_for_handle(module, *base, false);
+            format!("{qual} {elem_ty}* {gname}")
+        }
+        _ => {
+            let ty_msl = msl_type_for_handle(module, ty, false);
+            format!("{qual} {ty_msl}& {gname}")
         }
     }
-    if func.body_src.contains("arrayLength") {
-        params.push("constant uint* _wgpu_buffer_sizes".to_string());
-    }
-    out.push_str(&format!("{ret_ty} {fname}({});\n", params.join(", ")));
 }
 
-pub(super) fn emit_helper_function(
-    out: &mut String,
+fn msl_workgroup_param_decl(module: &Module, ty: Handle<Type>, gname: &str) -> String {
+    match &module.types[ty].inner {
+        TypeInner::Array {
+            base,
+            size: ArraySize::Constant(_),
+            ..
+        } => {
+            let elem_ty = msl_type_for_handle(module, *base, false);
+            format!("threadgroup {elem_ty}* {gname}")
+        }
+        _ => {
+            let ty_msl = msl_type_for_handle(module, ty, false);
+            format!("threadgroup {ty_msl}& {gname}")
+        }
+    }
+}
+
+struct HelperSignature {
+    ret_ty: String,
+    fname: String,
+    params: Vec<String>,
+    ptr_params: BTreeSet<String>,
+}
+
+fn build_helper_signature(
     module: &Module,
     func: &Function,
     func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
-    _fh: Handle<Function>,
-    binding_map: &BindingMap,
-) {
+) -> HelperSignature {
     let raw_fname = func.name.as_deref().unwrap_or("helper");
     let fname = if raw_fname == "main" {
-        "_wgpu_helper_main"
+        "_wgpu_helper_main".to_string()
     } else {
-        msl_escape_ident(raw_fname)
+        msl_escape_ident(raw_fname).to_string()
     };
     let ret_ty = func
         .result
@@ -221,7 +190,6 @@ pub(super) fn emit_helper_function(
         let aty = msl_param_type(module, arg.ty);
         params.push(format!("{aty} {aname}"));
     }
-
     if let Some(globals) = func_globals.get(raw_fname) {
         for &gh in globals {
             params.push(msl_global_param_decl(module, gh));
@@ -230,12 +198,50 @@ pub(super) fn emit_helper_function(
     if func.body_src.contains("arrayLength") {
         params.push("constant uint* _wgpu_buffer_sizes".to_string());
     }
+    HelperSignature {
+        ret_ty,
+        fname,
+        params,
+        ptr_params,
+    }
+}
 
-    out.push_str(&format!("{ret_ty} {fname}({}) {{\n", params.join(", ")));
+pub(super) fn emit_helper_function_prototype(
+    out: &mut String,
+    module: &Module,
+    func: &Function,
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    _fh: Handle<Function>,
+    _binding_map: &BindingMap,
+) {
+    let sig = build_helper_signature(module, func, func_globals);
+    out.push_str(&format!(
+        "{} {}({});\n",
+        sig.ret_ty,
+        sig.fname,
+        sig.params.join(", ")
+    ));
+}
+
+pub(super) fn emit_helper_function(
+    out: &mut String,
+    module: &Module,
+    func: &Function,
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    _fh: Handle<Function>,
+    binding_map: &BindingMap,
+) {
+    let sig = build_helper_signature(module, func, func_globals);
+    out.push_str(&format!(
+        "{} {}({}) {{\n",
+        sig.ret_ty,
+        sig.fname,
+        sig.params.join(", ")
+    ));
     let body = translate_function_body(
         module,
         &func.body_src,
-        &ptr_params,
+        &sig.ptr_params,
         func_globals,
         binding_map,
         None,
@@ -428,62 +434,108 @@ fn bind_global(
     gv: &GlobalVariable,
     binding_map: &BindingMap,
 ) {
-    let Signature { params, preamble } = signature;
     let gname = gv.name.as_deref().unwrap_or("g");
     match gv.space {
-        AddressSpace::Uniform => {
-            if let Some(rb) = gv.binding {
-                let slot = msl_buffer_slot(rb.group, rb.binding);
-                let ty = msl_type_for_handle(module, gv.ty, false);
-                params.push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
-            }
-        }
-        AddressSpace::Immediate | AddressSpace::PushConstant => {
-            let slot = MSL_IMMEDIATE_BUFFER_SLOT;
-            let ty = msl_type_for_handle(module, gv.ty, false);
-            params.push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
+        AddressSpace::Uniform | AddressSpace::Immediate | AddressSpace::PushConstant => {
+            bind_uniform_or_immediate_global(signature, module, gv, gname);
         }
         AddressSpace::Storage { access } => {
-            if let Some(rb) = gv.binding {
-                let slot = msl_buffer_slot(rb.group, rb.binding);
-                let qual = if access == StorageAccess::Read {
-                    "const device"
-                } else {
-                    "device"
-                };
-                match &module.types[gv.ty].inner {
-                    TypeInner::Array {
-                        base,
-                        size: ArraySize::Dynamic,
-                        ..
-                    } => {
-                        let elem_ty = msl_type_for_handle(module, *base, false);
-                        params.push(format!("{qual} {elem_ty}* {gname} [[buffer({slot})]]"));
-                    }
-                    _ => {
-                        let ty = msl_type_for_handle(module, gv.ty, false);
-                        params.push(format!("{qual} {ty}& {gname} [[buffer({slot})]]"));
-                    }
-                }
-            }
+            bind_storage_global(signature, module, gv, gname, access);
         }
-        AddressSpace::Handle => {
-            if let Some(rb) = gv.binding {
-                match module.types[gv.ty].inner {
-                    TypeInner::Image { .. } => {
-                        let slot = binding_map.textures[&(rb.group, rb.binding)];
-                        let ty = msl_type_for_handle(module, gv.ty, false);
-                        params.push(format!("{ty} {gname} [[texture({slot})]]"));
-                    }
-                    TypeInner::Sampler { .. } => {
-                        let slot = binding_map.samplers[&(rb.group, rb.binding)];
-                        let ty = msl_type_for_handle(module, gv.ty, false);
-                        params.push(format!("{ty} {gname} [[sampler({slot})]]"));
-                    }
-                    _ => {}
-                }
-            }
+        AddressSpace::Handle => bind_handle_global(signature, module, gv, binding_map, gname),
+        AddressSpace::WorkGroup | AddressSpace::Private | AddressSpace::Function => {
+            declare_local_global(signature, module, gv, gname);
         }
+    }
+}
+
+fn bind_uniform_or_immediate_global(
+    signature: &mut Signature,
+    module: &Module,
+    gv: &GlobalVariable,
+    gname: &str,
+) {
+    let slot = match gv.space {
+        AddressSpace::Uniform => {
+            let Some(rb) = gv.binding else { return };
+            msl_buffer_slot(rb.group, rb.binding)
+        }
+        _ => MSL_IMMEDIATE_BUFFER_SLOT,
+    };
+    let ty = msl_type_for_handle(module, gv.ty, false);
+    signature
+        .params
+        .push(format!("constant {ty}& {gname} [[buffer({slot})]]"));
+}
+
+fn bind_storage_global(
+    signature: &mut Signature,
+    module: &Module,
+    gv: &GlobalVariable,
+    gname: &str,
+    access: StorageAccess,
+) {
+    let Some(rb) = gv.binding else { return };
+    let slot = msl_buffer_slot(rb.group, rb.binding);
+    let qual = if access == StorageAccess::Read {
+        "const device"
+    } else {
+        "device"
+    };
+    match &module.types[gv.ty].inner {
+        TypeInner::Array {
+            base,
+            size: ArraySize::Dynamic,
+            ..
+        } => {
+            let elem_ty = msl_type_for_handle(module, *base, false);
+            signature
+                .params
+                .push(format!("{qual} {elem_ty}* {gname} [[buffer({slot})]]"));
+        }
+        _ => {
+            let ty = msl_type_for_handle(module, gv.ty, false);
+            signature
+                .params
+                .push(format!("{qual} {ty}& {gname} [[buffer({slot})]]"));
+        }
+    }
+}
+
+fn bind_handle_global(
+    signature: &mut Signature,
+    module: &Module,
+    gv: &GlobalVariable,
+    binding_map: &BindingMap,
+    gname: &str,
+) {
+    let Some(rb) = gv.binding else { return };
+    match module.types[gv.ty].inner {
+        TypeInner::Image { .. } => {
+            let slot = binding_map.textures[&(rb.group, rb.binding)];
+            let ty = msl_type_for_handle(module, gv.ty, false);
+            signature
+                .params
+                .push(format!("{ty} {gname} [[texture({slot})]]"));
+        }
+        TypeInner::Sampler { .. } => {
+            let slot = binding_map.samplers[&(rb.group, rb.binding)];
+            let ty = msl_type_for_handle(module, gv.ty, false);
+            signature
+                .params
+                .push(format!("{ty} {gname} [[sampler({slot})]]"));
+        }
+        _ => {}
+    }
+}
+
+fn declare_local_global(
+    signature: &mut Signature,
+    module: &Module,
+    gv: &GlobalVariable,
+    gname: &str,
+) {
+    match gv.space {
         AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
             TypeInner::Array {
                 base,
@@ -492,20 +544,28 @@ fn bind_global(
             } => {
                 let elem_ty = msl_type_for_handle(module, *base, false);
                 let count = n.get();
-                preamble.push_str(&format!("    threadgroup {elem_ty} {gname}[{count}];\n"));
+                signature
+                    .preamble
+                    .push_str(&format!("    threadgroup {elem_ty} {gname}[{count}];\n"));
             }
             _ => {
                 let ty = msl_type_for_handle(module, gv.ty, false);
-                preamble.push_str(&format!("    threadgroup {ty} {gname};\n"));
+                signature
+                    .preamble
+                    .push_str(&format!("    threadgroup {ty} {gname};\n"));
             }
         },
-        AddressSpace::Private | AddressSpace::Function => {
+        _ => {
             let ty = msl_type_for_handle(module, gv.ty, false);
             if let Some(init) = &gv.init {
                 let init_msl = translate_expr(module, init, &BTreeSet::new(), &BTreeMap::new());
-                preamble.push_str(&format!("    {ty} {gname} = {init_msl};\n"));
+                signature
+                    .preamble
+                    .push_str(&format!("    {ty} {gname} = {init_msl};\n"));
             } else {
-                preamble.push_str(&format!("    {ty} {gname} = {{}};\n"));
+                signature
+                    .preamble
+                    .push_str(&format!("    {ty} {gname} = {{}};\n"));
             }
         }
     }

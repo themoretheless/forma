@@ -440,15 +440,27 @@ impl<'a> BufferSlice<'a> {
     where
         F: FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     {
-        // On Apple Silicon UMA, shared memory is already mapped; ensure GPU work is complete before reading
-        if !self.buffer.inner.device.is_last_cmd_completed() {
-            self.buffer.inner.device.wait_idle();
+        // On Apple Silicon UMA, shared memory is already mapped; defer the completion callback
+        // until the preceding submissions finish when GPU work is still in flight.
+        let inner = self.buffer.inner.clone();
+        if inner.device.is_last_cmd_completed() {
+            inner.mapped_ready.store(true, Ordering::Release);
+            callback(Ok(()));
+        } else {
+            let target_idx = inner
+                .device
+                .next_submission_index
+                .load(Ordering::Acquire)
+                .saturating_sub(1);
+            let inner_for_cb = inner.clone();
+            inner.device.enqueue_work_done(
+                target_idx,
+                Box::new(move || {
+                    inner_for_cb.mapped_ready.store(true, Ordering::Release);
+                    callback(Ok(()));
+                }),
+            );
         }
-        self.buffer
-            .inner
-            .mapped_ready
-            .store(true, Ordering::Release);
-        callback(Ok(()));
     }
 
     /// Panics when the range overlaps a writable view that is still alive.
@@ -503,7 +515,7 @@ impl<'a> BufferSlice<'a> {
             return Ok(None);
         }
         if !inner.device.is_last_cmd_completed() {
-            inner.device.wait_idle();
+            let _ = inner.device.wait_for_submission(None, None);
         }
         inner.leased_range(self.offset, self.size, write)
     }

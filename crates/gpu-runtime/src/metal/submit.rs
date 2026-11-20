@@ -3,14 +3,17 @@
 use super::*;
 
 impl MetalDevice {
+    /// Installs a completion handler that notifies `scope_completion_service` when Metal
+    /// finishes executing `command`, avoiding blocking `waitUntilCompleted` driver calls.
+    ///
+    /// # Safety
+    ///
+    /// `command` must be a valid uncommitted `MTLCommandBuffer` pointer.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    pub(super) unsafe fn install_completion_signal(&self, command: *mut c_void, scoped: bool) {
-        if !scoped {
-            return;
-        }
+    pub(super) unsafe fn install_completion_signal(&self, command: *mut c_void) {
         let service = Arc::downgrade(&self.scope_completion_service);
         // Metal copies this block before commit. Only a Send+Sync Weak signal
-        // crosses the driver thread; user callbacks run in the collector.
+        // crosses the driver thread; user callbacks run on caller/collector threads.
         let block = block2::RcBlock::new(move |_: *mut c_void| {
             if let Some(service) = service.upgrade() {
                 service.native_completed();
@@ -21,11 +24,15 @@ impl MetalDevice {
             *mut c_void,
             *mut block2::Block<dyn Fn(*mut c_void)>,
         ) = msg_send();
-        add(
-            command,
-            sel("addCompletedHandler:"),
-            block2::RcBlock::as_ptr(&block),
-        );
+        // SAFETY: `command` is an uncommitted `MTLCommandBuffer` and `block` matches Metal's
+        // `MTLCommandBufferHandler` signature.
+        unsafe {
+            add(
+                command,
+                sel("addCompletedHandler:"),
+                block2::RcBlock::as_ptr(&block),
+            );
+        }
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -38,45 +45,84 @@ impl MetalDevice {
         } else {
             return;
         };
-        unsafe {
-            let s = selectors();
-            let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
-            let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+        let s = selectors();
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
+        // SAFETY: `self.queue` is a valid `MTLCommandQueue`; the encoder is ended before commit.
+        let cmd_buf = unsafe {
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
-            if cmd_buf_ptr.is_null() {
+            let Some(cmd_buf) = ObjCObject::from_unretained(cmd_buf_ptr) else {
                 return;
-            }
-            let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
+            };
             let enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
             crate::encode_compute_dispatches(enc, &batch.ops);
             f_void(enc, s.end_encoding);
-            let signal = batch
-                .sinks
-                .iter()
-                .any(crate::CommandErrorSink::has_scoped_work);
-            self.install_completion_signal(cmd_buf.as_ptr(), signal);
+            self.install_completion_signal(cmd_buf.as_ptr());
             f_void(cmd_buf.as_ptr(), s.commit);
-            let idx = self
-                .next_submission_index
-                .load(std::sync::atomic::Ordering::Relaxed);
-            let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
-            self.pending_error_checks
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push(PendingCommand {
-                    command: CompletionCommand::Native(cmd_buf.clone()),
-                    sinks: batch.sinks,
-                });
-            if signal {
-                self.scope_completion_service.notify();
-            }
-            if let Ok(mut last) = self.last_cmd_buf.lock() {
-                *last = Some((cmd_buf, idx));
-            }
+            cmd_buf
+        };
+        let idx = batch.last_idx;
+        let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
+        let scoped = batch
+            .sinks
+            .iter()
+            .any(crate::CommandErrorSink::has_scoped_work);
+        self.pending_error_checks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(PendingCommand {
+                command: CompletionCommand::Native(cmd_buf.clone()),
+                sinks: batch.sinks,
+                submission_index: idx,
+            });
+        if scoped {
+            self.scope_completion_service.notify();
+        }
+        if let Ok(mut last) = self.last_cmd_buf.lock() {
+            *last = Some((cmd_buf, idx));
         }
     }
 
+    /// Classifies an `NSError` reported by a failed `MTLCommandBuffer`.
+    ///
+    /// # Safety
+    ///
+    /// `error` must be a non-null valid `NSError` instance pointer.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub(super) unsafe fn classify_command_nserror(
+        &self,
+        error: *mut c_void,
+        failure: &mut Option<crate::Error>,
+    ) {
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let f_code: unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize = msg_send();
+        // SAFETY: Caller guarantees `error` is a live `NSError`; static domain global is read-only.
+        let (code, domain, metal_domain, description) = unsafe {
+            let code = f_code(error, sel("code")) as i64;
+            let domain = nsstring_to_string(f_obj(error, sel("domain")));
+            let metal_domain = domain == nsstring_to_string(MTLCommandBufferErrorDomain);
+            let description = nserror_description(error);
+            (code, domain, metal_domain, description)
+        };
+        if metal_domain && command_error_is_device_loss(code) {
+            self.record_backend_device_loss(format!(
+                "Metal command buffer device loss (code {code}): {description}"
+            ));
+        } else {
+            *failure = Some(command_failure_error(
+                metal_domain,
+                code,
+                format!(
+                    "Metal command buffer failure (domain {domain}, code {code}): {description}"
+                ),
+            ));
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `command` must point to a valid `MTLCommandBuffer`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(super) unsafe fn inspect_command_loss(
         &self,
@@ -84,39 +130,18 @@ impl MetalDevice {
         failure: &mut Option<crate::Error>,
     ) -> bool {
         let f_status: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize = msg_send();
-        let status = f_status(command, selectors().status);
+        // SAFETY: Caller guarantees `command` is a valid `MTLCommandBuffer`.
+        let status = unsafe { f_status(command, selectors().status) };
         if status < 4 {
             return false;
         }
         if status == 5 {
             let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
-            let error = f_obj(command, sel("error"));
+            // SAFETY: Failed `MTLCommandBuffer` retains its `NSError` while `command` is live.
+            let error = unsafe { f_obj(command, sel("error")) };
             if !error.is_null() {
-                let f_code: unsafe extern "C" fn(*mut c_void, *mut c_void) -> isize = msg_send();
-                let code = f_code(error, sel("code")) as i64;
-                let domain = nsstring_to_string(f_obj(error, sel("domain")));
-                let metal_domain = domain == nsstring_to_string(MTLCommandBufferErrorDomain);
-                if metal_domain && command_error_is_device_loss(code) {
-                    let mut loss = self
-                        .backend_device_loss
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner());
-                    if loss.is_none() {
-                        *loss = Some(format!(
-                            "Metal command buffer device loss (code {code}): {}",
-                            nserror_description(error)
-                        ));
-                    }
-                } else {
-                    *failure = Some(command_failure_error(
-                        metal_domain,
-                        code,
-                        format!(
-                            "Metal command buffer failure (domain {domain}, code {code}): {}",
-                            nserror_description(error)
-                        ),
-                    ));
-                }
+                // SAFETY: `error` is a non-null `NSError` returned by `command`.
+                unsafe { self.classify_command_nserror(error, failure) };
             } else {
                 *failure = Some(command_failure_error(
                     false,
@@ -133,10 +158,7 @@ impl MetalDevice {
         any(target_os = "macos", target_os = "ios")
     ))]
     pub(crate) fn inject_device_loss_for_test(&self, message: String) {
-        let mut loss = self.backend_device_loss.lock().unwrap();
-        if loss.is_none() {
-            *loss = Some(message);
-        }
+        self.record_backend_device_loss(message);
     }
 
     #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
@@ -160,6 +182,7 @@ impl MetalDevice {
             .push(PendingCommand {
                 command: CompletionCommand::Failed(command_failure_error(false, 0, message.into())),
                 sinks: vec![sink.capture()],
+                submission_index: 0,
             });
         self.scope_completion_service.notify();
     }
@@ -181,6 +204,7 @@ impl MetalDevice {
                     format!("injected code {code}"),
                 )),
                 sinks: vec![sink.capture()],
+                submission_index: 0,
             });
         self.scope_completion_service.notify();
     }
@@ -300,16 +324,16 @@ impl MetalDevice {
         let idx = self.next_submission_index.fetch_add(1, Ordering::Relaxed);
 
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        unsafe {
+        {
             let Some(cb) = self.merged(command_buffers) else {
                 return SubmissionIndex(idx);
             };
             // Each fast path hands the buffer back when it does not apply.
-            let cb = match self.batch_untimed_compute(cb, &error_sink) {
+            let cb = match self.batch_untimed_compute(cb, &error_sink, idx) {
                 Ok(()) => return SubmissionIndex(idx),
                 Err(cb) => cb,
             };
-            let cb = match self.run_without_commands(cb) {
+            let cb = match self.run_without_commands(cb, idx) {
                 Ok(()) => return SubmissionIndex(idx),
                 Err(cb) => cb,
             };
@@ -349,6 +373,7 @@ impl MetalDevice {
         &self,
         mut cb: crate::CommandBuffer,
         error_sink: &Option<crate::CommandErrorSink>,
+        idx: u64,
     ) -> Result<(), crate::CommandBuffer> {
         use crate::RecordedOp;
         let is_pure_untimed_compute = cb.on_submit_callbacks.is_empty()
@@ -379,6 +404,7 @@ impl MetalDevice {
                 }
             }
             self.recycle_cmd_ops(ops);
+            pending.last_idx = idx;
             should_flush = !pending.ops.is_empty();
         }
         if should_flush {
@@ -387,19 +413,31 @@ impl MetalDevice {
         Ok(())
     }
 
-    /// A submission with no commands only waits for earlier work and runs its callbacks.
+    /// A submission with no commands attaches its callbacks to any earlier work instead of
+    /// entering a synchronous backend wait.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     fn run_without_commands(
         &self,
         mut cb: crate::CommandBuffer,
+        idx: u64,
     ) -> Result<(), crate::CommandBuffer> {
         if !cb.ops.is_empty() {
             return Err(cb);
         }
-        self.wait_idle();
         self.recycle_cmd_ops(std::mem::take(&mut cb.ops));
-        for callback in cb.on_submit_callbacks {
-            callback();
+        let callbacks = std::mem::take(&mut cb.on_submit_callbacks);
+        if callbacks.is_empty() {
+            return Ok(());
+        }
+        let prev_idx = idx.saturating_sub(1);
+        if self.is_last_cmd_completed() {
+            for callback in callbacks {
+                callback();
+            }
+        } else {
+            for callback in callbacks {
+                self.enqueue_work_done(prev_idx, callback);
+            }
         }
         Ok(())
     }
@@ -407,7 +445,7 @@ impl MetalDevice {
     /// A single small copy between CPU-visible buffers is done with a memory copy once earlier
     /// GPU work has finished.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    unsafe fn copy_small_buffer_on_cpu(
+    fn copy_small_buffer_on_cpu(
         &self,
         mut cb: crate::CommandBuffer,
     ) -> Result<(), crate::CommandBuffer> {
@@ -432,11 +470,13 @@ impl MetalDevice {
             if size > 0 {
                 // SAFETY: `copy_buffer_to_buffer` refuses a range outside either buffer and a
                 // copy within one buffer, so both ranges are in bounds and do not overlap.
-                ptr::copy_nonoverlapping(
-                    src.inner.ptr.add(src_offset as usize),
-                    dst.inner.ptr.add(dst_offset as usize),
-                    size as usize,
-                );
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        src.inner.ptr.add(src_offset as usize),
+                        dst.inner.ptr.add(dst_offset as usize),
+                        size as usize,
+                    );
+                }
             }
         }
         self.recycle_cmd_ops(std::mem::take(&mut cb.ops));
@@ -456,6 +496,10 @@ impl MetalDevice {
 
     /// Commits a command buffer that carries a timed pass, waits for it and stores the GPU times
     /// in the query sets. `allow_instant` accepts an end time equal to the start time.
+    ///
+    /// # Safety
+    ///
+    /// `sub_cmd_ptr` must be an uncommitted `MTLCommandBuffer` belonging to `self`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     unsafe fn commit_timed(
         &self,
@@ -464,29 +508,35 @@ impl MetalDevice {
         start_ts: Option<(crate::QuerySet, u32)>,
         end_ts: Option<(crate::QuerySet, u32)>,
         allow_instant: bool,
+        submission_index: u64,
     ) {
         let s = selectors();
         let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
-        let signal = Self::has_scoped_work(error_sinks);
-        self.install_completion_signal(sub_cmd_ptr, signal);
-        f_void(sub_cmd_ptr, s.commit);
-        f_void(sub_cmd_ptr, s.wait_until_completed);
-        if let Some(command) = ObjCObject::from_unretained(sub_cmd_ptr) {
-            self.pending_error_checks
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push(PendingCommand {
-                    command: CompletionCommand::Native(command),
-                    sinks: error_sinks.to_vec(),
-                });
-            if signal {
-                self.scope_completion_service.notify();
-            }
-        }
-
         let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 = msg_send();
-        let t_start_s = f_f64(sub_cmd_ptr, s.gpu_start_time);
-        let t_end_s = f_f64(sub_cmd_ptr, s.gpu_end_time);
+        let signal = Self::has_scoped_work(error_sinks);
+        // SAFETY: `sub_cmd_ptr` is an uncommitted command buffer created from `self.queue`.
+        let (t_start_s, t_end_s) = unsafe {
+            self.install_completion_signal(sub_cmd_ptr);
+            f_void(sub_cmd_ptr, s.commit);
+            f_void(sub_cmd_ptr, s.wait_until_completed);
+            if let Some(command) = ObjCObject::from_unretained(sub_cmd_ptr) {
+                self.pending_error_checks
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push(PendingCommand {
+                        command: CompletionCommand::Native(command),
+                        sinks: error_sinks.to_vec(),
+                        submission_index,
+                    });
+                if signal {
+                    self.scope_completion_service.notify();
+                }
+            }
+            (
+                f_f64(sub_cmd_ptr, s.gpu_start_time),
+                f_f64(sub_cmd_ptr, s.gpu_end_time),
+            )
+        };
         let now_ns = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
@@ -510,16 +560,170 @@ impl MetalDevice {
         }
     }
 
+    /// Encodes one recorded operation onto either the shared `active_compute_enc` / `cmd_buf_ptr`
+    /// or its own timed command buffer.
+    ///
+    /// # Safety
+    ///
+    /// `cmd_buf_ptr` must be an uncommitted `MTLCommandBuffer` belonging to `self`, and
+    /// `active_compute_enc` (when non-null) must be an active compute encoder on `cmd_buf_ptr`.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    unsafe fn encode_recorded_op(
+        &self,
+        cmd_buf_ptr: *mut c_void,
+        active_compute_enc: &mut *mut c_void,
+        op: crate::RecordedOp,
+        error_sinks: &[crate::CommandErrorSink],
+        submission_index: u64,
+    ) {
+        use crate::{RecordedOp, encode_compute_dispatches, encode_non_compute_op};
+        let s = selectors();
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+        let end_compute = |enc: &mut *mut c_void| {
+            if !enc.is_null() {
+                // SAFETY: `*enc` is an open compute encoder on `cmd_buf_ptr`.
+                unsafe { f_void(*enc, s.end_encoding) };
+                *enc = ptr::null_mut();
+            }
+        };
+
+        match op {
+            RecordedOp::ComputePass {
+                dispatches,
+                start_ts,
+                end_ts,
+            } => {
+                if dispatches.is_empty() {
+                    self.recycle_compute_dispatches(dispatches);
+                    for (query_set, index) in [start_ts, end_ts].into_iter().flatten() {
+                        // SAFETY: `cmd_buf_ptr` has no open non-compute encoder.
+                        unsafe {
+                            encode_non_compute_op(
+                                self,
+                                cmd_buf_ptr,
+                                RecordedOp::WriteTimestamp { query_set, index },
+                            );
+                        }
+                    }
+                    return;
+                }
+                if start_ts.is_some() || end_ts.is_some() {
+                    end_compute(active_compute_enc);
+                    // SAFETY: Dedicated command buffer isolates timed compute pass measurements.
+                    unsafe {
+                        let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
+                        let sub_enc = f_obj(sub_cmd_ptr, s.compute_command_encoder);
+                        encode_compute_dispatches(sub_enc, &dispatches);
+                        self.recycle_compute_dispatches(dispatches);
+                        f_void(sub_enc, s.end_encoding);
+                        self.commit_timed(
+                            sub_cmd_ptr,
+                            error_sinks,
+                            start_ts,
+                            end_ts,
+                            true,
+                            submission_index,
+                        );
+                    }
+                    return;
+                }
+                if active_compute_enc.is_null() {
+                    // SAFETY: `cmd_buf_ptr` has no open encoder after previous ops ended theirs.
+                    *active_compute_enc = unsafe { f_obj(cmd_buf_ptr, s.compute_command_encoder) };
+                }
+                // SAFETY: `active_compute_enc` is an open compute command encoder.
+                unsafe { encode_compute_dispatches(*active_compute_enc, &dispatches) };
+                self.recycle_compute_dispatches(dispatches);
+            }
+            RecordedOp::RenderPass(mut rp) => {
+                end_compute(active_compute_enc);
+                let start_ts = rp.start_ts.take();
+                let end_ts = rp.end_ts.take();
+                if start_ts.is_some() || end_ts.is_some() {
+                    // SAFETY: Dedicated command buffer isolates timed render pass measurements.
+                    unsafe {
+                        let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
+                        crate::encode_render_pass(self, sub_cmd_ptr, rp);
+                        self.commit_timed(
+                            sub_cmd_ptr,
+                            error_sinks,
+                            start_ts,
+                            end_ts,
+                            false,
+                            submission_index,
+                        );
+                    }
+                } else {
+                    // SAFETY: `cmd_buf_ptr` has no active compute encoder after `end_compute`.
+                    unsafe { crate::encode_render_pass(self, cmd_buf_ptr, rp) };
+                }
+            }
+            other => {
+                end_compute(active_compute_enc);
+                // SAFETY: `cmd_buf_ptr` has no active compute encoder after `end_compute`.
+                unsafe { encode_non_compute_op(self, cmd_buf_ptr, other) };
+            }
+        }
+    }
+
+    /// Commits the finished command buffer, installs its completion notification, and records
+    /// its pending error sinks and submit callbacks.
+    ///
+    /// # Safety
+    ///
+    /// `cmd_buf` must be ready to commit on `self.queue`, and `pool` (when non-null) must be a
+    /// valid `NSAutoreleasePool` pushed in the current frame.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    unsafe fn finalize_committed_command(
+        &self,
+        cmd_buf: ObjCObject,
+        pool: *mut c_void,
+        error_sinks: Vec<crate::CommandErrorSink>,
+        idx: u64,
+        callbacks: Vec<WorkDoneCallback>,
+    ) {
+        let s = selectors();
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
+        let signal = Self::has_scoped_work(&error_sinks);
+        // SAFETY: `cmd_buf` is uncommitted and `pool` belongs to this thread/frame.
+        unsafe {
+            self.install_completion_signal(cmd_buf.as_ptr());
+            f_void(cmd_buf.as_ptr(), s.commit);
+            if !pool.is_null() {
+                f_void(pool, s.drain);
+            }
+        }
+        let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
+        self.pending_error_checks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(PendingCommand {
+                command: CompletionCommand::Native(cmd_buf.clone()),
+                sinks: error_sinks,
+                submission_index: idx,
+            });
+        if signal {
+            self.scope_completion_service.notify();
+        }
+        if let Ok(mut last) = self.last_cmd_buf.lock() {
+            *last = Some((cmd_buf, idx));
+        }
+        for callback in callbacks {
+            self.enqueue_work_done(idx, callback);
+        }
+    }
+
     /// Encodes the pending compute batch and the commands of `cb` into one command buffer and
     /// commits it. Timed passes get command buffers of their own.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    unsafe fn encode_and_commit(
+    fn encode_and_commit(
         &self,
         mut cb: crate::CommandBuffer,
         error_sink: Option<crate::CommandErrorSink>,
         idx: u64,
     ) {
-        use crate::{RecordedOp, encode_compute_dispatches, encode_non_compute_op};
+        use crate::encode_compute_dispatches;
         let batch = std::mem::take(
             &mut *self
                 .pending_compute_ops
@@ -536,107 +740,37 @@ impl MetalDevice {
         let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
         let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) = msg_send();
 
-        let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
-        let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
-        assert!(!cmd_buf_ptr.is_null(), "Failed to create MTLCommandBuffer");
-        let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
+        // SAFETY: Allocates an autorelease pool and command buffer from `self.queue`; ends the
+        // compute encoder before committing or draining the pool.
+        unsafe {
+            let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
+            let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
+            assert!(!cmd_buf_ptr.is_null(), "Failed to create MTLCommandBuffer");
+            let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
 
-        // The compute encoder stays open across consecutive untimed compute passes.
-        let mut active_compute_enc: *mut c_void = ptr::null_mut();
-        let end_compute = |enc: &mut *mut c_void| {
-            if !enc.is_null() {
-                f_void(*enc, s.end_encoding);
-                *enc = ptr::null_mut();
+            // The compute encoder stays open across consecutive untimed compute passes.
+            let mut active_compute_enc: *mut c_void = ptr::null_mut();
+            if !pending.is_empty() {
+                active_compute_enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
+                encode_compute_dispatches(active_compute_enc, &pending);
+                pending.clear();
             }
-        };
-        if !pending.is_empty() {
-            active_compute_enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
-            encode_compute_dispatches(active_compute_enc, &pending);
-            pending.clear();
-        }
-        let callbacks = std::mem::take(&mut cb.on_submit_callbacks);
-
-        let mut ops = std::mem::take(&mut cb.ops);
-        for op in ops.drain(..) {
-            match op {
-                RecordedOp::ComputePass {
-                    dispatches,
-                    start_ts,
-                    end_ts,
-                } => {
-                    if dispatches.is_empty() {
-                        self.recycle_compute_dispatches(dispatches);
-                        for (query_set, index) in [start_ts, end_ts].into_iter().flatten() {
-                            encode_non_compute_op(
-                                self,
-                                cmd_buf.as_ptr(),
-                                RecordedOp::WriteTimestamp { query_set, index },
-                            );
-                        }
-                        continue;
-                    }
-                    if start_ts.is_some() || end_ts.is_some() {
-                        end_compute(&mut active_compute_enc);
-                        let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
-                        let sub_enc = f_obj(sub_cmd_ptr, s.compute_command_encoder);
-                        encode_compute_dispatches(sub_enc, &dispatches);
-                        self.recycle_compute_dispatches(dispatches);
-                        f_void(sub_enc, s.end_encoding);
-                        self.commit_timed(sub_cmd_ptr, &error_sinks, start_ts, end_ts, true);
-                        continue;
-                    }
-                    if active_compute_enc.is_null() {
-                        active_compute_enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
-                    }
-                    encode_compute_dispatches(active_compute_enc, &dispatches);
-                    self.recycle_compute_dispatches(dispatches);
-                }
-                RecordedOp::RenderPass(mut rp) => {
-                    end_compute(&mut active_compute_enc);
-                    let start_ts = rp.start_ts.take();
-                    let end_ts = rp.end_ts.take();
-                    if start_ts.is_some() || end_ts.is_some() {
-                        let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
-                        crate::encode_render_pass(self, sub_cmd_ptr, rp);
-                        self.commit_timed(sub_cmd_ptr, &error_sinks, start_ts, end_ts, false);
-                        continue;
-                    }
-                    crate::encode_render_pass(self, cmd_buf.as_ptr(), rp);
-                }
-                other => {
-                    end_compute(&mut active_compute_enc);
-                    encode_non_compute_op(self, cmd_buf.as_ptr(), other);
-                }
+            let callbacks = std::mem::take(&mut cb.on_submit_callbacks);
+            let mut ops = std::mem::take(&mut cb.ops);
+            for op in ops.drain(..) {
+                self.encode_recorded_op(
+                    cmd_buf.as_ptr(),
+                    &mut active_compute_enc,
+                    op,
+                    &error_sinks,
+                    idx,
+                );
             }
-        }
-        self.recycle_cmd_ops(ops);
-        end_compute(&mut active_compute_enc);
-
-        let signal = Self::has_scoped_work(&error_sinks);
-        self.install_completion_signal(cmd_buf.as_ptr(), signal);
-        f_void(cmd_buf.as_ptr(), s.commit);
-        if !pool.is_null() {
-            f_void(pool, s.drain);
-        }
-        let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
-        self.pending_error_checks
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(PendingCommand {
-                command: CompletionCommand::Native(cmd_buf.clone()),
-                sinks: error_sinks,
-            });
-        if signal {
-            self.scope_completion_service.notify();
-        }
-        if let Ok(mut last) = self.last_cmd_buf.lock() {
-            *last = Some((cmd_buf, idx));
-        }
-        if !callbacks.is_empty() {
-            self.wait_idle();
-            for callback in callbacks {
-                callback();
+            self.recycle_cmd_ops(ops);
+            if !active_compute_enc.is_null() {
+                f_void(active_compute_enc, s.end_encoding);
             }
+            self.finalize_committed_command(cmd_buf, pool, error_sinks, idx, callbacks);
         }
     }
 }

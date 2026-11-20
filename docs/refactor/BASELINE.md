@@ -271,3 +271,22 @@ v0.3.8 (692 / 2704 / 8548 без правки, 2004 / 7846 / 23896 на ренд
   - **Owned GPU buffers / geometry uploads**: `442 432` байт (`5` буферов) постоянно, `geometry_uploads = 0`.
   - **Shared `resource_cache` (GlyphAtlas + SvgCache)**: `1 068` байт (`peak = 1 068` байт) на 256
     анимируемых контролах.
+
+## GPU-стек: декомпозиция, валидация WGSL и signal-driven Metal (Wave 4A, 2026-11-20)
+
+- **Модульность и безопасность (`gpu-shader`, `gpu-runtime`, `gpu-compute`):**
+  - Включён `#![deny(unsafe_op_in_unsafe_fn)]`, расставлены `# Safety` и `// SAFETY:` в
+    `gpu-runtime` и `gpu-compute` (включая ветки `--features cuda`); выделена не-Apple заглушка
+    `crates/gpu-runtime/src/metal/stub.rs`, сняты условные crate-wide `allow(dead_code,
+    unused_variables)` и `cfg_attr(wasm32, allow(dead_code))` с нулевыми предупреждениями на
+    `macOS`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc` и `wasm32-unknown-unknown`.
+  - Реализована семантическая/типовая проверка WGSL в `gpu_shader::valid::Validator`
+    (`tests/validation.rs`, 29 unit/golden/integration тестов `gpu-shader`); некорректные модули
+    отклоняются в `Device::create_shader_module` с zero-Metal-compile защитой.
+- **Квалификация завершения 2 000 отправок (`gpu-runtime --example signal_completion_qual`, release):**
+  - `submissions = 2000`, `p50_us = 136`, `p95_us = 245`, `p99_us = 380` (latency по signal-driven
+    `addCompletedHandler:` + `Condvar`).
+  - **Плато памяти (RSS)**: `rss_before_kb = 11 024`, `rss_mid_kb (1000) = 14 752`, `rss_after_kb
+    (2000) = 14 752` (рост на второй тысяче `0 КБ`).
+  - Тест `signal_completion_sustains_2000_submissions_with_zero_blocking_waits`: `blocking_wait_calls == 0`,
+    `gpu-runtime`: `61/61` (`--include-ignored`), `gpu-compute`: `27/27`, `clippy-ratchet`: `0` находок.

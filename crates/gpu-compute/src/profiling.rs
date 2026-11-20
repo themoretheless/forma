@@ -38,7 +38,20 @@ impl std::fmt::Display for TimestampError {
         }
     }
 }
-impl std::error::Error for TimestampError {}
+impl std::error::Error for TimestampError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Buffer(err) => Some(err),
+            Self::Readback(err) => Some(err),
+            Self::FeatureDisabled
+            | Self::InvalidPeriod(_)
+            | Self::InvalidPayload { .. }
+            | Self::UnavailableSample { .. }
+            | Self::NonMonotonic { .. }
+            | Self::Device(_) => None,
+        }
+    }
+}
 impl From<BufferError> for TimestampError {
     fn from(error: BufferError) -> Self {
         Self::Buffer(error)
@@ -147,7 +160,7 @@ enum TimestampState {
     Recorded,
     Submitted {
         // Native blocking waits use the fence; browsers use `completed`.
-        #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+        #[cfg(not(target_arch = "wasm32"))]
         index: wgpu::SubmissionIndex,
         completed: mpsc::Receiver<()>,
     },
@@ -174,11 +187,17 @@ impl TimestampReadback {
         if !matches!(self.state, TimestampState::Recorded) {
             return;
         }
+        #[cfg(target_arch = "wasm32")]
+        let _ = index;
         let (sender, completed) = mpsc::channel();
         self.context.queue.on_submitted_work_done(move || {
             let _ = sender.send(());
         });
-        self.state = TimestampState::Submitted { index, completed };
+        self.state = TimestampState::Submitted {
+            #[cfg(not(target_arch = "wasm32"))]
+            index,
+            completed,
+        };
     }
     pub fn cancel(&mut self) {
         if !matches!(self.state, TimestampState::Terminal(_)) {
@@ -470,5 +489,16 @@ mod tests {
         let sample = pending.wait_mut(Duration::from_secs(1)).unwrap();
         assert_eq!(sample.elapsed_ns, 3.0 * timer.timestamp_period_ns());
         assert_eq!(pending.try_read(), Err(ReadbackError::Consumed.into()));
+    }
+
+    #[test]
+    fn timestamp_error_exposes_source_for_wrapped_variants() {
+        use std::error::Error as _;
+        let buf_err = TimestampError::Buffer(BufferError::InvalidRange);
+        assert!(buf_err.source().is_some());
+        let rb_err = TimestampError::Readback(ReadbackError::Timeout);
+        assert!(rb_err.source().is_some());
+        assert!(TimestampError::FeatureDisabled.source().is_none());
+        assert!(TimestampError::Device("lost".into()).source().is_none());
     }
 }

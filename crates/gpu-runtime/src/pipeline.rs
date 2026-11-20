@@ -1,11 +1,16 @@
 //! GPU ShaderModule, BindGroup, PipelineLayout, ComputePipeline, and RenderPipeline descriptors & states.
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use crate::Texture;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::ObjCObject;
 use crate::{
-    Buffer, BufferAddress, BufferSize, ColorWrites, Label, Sampler, ShaderStages, Texture,
-    TextureFormat, TextureView,
+    Buffer, BufferAddress, BufferSize, ColorWrites, Label, Sampler, ShaderStages, TextureFormat,
+    TextureView,
 };
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader as naga;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::BindingMap;
 use std::borrow::Cow;
 use std::num::NonZeroU32;
@@ -24,9 +29,13 @@ pub struct ShaderModuleDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct ShaderModule {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) module: Arc<naga::Module>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) msl_source: Arc<String>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) bindings: Arc<BindingMap>,
+    pub(crate) invalid_reason: Option<Arc<str>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,8 +144,11 @@ pub struct BindGroupDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct BindGroup {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) buffers: Arc<[(u32, Buffer, u64, u64)]>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) textures: Arc<[(u32, Texture)]>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) samplers: Arc<[(u32, Sampler)]>,
 }
 
@@ -170,8 +182,11 @@ pub struct ComputePipelineDescriptor<'a> {
 #[derive(Clone)]
 pub struct ComputePipeline {
     /// `None` for a pipeline that failed to compile; its dispatches are skipped.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) pso: Option<Arc<ObjCObject>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) workgroup_size: [u32; 3],
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) bindings: Arc<BindingMap>,
 }
 
@@ -215,6 +230,7 @@ impl VertexFormat {
         }
     }
 
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Float32 => 28,   // MTLVertexFormatFloat
@@ -304,6 +320,7 @@ pub enum BlendFactor {
 }
 
 impl BlendFactor {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Zero => 0,
@@ -331,6 +348,7 @@ pub enum BlendOperation {
 }
 
 impl BlendOperation {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Add => 0,
@@ -408,6 +426,7 @@ pub enum PrimitiveTopology {
 }
 
 impl PrimitiveTopology {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::PointList => 0,
@@ -472,6 +491,7 @@ pub enum CompareFunction {
 }
 
 impl CompareFunction {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Never => 0,
@@ -538,29 +558,43 @@ pub struct RenderPipelineDescriptor<'a> {
 #[derive(Clone)]
 pub struct RenderPipeline {
     /// `None` for a pipeline that failed to compile; its draws are skipped.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) pso: Option<Arc<ObjCObject>>,
     /// Texture/sampler slots of the vertex and fragment shaders (see `msl::write_string`).
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) vertex_bindings: Arc<BindingMap>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) fragment_bindings: Option<Arc<BindingMap>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) depth_stencil_state: Option<Arc<ObjCObject>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) primitive: PrimitiveState,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) depth_bias: DepthBiasState,
 }
 
 impl RenderPipeline {
     /// The stand-in returned when creation fails.
     pub(crate) fn invalid(desc: &RenderPipelineDescriptor<'_>) -> Self {
-        Self {
-            pso: None,
-            vertex_bindings: desc.vertex.module.bindings.clone(),
-            fragment_bindings: desc.fragment.as_ref().map(|fs| fs.module.bindings.clone()),
-            depth_stencil_state: None,
-            primitive: desc.primitive,
-            depth_bias: desc
-                .depth_stencil
-                .as_ref()
-                .map(|d| d.bias)
-                .unwrap_or_default(),
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            Self {
+                pso: None,
+                vertex_bindings: desc.vertex.module.bindings.clone(),
+                fragment_bindings: desc.fragment.as_ref().map(|fs| fs.module.bindings.clone()),
+                depth_stencil_state: None,
+                primitive: desc.primitive,
+                depth_bias: desc
+                    .depth_stencil
+                    .as_ref()
+                    .map(|d| d.bias)
+                    .unwrap_or_default(),
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        {
+            let _ = desc;
+            Self {}
         }
     }
 

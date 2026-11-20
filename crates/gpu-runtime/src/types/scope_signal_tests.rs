@@ -41,3 +41,39 @@ fn absent_notification_has_an_explicit_timeout_fallback() {
         ScopePark::TimedOut
     );
 }
+
+#[test]
+fn error_variants_expose_underlying_source() {
+    use std::error::Error as StdError;
+    let oom = Error::OutOfMemory {
+        source: Arc::new(std::io::Error::new(
+            std::io::ErrorKind::OutOfMemory,
+            "backing store full",
+        )),
+    };
+    let val = Error::Validation {
+        source: Arc::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "bad binding",
+        )),
+        description: "validation failed".into(),
+    };
+    let internal = Error::Internal {
+        source: Arc::new(std::io::Error::other("driver reset")),
+        description: "internal failure".into(),
+    };
+    assert!(
+        oom.source()
+            .unwrap()
+            .to_string()
+            .contains("backing store full")
+    );
+    assert!(val.source().unwrap().to_string().contains("bad binding"));
+    assert!(
+        internal
+            .source()
+            .unwrap()
+            .to_string()
+            .contains("driver reset")
+    );
+}

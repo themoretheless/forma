@@ -27,7 +27,15 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::OutOfMemory { source }
+            | Self::Validation { source, .. }
+            | Self::Internal { source, .. } => Some(source.as_ref()),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorFilter {
@@ -148,13 +156,25 @@ impl ScopeCompletionService {
             ScopePark::Awakened
         }
     }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub(crate) fn epoch(&self) -> u64 {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).epoch
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub(crate) fn wait_for_epoch_change(&self, observed: u64, timeout: std::time::Duration) {
+        let state = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = self.park_if_unchanged(state, observed, timeout);
+    }
+
     pub(crate) fn notify(&self) {
         {
             let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
             state.epoch = state.epoch.wrapping_add(1);
         }
-        self.1.notify_one();
+        self.1.notify_all();
     }
+    #[cfg(any(test, target_os = "macos", target_os = "ios"))]
     pub(crate) fn native_completed(&self) {
         #[cfg(test)]
         {
@@ -185,7 +205,7 @@ impl ScopeCompletionService {
                 true
             }
         };
-        self.1.notify_one();
+        self.1.notify_all();
         if start {
             std::thread::spawn(move || {
                 loop {

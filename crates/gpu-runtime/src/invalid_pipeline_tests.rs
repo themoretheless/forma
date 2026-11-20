@@ -222,3 +222,96 @@ fn a_shader_that_does_not_parse_is_reported_when_the_module_is_created() {
         "a malformed shader was accepted silently"
     );
 }
+
+#[test]
+fn ill_typed_wgsl_fails_in_create_shader_module_without_reaching_metal() {
+    let Some((device, _queue)) = metal_device() else {
+        return;
+    };
+    let before = device
+        .metal
+        .metal_shader_compilations
+        .load(std::sync::atomic::Ordering::Relaxed);
+
+    let mut bad_compute = None;
+    let shader_err = rejection(&device, || {
+        bad_compute = Some(module(
+            &device,
+            "@compute @workgroup_size(1) fn run() { let x: u32 = 1.0; }",
+        ));
+    })
+    .expect("ill-typed compute WGSL must fail in create_shader_module");
+    assert!(
+        shader_err.contains("shader validation failed"),
+        "{shader_err}"
+    );
+    let bad_compute = bad_compute.unwrap();
+    let pipeline_err = rejection(&device, || {
+        device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: None,
+            layout: None,
+            module: &bad_compute,
+            entry_point: Some("run"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+    })
+    .expect("compute pipeline using invalid shader module must fail");
+    assert!(
+        pipeline_err.contains("invalid shader module"),
+        "{pipeline_err}"
+    );
+
+    let mut bad_render = None;
+    let render_shader_err = rejection(&device, || {
+        bad_render = Some(module(
+            &device,
+            "@vertex fn vs_main() -> @builtin(position) vec4<f32> { return vec4<u32>(0u); }
+             @fragment fn fs_main() -> @location(0) vec4<f32> { return vec4<f32>(1.0); }",
+        ));
+    })
+    .expect("ill-typed render WGSL must fail in create_shader_module");
+    assert!(
+        render_shader_err.contains("shader validation failed"),
+        "{render_shader_err}"
+    );
+    let bad_render = bad_render.unwrap();
+    let render_pipeline_err = rejection(&device, || {
+        device.create_render_pipeline(&RenderPipelineDescriptor {
+            label: None,
+            layout: None,
+            vertex: VertexState {
+                module: &bad_render,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            fragment: Some(FragmentState {
+                module: &bad_render,
+                entry_point: Some("fs_main"),
+                targets: &[Some(ColorTargetState {
+                    format: TextureFormat::Rgba8Unorm,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+    })
+    .expect("render pipeline using invalid shader module must fail");
+    assert!(
+        render_pipeline_err.contains("invalid vertex shader module"),
+        "{render_pipeline_err}"
+    );
+
+    let after = device
+        .metal
+        .metal_shader_compilations
+        .load(std::sync::atomic::Ordering::Relaxed);
+    assert_eq!(after, before, "ill-typed WGSL reached Metal compiler");
+}

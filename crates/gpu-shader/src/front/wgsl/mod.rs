@@ -212,43 +212,20 @@ impl<'a> ModuleParser<'a> {
             )
         })?;
         let body = &after_struct[brace_pos + 1..close_brace];
-        let fields = split_comma_top_level(body);
         let mut members = Vec::new();
         let mut offset = 0u32;
         let mut max_align = 1u32;
 
-        for field in fields {
+        for field in split_comma_top_level(body) {
             let field = field.trim().trim_end_matches(';').trim();
             if field.is_empty() {
                 continue;
             }
-            let (attrs, field_rest) = parse_leading_attributes(clean, field)?;
-            let colon_pos = field_rest.find(':').ok_or_else(|| {
-                parse_error_at(
-                    clean,
-                    field_rest,
-                    format!("expected ':' in struct member `{field}`"),
-                )
-            })?;
-            let field_name = field_rest[..colon_pos].trim().to_string();
-            let field_ty_str = field_rest[colon_pos + 1..].trim();
-            let field_ty = self.resolve_type(field_ty_str)?;
-            let layout = compute_type_layout(&self.module.types, field_ty);
-            let align = attrs
-                .align
-                .unwrap_or(layout.alignment)
-                .max(layout.alignment);
-            let member_size = attrs.size.unwrap_or(layout.size);
-            max_align = max_align.max(align);
-            offset = align_up(offset, align);
-
-            members.push(StructMember {
-                name: Some(field_name),
-                ty: field_ty,
-                binding: attrs.to_binding(),
-                offset,
-            });
+            let (member, member_align, member_size) =
+                self.parse_struct_member(field, &mut offset)?;
+            max_align = max_align.max(member_align);
             offset += member_size;
+            members.push(member);
         }
         let span = align_up(offset, max_align);
         let handle = self.module.types.append(Type {
@@ -258,6 +235,43 @@ impl<'a> ModuleParser<'a> {
         self.type_map.insert(struct_name, handle);
         self.module.struct_order.push(handle);
         Ok(())
+    }
+
+    fn parse_struct_member(
+        &mut self,
+        field: &str,
+        offset: &mut u32,
+    ) -> Result<(StructMember, u32, u32), ParseError> {
+        let clean = self.clean;
+        let (attrs, field_rest) = parse_leading_attributes(clean, field)?;
+        let colon_pos = field_rest.find(':').ok_or_else(|| {
+            parse_error_at(
+                clean,
+                field_rest,
+                format!("expected ':' in struct member `{field}`"),
+            )
+        })?;
+        let field_name = field_rest[..colon_pos].trim().to_string();
+        let field_ty_str = field_rest[colon_pos + 1..].trim();
+        let field_ty = self.resolve_type(field_ty_str)?;
+        let layout = compute_type_layout(&self.module.types, field_ty);
+        let align = attrs
+            .align
+            .unwrap_or(layout.alignment)
+            .max(layout.alignment);
+        let member_size = attrs.size.unwrap_or(layout.size);
+        *offset = align_up(*offset, align);
+
+        Ok((
+            StructMember {
+                name: Some(field_name),
+                ty: field_ty,
+                binding: attrs.to_binding(),
+                offset: *offset,
+            },
+            align,
+            member_size,
+        ))
     }
 
     fn register_entry_point(

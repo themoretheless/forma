@@ -664,3 +664,91 @@ fn uncaptured_handler_can_replace_itself_and_reenter_error_scopes() {
             .contains("nested")
     );
 }
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn sample_rss_kb() -> Option<u64> {
+    let pid = std::process::id().to_string();
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &pid])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout)
+        .trim()
+        .parse::<u64>()
+        .ok()
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[test]
+#[ignore = "requires Metal; runs 2,000-submission signal completion qualification"]
+fn signal_completion_sustains_2000_submissions_with_zero_blocking_waits() {
+    use std::future::Future;
+    let adapter =
+        Adapter::from_metal(MetalDevice::create_system_default().expect("Metal required"));
+    let descriptor = DeviceDescriptor::default();
+    let mut noop_cx = std::task::Context::from_waker(std::task::Waker::noop());
+    let std::task::Poll::Ready(Ok((device, queue))) =
+        std::pin::pin!(adapter.request_device(&descriptor))
+            .as_mut()
+            .poll(&mut noop_cx)
+    else {
+        panic!("request_device failed")
+    };
+
+    let buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("qual_buffer"),
+        size: 4096,
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+
+    let rss_start = sample_rss_kb().unwrap_or(0);
+    let mut rss_mid = rss_start;
+
+    for i in 0..2000usize {
+        let scope = device.push_error_scope(ErrorFilter::Validation);
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor::default());
+        encoder.clear_buffer(&buffer, 0, None);
+        queue.submit([encoder.finish()]);
+
+        let done = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let done_flag = done.clone();
+        buffer.slice(..).map_async(MapMode::Read, move |res| {
+            res.expect("map_async must succeed");
+            done_flag.store(true, Ordering::Release);
+        });
+        device.poll(PollType::wait_indefinitely()).unwrap();
+        assert!(
+            done.load(Ordering::Acquire),
+            "map_async callback did not run"
+        );
+
+        let mut pop_fut = std::pin::pin!(scope.pop());
+        loop {
+            if let std::task::Poll::Ready(err) = pop_fut.as_mut().poll(&mut noop_cx) {
+                assert!(err.is_none());
+                break;
+            }
+            device.poll(PollType::Poll).unwrap();
+            std::thread::yield_now();
+        }
+        if i == 999 {
+            rss_mid = sample_rss_kb().unwrap_or(rss_start);
+        }
+    }
+
+    let rss_end = sample_rss_kb().unwrap_or(rss_mid);
+    assert_eq!(
+        device.metal.blocking_wait_calls.load(Ordering::Relaxed),
+        0,
+        "2,000 submissions entered blocking waitUntilCompleted"
+    );
+    assert!(
+        device.metal.scope_completion_service.native_notifications() >= 2000,
+        "expected native signal notifications for all 2,000 submissions"
+    );
+    assert!(
+        rss_end.saturating_sub(rss_mid) < 16 * 1024,
+        "RSS grew too much from 1000..2000 submissions: mid={rss_mid}KB end={rss_end}KB"
+    );
+}

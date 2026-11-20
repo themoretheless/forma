@@ -117,8 +117,11 @@ pub struct SurfaceConfiguration {
 pub struct SurfaceTexture {
     pub texture: crate::Texture,
     pub suboptimal: bool,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) drawable: Option<crate::metal::ObjCObject>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) layer: Option<Arc<crate::metal::ObjCObject>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) device: Option<crate::Device>,
 }
 
@@ -165,6 +168,7 @@ impl std::fmt::Debug for CurrentSurfaceTexture {
 pub struct Surface<'a> {
     pub(crate) config: Arc<Mutex<Option<(crate::Device, SurfaceConfiguration)>>>,
     pub(crate) metal_layer: Option<Arc<crate::metal::ObjCObject>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) metal_view: Option<Arc<crate::metal::ObjCObject>>,
     pub(crate) _marker: std::marker::PhantomData<&'a ()>,
 }
@@ -304,11 +308,16 @@ impl<'a> Surface<'a> {
             usage: cfg.usage | crate::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        let _ = device;
         CurrentSurfaceTexture::Success(SurfaceTexture {
             texture,
             suboptimal: false,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             drawable: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             layer: None,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             device: Some(device),
         })
     }

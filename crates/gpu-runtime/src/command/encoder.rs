@@ -83,67 +83,91 @@ impl CommandEncoder {
         S: RangeBounds<BufferAddress>,
         F: FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     {
-        let buf = buffer.clone();
-        if let Ok(mut cbs) = self.on_submit_callbacks.lock() {
-            cbs.push(Box::new(move || {
-                buf.inner.mapped_ready.store(true, Ordering::Release);
-                callback(Ok(()));
-            }));
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            let buf = buffer.clone();
+            if let Ok(mut cbs) = self.on_submit_callbacks.lock() {
+                cbs.push(Box::new(move || {
+                    buf.inner.mapped_ready.store(true, Ordering::Release);
+                    callback(Ok(()));
+                }));
+            }
         }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        let _ = (buffer, callback);
     }
 
     pub fn begin_compute_pass(&mut self, desc: &ComputePassDescriptor<'_>) -> ComputePass<'_> {
-        let start_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
-            tw.beginning_of_pass_write_index
-                .map(|i| (tw.query_set.clone(), i))
-        });
-        let end_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
-            tw.end_of_pass_write_index
-                .map(|i| (tw.query_set.clone(), i))
-        });
-        let dispatches = self.device.take_compute_dispatches();
-        ComputePass {
-            encoder: self,
-            current_pipeline: None,
-            bind_groups: Vec::new(),
-            immediates: Vec::new(),
-            dispatches,
-            start_timestamp: start_ts,
-            end_timestamp: end_ts,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            let start_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
+                tw.beginning_of_pass_write_index
+                    .map(|i| (tw.query_set.clone(), i))
+            });
+            let end_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
+                tw.end_of_pass_write_index
+                    .map(|i| (tw.query_set.clone(), i))
+            });
+            let dispatches = self.device.take_compute_dispatches();
+            ComputePass {
+                encoder: self,
+                current_pipeline: None,
+                bind_groups: Vec::new(),
+                immediates: Vec::new(),
+                dispatches,
+                start_timestamp: start_ts,
+                end_timestamp: end_ts,
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        {
+            let _ = desc;
+            ComputePass {
+                encoder: self,
+                has_pipeline: false,
+            }
         }
     }
 
     pub fn begin_render_pass(&mut self, desc: &RenderPassDescriptor<'_>) -> RenderPass<'_> {
-        let mut color_attachments = self.device.take_color_atts();
-        color_attachments.extend(desc.color_attachments.iter().map(|ca| {
-            ca.as_ref().map(|c| OwnedColorAttachment {
-                view: c.view.clone(),
-                ops: c.ops,
-            })
-        }));
-        let depth_stencil_attachment =
-            desc.depth_stencil_attachment
-                .as_ref()
-                .map(|d| OwnedDepthAttachment {
-                    view: d.view.clone(),
-                    depth_ops: d.depth_ops,
-                });
-        let start_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
-            tw.beginning_of_pass_write_index
-                .map(|i| (tw.query_set.clone(), i))
-        });
-        let end_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
-            tw.end_of_pass_write_index
-                .map(|i| (tw.query_set.clone(), i))
-        });
-        let commands = self.device.take_render_cmds();
-        RenderPass {
-            encoder: self,
-            color_attachments,
-            depth_stencil_attachment,
-            commands,
-            start_timestamp,
-            end_timestamp,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            let mut color_attachments = self.device.take_color_atts();
+            color_attachments.extend(desc.color_attachments.iter().map(|ca| {
+                ca.as_ref().map(|c| OwnedColorAttachment {
+                    view: c.view.clone(),
+                    ops: c.ops,
+                })
+            }));
+            let depth_stencil_attachment =
+                desc.depth_stencil_attachment
+                    .as_ref()
+                    .map(|d| OwnedDepthAttachment {
+                        view: d.view.clone(),
+                        depth_ops: d.depth_ops,
+                    });
+            let start_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
+                tw.beginning_of_pass_write_index
+                    .map(|i| (tw.query_set.clone(), i))
+            });
+            let end_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
+                tw.end_of_pass_write_index
+                    .map(|i| (tw.query_set.clone(), i))
+            });
+            let commands = self.device.take_render_cmds();
+            RenderPass {
+                encoder: self,
+                color_attachments,
+                depth_stencil_attachment,
+                commands,
+                start_timestamp,
+                end_timestamp,
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        {
+            let _ = desc;
+            RenderPass { _encoder: self }
         }
     }
 
@@ -172,6 +196,7 @@ impl CommandEncoder {
         ) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::CopyBufferToBuffer {
             src: source.clone(),
             src_offset: source_offset,
@@ -196,6 +221,7 @@ impl CommandEncoder {
         if !self.range_fits("clear_buffer", buffer, offset, sz) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::ClearBuffer {
             dst: buffer.clone(),
             offset,
@@ -236,6 +262,7 @@ impl CommandEncoder {
         ) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::CopyTextureToBuffer {
             src_tex: source.texture.clone(),
             mip_level: source.mip_level,
@@ -285,6 +312,7 @@ impl CommandEncoder {
         ) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::CopyBufferToTexture {
             src_buf: source.buffer.clone(),
             src_offset: source.layout.offset,
@@ -318,6 +346,7 @@ impl CommandEncoder {
         ) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::CopyTextureToTexture {
             src_tex: source.texture.clone(),
             src_mip: source.mip_level,
@@ -330,10 +359,13 @@ impl CommandEncoder {
     }
 
     pub fn write_timestamp(&mut self, query_set: &QuerySet, query_index: u32) {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::WriteTimestamp {
             query_set: query_set.clone(),
             index: query_index,
         });
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        let _ = (query_set, query_index);
     }
 
     pub fn resolve_query_set(
@@ -349,6 +381,7 @@ impl CommandEncoder {
         if !self.range_fits("resolve_query_set", destination, destination_offset, bytes) {
             return;
         }
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         self.ops.push(RecordedOp::ResolveQuerySet {
             query_set: query_set.clone(),
             first_query: query_range.start,
@@ -356,13 +389,20 @@ impl CommandEncoder {
             destination: destination.clone(),
             destination_offset,
         });
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        let _ = query_set;
     }
 
     pub fn finish(self) -> CommandBuffer {
-        let on_submit_callbacks = self.on_submit_callbacks.into_inner().unwrap_or_default();
-        CommandBuffer {
-            ops: self.ops,
-            on_submit_callbacks,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            let on_submit_callbacks = self.on_submit_callbacks.into_inner().unwrap_or_default();
+            CommandBuffer {
+                ops: self.ops,
+                on_submit_callbacks,
+            }
         }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        CommandBuffer {}
     }
 }

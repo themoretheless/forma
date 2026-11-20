@@ -2,6 +2,8 @@
 
 use super::*;
 
+use crate::front::wgsl::{find_block_open, find_stmt_semicolon, strip_kw_token};
+
 pub(super) fn translate_function_body(
     module: &Module,
     body: &str,
@@ -312,6 +314,14 @@ pub(super) fn split_continuing_block(src: &str) -> Option<(&str, &str)> {
     None
 }
 
+struct SwitchContext<'a> {
+    module: &'a Module,
+    ptr_params: &'a BTreeSet<String>,
+    func_globals: &'a BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    binding_map: &'a BindingMap,
+    direct_out_struct: Option<&'a str>,
+}
+
 pub(super) fn rewrite_switch_body(
     module: &Module,
     switch_body: &str,
@@ -320,60 +330,82 @@ pub(super) fn rewrite_switch_body(
     binding_map: &BindingMap,
     direct_out_struct: Option<&str>,
 ) -> String {
+    let ctx = SwitchContext {
+        module,
+        ptr_params,
+        func_globals,
+        binding_map,
+        direct_out_struct,
+    };
     let mut out = String::new();
     let mut rest = switch_body.trim();
     while !rest.is_empty() {
         if let Some(after_case) = strip_kw_token(rest, "case") {
-            let open_brace = find_block_open(after_case).unwrap_or(0);
-            let selectors_str = after_case[..open_brace].trim().trim_end_matches(':').trim();
-            for sel in split_comma_top_level(selectors_str) {
-                let sel = sel.trim();
-                if sel == "default" {
-                    out.push_str("default:\n");
-                } else if !sel.is_empty() {
-                    let sel_msl = translate_expr_with_ctx(module, sel, func_globals, binding_map);
-                    out.push_str(&format!("case {sel_msl}:\n"));
-                }
-            }
-            let blk = &after_case[open_brace..];
-            if let Some(close_brace) = find_matching_delim(blk, '{', '}') {
-                let inner = &blk[1..close_brace];
-                let inner_msl = rewrite_statements(
-                    module,
-                    inner,
-                    ptr_params,
-                    func_globals,
-                    binding_map,
-                    direct_out_struct,
-                );
-                out.push_str(&format!("{{\n{inner_msl}\nbreak;\n}}\n"));
-                rest = blk[close_brace + 1..].trim_start();
-            } else {
+            let Some(next) = rewrite_case_clause(&ctx, after_case, &mut out) else {
                 break;
-            }
+            };
+            rest = next;
         } else if let Some(after_def) = strip_kw_token(rest, "default") {
-            let open_brace = find_block_open(after_def).unwrap_or(0);
-            let blk = &after_def[open_brace..];
-            if let Some(close_brace) = find_matching_delim(blk, '{', '}') {
-                let inner = &blk[1..close_brace];
-                let inner_msl = rewrite_statements(
-                    module,
-                    inner,
-                    ptr_params,
-                    func_globals,
-                    binding_map,
-                    direct_out_struct,
-                );
-                out.push_str(&format!("default: {{\n{inner_msl}\nbreak;\n}}\n"));
-                rest = blk[close_brace + 1..].trim_start();
-            } else {
+            let Some(next) = rewrite_default_clause(&ctx, after_def, &mut out) else {
                 break;
-            }
+            };
+            rest = next;
         } else {
             break;
         }
     }
     out
+}
+
+fn rewrite_case_clause<'a>(
+    ctx: &SwitchContext<'_>,
+    after_case: &'a str,
+    out: &mut String,
+) -> Option<&'a str> {
+    let open_brace = find_block_open(after_case).unwrap_or(0);
+    let selectors_str = after_case[..open_brace].trim().trim_end_matches(':').trim();
+    for sel in split_comma_top_level(selectors_str) {
+        let sel = sel.trim();
+        if sel == "default" {
+            out.push_str("default:\n");
+        } else if !sel.is_empty() {
+            let sel_msl =
+                translate_expr_with_ctx(ctx.module, sel, ctx.func_globals, ctx.binding_map);
+            out.push_str(&format!("case {sel_msl}:\n"));
+        }
+    }
+    let blk = &after_case[open_brace..];
+    let close_brace = find_matching_delim(blk, '{', '}')?;
+    let inner_msl = rewrite_statements(
+        ctx.module,
+        &blk[1..close_brace],
+        ctx.ptr_params,
+        ctx.func_globals,
+        ctx.binding_map,
+        ctx.direct_out_struct,
+    );
+    out.push_str(&format!("{{\n{inner_msl}\nbreak;\n}}\n"));
+    Some(blk[close_brace + 1..].trim_start())
+}
+
+fn rewrite_default_clause<'a>(
+    ctx: &SwitchContext<'_>,
+    after_def: &'a str,
+    out: &mut String,
+) -> Option<&'a str> {
+    let open_brace = find_block_open(after_def).unwrap_or(0);
+    let blk = &after_def[open_brace..];
+    let close_brace = find_matching_delim(blk, '{', '}')?;
+    let inner_msl = rewrite_statements(
+        ctx.module,
+        &blk[1..close_brace],
+        ctx.ptr_params,
+        ctx.func_globals,
+        ctx.binding_map,
+        ctx.direct_out_struct,
+    );
+    out.push_str(&format!("default: {{\n{inner_msl}\nbreak;\n}}\n"));
+    Some(blk[close_brace + 1..].trim_start())
 }
 
 pub(super) fn translate_simple_stmt(
@@ -392,110 +424,102 @@ pub(super) fn translate_simple_stmt(
         return s.to_string();
     }
     if let Some(after_ret) = strip_kw_token(s, "return") {
-        let expr_msl = translate_expr_with_ctx(module, after_ret.trim(), func_globals, binding_map);
-        if let Some(out_struct) = direct_out_struct {
-            return format!("return {out_struct}{{{expr_msl}}}");
-        } else {
-            return format!("return {expr_msl}");
-        }
+        return translate_return_stmt(
+            module,
+            after_ret,
+            func_globals,
+            binding_map,
+            direct_out_struct,
+        );
     }
-
-    // `let name [: Type] = expr` or `const name [: Type] = expr`
     if let Some(after_let) = strip_kw_token(s, "let").or_else(|| strip_kw_token(s, "const")) {
-        if let Some(eq_pos) = find_top_level_char(after_let, '=') {
-            let lhs = after_let[..eq_pos].trim();
-            let rhs = after_let[eq_pos + 1..].trim();
-            let rhs_msl = translate_expr_with_ctx(module, rhs, func_globals, binding_map);
-            if let Some(colon) = lhs.find(':') {
-                let name = msl_escape_ident(lhs[..colon].trim());
-                let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
-                return format!("const {ty_msl} {name} = {rhs_msl}");
-            } else {
-                let name = msl_escape_ident(lhs);
-                return format!("const auto {name} = {rhs_msl}");
-            }
+        if let Some(msl) = translate_let_or_const_stmt(module, after_let, func_globals, binding_map)
+        {
+            return msl;
         }
     }
-
-    // `var name [: Type] [= expr]`
     if let Some(after_var) = strip_kw_token(s, "var") {
-        let after_var = if after_var.trim_start().starts_with('<') {
-            let trimmed = after_var.trim_start();
-            if let Some(close) = find_matching_delim(trimmed, '<', '>') {
-                trimmed[close + 1..].trim_start()
-            } else {
-                after_var
-            }
-        } else {
-            after_var.trim_start()
-        };
-
-        if let Some(eq_pos) = find_top_level_char(after_var, '=') {
-            let lhs = after_var[..eq_pos].trim();
-            let rhs = after_var[eq_pos + 1..].trim();
-            let rhs_msl = translate_expr_with_ctx(module, rhs, func_globals, binding_map);
-            if let Some(colon) = lhs.find(':') {
-                let name = msl_escape_ident(lhs[..colon].trim());
-                let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
-                return format!("{ty_msl} {name} = {rhs_msl}");
-            } else {
-                let name = msl_escape_ident(lhs);
-                return format!("auto {name} = {rhs_msl}");
-            }
-        } else if let Some(colon) = after_var.find(':') {
-            let name = msl_escape_ident(after_var[..colon].trim());
-            let ty_msl = wgsl_type_str_to_msl(module, after_var[colon + 1..].trim());
-            return format!("{ty_msl} {name} = {{}}");
+        if let Some(msl) = translate_var_stmt(module, after_var, func_globals, binding_map) {
+            return msl;
         }
     }
 
     translate_expr_with_ctx(module, s, func_globals, binding_map)
 }
 
-pub(super) fn strip_kw_token<'a>(s: &'a str, kw: &str) -> Option<&'a str> {
-    let rest = s.strip_prefix(kw)?;
-    if rest.is_empty() {
-        return Some(rest);
+fn translate_return_stmt(
+    module: &Module,
+    after_ret: &str,
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    binding_map: &BindingMap,
+    direct_out_struct: Option<&str>,
+) -> String {
+    let expr_msl = translate_expr_with_ctx(module, after_ret.trim(), func_globals, binding_map);
+    match direct_out_struct {
+        Some(out_struct) => format!("return {out_struct}{{{expr_msl}}}"),
+        None => format!("return {expr_msl}"),
     }
-    let next = rest.as_bytes()[0];
-    if !next.is_ascii_alphanumeric() && next != b'_' {
-        Some(rest)
+}
+
+fn translate_let_or_const_stmt(
+    module: &Module,
+    after_let: &str,
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    binding_map: &BindingMap,
+) -> Option<String> {
+    let eq_pos = find_top_level_char(after_let, '=')?;
+    let lhs = after_let[..eq_pos].trim();
+    let rhs_msl = translate_expr_with_ctx(
+        module,
+        after_let[eq_pos + 1..].trim(),
+        func_globals,
+        binding_map,
+    );
+    if let Some(colon) = lhs.find(':') {
+        let name = msl_escape_ident(lhs[..colon].trim());
+        let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
+        Some(format!("const {ty_msl} {name} = {rhs_msl}"))
     } else {
-        None
+        let name = msl_escape_ident(lhs);
+        Some(format!("const auto {name} = {rhs_msl}"))
     }
 }
 
-pub(super) fn find_block_open(s: &str) -> Option<usize> {
-    let mut paren = 0i32;
-    let mut bracket = 0i32;
-    for (idx, ch) in s.char_indices() {
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = (paren - 1).max(0),
-            '[' => bracket += 1,
-            ']' => bracket = (bracket - 1).max(0),
-            '{' if paren == 0 && bracket == 0 => return Some(idx),
-            _ => {}
+fn translate_var_stmt(
+    module: &Module,
+    after_var: &str,
+    func_globals: &BTreeMap<String, Vec<Handle<GlobalVariable>>>,
+    binding_map: &BindingMap,
+) -> Option<String> {
+    let trimmed = after_var.trim_start();
+    let after_var = if trimmed.starts_with('<') {
+        if let Some(close) = find_matching_delim(trimmed, '<', '>') {
+            trimmed[close + 1..].trim_start()
+        } else {
+            after_var
         }
-    }
-    None
-}
+    } else {
+        trimmed
+    };
 
-pub(super) fn find_stmt_semicolon(s: &str) -> Option<usize> {
-    let mut paren = 0i32;
-    let mut bracket = 0i32;
-    let mut brace = 0i32;
-    for (idx, ch) in s.char_indices() {
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = (paren - 1).max(0),
-            '[' => bracket += 1,
-            ']' => bracket = (bracket - 1).max(0),
-            '{' => brace += 1,
-            '}' => brace = (brace - 1).max(0),
-            ';' if paren == 0 && bracket == 0 && brace == 0 => return Some(idx),
-            _ => {}
+    if let Some(eq_pos) = find_top_level_char(after_var, '=') {
+        let lhs = after_var[..eq_pos].trim();
+        let rhs_msl = translate_expr_with_ctx(
+            module,
+            after_var[eq_pos + 1..].trim(),
+            func_globals,
+            binding_map,
+        );
+        if let Some(colon) = lhs.find(':') {
+            let name = msl_escape_ident(lhs[..colon].trim());
+            let ty_msl = wgsl_type_str_to_msl(module, lhs[colon + 1..].trim());
+            return Some(format!("{ty_msl} {name} = {rhs_msl}"));
         }
+        let name = msl_escape_ident(lhs);
+        return Some(format!("auto {name} = {rhs_msl}"));
     }
-    None
+    let colon = after_var.find(':')?;
+    let name = msl_escape_ident(after_var[..colon].trim());
+    let ty_msl = wgsl_type_str_to_msl(module, after_var[colon + 1..].trim());
+    Some(format!("{ty_msl} {name} = {{}}"))
 }

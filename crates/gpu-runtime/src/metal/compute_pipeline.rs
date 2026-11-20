@@ -42,6 +42,9 @@ impl MetalDevice {
                 *mut *mut c_void,
             ) -> *mut c_void = msg_send();
 
+            #[cfg(test)]
+            self.metal_shader_compilations
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let lib_ptr = f_lib(
                 self.raw.as_ptr(),
                 s.new_library_with_source,

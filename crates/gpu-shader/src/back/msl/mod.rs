@@ -10,12 +10,14 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+mod builtins;
 mod constants;
 mod entry;
 mod expressions;
 mod statements;
 mod types;
 
+use builtins::*;
 pub use constants::*;
 use entry::*;
 pub use expressions::*;

@@ -166,6 +166,10 @@ impl MetalDevice {
     }
 
     /// Compiles MSL into a library, or returns Metal's description of why it would not.
+    ///
+    /// # Safety
+    ///
+    /// Must be called with an active Objective-C autorelease pool context on `self.raw`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     unsafe fn compile_library(&self, source: &str) -> Result<ObjCObject, String> {
         let s = selectors();
@@ -177,20 +181,31 @@ impl MetalDevice {
             *mut *mut c_void,
         ) -> *mut c_void = msg_send();
         let mut err: *mut c_void = ptr::null_mut();
-        let library = f_lib(
-            self.raw.as_ptr(),
-            s.new_library_with_source,
-            nsstring_from_str(source),
-            ptr::null_mut(),
-            &mut err,
-        );
-        if library.is_null() {
-            return Err(nserror_description(err));
+        #[cfg(test)]
+        self.metal_shader_compilations
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        // SAFETY: Caller has an active autorelease pool for `nsstring_from_str`; `err` receives
+        // any retained/autoreleased `NSError` on null return.
+        unsafe {
+            let library = f_lib(
+                self.raw.as_ptr(),
+                s.new_library_with_source,
+                nsstring_from_str(source),
+                ptr::null_mut(),
+                &mut err,
+            );
+            if library.is_null() {
+                return Err(nserror_description(err));
+            }
+            Ok(ObjCObject(library))
         }
-        Ok(ObjCObject(library))
     }
 
     /// Sets the depth format on the descriptor and builds the depth-stencil state object.
+    ///
+    /// # Safety
+    ///
+    /// `rpd` must wrap a valid `MTLRenderPipelineDescriptor`.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     unsafe fn configure_depth_stencil(
         &self,
@@ -202,46 +217,60 @@ impl MetalDevice {
         let f_init: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void = msg_send();
         let f_set_u64: MsgSetU64 = msg_send();
         let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
-        f_set_u64(
-            rpd.as_ptr(),
-            s.set_depth_attachment_pixel_format,
-            ds.format.to_mtl_pixel_format(),
-        );
-        let dsd_ptr = f_init(f_alloc(s.cls_mtl_depth_stencil_descriptor, s.alloc), s.init);
-        let dsd = ObjCObject(dsd_ptr);
-        f_set_bool(
-            dsd.as_ptr(),
-            s.set_depth_write_enabled,
-            ds.depth_write_enabled.unwrap_or(false),
-        );
-        f_set_u64(
-            dsd.as_ptr(),
-            s.set_depth_compare_function,
-            ds.depth_compare
-                .unwrap_or(crate::CompareFunction::Always)
-                .to_mtl(),
-        );
         let f_new_dss: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
             msg_send();
-        let dss_ptr = f_new_dss(self.raw.as_ptr(), s.new_depth_stencil_state, dsd.as_ptr());
+        // SAFETY: `rpd` and `self.raw` are valid Metal objects; `dsd` is released by `ObjCObject`.
+        let dss_ptr = unsafe {
+            f_set_u64(
+                rpd.as_ptr(),
+                s.set_depth_attachment_pixel_format,
+                ds.format.to_mtl_pixel_format(),
+            );
+            let dsd_ptr = f_init(f_alloc(s.cls_mtl_depth_stencil_descriptor, s.alloc), s.init);
+            let dsd = ObjCObject(dsd_ptr);
+            f_set_bool(
+                dsd.as_ptr(),
+                s.set_depth_write_enabled,
+                ds.depth_write_enabled.unwrap_or(false),
+            );
+            f_set_u64(
+                dsd.as_ptr(),
+                s.set_depth_compare_function,
+                ds.depth_compare
+                    .unwrap_or(crate::CompareFunction::Always)
+                    .to_mtl(),
+            );
+            f_new_dss(self.raw.as_ptr(), s.new_depth_stencil_state, dsd.as_ptr())
+        };
         (!dss_ptr.is_null()).then(|| Arc::new(ObjCObject(dss_ptr)))
     }
 }
 
 /// Looks a function up in a compiled library.
+///
+/// # Safety
+///
+/// `library` must wrap a valid `MTLLibrary` inside an active autorelease pool context.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 unsafe fn shader_function(library: &ObjCObject, name: &str) -> Option<ObjCObject> {
     let f_fn: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
         msg_send();
-    let function = f_fn(
-        library.as_ptr(),
-        selectors().new_function_with_name,
-        nsstring_from_str(name),
-    );
+    // SAFETY: `library` is a live `MTLLibrary` and `nsstring_from_str` produces an `NSString`.
+    let function = unsafe {
+        f_fn(
+            library.as_ptr(),
+            selectors().new_function_with_name,
+            nsstring_from_str(name),
+        )
+    };
     (!function.is_null()).then(|| ObjCObject(function))
 }
 
 /// Pixel format, write mask and blending of each colour attachment.
+///
+/// # Safety
+///
+/// `rpd` must wrap a valid `MTLRenderPipelineDescriptor`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 unsafe fn configure_color_targets(rpd: &ObjCObject, targets: &[Option<crate::ColorTargetState>]) {
     let s = selectors();
@@ -249,41 +278,48 @@ unsafe fn configure_color_targets(rpd: &ObjCObject, targets: &[Option<crate::Col
     let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) = msg_send();
     let f_get_obj: MsgGetObj = msg_send();
     let f_sub: MsgSubscript = msg_send();
-    let color_atts = f_get_obj(rpd.as_ptr(), s.color_attachments);
-    for (i, target_opt) in targets.iter().enumerate() {
-        let Some(target) = target_opt else { continue };
-        let att = f_sub(color_atts, s.object_at_indexed_subscript, i);
-        f_set_u64(att, s.set_pixel_format, target.format.to_mtl_pixel_format());
-        f_set_u64(att, s.set_write_mask, target.write_mask.bits() as u64);
-        let Some(blend) = &target.blend else { continue };
-        f_set_bool(att, s.set_blending_enabled, true);
-        let settings = [
-            (
-                s.set_source_rgb_blend_factor,
-                blend.color.src_factor.to_mtl(),
-            ),
-            (
-                s.set_destination_rgb_blend_factor,
-                blend.color.dst_factor.to_mtl(),
-            ),
-            (s.set_rgb_blend_operation, blend.color.operation.to_mtl()),
-            (
-                s.set_source_alpha_blend_factor,
-                blend.alpha.src_factor.to_mtl(),
-            ),
-            (
-                s.set_destination_alpha_blend_factor,
-                blend.alpha.dst_factor.to_mtl(),
-            ),
-            (s.set_alpha_blend_operation, blend.alpha.operation.to_mtl()),
-        ];
-        for (selector, value) in settings {
-            f_set_u64(att, selector, value);
+    // SAFETY: `rpd` is a valid `MTLRenderPipelineDescriptor`.
+    unsafe {
+        let color_atts = f_get_obj(rpd.as_ptr(), s.color_attachments);
+        for (i, target_opt) in targets.iter().enumerate() {
+            let Some(target) = target_opt else { continue };
+            let att = f_sub(color_atts, s.object_at_indexed_subscript, i);
+            f_set_u64(att, s.set_pixel_format, target.format.to_mtl_pixel_format());
+            f_set_u64(att, s.set_write_mask, target.write_mask.bits() as u64);
+            let Some(blend) = &target.blend else { continue };
+            f_set_bool(att, s.set_blending_enabled, true);
+            let settings = [
+                (
+                    s.set_source_rgb_blend_factor,
+                    blend.color.src_factor.to_mtl(),
+                ),
+                (
+                    s.set_destination_rgb_blend_factor,
+                    blend.color.dst_factor.to_mtl(),
+                ),
+                (s.set_rgb_blend_operation, blend.color.operation.to_mtl()),
+                (
+                    s.set_source_alpha_blend_factor,
+                    blend.alpha.src_factor.to_mtl(),
+                ),
+                (
+                    s.set_destination_alpha_blend_factor,
+                    blend.alpha.dst_factor.to_mtl(),
+                ),
+                (s.set_alpha_blend_operation, blend.alpha.operation.to_mtl()),
+            ];
+            for (selector, value) in settings {
+                f_set_u64(att, selector, value);
+            }
         }
     }
 }
 
 /// Stride, step function and attributes of each vertex buffer.
+///
+/// # Safety
+///
+/// `rpd` must wrap a valid `MTLRenderPipelineDescriptor`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 unsafe fn configure_vertex_layout(
     rpd: &ObjCObject,
@@ -296,30 +332,34 @@ unsafe fn configure_vertex_layout(
     let f_set_u64: MsgSetU64 = msg_send();
     let f_get_obj: MsgGetObj = msg_send();
     let f_sub: MsgSubscript = msg_send();
-    let vd = f_get_obj(rpd.as_ptr(), s.vertex_descriptor);
-    let attrs = f_get_obj(vd, s.attributes);
-    let layouts = f_get_obj(vd, s.layouts);
-    for (slot_idx, vb_opt) in buffers.iter().enumerate() {
-        let Some(vb) = vb_opt else { continue };
-        let mtl_buf_idx = gpu_shader::back::msl::MSL_VERTEX_BUFFER_BASE_SLOT as usize + slot_idx;
-        let layout = f_sub(layouts, s.object_at_indexed_subscript, mtl_buf_idx);
-        f_set_u64(layout, s.set_stride, vb.array_stride);
-        let step_fn = match vb.step_mode {
-            crate::VertexStepMode::Vertex => 1u64,
-            crate::VertexStepMode::Instance => 2u64,
-        };
-        f_set_u64(layout, s.set_step_function, step_fn);
-        f_set_u64(layout, s.set_step_rate, 1);
+    // SAFETY: `rpd` is a valid `MTLRenderPipelineDescriptor`.
+    unsafe {
+        let vd = f_get_obj(rpd.as_ptr(), s.vertex_descriptor);
+        let attrs = f_get_obj(vd, s.attributes);
+        let layouts = f_get_obj(vd, s.layouts);
+        for (slot_idx, vb_opt) in buffers.iter().enumerate() {
+            let Some(vb) = vb_opt else { continue };
+            let mtl_buf_idx =
+                gpu_shader::back::msl::MSL_VERTEX_BUFFER_BASE_SLOT as usize + slot_idx;
+            let layout = f_sub(layouts, s.object_at_indexed_subscript, mtl_buf_idx);
+            f_set_u64(layout, s.set_stride, vb.array_stride);
+            let step_fn = match vb.step_mode {
+                crate::VertexStepMode::Vertex => 1u64,
+                crate::VertexStepMode::Instance => 2u64,
+            };
+            f_set_u64(layout, s.set_step_function, step_fn);
+            f_set_u64(layout, s.set_step_rate, 1);
 
-        for attr in vb.attributes {
-            let a_desc = f_sub(
-                attrs,
-                s.object_at_indexed_subscript,
-                attr.shader_location as usize,
-            );
-            f_set_u64(a_desc, s.set_format, attr.format.to_mtl());
-            f_set_u64(a_desc, s.set_offset, attr.offset);
-            f_set_u64(a_desc, s.set_buffer_index, mtl_buf_idx as u64);
+            for attr in vb.attributes {
+                let a_desc = f_sub(
+                    attrs,
+                    s.object_at_indexed_subscript,
+                    attr.shader_location as usize,
+                );
+                f_set_u64(a_desc, s.set_format, attr.format.to_mtl());
+                f_set_u64(a_desc, s.set_offset, attr.offset);
+                f_set_u64(a_desc, s.set_buffer_index, mtl_buf_idx as u64);
+            }
         }
     }
 }

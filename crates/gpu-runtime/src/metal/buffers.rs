@@ -107,14 +107,18 @@ impl MetalDevice {
             u64,
             *mut c_void,
         ) -> *mut c_void = msg_send();
-        let raw_buf = f_nocopy(
-            self.raw.as_ptr(),
-            s.new_buffer_with_bytes_no_copy,
-            page_aligned_ptr,
-            page_aligned_len,
-            options,
-            ptr::null_mut(),
-        );
+        // SAFETY: Caller guarantees `page_aligned_ptr` is valid and page-aligned for
+        // `page_aligned_len` bytes, and outlives the `MTLBuffer` wrapper.
+        let raw_buf = unsafe {
+            f_nocopy(
+                self.raw.as_ptr(),
+                s.new_buffer_with_bytes_no_copy,
+                page_aligned_ptr,
+                page_aligned_len,
+                options,
+                ptr::null_mut(),
+            )
+        };
         let raw = ObjCObject::from_retained(raw_buf)?;
         Some((Arc::new(raw), page_aligned_ptr as *mut u8))
     }
@@ -188,7 +192,7 @@ impl MetalDevice {
         };
         self.flush_pending_compute();
         if !self.is_last_cmd_completed() {
-            self.wait_idle();
+            let _ = self.wait_for_submission(None, None);
         }
         if buffer.inner.ptr.is_null() {
             #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -232,7 +236,7 @@ impl MetalDevice {
                 let signal = error_sink
                     .as_ref()
                     .is_some_and(crate::CommandErrorSink::has_scoped_work);
-                self.install_completion_signal(cmd_buf, signal);
+                self.install_completion_signal(cmd_buf);
                 f_void(cmd_buf, s.commit);
                 f_void(cmd_buf, s.wait_until_completed);
                 if let Some(command) = ObjCObject::from_unretained(cmd_buf) {
@@ -242,6 +246,7 @@ impl MetalDevice {
                         .push(PendingCommand {
                             command: CompletionCommand::Native(command),
                             sinks: error_sink.into_iter().collect(),
+                            submission_index: 0,
                         });
                     if signal {
                         self.scope_completion_service.notify();

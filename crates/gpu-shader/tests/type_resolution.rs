@@ -149,11 +149,11 @@ fn array_lengths_use_the_full_constant_evaluator() {
     assert_eq!(length, Some(2));
 }
 
-fn msl(source: &str) -> Result<String, String> {
-    let module = parse_str(source).unwrap();
-    let info = Validator::new(ValidationFlags::all(), Capabilities::all())
+fn msl_with_flags(source: &str, flags: ValidationFlags) -> Result<String, String> {
+    let module = parse_str(source).map_err(|error| error.to_string())?;
+    let info = Validator::new(flags, Capabilities::all())
         .validate(&module)
-        .unwrap();
+        .map_err(|error| error.to_string())?;
     msl::write_string(
         &module,
         &info,
@@ -162,6 +162,10 @@ fn msl(source: &str) -> Result<String, String> {
     )
     .map(|(source, _)| source)
     .map_err(|error| error.to_string())
+}
+
+fn msl(source: &str) -> Result<String, String> {
+    msl_with_flags(source, ValidationFlags::all())
 }
 
 #[test]
@@ -176,8 +180,13 @@ fn run() { let count = arrayLength(&values); }";
 @group(0) @binding(0) var<storage, read> values: array<u32>;
 @compute @workgroup_size(1)
 fn run() { let count = arrayLength(&valeus); }";
-    let message = msl(unbound).unwrap_err();
-    assert!(message.contains("arrayLength(&valeus)"), "{message}");
+    let validated_msg = msl(unbound).unwrap_err();
+    assert!(validated_msg.contains("valeus"), "{validated_msg}");
+    let backend_msg = msl_with_flags(unbound, ValidationFlags::empty()).unwrap_err();
+    assert!(
+        backend_msg.contains("arrayLength(&valeus)"),
+        "{backend_msg}"
+    );
 }
 
 #[test]
@@ -193,7 +202,12 @@ fn an_array_constant_with_an_unclosed_type_is_an_error_not_a_panic() {
     let Ok(module) = module else {
         return; // rejected by the front end, which is as good
     };
-    let info = Validator::new(ValidationFlags::all(), Capabilities::all())
+    assert!(
+        Validator::new(ValidationFlags::all(), Capabilities::all())
+            .validate(&module)
+            .is_err()
+    );
+    let info = Validator::new(ValidationFlags::empty(), Capabilities::all())
         .validate(&module)
         .unwrap();
     let error = msl::write_string(

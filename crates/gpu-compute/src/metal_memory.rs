@@ -67,6 +67,7 @@ impl MetalSharedBuffer {
         }
         let layout = Layout::from_size_align(aligned_len, METAL_UMA_PAGE_BYTES)
             .map_err(|_| Error("invalid UMA page alignment layout".into()))?;
+        // SAFETY: `layout` has non-zero page-aligned size validated above (`aligned_len`).
         let raw_ptr = unsafe { std::alloc::alloc_zeroed(layout) };
         let ptr = NonNull::new(raw_ptr)
             .ok_or_else(|| Error("UMA page-aligned memory allocation failed".into()))?;

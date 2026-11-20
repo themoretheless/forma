@@ -168,14 +168,55 @@ pub fn find_matching_delim(s: &str, open: char, close: char) -> Option<usize> {
     None
 }
 
+/// Tracks delimiter nesting (`()`, `[]`, `{}`, and template `<>`) during a forward scan.
+#[derive(Default)]
+pub struct TopLevelScan {
+    paren: i32,
+    bracket: i32,
+    brace: i32,
+    angle: i32,
+}
+
+impl TopLevelScan {
+    /// Returns `true` when outside all delimiters.
+    #[inline]
+    pub const fn at_top_level(&self) -> bool {
+        self.paren == 0 && self.bracket == 0 && self.brace == 0 && self.angle == 0
+    }
+
+    /// Returns `true` when outside `()`, `[]`, and `{}` (ignoring angle brackets).
+    #[inline]
+    pub const fn outside_blocks(&self) -> bool {
+        self.paren == 0 && self.bracket == 0 && self.brace == 0
+    }
+
+    /// Updates nesting state for `ch` at byte index `idx` in `bytes`.
+    #[inline]
+    pub fn step(&mut self, bytes: &[u8], idx: usize, ch: char) {
+        match ch {
+            '(' => self.paren += 1,
+            ')' => self.paren = (self.paren - 1).max(0),
+            '[' => self.bracket += 1,
+            ']' => self.bracket = (self.bracket - 1).max(0),
+            '{' => self.brace += 1,
+            '}' => self.brace = (self.brace - 1).max(0),
+            '<' => {
+                // Only treat `<` as a template opener if preceded by an identifier character.
+                if idx > 0 && (bytes[idx - 1].is_ascii_alphanumeric() || bytes[idx - 1] == b'_') {
+                    self.angle += 1;
+                }
+            }
+            '>' if self.angle > 0 => self.angle -= 1,
+            _ => {}
+        }
+    }
+}
+
 pub fn find_top_level_char(s: &str, target: char) -> Option<usize> {
-    let mut paren = 0i32;
-    let mut bracket = 0i32;
-    let mut brace = 0i32;
-    let mut angle = 0i32;
+    let mut scan = TopLevelScan::default();
     let bytes = s.as_bytes();
     for (idx, ch) in s.char_indices() {
-        if ch == target && paren == 0 && bracket == 0 && brace == 0 && angle == 0 {
+        if ch == target && scan.at_top_level() {
             if target == '=' {
                 let prev = if idx > 0 { Some(bytes[idx - 1]) } else { None };
                 let next = bytes.get(idx + 1).copied();
@@ -185,24 +226,7 @@ pub fn find_top_level_char(s: &str, target: char) -> Option<usize> {
             }
             return Some(idx);
         }
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = (paren - 1).max(0),
-            '[' => bracket += 1,
-            ']' => bracket = (bracket - 1).max(0),
-            '{' => brace += 1,
-            '}' => brace = (brace - 1).max(0),
-            '<' => {
-                // Only treat `<` as template opener if preceded by identifier character
-                if idx > 0 && (bytes[idx - 1].is_ascii_alphanumeric() || bytes[idx - 1] == b'_') {
-                    angle += 1;
-                }
-            }
-            '>' if angle > 0 => {
-                angle -= 1;
-            }
-            _ => {}
-        }
+        scan.step(bytes, idx, ch);
     }
     None
 }
@@ -210,37 +234,56 @@ pub fn find_top_level_char(s: &str, target: char) -> Option<usize> {
 pub fn split_comma_top_level(s: &str) -> Vec<&str> {
     let mut res = Vec::new();
     let mut start = 0usize;
-    let mut paren = 0i32;
-    let mut bracket = 0i32;
-    let mut brace = 0i32;
-    let mut angle = 0i32;
+    let mut scan = TopLevelScan::default();
     let bytes = s.as_bytes();
 
     for (idx, ch) in s.char_indices() {
-        match ch {
-            '(' => paren += 1,
-            ')' => paren = (paren - 1).max(0),
-            '[' => bracket += 1,
-            ']' => bracket = (bracket - 1).max(0),
-            '{' => brace += 1,
-            '}' => brace = (brace - 1).max(0),
-            '<' => {
-                if idx > 0 && (bytes[idx - 1].is_ascii_alphanumeric() || bytes[idx - 1] == b'_') {
-                    angle += 1;
-                }
-            }
-            '>' if angle > 0 => {
-                angle -= 1;
-            }
-            ',' if paren == 0 && bracket == 0 && brace == 0 && angle == 0 => {
-                res.push(&s[start..idx]);
-                start = idx + 1;
-            }
-            _ => {}
+        if ch == ',' && scan.at_top_level() {
+            res.push(&s[start..idx]);
+            start = idx + 1;
+        } else {
+            scan.step(bytes, idx, ch);
         }
     }
     res.push(&s[start..]);
     res
+}
+
+pub fn strip_kw_token<'a>(s: &'a str, kw: &str) -> Option<&'a str> {
+    let rest = s.strip_prefix(kw)?;
+    if rest.is_empty() {
+        return Some(rest);
+    }
+    let next = rest.as_bytes()[0];
+    if !next.is_ascii_alphanumeric() && next != b'_' {
+        Some(rest)
+    } else {
+        None
+    }
+}
+
+pub fn find_block_open(s: &str) -> Option<usize> {
+    let mut scan = TopLevelScan::default();
+    let bytes = s.as_bytes();
+    for (idx, ch) in s.char_indices() {
+        if ch == '{' && scan.outside_blocks() {
+            return Some(idx);
+        }
+        scan.step(bytes, idx, ch);
+    }
+    None
+}
+
+pub fn find_stmt_semicolon(s: &str) -> Option<usize> {
+    let mut scan = TopLevelScan::default();
+    let bytes = s.as_bytes();
+    for (idx, ch) in s.char_indices() {
+        if ch == ';' && scan.outside_blocks() {
+            return Some(idx);
+        }
+        scan.step(bytes, idx, ch);
+    }
+    None
 }
 
 pub(super) fn strip_keyword<'a>(s: &'a str, kw: &str) -> Option<&'a str> {

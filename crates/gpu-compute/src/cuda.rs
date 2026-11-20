@@ -55,18 +55,23 @@ impl CudaDevice {
     pub fn new_with_stream(mode: CudaStreamMode) -> Option<Self> {
         // The generated bindings panic when the library is missing; probe first
         // so a CPU-only machine simply reports "no CUDA".
+        // SAFETY: `is_culib_present` checks dynamic library availability via FFI without
+        // dereferencing uninitialized handles.
         if !unsafe { cudarc::driver::sys::is_culib_present() } {
             return None;
         }
         if mode == CudaStreamMode::NonBlocking {
             // These additional entry points are used by new_stream and its Drop.
             // Probe before cudarc's generated dynamic wrappers can panic.
+            // SAFETY: `is_culib_present` succeeded above, so `culib()` returns the initialized
+            // loaded driver library handle; symbol lookups pass NUL-terminated ASCII names.
             let library = unsafe { cudarc::driver::sys::culib() };
             for name in [
                 b"cuStreamCreate\0".as_slice(),
                 b"cuStreamDestroy_v2\0",
                 b"cuCtxSynchronize\0",
             ] {
+                // SAFETY: `name` is NUL-terminated and only probed for symbol presence.
                 if unsafe { library.get::<*const std::ffi::c_void>(name) }.is_err() {
                     return None;
                 }

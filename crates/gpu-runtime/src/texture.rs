@@ -1,7 +1,9 @@
 //! GPU Texture, TextureView, TextureFormat, Sampler, Extent3d, Origin3d, and QuerySet types.
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::ObjCObject;
 use crate::{Buffer, BufferAddress, CompareFunction, Label, TextureUsages, TextureViewDimension};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -42,6 +44,7 @@ pub enum TextureFormat {
 }
 
 impl TextureFormat {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl_pixel_format(self) -> u64 {
         match self {
             Self::R8Unorm => 10,           // MTLPixelFormatR8Unorm
@@ -154,6 +157,7 @@ pub struct TextureDescriptor<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Texture {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) raw: ObjCObject,
     pub(crate) size: Extent3d,
     pub(crate) mip_level_count: u32,
@@ -233,10 +237,22 @@ impl Texture {
     }
 
     pub fn create_view(&self, desc: &TextureViewDescriptor<'_>) -> TextureView {
-        TextureView {
-            texture: self.reinterpreted_as(desc.dimension),
-            base_mip_level: desc.base_mip_level,
-            base_array_layer: desc.base_array_layer,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            TextureView {
+                texture: self.reinterpreted_as(desc.dimension),
+                base_mip_level: desc.base_mip_level,
+                base_array_layer: desc.base_array_layer,
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        {
+            let _ = (
+                self.reinterpreted_as(desc.dimension),
+                desc.base_mip_level,
+                desc.base_array_layer,
+            );
+            TextureView {}
         }
     }
 
@@ -362,8 +378,11 @@ pub struct TextureViewDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct TextureView {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) texture: Texture,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) base_mip_level: u32,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) base_array_layer: u32,
 }
 
@@ -377,6 +396,7 @@ pub enum AddressMode {
 }
 
 impl AddressMode {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::ClampToEdge => 0,
@@ -395,6 +415,7 @@ pub enum FilterMode {
 }
 
 impl FilterMode {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Nearest => 0,
@@ -447,6 +468,7 @@ impl Default for SamplerDescriptor<'_> {
 
 #[derive(Clone)]
 pub struct Sampler {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) raw: Arc<ObjCObject>,
 }
 
@@ -480,6 +502,7 @@ pub(crate) struct CopySlices {
     pub(crate) count: usize,
     pub(crate) depth: usize,
     is_3d: bool,
+    #[cfg(any(test, target_os = "macos", target_os = "ios"))]
     origin_z: usize,
 }
 
@@ -488,10 +511,13 @@ impl CopySlices {
         let is_3d = dimension == TextureDimension::D3;
         let layers = layers.max(1) as usize;
         let (count, depth) = if is_3d { (1, layers) } else { (layers, 1) };
+        #[cfg(not(any(test, target_os = "macos", target_os = "ios")))]
+        let _ = origin_z;
         Self {
             count,
             depth,
             is_3d,
+            #[cfg(any(test, target_os = "macos", target_os = "ios"))]
             origin_z: origin_z as usize,
         }
     }
@@ -501,11 +527,13 @@ impl CopySlices {
     }
 
     /// The array slice that copy slice `index` writes.
+    #[cfg(any(test, target_os = "macos", target_os = "ios"))]
     pub(crate) fn array_slice(&self, index: usize) -> usize {
         if self.is_3d { 0 } else { self.origin_z + index }
     }
 
     /// The `z` of every region's origin.
+    #[cfg(any(test, target_os = "macos", target_os = "ios"))]
     pub(crate) fn region_z(&self) -> usize {
         if self.is_3d { self.origin_z } else { 0 }
     }
@@ -532,6 +560,7 @@ pub struct QuerySetDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct QuerySet {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) timestamps_ns: Arc<Mutex<Vec<u64>>>,
 }
 

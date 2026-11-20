@@ -31,14 +31,19 @@
 
 ## 2. GPU-стек (`gpu-shader`, `gpu-runtime`, `gpu-compute`)
 
-- [ ] `gpu-shader`: настоящая проверка типов в `gpu_shader::valid::Validator`, чтобы ill-typed
-  WGSL не доходил до Metal; завершить декомпозицию крупных функций в `msl.rs` и `wgsl.rs`.
-- [ ] `gpu-runtime` и `gpu-compute`: расставить `// SAFETY:` помодульно со снятием crate-wide
-  `allow(unsafe_op_in_unsafe_fn)`, отделить не-Apple Metal-заглушки для снятия условного
-  `allow(dead_code, unused_variables)`, разбить длинные функции кодирования команд/render pass,
-  добавить `Error::source()` в `gpu-compute` и квалифицировать физические сбои GPU, потерю
-  устройства / смену адаптера, idle-уведомления удаления устройства и latency/RSS
-  signal-driven завершения.
+- [x] `gpu-shader`: настоящая проверка типов в `gpu_shader::valid::Validator`, чтобы ill-typed
+  WGSL не доходил до Metal (`ShaderModule::invalid_reason` + тест zero-Metal-compile); завершена
+  декомпозиция крупных функций в `front/wgsl` и `back/msl` (29 тестов `gpu-shader`, золотые
+  эталоны пересобраны с отсевом неразвёрнутых partials).
+- [x] `gpu-runtime` и `gpu-compute`: расставлены `// SAFETY:` помодульно со снятием crate-wide
+  `allow(unsafe_op_in_unsafe_fn)` (`#![deny(unsafe_op_in_unsafe_fn)]`), отделена не-Apple
+  Metal-заглушка (`metal/stub.rs`) для снятия условного `allow(dead_code, unused_variables)` (0
+  предупреждений на Linux/Windows/wasm32), разбиты длинные функции кодирования команд/render pass
+  и `lib.rs`, добавлен `Error::source()` в `gpu-runtime` и `gpu-compute`, квалифицированы реальные
+  `NSError` сбои GPU (`MTLCommandBufferErrorDomain`), `Device::destroy()` / выбор адаптера /
+  `MTLCopyAllDevicesWithObserver` idle-уведомления и signal-driven завершение (`2000` отправок:
+  `p50=136 µs, p95=245 µs, p99=380 µs`, плато RSS `14 752 → 14 752 КБ`, `blocking_wait_calls=0`,
+  подробности — в [BASELINE.md](refactor/BASELINE.md)).
 - [ ] Дополнительные GPU-бэкенды (по проверяемости в CI, каждый с ADR и тестовой матрицей):
   1. SPIR-V + Vulkan (Linux CI на lavapipe).
   2. HLSL + DX12 (Windows CI раннер).

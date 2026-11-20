@@ -630,3 +630,24 @@
   анимированные кадры `multicontrol_perf` ускорились в ~2,2× (`0,425` мс, 0 аллокаций), а
   20-секундное живое Metal-окно на 256 контролах удержало 119,15 present/s (`p50/p95/p99 = 8,29/9,90/10,54` мс)
   и плоское плато RSS/Rust/GPU/кэша (точные цифры и оговорка по нагрузке хоста — в [BASELINE.md](BASELINE.md)).
+
+## 33. GPU-стек: семантическая валидация WGSL, `Device::destroy`, `Error::source()` и signal-driven Metal
+
+- **`gpu_shader::valid::Validator`:** выполняет проверку типов, изменяемости (`let`/`const`/
+  `uniform`/`storage, read`), swizzle/индексов, текстур/атомиков/subgroups, разрядности `bitcast` и
+  контрактов стадий (`@vertex` позиция, `@compute` void/workgroup). Внутри `gpu-runtime` ошибки
+  парсинга/валидации помечают `ShaderModule::invalid_reason`, пропуская кодогенерацию MSL и не
+  вызывая компилятор Metal при создании compute/render пайплайнов.
+- **`Device::destroy(&self)`:** добавлен на `gpu_runtime::Device`; переводит логическое
+  устройство в потерянное состояние с `DeviceLostReason::Destroyed` немедленно (не затрагивая
+  соседние `Device` того же адаптера) и отклоняет последующие `Queue::submit` как `Error::Validation`.
+- **Цепочка причин `Error::source()`:** реализована на `gpu_runtime::Error` и
+  `gpu_compute::TimestampError` (для вариантов `Buffer` и `Readback`).
+- **Мультиадаптерность и idle-уведомления Metal (`macOS`):** `Instance::enumerate_adapters` /
+  `request_adapter` используют `MTLCopyAllDevicesWithObserver` и отфильтровывают потерянные
+  адаптеры с учётом `PowerPreference`; единственный `MTLRemoveDeviceObserver` разделяется по `Arc`
+  при клонировании `MetalDevice` и уведомляет даже простаивающие `Device` без вызова `poll`.
+- **Асинхронное завершение без блокировки драйвера:** `addCompletedHandler:` будит
+  `ScopeCompletionService` для `ErrorScope`, `map_buffer_on_submit`, `map_async`,
+  `on_submitted_work_done` и `Device::poll(PollType::Wait { .. })` без вызова `waitUntilCompleted`
+  (`blocking_wait_calls == 0`).

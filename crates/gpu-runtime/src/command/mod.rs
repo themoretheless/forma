@@ -1,5 +1,6 @@
 //! GPU CommandEncoder, CommandBuffer, ComputePass, RenderPass, and hardware Metal command encoding.
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::MetalDevice;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::{
@@ -18,12 +19,9 @@ use gpu_shader::back::msl::{
     MSL_ARRAY_LENGTHS_BUFFER_SLOT, MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
     msl_buffer_slot,
 };
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-use std::ffi::c_void;
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeBounds};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-use std::ptr;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
@@ -175,6 +173,7 @@ impl DynamicOffsets {
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) struct ComputeDispatchOp {
     pub(crate) pipeline: ComputePipeline,
     pub(crate) bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
@@ -182,18 +181,21 @@ pub(crate) struct ComputeDispatchOp {
     pub(crate) groups: [u32; 3],
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[derive(Clone)]
 pub(crate) struct OwnedColorAttachment {
     pub(crate) view: TextureView,
     pub(crate) ops: Operations<Color>,
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[derive(Clone)]
 pub(crate) struct OwnedDepthAttachment {
     pub(crate) view: TextureView,
     pub(crate) depth_ops: Option<Operations<f32>>,
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) enum RenderCommand {
     SetPipeline(RenderPipeline),
     SetBindGroup {
@@ -240,6 +242,7 @@ pub(crate) enum RenderCommand {
     },
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) struct RenderPassOp {
     pub(crate) color_attachments: Vec<Option<OwnedColorAttachment>>,
     pub(crate) depth_stencil_attachment: Option<OwnedDepthAttachment>,
@@ -248,6 +251,7 @@ pub(crate) struct RenderPassOp {
     pub(crate) end_ts: Option<(QuerySet, u32)>,
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) enum RecordedOp {
     ComputePass {
         dispatches: Vec<ComputeDispatchOp>,
@@ -310,33 +314,54 @@ pub(crate) enum RecordedOp {
 }
 
 pub struct CommandEncoder {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) device: MetalDevice,
     pub(crate) error_stack: Arc<Mutex<Vec<crate::types::ErrorScopeEntry>>>,
     pub(crate) uncaptured_error_handler: Arc<Mutex<Option<crate::UncapturedErrorHandler>>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) ops: Vec<RecordedOp>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) on_submit_callbacks: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
 }
 
 pub struct CommandBuffer {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) ops: Vec<RecordedOp>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) on_submit_callbacks: Vec<Box<dyn FnOnce() + Send>>,
 }
 
 pub struct ComputePass<'a> {
     encoder: &'a mut CommandEncoder,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     current_pipeline: Option<ComputePipeline>,
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    has_pipeline: bool,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     immediates: Vec<u8>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     dispatches: Vec<ComputeDispatchOp>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     start_timestamp: Option<(QuerySet, u32)>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     end_timestamp: Option<(QuerySet, u32)>,
 }
 
 pub struct RenderPass<'a> {
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     encoder: &'a mut CommandEncoder,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     color_attachments: Vec<Option<OwnedColorAttachment>>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     depth_stencil_attachment: Option<OwnedDepthAttachment>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     commands: Vec<RenderCommand>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     start_timestamp: Option<(QuerySet, u32)>,
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     end_timestamp: Option<(QuerySet, u32)>,
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    _encoder: &'a mut CommandEncoder,
 }

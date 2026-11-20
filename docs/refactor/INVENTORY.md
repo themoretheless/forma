@@ -31,9 +31,9 @@
 | vite.config.js + dev-server/{index,wasm-middleware,mcp-bridge,runner-ws}.js | 49 + 14 + 97 + 90 + 42 | 3 (vite-config) | серверная часть, раздача WASM, MCP HTTP/WS-мост и оркестрация раннеров вынесены в `dev-server/*`, `vite.config.js` оставлен декларативным | 2 | done |
 | protocol/mcp-tools.js + mcp/server.js + src/mcp-commands{,-project,-design,-runtime}.js | 350 + 109 + 55 + 58 + 185 + 132 | модульные + контрактные | единый реестр 45 MCP-инструментов без внешних зависимостей и доменные обработчики команд | 2 | done |
 | остальные 65 файлов src/ | — | частично | не проходились | 3 | todo |
-| crates/gpu-shader | 4460 | golden по 123 шейдерам + unit | zero-alloc разбиение верхнеуровневых элементов WGSL, точные `(line, column)` в `ParseError` (G-9 закрыт), 0 предупреждений Clippy; осталось: разбиение `msl.rs`/`wgsl.rs`, G-7/G-8/G-10 | 1 | в работе |
-| crates/gpu-runtime | 9450 | 22 | полные ключи кэша compute/render пайплайнов (G-3), защита от `nil`/OOM буферов (G-4) и переполнения смещений записи (G-5), `# Safety` контракты на FFI, 0 предупреждений Clippy; осталось: G-1, G-2, G-6 | 1 | в работе |
-| crates/gpu-compute | 3072 | 25 | мелкие | 3 | todo |
+| crates/gpu-shader | 8514 в 25 файлах | golden по 123 шейдерам + 29 unit/integration | декомпозированы `front/wgsl/{text,attributes,items,mod}.rs` и `back/msl/{builtins,mod,expressions,statements,entry,types}.rs`; реальная семантическая валидация `Validator` в `valid/{mod,types,builtins,expr,stmt}.rs`, 0 предупреждений Clippy | 1 | done |
+| crates/gpu-runtime | 14 098 в 50 файлах | 61 (--include-ignored) | `#![deny(unsafe_op_in_unsafe_fn)]` + `# Safety`/`// SAFETY:`, вынесена не-Apple заглушка `metal/stub.rs` (0 `allow(dead_code)`), разбиты `metal_encode/{mod,compute,blit,render}.rs` + `submit.rs` + `device/queue/error_sink.rs`, `ShaderModule::invalid_reason`, `Error::source()`, квалификация `NSError`, `MTLCopyAllDevicesWithObserver`, `Device::destroy()`, signal-driven завершение | 1 | done (Metal) |
+| crates/gpu-compute | 3329 в 15 файлах | 27 | `#![deny(unsafe_op_in_unsafe_fn)]` + `// SAFETY:`, `Error::source()` на `TimestampError`, wasm `TimestampState` без `allow(dead_code)`, проверятся с `--features native-wgpu,cuda` | 3 | done |
 | crates/raster-core | 3936 | 31 | `RasterPipelines::new` 426 строк; тесты пишут в `output/` | 3 | todo |
 | crates/math-core | 5916 | 92 | `spatial.rs` на 12 семейств типов, 21 `allow` | 3 | todo |
 | crates/math-compute | 5963 | 41 | параллельные реализации gpu/cuda (лидер по дублям) | 3 | todo |
