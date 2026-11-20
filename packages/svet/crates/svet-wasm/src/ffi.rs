@@ -221,6 +221,32 @@ pub extern "C" fn svet_link_2(target: u32, s0: u32, s1: u32) {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn svet_get_sources_ptr(target: u32) -> *const u32 {
+    with_core(|c| {
+        if !c.graph.is_alive(target) {
+            return std::ptr::null();
+        }
+        c.graph
+            .sources
+            .get(target as usize)
+            .map_or(std::ptr::null(), Vec::as_ptr)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn svet_get_sources_len(target: u32) -> u32 {
+    with_core(|c| {
+        if !c.graph.is_alive(target) {
+            return 0;
+        }
+        c.graph
+            .sources
+            .get(target as usize)
+            .map_or(0, |sources| sources.len() as u32)
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn svet_is_tracking() -> u32 {
     with_core(|c| u32::from(c.graph.is_tracking_active()))
 }

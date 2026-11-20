@@ -25,6 +25,23 @@ export interface FormaDocumentState {
   rootAstNodes: FormaAstNode[];
 }
 
+export function createFormaDocumentState(): FormaDocumentState {
+  return {
+    tokens: {},
+    i18nDictionaries: {},
+    styles: {},
+    propConstraints: [],
+    initialStateValues: Object.create(null) as Record<string, unknown>,
+    stateSignals: Object.create(null) as FormaDocumentState['stateSignals'],
+    propSignals: Object.create(null) as FormaDocumentState['propSignals'],
+    ownedStateSignals: new Map(),
+    ownedPropSignals: new Map(),
+    letExpressions: [],
+    shortcuts: [],
+    rootAstNodes: [],
+  };
+}
+
 /**
  * @param isHotReload keeps the initial values of state fields that already exist
  * @param optionProps prop values passed by the host; they win over declared defaults

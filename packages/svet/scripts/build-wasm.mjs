@@ -26,6 +26,16 @@ function run(command, args, cwd = repositoryRoot, env = process.env, stdio = 'in
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+function runCapture(command, args, cwd = repositoryRoot, env = process.env) {
+  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    if (result.stderr) process.stderr.write(result.stderr);
+    process.exit(result.status ?? 1);
+  }
+  return result.stdout.trim();
+}
+
 run(
   'cargo',
   ['metadata', '--locked', '--format-version', '1', '--no-deps'],
@@ -33,6 +43,8 @@ run(
   { ...process.env, CARGO_TERM_COLOR: process.env.CARGO_TERM_COLOR ?? 'always' },
   ['ignore', 'ignore', 'inherit'],
 );
+
+const sysroot = runCapture('rustc', ['--print', 'sysroot']);
 
 mkdirSync(depsDir, { recursive: true });
 
@@ -53,6 +65,8 @@ const commonFlags = [
   '-C',
   'target-feature=+simd128',
   `--remap-path-prefix=${repositoryRoot}=.`,
+  `--remap-path-prefix=${targetRoot}=target`,
+  `--remap-path-prefix=${sysroot}=/rustc`,
 ];
 
 const rlibs = [

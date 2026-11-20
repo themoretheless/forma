@@ -58,15 +58,22 @@
 - [ ] Интеграции рантайма и SSR: soak-тест GC across-copy и нескольких realms, захват асинхронного
   контекста после `await`, потоковые SSR/Edge-носители под медленными клиентами и отменой,
   burst-нагрузка роутера и разбор причины исторического отказа HTTP external memory.
-- [ ] Декомпозиция движка и внутренние слои: разбить сборку экземпляра с HMR в `instantiateForma`
-  (`forma.ts`, ~550 строк), `createCanvas3D` (`gpu-scene3d.ts`, ~880 строк) и остаток
-  асинхронной логики в `gpu.ts`; закрепить слои `reactivity` → `dom` → `gpu` → `forma`.
-- [ ] Эффективность компилятора и реактивного состояния: не оборачивать чистые статические вызовы
-  в реактивные thunk в `compiler.ts` (`hasEagerCall`) и убрать дублирование графовых рёбер между JS
-  (`reactivity.ts`) и линейной памятью `svet-wasm`.
-- [ ] Воспроизводимое происхождение `svet-wasm` (`S-9`): убрать зависимость байтов `svet-wasm` от
-  каталога checkout (включить `svet-wasm` в корневой workspace либо проверять экспорты и дайджест
-  исходников вместо чувствительных к пути байтов).
+- [x] Декомпозиция движка и внутренние слои: разложена сборка экземпляра и HMR из `instantiateForma`
+  (`forma.ts` -> `forma-hmr.ts`, `forma-view.ts`, `forma-document.ts`), `createCanvas3D`
+  (`gpu-scene3d.ts` -> `gpu-scene3d-{controls,webgpu,canvas2d}.ts`) и состояние/асинхронная
+  логика `gpu.ts` (`gpu-state.ts`, `gpu-compute-async.ts`); строгие слои
+  `wasm` -> `reactivity` -> `dom` -> `gpu` -> `forma` -> `facade` без циклов закреплены в
+  `packages/svet/tests/engine-layering.test.ts`.
+- [x] Эффективность компилятора и реактивного состояния: чистые статические вызовы (`Math.*` без
+  `random`, `Number.*`, `String`/`Number`/`Boolean`/`BigInt`, статический `JSON`, чистые методы
+  литералов с учётом лексического затенения и `const`) больше не оборачиваются в реактивные thunk
+  в `compiler.ts`; постоянный JS-массив `deps` убран из `EffectEntry`/`ComputedEntry` в
+  `reactivity.ts` за счёт `svet_get_sources_ptr`/`svet_get_sources_len` в `svet-wasm` и пула
+  временных `stagedDeps` только на активных кадрах стека (`tests/reactivity-edge-dedup.test.ts`).
+- [x] Воспроизводимое происхождение `svet-wasm` (`S-9`): в `packages/svet/scripts/build-wasm.mjs`
+  добавлен `--remap-path-prefix` для `repositoryRoot`, `targetRoot` (`CARGO_TARGET_DIR`) и sysroot;
+  побайтовая идентичность при сборке из двух разных checkout-каталогов и двух разных
+  `CARGO_TARGET_DIR` закреплена автотестом `packages/svet/tests/wasm-build-paths.test.ts`.
 - [ ] Продуктовые бенчмарки реальных приложений: startup, p95 задержка взаимодействия, frame time и
   память.
 
@@ -109,9 +116,7 @@
 1. Раздел 1 завершён по функциональности удерживаемого рендера и soak-квалификации (осталось
    переснятие на спокойном хосте `load < 1`, объединённое со сводным закрытием базовой линии в
    разделе 5).
-2. Текущий фокус — **раздел 2: GPU-стек (`gpu-shader`, `gpu-runtime`, `gpu-compute`)** и бэкенды
-   по проверяемости в CI; далее разделы 3–6 (`Svet`, `Studio`, вычислительные крейты и release
-   candidate + матрица возможностей).
+2. Раздел 2 (GPU-стек) завершён. Текущий фокус — **раздел 3 (`Svet`: браузерная матрица, SSR/Edge soak и бенчмарки)**; далее разделы 4–6 (`Studio`, вычислительные крейты и release candidate + матрица возможностей).
 
 ### Действующие инварианты
 

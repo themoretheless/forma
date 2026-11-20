@@ -69,6 +69,16 @@
       "count": 2
     }
   },
+  "src/engine/forma-actions.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "src/engine/forma-document.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
   "src/engine/forma-expr.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 24
@@ -80,7 +90,20 @@
       "count": 1
     }
   },
+  "src/engine/forma-instance.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 31
+    },
+    "@typescript-eslint/no-unsafe-function-type": {
+      "count": 6
+    }
+  },
   "src/engine/forma-reactive.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "src/engine/forma-render.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
     }
@@ -90,35 +113,17 @@
       "count": 27
     }
   },
-  "src/engine/forma-actions.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
-  "src/engine/forma-document.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
-  "src/engine/forma-instance.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 31
-    },
-    "@typescript-eslint/no-unsafe-function-type": {
-      "count": 6
-    }
-  },
-  "src/engine/forma-render.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    }
-  },
   "src/engine/forma.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 24
+      "count": 14
     },
     "no-unsafe-finally": {
-      "count": 2
+      "count": 1
+    }
+  },
+  "src/engine/gpu-compute-support.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "src/engine/gpu-resident-bridge.ts": {
@@ -131,11 +136,6 @@
       "count": 7
     }
   },
-  "src/engine/gpu-compute-support.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "src/engine/gpu-types.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 17
@@ -143,7 +143,7 @@
   },
   "src/engine/gpu.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 10
+      "count": 5
     }
   },
   "src/engine/jsx.ts": {

@@ -48,6 +48,8 @@ export interface SvetWasmExports {
   svet_sync_sources_buffered(target: number, len: number): void;
   svet_link_1(target: number, s0: number): void;
   svet_link_2(target: number, s0: number, s1: number): void;
+  svet_get_sources_ptr(target: number): number;
+  svet_get_sources_len(target: number): number;
   svet_is_tracking(): number;
   // GPU + UMA + DUMA Arena Exports
   svet_gpu_get_arena_limit_f32(): number;
@@ -305,6 +307,16 @@ export function readFlushedEffects(core: SvetWasmExports): Uint32Array {
   }
   const ptr = core.svet_get_flush_ptr();
   return new Uint32Array(core.memory.buffer, ptr, count);
+}
+
+/** Reads the committed dependency source IDs of `target` directly from WASM linear memory. */
+export function readNodeSources(core: SvetWasmExports, target: number): Uint32Array {
+  const len = core.svet_get_sources_len(target);
+  if (len === 0) {
+    return EMPTY_U32;
+  }
+  const ptr = core.svet_get_sources_ptr(target) >>> 0;
+  return new Uint32Array(core.memory.buffer, ptr, len);
 }
 
 /**

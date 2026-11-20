@@ -92,3 +92,58 @@ it('reports malformed JSX with its source filename and position', () => {
     expect((error as Error).message).toContain('/app/Broken.tsx:2:');
   }
 });
+
+it('allocates zero reactive graph nodes for pure static calls while keeping shadowed calls reactive', () => {
+  const staticSource = `
+    const BASE = 9;
+    const node = <div title={"svet".toUpperCase()}>{Math.max(2, Math.sqrt(BASE))}-{[1, 2].join(":")}</div>;
+    return node;
+  `;
+  const compiledStatic = transformSvetJsx(staticSource);
+  expect(compiledStatic).toBe(staticSource);
+  const jsStatic = ts.transpileModule(compiledStatic, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.React,
+      jsxFactory: 'h',
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.None,
+    },
+  }).outputText;
+  let stopStatic!: () => void;
+  const staticEl = createRoot(dispose => {
+    stopStatic = dispose;
+    return new Function('h', jsStatic)(h);
+  }) as HTMLElement;
+  expect(staticEl.title).toBe('SVET');
+  expect(staticEl.textContent).toBe('3-1:2');
+  expect(getGraphTelemetry().nodes).toBe(0);
+  stopStatic();
+
+  const shadowedSource = `
+    const count = signal(10);
+    function View() {
+      const Math = { max: (a: number, b: number) => count() + a + b };
+      return <span>{Math.max(1, 2)}</span>;
+    }
+    return { node: View(), count };
+  `;
+  const compiledShadowed = transformSvetJsx(shadowedSource);
+  expect(compiledShadowed).toContain('{() => (Math.max(1, 2))}');
+  const jsShadowed = ts.transpileModule(compiledShadowed, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.React,
+      jsxFactory: 'h',
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.None,
+    },
+  }).outputText;
+  let stopShadowed!: () => void;
+  const app = createRoot(dispose => {
+    stopShadowed = dispose;
+    return new Function('h', 'signal', jsShadowed)(h, signal);
+  });
+  expect(app.node.textContent).toBe('13');
+  app.count.set(20);
+  expect(app.node.textContent).toBe('23');
+  stopShadowed();
+});

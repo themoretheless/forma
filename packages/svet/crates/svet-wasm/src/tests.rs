@@ -60,6 +60,56 @@ fn c_abi_buffered_source_sync_and_tracking_roundtrip() {
 }
 
 #[test]
+fn c_abi_sources_slice_tracks_links_and_disposal() {
+    svet_reset();
+    assert_eq!(svet_get_sources_len(999), 0);
+    assert!(svet_get_sources_ptr(999).is_null());
+
+    let s0 = svet_create_node(KIND_SIGNAL);
+    let s1 = svet_create_node(KIND_SIGNAL);
+    let s2 = svet_create_node(KIND_SIGNAL);
+    let eff = svet_create_node(KIND_EFFECT);
+
+    svet_link_1(eff, s0);
+    assert_eq!(svet_get_sources_len(eff), 1);
+    assert_eq!(
+        unsafe { std::slice::from_raw_parts(svet_get_sources_ptr(eff), 1) },
+        &[s0]
+    );
+
+    svet_link_2(eff, s0, s1);
+    assert_eq!(svet_get_sources_len(eff), 2);
+    assert_eq!(
+        unsafe { std::slice::from_raw_parts(svet_get_sources_ptr(eff), 2) },
+        &[s0, s1]
+    );
+
+    let in_ptr = svet_prepare_lis_input(3);
+    unsafe {
+        std::slice::from_raw_parts_mut(in_ptr, 3).copy_from_slice(&[s0, s1, s2]);
+    }
+    svet_sync_sources_buffered(eff, 3);
+    assert_eq!(svet_get_sources_len(eff), 3);
+    assert_eq!(
+        unsafe { std::slice::from_raw_parts(svet_get_sources_ptr(eff), 3) },
+        &[s0, s1, s2]
+    );
+
+    svet_dispose_node(s1);
+    assert_eq!(svet_get_sources_len(eff), 2);
+    assert_eq!(
+        unsafe { std::slice::from_raw_parts(svet_get_sources_ptr(eff), 2) },
+        &[s0, s2]
+    );
+
+    svet_dispose_node(eff);
+    assert_eq!(svet_get_sources_len(eff), 0);
+    assert!(svet_get_sources_ptr(eff).is_null());
+
+    svet_reset();
+}
+
+#[test]
 fn c_abi_gpu_math_and_picking_roundtrip() {
     svet_reset();
     assert_eq!(svet_gpu_get_arena_limit_f32(), 67_108_864);

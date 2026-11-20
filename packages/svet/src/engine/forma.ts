@@ -25,18 +25,7 @@
  *    - Implements Forma's complete `stdlib`: math (`clamp`, `lerp`, `remap`, `sum`, `avg`), strings & i18n (`plural`, `upper`, `lower`, `capitalize`, `truncate`, `padStart`), collections (`filter`, `map`, `join`, `take`, `skip`, `unique`), and WCAG color functions (`lighten`, `darken`, `alpha`, `luminance`, `contrast`).
  */
 
-import { insertChild } from './dom.ts';
-import {
-  batch,
-  computed,
-  createRoot,
-  effect,
-  onCleanup,
-  type ReadonlySignal,
-  signal,
-  type Signal,
-  untrack,
-} from './reactivity.ts';
+import { batch, computed, effect, type ReadonlySignal, signal, type Signal } from './reactivity.ts';
 
 // ============================================================================
 // 1. Forma `Property<T>` & `Context<T>` (Rust ViewModel Binding Compatibility)
@@ -123,7 +112,6 @@ import {
   doesFormaPatternMatch,
 } from './forma-expr.ts';
 import {
-  structuredCloneIfObject,
   type SpringSignal,
   flushSpringFrame,
   createSpring,
@@ -157,12 +145,14 @@ import { createFormaActionRunner, createFormaStateMutator } from './forma-action
 import {
   applyFormaDocument,
   bindExternalFormaState,
-  type FormaDocumentState,
+  createFormaDocumentState,
   rebuildFormaComputedLets,
   satisfiesFormaConstraints,
 } from './forma-document.ts';
+import { assembleFormaRuntimeInstance } from './forma-hmr.ts';
 import { createFormaRenderer } from './forma-render.ts';
 import { formaComponentRegistry } from './forma-registry.ts';
+import { createFormaViewLifecycle } from './forma-view.ts';
 
 export {
   registerFormaElement,
@@ -174,7 +164,6 @@ import {
   createFormaPublicHandle,
   formaConstructionDomain,
   type FormaCompileOptions,
-  type FormaHmrSnapshot,
   type FormaProperty,
   type FormaRuntimeInstance,
   type FormaSlotMap,
@@ -329,25 +318,21 @@ function instantiateForma(
         : snapshotFormaAst(uiSourceOrAst);
     const componentName = initialAst.componentName;
 
-    const tokens: Record<string, any> = {};
-    const i18nDictionaries: Record<string, Record<string, string>> = {};
-    const styles: Record<string, Record<string, string>> = {};
-    const propConstraints: Array<FormaPropConstraint & { compiledPattern?: RegExp | undefined }> =
-      [];
-    const initialStateValues: Record<string, any> = Object.create(null);
-    const stateSignals: Record<string, Signal<any>> = Object.create(null);
-    const propSignals: Record<string, Signal<any>> = Object.create(null);
-    const ownedStateSignals = new Map<string, Signal<any>>();
-    const ownedPropSignals = new Map<string, Signal<any>>();
-    const letExpressions: Array<{ name: string; expr: string }> = [];
-    const shortcuts: Array<{ combo: string; action: string }> = [];
-    const rootAstNodes: FormaAstNode[] = [];
+    const documentState = createFormaDocumentState();
+    const {
+      tokens,
+      i18nDictionaries,
+      styles,
+      propConstraints,
+      initialStateValues,
+      stateSignals,
+      propSignals,
+      letExpressions,
+      shortcuts,
+      rootAstNodes,
+    } = documentState;
     const hmrRevision = ownSignal(0);
     let updatingDocument = false;
-    type PreparedView = { commit(): void; abort(): void };
-    const prepareViews = new Set<() => PreparedView>();
-    const renderDisposers = new Set<() => void>();
-    const mountDisposers = new Set<() => void>();
     const assertLive = () => {
       if (disposed) throw new Error('Forma instance is disposed');
     };
@@ -358,7 +343,7 @@ function instantiateForma(
       let sig = stateSignals[key];
       if (!sig) {
         sig = ownSignal(initialVal);
-        ownedStateSignals.set(key, sig);
+        documentState.ownedStateSignals.set(key, sig);
         stateSignals[key] = sig;
       }
       return sig;
@@ -366,20 +351,6 @@ function instantiateForma(
 
     bindExternalFormaState({ stateSignals, initialStateValues }, options, ensureStateSignal);
 
-    const documentState: FormaDocumentState = {
-      tokens,
-      i18nDictionaries,
-      styles,
-      propConstraints,
-      initialStateValues,
-      stateSignals,
-      propSignals,
-      ownedStateSignals,
-      ownedPropSignals,
-      letExpressions,
-      shortcuts,
-      rootAstNodes,
-    };
     const applyDocumentAst = (
       docAst: FormaDocumentAst,
       isHotReload = false,
@@ -444,29 +415,21 @@ function instantiateForma(
     });
 
     const eventListeners = new Map<string, Set<(...args: any[]) => void>>();
-    let keyedElements = new Map<string, HTMLElement>();
-    const viewKeyMaps = new Set<Map<string, HTMLElement>>();
-
     const emitEvent = (eventName: string, ...args: any[]) => {
       if (disposed) return;
       const set = eventListeners.get(eventName);
       if (set) {
-        for (const fn of set) {
-          fn(...args);
-        }
+        for (const fn of set) fn(...args);
       }
     };
-
     const baseScopeWithLocals = (locals?: Record<string, any>): FormaEvalScope =>
       locals === undefined ? evalScope : { ...evalScope, locals };
-
     const executeFormaAction = createFormaActionRunner({
       actions,
       baseScopeWithLocals,
       emitEvent,
       options,
     });
-
     const renderAstNode = createFormaRenderer({
       assertLive,
       isDisposed: () => disposed,
@@ -474,418 +437,53 @@ function instantiateForma(
       baseScopeWithLocals,
       ensureStateSignal,
       executeFormaAction,
-      registerKey: (key, element) => keyedElements.set(key, element),
+      registerKey: (key, element) => views.registerKey(key, element),
       locale,
       options,
       propSignals,
       styles,
     });
-
-    const instance: FormaRuntimeInstance = {
+    const views = createFormaViewLifecycle({
       componentName,
-      state: stateSignals,
-      props: propSignals,
+      rootAstNodes,
+      shortcuts,
+      assertLive,
+      renderAstNode,
+      executeFormaAction,
+    });
+
+    const instance = assembleFormaRuntimeInstance({
+      componentName,
+      documentState,
+      parseAst: nextUiSourceOrAst =>
+        typeof nextUiSourceOrAst === 'string'
+          ? formaAstFromSource(nextUiSourceOrAst)
+          : snapshotFormaAst(nextUiSourceOrAst),
+      applyDocumentAst,
+      rebuildComputedLets,
       computedLets,
+      ownedComputedLets,
       locale,
+      activeI18n,
       isValid,
+      hmrRevision,
       actions,
-      setState(partial: Record<string, any>) {
-        assertLive();
-        batch(() => {
-          for (const [k, v] of Object.entries(partial)) {
-            if (FORBIDDEN_MEMBER_KEYS.has(k)) continue;
-            ensureStateSignal(k, v).set(v);
-          }
-        });
-      },
-      onEvent(eventName: string, handler: (...args: any[]) => void) {
-        assertLive();
-        let set = eventListeners.get(eventName);
-        if (!set) {
-          set = new Set();
-          eventListeners.set(eventName, set);
-        }
-        set.add(handler);
-        return () => set!.delete(handler);
-      },
-      emitEvent,
-      getElementByKey(key: string) {
-        return keyedElements.get(key);
-      },
-      exportHmrSnapshot(): FormaHmrSnapshot {
-        const stateSnap: Record<string, any> = {};
-        for (const [k, sig] of Object.entries(stateSignals)) {
-          stateSnap[k] = structuredCloneIfObject(sig.peek());
-        }
-        const propSnap: Record<string, any> = {};
-        for (const [k, sig] of Object.entries(propSignals)) {
-          propSnap[k] = structuredCloneIfObject(sig.peek());
-        }
-        return {
-          componentName,
-          locale: locale.peek(),
-          state: stateSnap,
-          props: propSnap,
-        };
-      },
-      restoreHmrSnapshot(snapshot: FormaHmrSnapshot) {
-        assertLive();
-        batch(() => {
-          if (snapshot.locale) {
-            locale.set(snapshot.locale);
-          }
-          if (snapshot.state) {
-            for (const [k, v] of Object.entries(snapshot.state)) {
-              stateSignals[k]?.set(structuredCloneIfObject(v));
-            }
-          }
-          if (snapshot.props) {
-            for (const [k, v] of Object.entries(snapshot.props)) {
-              propSignals[k]?.set(structuredCloneIfObject(v));
-            }
-          }
-        });
-      },
-      hotReload(nextUiSourceOrAst: string | FormaDocumentAst) {
-        assertLive();
-        if (updatingDocument) throw new Error('Forma document update is already in progress');
-        updatingDocument = true;
-        try {
-          const nextAst =
-            typeof nextUiSourceOrAst === 'string'
-              ? formaAstFromSource(nextUiSourceOrAst)
-              : snapshotFormaAst(nextUiSourceOrAst);
-          assertLive();
-          const previousAst: FormaDocumentAst = {
-            componentName,
-            tokens: { ...tokens },
-            i18nDictionaries: { ...i18nDictionaries },
-            styles: { ...styles },
-            propConstraints: [...propConstraints],
-            initialStateValues: { ...initialStateValues },
-            letExpressions: [...letExpressions],
-            shortcuts: [...shortcuts],
-            rootAstNodes: [...rootAstNodes],
-          };
-          const previousLets = { ...computedLets };
-          const previousOwnedLets = new Set(ownedComputedLets);
-          const previousState = Object.fromEntries(
-            Object.entries(stateSignals).map(([key, sig]) => [key, sig.peek()]),
-          );
-          const previousProps = Object.fromEntries(
-            Object.entries(propSignals).map(([key, sig]) => [key, sig.peek()]),
-          );
-          const previousLocale = locale.peek();
-          const prepared: PreparedView[] = [];
-          let committing = false,
-            updateFailed = false,
-            previousLetsDetached = false;
-          try {
-            assertLive();
-            batch(() => {
-              try {
-                applyDocumentAst(nextAst, true);
-                assertLive();
-                previousLetsDetached = true;
-                rebuildComputedLets(false);
-                assertLive();
-                hmrRevision.update(r => r + 1);
-                for (const prepare of [...prepareViews]) {
-                  if (prepareViews.has(prepare)) prepared.push(prepare());
-                }
-                committing = true;
-                for (const view of prepared) view.commit();
-              } catch (error) {
-                for (const view of prepared.reverse()) view.abort();
-                if (!committing && !disposed) {
-                  for (const [key, sig] of Object.entries(stateSignals)) {
-                    if (disposed) throw error;
-                    if (!(key in previousState)) {
-                      const owned = ownedStateSignals.get(key);
-                      ownedStateSignals.delete(key);
-                      try {
-                        owned?.dispose();
-                      } catch {
-                        /* Keep the preparation failure while draining owned candidates. */
-                      }
-                      delete stateSignals[key];
-                    } else sig.set(previousState[key]);
-                  }
-                  for (const [key, sig] of Object.entries(propSignals)) {
-                    if (disposed) throw error;
-                    if (!(key in previousProps)) {
-                      const owned = ownedPropSignals.get(key);
-                      ownedPropSignals.delete(key);
-                      try {
-                        owned?.dispose();
-                      } catch {
-                        /* Drain owned props without replacing the preparation failure. */
-                      }
-                      delete propSignals[key];
-                    } else sig.set(previousProps[key]);
-                  }
-                  if (disposed) throw error;
-                  for (const comp of ownedComputedLets) {
-                    if (!previousOwnedLets.has(comp)) {
-                      try {
-                        comp.dispose();
-                      } catch {
-                        /* Preserve the preparation failure and drain siblings. */
-                      }
-                    }
-                  }
-                  if (disposed) throw error;
-                  ownedComputedLets.clear();
-                  for (const comp of previousOwnedLets) ownedComputedLets.add(comp);
-                  previousLetsDetached = false;
-                  for (const key of Object.keys(computedLets)) delete computedLets[key];
-                  Object.assign(computedLets, previousLets);
-                  if (disposed) throw error;
-                  for (const key of Object.keys(initialStateValues)) delete initialStateValues[key];
-                  // Previous constraints already contain resolved defaults; do not rerun caller getters.
-                  applyDocumentAst(previousAst, true, false);
-                  if (disposed) throw error;
-                  locale.set(previousLocale);
-                  if (disposed) throw error;
-                  hmrRevision.update(r => r + 1);
-                }
-                throw error;
-              }
-            });
-          } catch (error) {
-            updateFailed = true;
-            throw error;
-          } finally {
-            if ((committing || disposed) && previousLetsDetached) {
-              let cleanupFailed = false,
-                cleanupError: unknown;
-              for (const comp of previousOwnedLets) {
-                try {
-                  comp.dispose();
-                } catch (error) {
-                  if (!cleanupFailed) cleanupError = error;
-                  cleanupFailed = true;
-                }
-              }
-              if (cleanupFailed && !updateFailed) throw cleanupError;
-            }
-          }
-        } finally {
-          updatingDocument = false;
-        }
-      },
-      render() {
-        assertLive();
-        const frag = document.createDocumentFragment();
-        const anchor = document.createComment(`svet-forma-hmr:${componentName}`);
-        frag.appendChild(anchor);
-
-        let currentNodes: Node[] = [];
-        let disposeView: (() => void) | null = null;
-        let currentViewKeys: Map<string, HTMLElement> | null = null;
-        let renderRetired = false;
-        let pendingViewDispose: (() => void) | null = null;
-        let abortPrepared: (() => void) | null = null;
-        const assertViewLive = () => {
-          assertLive();
-          if (renderRetired) throw new Error('Forma view is disposed');
-        };
-
-        const clearCurrentView = () => {
-          if (disposeView) {
-            const stop = disposeView;
-            disposeView = null;
-            stop();
-          }
-          for (const n of currentNodes) {
-            if (n.parentNode) n.parentNode.removeChild(n);
-          }
-          currentNodes = [];
-          if (currentViewKeys) {
-            viewKeyMaps.delete(currentViewKeys);
-            if (keyedElements === currentViewKeys) {
-              keyedElements = new Map();
-              for (const remaining of viewKeyMaps) keyedElements = remaining;
-            }
-            currentViewKeys = null;
-          }
-        };
-
-        const mountCurrentView = () => {
-          const stage: { dispose: (() => void) | null } = { dispose: null };
-          let stagedNodes: Node[] = [];
-          const previousKeys = keyedElements,
-            nextKeys = new Map<string, HTMLElement>();
-          keyedElements = nextKeys;
-          try {
-            createRoot(dispose => {
-              stage.dispose = dispose;
-              pendingViewDispose = dispose;
-              const temp = document.createDocumentFragment();
-              for (const nodeAst of rootAstNodes) {
-                insertChild(
-                  temp,
-                  untrack(() => renderAstNode(nodeAst)),
-                );
-                assertViewLive();
-              }
-              if (shortcuts.length > 0 && typeof window !== 'undefined') {
-                const compiledShortcuts = shortcuts.map(sc => {
-                  const parts = sc.combo.split('+');
-                  const keyLower = (parts[parts.length - 1] ?? '').toLowerCase();
-                  const needsMod =
-                    parts.includes('Mod') || parts.includes('Ctrl') || parts.includes('Meta');
-                  return { keyLower, needsMod, action: sc.action };
-                });
-                const onKeyDown = (e: KeyboardEvent) => {
-                  const modPressed = e.metaKey || e.ctrlKey;
-                  const keyLower = e.key.toLowerCase();
-                  for (const sc of compiledShortcuts) {
-                    if (sc.needsMod && !modPressed) continue;
-                    if (keyLower === sc.keyLower) {
-                      e.preventDefault();
-                      executeFormaAction(sc.action);
-                    }
-                  }
-                };
-                window.addEventListener('keydown', onKeyDown);
-                onCleanup(() => window.removeEventListener('keydown', onKeyDown));
-              }
-              stagedNodes = Array.from(temp.childNodes);
-              const parent = anchor.parentNode ?? frag;
-              for (const n of stagedNodes) {
-                parent.insertBefore(n, anchor);
-                assertViewLive();
-              }
-            });
-            let settled = false;
-            const prepared = {
-              commit() {
-                if (settled) return;
-                assertViewLive();
-                clearCurrentView();
-                assertViewLive();
-                settled = true;
-                abortPrepared = null;
-                disposeView = stage.dispose;
-                currentNodes = stagedNodes;
-                keyedElements = nextKeys;
-                currentViewKeys = nextKeys;
-                viewKeyMaps.add(nextKeys);
-              },
-              abort() {
-                if (settled) return;
-                settled = true;
-                abortPrepared = null;
-                stage.dispose?.();
-                for (const node of stagedNodes) node.parentNode?.removeChild(node);
-                if (!renderRetired) keyedElements = previousKeys;
-              },
-            };
-            abortPrepared = prepared.abort;
-            return prepared;
-          } catch (error) {
-            stage.dispose?.();
-            for (const node of stagedNodes) node.parentNode?.removeChild(node);
-            if (!renderRetired) keyedElements = previousKeys;
-            throw error;
-          } finally {
-            pendingViewDispose = null;
-          }
-        };
-
-        mountCurrentView().commit();
-        prepareViews.add(mountCurrentView);
-
-        const retireRender = () => {
-          if (renderRetired) return;
-          renderRetired = true;
-          renderDisposers.delete(retireRender);
-          prepareViews.delete(mountCurrentView);
-          abortPrepared?.();
-          pendingViewDispose?.();
-          clearCurrentView();
-          anchor.remove();
-        };
-        renderDisposers.add(retireRender);
-        onCleanup(retireRender);
-        return frag;
-      },
-      mount(container: HTMLElement) {
-        assertLive();
-        container.innerHTML = '';
-        let disposeRoot!: () => void;
-        const rootFrag = createRoot(dispose => {
-          disposeRoot = dispose;
-          return this.render();
-        });
-
-        let unmounted = false;
-        const unmount = () => {
-          if (unmounted) return;
-          unmounted = true;
-          mountDisposers.delete(unmount);
-          disposeRoot();
-        };
-        mountDisposers.add(unmount);
-        try {
-          container.appendChild(rootFrag);
-          assertLive();
-        } catch (error) {
-          unmount();
-          throw error;
-        }
-        return { unmount };
-      },
-      dispose() {
-        if (disposed) return;
+      ensureStateSignal,
+      assertLive,
+      isDisposed: () => disposed,
+      markDisposed: () => {
+        if (disposed) return false;
         disposed = true;
-        let failed = false,
-          firstError: unknown;
-        const recordFailure = (error: unknown) => {
-          if (!failed) firstError = error;
-          failed = true;
-        };
-        const release = (resource: { dispose(): void }) => {
-          try {
-            resource.dispose();
-          } catch (error) {
-            recordFailure(error);
-          }
-        };
-        for (const stop of [...mountDisposers]) {
-          try {
-            stop();
-          } catch (error) {
-            recordFailure(error);
-          }
-        }
-        for (const stop of [...renderDisposers]) {
-          try {
-            stop();
-          } catch (error) {
-            recordFailure(error);
-          }
-        }
-        for (const sig of ownedStateSignals.values()) release(sig);
-        ownedStateSignals.clear();
-        for (const sig of ownedPropSignals.values()) release(sig);
-        ownedPropSignals.clear();
-        for (const comp of ownedComputedLets) release(comp);
-        ownedComputedLets.clear();
-        release(activeI18n);
-        release(isValid);
-        release(locale);
-        release(hmrRevision);
-        eventListeners.clear();
-        keyedElements.clear();
-        viewKeyMaps.clear();
-        mountDisposers.clear();
-        renderDisposers.clear();
-        prepareViews.clear();
-        if (failed) throw firstError;
+        return true;
       },
-    };
+      isUpdating: () => updatingDocument,
+      setUpdating: next => {
+        updatingDocument = next;
+      },
+      views,
+      eventListeners,
+      emitEvent,
+    });
     const publicInstance = createFormaPublicHandle(instance);
     formaConstructionDomain.active?.add(publicInstance);
     constructing = false;

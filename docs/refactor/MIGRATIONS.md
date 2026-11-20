@@ -667,3 +667,18 @@
   - Контракт `gpu_runtime::Instance::create_surface<'a, W>` теперь требует `W: raw_window_handle::HasWindowHandle + raw_window_handle::HasDisplayHandle + Send + Sync + 'a` (внутрирепозиторные вызовы `winit::window::Window` уже удовлетворяют этому ограничению; внешним потребителям нужно передать окно с `HasDisplayHandle + Send + Sync`).
   - `Backends::CUDA` не порождает ложных `wgpu`-адаптеров; нативный CUDA-путь остаётся в `gpu-compute`/`compute-cuda` за динамической проверкой драйвера (`gpu_runtime::cuda::probe_driver_available`).
   - Подробности и матрица CI: [ADR 0002](../adr/0002-spirv-vulkan-backend.md)–[0005](../adr/0005-cuda-and-rtx-host-gated-policy.md).
+
+## 35. Svet: бездубликатные рёбра графа в `svet-wasm`, чистые вызовы в `compiler.ts` и слои движка
+
+- **Новые C-ABI экспорты `svet-wasm`:**
+  - `svet_get_sources_ptr(target: u32) -> *const u32` и `svet_get_sources_len(target: u32) -> u32` возвращают срез committed-источников узла прямо из линейной памяти `svet-graph` (и `0`/`null` для несуществующих или удалённых узлов); в `wasm-bridge.ts` добавлен помощник `readNodeSources(core, target)`.
+  - **`reactivity.ts` без постоянных массивов `deps`:** `EffectEntry` и `ComputedEntry` больше не держат постоянные JS-массивы `deps: number[]` поверх `c.graph.sources` — быстрые пути 0–2 зависимостей используют `dep0`/`dep1`, неактивные/последовательные чтения `>= 3` зависимостей сверяются напрямую с WASM `readNodeSources`, а временный пулированный массив `stagedDeps` (`stagedDepsPool`) выдаётся только при изменении топологии или материализуется перед `svet_dispose_node`.
+- **Компилятор JSX (`compiler.ts`):**
+  - `compiler.ts` импортирует `compileFormaToJsModule` из `forma-aot.ts` (исключена зависимость от runtime `forma.ts`).
+  - Не оборачиваются в реактивные thunk `() => (...)` незатенённые чистые статические вызовы (`Math.*` кроме `random`, `Number.*`, глобальные приведения/кодировщики `String`/`Number`/`Boolean`/`BigInt`/`parseInt`/`parseFloat`/`isFinite`/`isNaN`/`encodeURI*`/`decodeURI*`, статические `JSON.parse`/`JSON.stringify` без реплейсера/геттеров, `Object.{keys,values,entries}` и чистые методы строковых/числовых/массивных литералов и чистых `const`-привязок), тогда как реактивные аргументы, затенённые локальные имена (`Math`, `String` и т.п.), опциональные вызовы, `new` и геттеры по-прежнему оборачиваются.
+- **Декомпозиция движка и строгие слои (`packages/svet/src/engine/`):**
+  - `forma.ts` разгружен за счёт `forma-hmr.ts` (`exportFormaHmrSnapshot`, `restoreFormaHmrSnapshot`, `performFormaHotReload`, `assembleFormaRuntimeInstance`) и `forma-view.ts` (`createFormaViewLifecycle`).
+  - `gpu-scene3d.ts` разгружен за счёт `gpu-scene3d-controls.ts` (`attachOrbitControls3D`, `createScene3DPickController`), `gpu-scene3d-webgpu.ts` (`createScene3DWebGpuController`) и `gpu-scene3d-canvas2d.ts` (`createScene3DCanvas2DRenderer`).
+  - `gpu.ts` разгружен за счёт `gpu-state.ts` и `gpu-compute-async.ts` (`dispatchGpuComputeKernelAsync`).
+  - Иерархия `wasm -> reactivity -> dom -> gpu -> forma -> facade` без циклов и пределы размера оркестраторов закрепляются тестом `packages/svet/tests/engine-layering.test.ts`.
+- **Воспроизводимость `svet-wasm` (`S-9`):** `packages/svet/scripts/build-wasm.mjs` ремапит `repositoryRoot`, `CARGO_TARGET_DIR` и `sysroot` через `--remap-path-prefix`; встроенный `src/engine/wasm-binary.ts` пересобран (63 196 байт) с проверкой побайтовой идентичности между разными путями checkout и разными `CARGO_TARGET_DIR` в `tests/wasm-build-paths.test.ts`.

@@ -20,6 +20,7 @@ import {
   KIND_EFFECT,
   KIND_SIGNAL,
   readFlushedEffects,
+  readNodeSources,
   STATE_CLEAN,
   type SvetWasmExports,
   withWasmCore,
@@ -72,12 +73,13 @@ type EffectEntry = {
   /** Private reset hook; `resetReactiveSystem` calls it instead of a public `dispose`. */
   retire: ReactiveEntryRetirement;
   sourceRetirementVersion: number;
+  topologyInvalidated: boolean;
   rerunRequested: boolean;
   handle: EffectHandle;
   cleanup?: (() => void) | undefined;
   disposed: boolean;
   owner: OwnerScope | null;
-  deps: number[];
+  stagedDeps: number[] | null;
   dep0: number;
   dep1: number;
   depsCount: number;
@@ -86,14 +88,16 @@ type EffectEntry = {
 type ComputedEntry<T = unknown> = {
   kind: 1;
   id: number;
+  core: SvetWasmExports;
   compute: () => T;
   value: T;
   initialized: boolean;
   equals: (a: T, b: T) => boolean;
-  deps: number[];
+  stagedDeps: number[] | null;
   dep0: number;
   dep1: number;
   depsCount: number;
+  pausedCursor: number;
   lastCleanClock: number;
   valueVersion: number;
   evaluating: boolean;
@@ -104,6 +108,7 @@ type ComputedEntry<T = unknown> = {
   /** Private reset hook; `resetReactiveSystem` calls it instead of a public `dispose`. */
   retire: ReactiveEntryRetirement;
   sourceRetirementVersion: number;
+  topologyInvalidated: boolean;
 };
 
 interface JsReactiveContext {
@@ -136,6 +141,7 @@ interface JsReactiveContext {
   effectPool: EffectEntry[];
   handlePool: EffectHandle[];
   unlinkedEffects: EffectEntry[];
+  stagedDepsPool: number[][];
 }
 
 // Each synchronously observed core appears once, independent of nesting depth.
@@ -278,6 +284,7 @@ function getJsContext(core: SvetWasmExports = getWasmCore()): JsReactiveContext 
       effectPool: [],
       handlePool: [],
       unlinkedEffects: [],
+      stagedDepsPool: [],
     };
     contextByCore.set(core, ctx);
   }
@@ -350,6 +357,44 @@ function flushPooledDisposalsToWasm(core: SvetWasmExports, ctx: JsReactiveContex
   }
 }
 
+function borrowStagedDeps(ctx: JsReactiveContext): number[] {
+  const arr = ctx.stagedDepsPool.pop();
+  if (arr) {
+    arr.length = 0;
+    return arr;
+  }
+  return [];
+}
+
+function releaseStagedDeps(ctx: JsReactiveContext, entry: { stagedDeps: number[] | null }): void {
+  const staged = entry.stagedDeps;
+  if (staged === null) return;
+  entry.stagedDeps = null;
+  staged.length = 0;
+  if (ctx.stagedDepsPool.length < 16) {
+    ctx.stagedDepsPool.push(staged);
+  }
+}
+
+function materializeObserverStagedDeps(
+  core: SvetWasmExports,
+  ctx: JsReactiveContext,
+  entry: { id: number; stagedDeps: number[] | null },
+  uptoCursor: number,
+): number[] {
+  if (entry.stagedDeps !== null) return entry.stagedDeps;
+  const staged = borrowStagedDeps(ctx);
+  if (uptoCursor > 2) {
+    const wasmSources = readNodeSources(core, entry.id);
+    const limit = Math.min(uptoCursor, wasmSources.length);
+    for (let i = 2; i < limit; i++) {
+      staged.push(wasmSources[i]!);
+    }
+  }
+  entry.stagedDeps = staged;
+  return staged;
+}
+
 /** @internal Source primitives must invalidate their public handle before calling this. */
 export function disposeTrackedNode(core: SvetWasmExports, id: number): void {
   const ctx = getJsContext(core);
@@ -361,6 +406,13 @@ export function disposeTrackedNode(core: SvetWasmExports, id: number): void {
   }
   ctx.sourceRetirementVersion++;
   for (const observer of ctx.observerStack) {
+    // Preserve any >=2 prefix read from WASM before `svet_dispose_node` uses `swap_remove`.
+    const obsCur = observer === ctx.activeEntry ? ctx.activeCursor : observer.pausedCursor;
+    if (obsCur > 2 && observer.stagedDeps === null) {
+      materializeObserverStagedDeps(observer.core, ctx, observer, obsCur);
+    }
+    observer.topologyInvalidated = true;
+    if (observer === ctx.activeEntry) ctx.activeTopologyChanged = true;
     (observer.retiredDependencies ??= new Set()).add(id);
   }
   core.svet_dispose_node(id);
@@ -445,7 +497,7 @@ const observerBridges = (reactiveDomains.bridges ??= new WeakMap<
 >());
 const sourceBridges = (reactiveDomains.sourceBridges ??= new WeakMap<object, Set<ForeignBridge>>());
 function refreshForeignTracking(
-  entry: Pick<ComputedEntry, 'depsCount' | 'dep0' | 'dep1' | 'deps'>,
+  entry: Pick<ComputedEntry, 'id' | 'core'>,
   ctx: JsReactiveContext,
   seen?: Set<object>,
 ): void {
@@ -455,10 +507,22 @@ function refreshForeignTracking(
   for (const bridge of observerBridges.get(entry)?.values() ?? []) bridge.refresh?.();
   // An outer cached computed may only have local native computed dependencies.
   // Refresh their foreign boundaries before trusting this core's clock/state.
-  for (let i = 0; i < entry.depsCount; i++) {
-    const id = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
-    const dependency = ctx.computedRegistry[id!];
-    if (dependency) refreshForeignTracking(dependency, ctx, seen);
+  const rawSources = readNodeSources(entry.core, entry.id);
+  if (rawSources.length === 0) return;
+  const first = rawSources[0]!;
+  const second = rawSources.length > 1 ? rawSources[1]! : -1;
+  const tail = rawSources.length > 2 ? Array.from(rawSources.subarray(2)) : null;
+  const dep0 = ctx.computedRegistry[first];
+  if (dep0) refreshForeignTracking(dep0, ctx, seen);
+  if (second >= 0) {
+    const dep1 = ctx.computedRegistry[second];
+    if (dep1) refreshForeignTracking(dep1, ctx, seen);
+  }
+  if (tail) {
+    for (let i = 0; i < tail.length; i++) {
+      const dependency = ctx.computedRegistry[tail[i]!];
+      if (dependency) refreshForeignTracking(dependency, ctx, seen);
+    }
   }
 }
 function beginForeignTracking(entry: object): void {
@@ -590,7 +654,12 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   if (reactiveDomains.frames.at(-1) !== ctx) return;
   const entry = ctx.activeEntry;
   if (!entry) return;
-  if (entry.retiredDependencies?.delete(sourceId)) ctx.activeTopologyChanged = true;
+  if (entry.retiredDependencies?.delete(sourceId)) {
+    if (ctx.activeCursor > 2 && entry.stagedDeps === null) {
+      materializeObserverStagedDeps(entry.core, ctx, entry, ctx.activeCursor);
+    }
+    ctx.activeTopologyChanged = true;
+  }
   const cur = ctx.activeCursor;
   if (cur === 0) {
     if (entry.depsCount >= 1 && entry.dep0 === sourceId) {
@@ -615,36 +684,51 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   }
   // 3 or more dependencies
   if (entry.dep0 === sourceId || entry.dep1 === sourceId) return;
-  const deps = entry.deps;
   const arrIdx = cur - 2;
   let seen = entry.seenDeps;
-  // Until this run changes the topology, positions below the cursor still hold
-  // the previous run's dependencies, which are unique: a match at the cursor
-  // cannot also be an earlier one. Reruns in the same order stay O(1) per read.
-  if (!ctx.activeTopologyChanged && cur < entry.depsCount && deps[arrIdx] === sourceId) {
-    seen?.add(sourceId);
-    ctx.activeCursor = cur + 1;
-    return;
+  // Until this run changes the topology, WASM `sources` holds the previous run's
+  // unique dependencies in order, so an in-order rerun stays O(1) without any JS array.
+  let wasmSources: Uint32Array | null = null;
+  if (entry.stagedDeps === null && !ctx.activeTopologyChanged && cur < entry.depsCount) {
+    wasmSources = readNodeSources(entry.core, entry.id);
+    if (cur < wasmSources.length && wasmSources[cur] === sourceId) {
+      seen?.add(sourceId);
+      ctx.activeCursor = cur + 1;
+      return;
+    }
   }
   if (seen === null && arrIdx >= SEEN_DEPS_THRESHOLD) {
     seen = entry.seenDeps = new Set();
-    for (let i = 0; i < arrIdx; i++) {
-      const dep = deps[i];
-      if (dep !== undefined) seen.add(dep);
+    if (entry.stagedDeps !== null) {
+      const staged = entry.stagedDeps;
+      for (let i = 0; i < arrIdx; i++) {
+        const dep = staged[i];
+        if (dep !== undefined) seen.add(dep);
+      }
+    } else if (arrIdx > 0) {
+      wasmSources ??= readNodeSources(entry.core, entry.id);
+      const limit = Math.min(cur, wasmSources.length);
+      for (let i = 2; i < limit; i++) {
+        seen.add(wasmSources[i]!);
+      }
     }
   }
   if (seen !== null) {
     if (seen.has(sourceId)) return;
-    seen.add(sourceId);
-  } else {
+  } else if (entry.stagedDeps !== null) {
+    const staged = entry.stagedDeps;
     for (let i = 0; i < arrIdx; i++) {
-      if (deps[i] === sourceId) return;
+      if (staged[i] === sourceId) return;
+    }
+  } else if (arrIdx > 0) {
+    wasmSources ??= readNodeSources(entry.core, entry.id);
+    const limit = Math.min(cur, wasmSources.length);
+    for (let i = 2; i < limit; i++) {
+      if (wasmSources[i] === sourceId) return;
     }
   }
-  if (cur < entry.depsCount && deps[arrIdx] === sourceId) {
-    ctx.activeCursor = cur + 1;
-    return;
-  }
+  const deps = materializeObserverStagedDeps(entry.core, ctx, entry, cur);
+  if (seen !== null) seen.add(sourceId);
   ctx.activeTopologyChanged = true;
   if (arrIdx < deps.length) {
     deps[arrIdx] = sourceId;
@@ -660,97 +744,106 @@ function commitTrackingFast(
   targetId: number,
   entry: EffectEntry | ComputedEntry<any>,
 ): void {
-  retireForeignTracking(entry);
-  entry.seenDeps = null;
-  if (entry.sourceRetirementVersion !== ctx.sourceRetirementVersion) {
-    ctx.activeTopologyChanged = true;
-    entry.sourceRetirementVersion = ctx.sourceRetirementVersion;
-  }
-  let cur = ctx.activeCursor;
-  if (entry.retiredDependencies?.size) {
-    let kept = 0;
-    for (let i = 0; i < cur; i++) {
-      const source = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2]!;
-      if (entry.retiredDependencies.has(source)) continue;
-      if (kept === 0) entry.dep0 = source;
-      else if (kept === 1) entry.dep1 = source;
-      else entry.deps[kept - 2] = source;
-      kept++;
+  try {
+    retireForeignTracking(entry);
+    entry.seenDeps = null;
+    if (entry.sourceRetirementVersion !== ctx.sourceRetirementVersion) {
+      ctx.activeTopologyChanged = true;
+      entry.sourceRetirementVersion = ctx.sourceRetirementVersion;
     }
-    if (kept !== cur) ctx.activeTopologyChanged = true;
-    cur = kept;
-    ctx.activeCursor = cur;
-  }
-  entry.retiredDependencies = null;
-  if (cur !== entry.depsCount) {
-    entry.depsCount = cur;
-    if (cur <= 2 && entry.deps.length > 0) {
-      entry.deps.length = 0;
-    } else if (cur > 2) {
-      entry.deps.length = cur - 2;
-    }
-    ctx.activeTopologyChanged = true;
-  }
-  if (!ctx.activeTopologyChanged) {
-    setNodeStateFast(core, ctx, targetId, STATE_CLEAN);
-    return;
-  }
-  ctx.topologyVersion++;
-  // Auto-bind direct 1-dependency effect to its source signal on the very first run!
-  if (entry.kind === 2 && cur === 1 && !entry.wasmLinked && ctx.batchDepth === 0) {
-    const sig = ctx.signalRegistry[entry.dep0];
-    if (sig && tryRegisterDirectUnlinked(sig, entry)) {
-      if (!entry.inUnlinkedList) {
-        entry.inUnlinkedList = true;
-        ctx.unlinkedEffects.push(entry);
+    let cur = ctx.activeCursor;
+    if (entry.retiredDependencies?.size) {
+      if (cur > 2 && entry.stagedDeps === null) {
+        materializeObserverStagedDeps(core, ctx, entry, cur);
       }
+      const staged = entry.stagedDeps;
+      let kept = 0;
+      for (let i = 0; i < cur; i++) {
+        const source = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : staged![i - 2]!;
+        if (entry.retiredDependencies.has(source)) continue;
+        if (kept === 0) entry.dep0 = source;
+        else if (kept === 1) entry.dep1 = source;
+        else staged![kept - 2] = source;
+        kept++;
+      }
+      if (kept !== cur) ctx.activeTopologyChanged = true;
+      cur = kept;
+      ctx.activeCursor = cur;
+      if (cur > 2 && staged) staged.length = cur - 2;
+    }
+    entry.retiredDependencies = null;
+    if (cur !== entry.depsCount) {
+      entry.depsCount = cur;
+      ctx.activeTopologyChanged = true;
+    }
+    if (!ctx.activeTopologyChanged) {
+      setNodeStateFast(core, ctx, targetId, STATE_CLEAN);
       return;
     }
-  }
-  if (entry.kind === 1) {
-    // A computed node depends on these sources, so invalidate any direct-only effect cache on them
-    if (cur >= 1) {
+    if (cur > 2 && entry.stagedDeps === null) {
+      // Materialize prefix `[2..cur]` before WASM link/buffer calls may mutate or reallocate `sources`.
+      materializeObserverStagedDeps(core, ctx, entry, cur);
+    }
+    const staged = entry.stagedDeps;
+    ctx.topologyVersion++;
+    // Auto-bind direct 1-dependency effect to its source signal on the very first run!
+    if (entry.kind === 2 && cur === 1 && !entry.wasmLinked && ctx.batchDepth === 0) {
+      const sig = ctx.signalRegistry[entry.dep0];
+      if (sig && tryRegisterDirectUnlinked(sig, entry)) {
+        if (!entry.inUnlinkedList) {
+          entry.inUnlinkedList = true;
+          ctx.unlinkedEffects.push(entry);
+        }
+        return;
+      }
+    }
+    if (entry.kind === 1) {
+      // A computed node depends on these sources, so invalidate any direct-only effect cache on them
+      if (cur >= 1) {
+        const s0 = ctx.signalRegistry[entry.dep0];
+        if (s0) invalidateDirectEffect(s0, true);
+      }
+      if (cur >= 2) {
+        const s1 = ctx.signalRegistry[entry.dep1];
+        if (s1) invalidateDirectEffect(s1, true);
+      }
+      for (let i = 2; i < cur; i++) {
+        const sN = ctx.signalRegistry[staged![i - 2]!];
+        if (sN) invalidateDirectEffect(sN, true);
+      }
+    } else if (entry.kind === 2 && cur >= 1) {
       const s0 = ctx.signalRegistry[entry.dep0];
-      if (s0) invalidateDirectEffect(s0, true);
+      if (s0) invalidateDirectEffect(s0);
+      if (cur >= 2) {
+        const s1 = ctx.signalRegistry[entry.dep1];
+        if (s1) invalidateDirectEffect(s1);
+      }
+      for (let i = 2; i < cur; i++) {
+        const sN = ctx.signalRegistry[staged![i - 2]!];
+        if (sN) invalidateDirectEffect(sN);
+      }
     }
-    if (cur >= 2) {
-      const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) invalidateDirectEffect(s1, true);
+    if (entry.kind === 2) {
+      entry.wasmLinked = true;
     }
-    for (let i = 2; i < cur; i++) {
-      const sN = ctx.signalRegistry[entry.deps[i - 2]!];
-      if (sN) invalidateDirectEffect(sN, true);
+    if (cur === 0) {
+      core.svet_sync_sources_buffered(targetId, 0);
+    } else if (cur === 1) {
+      core.svet_link_1(targetId, entry.dep0);
+    } else if (cur === 2) {
+      core.svet_link_2(targetId, entry.dep0, entry.dep1);
+    } else {
+      const ptr = core.svet_prepare_lis_input(cur);
+      const buf = new Uint32Array(core.memory.buffer, ptr, cur);
+      buf[0] = entry.dep0;
+      buf[1] = entry.dep1;
+      for (let i = 2; i < cur; i++) {
+        buf[i] = staged![i - 2]!;
+      }
+      core.svet_sync_sources_buffered(targetId, cur);
     }
-  } else if (entry.kind === 2 && cur >= 1) {
-    const s0 = ctx.signalRegistry[entry.dep0];
-    if (s0) invalidateDirectEffect(s0);
-    if (cur >= 2) {
-      const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) invalidateDirectEffect(s1);
-    }
-    for (let i = 2; i < cur; i++) {
-      const sN = ctx.signalRegistry[entry.deps[i - 2]!];
-      if (sN) invalidateDirectEffect(sN);
-    }
-  }
-  if (entry.kind === 2) {
-    entry.wasmLinked = true;
-  }
-  if (cur === 0) {
-    core.svet_sync_sources_buffered(targetId, 0);
-  } else if (cur === 1) {
-    core.svet_link_1(targetId, entry.dep0);
-  } else if (cur === 2) {
-    core.svet_link_2(targetId, entry.dep0, entry.dep1);
-  } else {
-    const ptr = core.svet_prepare_lis_input(cur);
-    const buf = new Uint32Array(core.memory.buffer, ptr, cur);
-    buf[0] = entry.dep0;
-    buf[1] = entry.dep1;
-    for (let i = 2; i < cur; i++) {
-      buf[i] = entry.deps[i - 2]!;
-    }
-    core.svet_sync_sources_buffered(targetId, cur);
+  } finally {
+    releaseStagedDeps(ctx, entry);
   }
 }
 
@@ -1402,12 +1495,25 @@ function requestActiveEffectRerun(
     )
       continue;
     const cursor = entry === ctx.activeEntry ? ctx.activeCursor : entry.pausedCursor;
+    let wasmSources: Uint32Array | null = null;
     for (let i = 0; i < cursor; i++) {
-      const dependency = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
-      if (entry.retiredDependencies?.has(dependency!)) continue;
+      let dependency: number | undefined;
+      if (i === 0) {
+        dependency = entry.dep0;
+      } else if (i === 1) {
+        dependency = entry.dep1;
+      } else if (entry.stagedDeps !== null) {
+        dependency = entry.stagedDeps[i - 2];
+      } else {
+        if (!wasmSources || wasmSources.buffer !== core.memory.buffer) {
+          wasmSources = readNodeSources(core, entry.id);
+        }
+        dependency = wasmSources[i];
+      }
+      if (dependency === undefined || entry.retiredDependencies?.has(dependency)) continue;
       if (
         dependency === source ||
-        (ctx.computedRegistry[dependency!] && core.svet_depends_on(dependency!, source))
+        (ctx.computedRegistry[dependency] && core.svet_depends_on(dependency, source))
       ) {
         entry.rerunRequested = true;
         break;
@@ -1891,14 +1997,16 @@ export function computed<T>(
   const entry: ComputedEntry<T> = {
     kind: 1,
     id,
+    core,
     compute: fn,
     value: undefined as unknown as T,
     initialized: false,
     equals,
-    deps: [],
+    stagedDeps: null,
     dep0: -1,
     dep1: -1,
     depsCount: 0,
+    pausedCursor: 0,
     lastCleanClock: 0,
     valueVersion: 0,
     evaluating: false,
@@ -1907,6 +2015,7 @@ export function computed<T>(
     seenDeps: null,
     retire: retireNothing,
     sourceRetirementVersion: 0,
+    topologyInvalidated: false,
   };
   ctx.computedRegistry[id] = entry;
 
@@ -1914,10 +2023,13 @@ export function computed<T>(
     if (!disposed || entry.evaluating) return;
     entry.compute = undefined as any;
     entry.equals = Object.is;
-    entry.deps.length = 0;
+    entry.stagedDeps = null;
     entry.dep0 = -1;
     entry.dep1 = -1;
     entry.depsCount = 0;
+    entry.pausedCursor = 0;
+    entry.topologyInvalidated = false;
+    entry.core = null!;
     fn = null!;
     options = undefined;
     owner = null;
@@ -1958,12 +2070,14 @@ export function computed<T>(
     const prevEntry = ctx.activeEntry;
     const prevCursor = ctx.activeCursor;
     const prevChanged = ctx.activeTopologyChanged;
-    if (prevEntry?.kind === 2) prevEntry.pausedCursor = prevCursor;
+    if (prevEntry) prevEntry.pausedCursor = prevCursor;
 
     ctx.activeObserverId = id;
     ctx.activeEntry = entry;
     ctx.activeCursor = 0;
-    ctx.activeTopologyChanged = !entry.initialized;
+    ctx.activeTopologyChanged =
+      !entry.initialized || entry.sourceRetirementVersion !== ctx.sourceRetirementVersion;
+    entry.topologyInvalidated = false;
     entry.seenDeps = null;
 
     const evaluations = ctx.observerStack;
@@ -2000,11 +2114,15 @@ export function computed<T>(
               }
             }
           } finally {
+            releaseStagedDeps(ctx, entry);
             ctx.activeObserverId = prevObs;
             ctx.activeEntry = prevEntry;
             ctx.activeCursor = prevCursor;
-            ctx.activeTopologyChanged = prevChanged;
+            ctx.activeTopologyChanged = prevChanged || Boolean(prevEntry?.topologyInvalidated);
+            if (prevEntry) prevEntry.topologyInvalidated = false;
           }
+        } else {
+          releaseStagedDeps(ctx, entry);
         }
       } finally {
         entry.evaluating = false;
@@ -2186,8 +2304,9 @@ function recycleEffectEntry(entry: EffectEntry): void {
   entry.cleanup = undefined;
   entry.retiredDependencies = null;
   entry.sourceRetirementVersion = 0;
+  entry.topologyInvalidated = false;
   entry.pausedCursor = 0;
-  entry.deps.length = 0;
+  releaseStagedDeps(x, entry);
   entry.depsCount = 0;
   entry.dep0 = -1;
   entry.dep1 = -1;
@@ -2207,11 +2326,14 @@ function rearmAfterCleanupFailure(
   const pending: Array<[number, number]> = [],
     seen = new Set<ComputedEntry>();
   const append = (observer: EffectEntry | ComputedEntry) => {
-    for (let i = 0; i < observer.depsCount; i++)
-      pending.push([
-        observer.id,
-        i === 0 ? observer.dep0 : i === 1 ? observer.dep1 : observer.deps[i - 2]!,
-      ]);
+    if (observer.kind === 2 && !observer.wasmLinked) {
+      if (observer.depsCount === 1) pending.push([observer.id, observer.dep0]);
+      return;
+    }
+    const sources = readNodeSources(core, observer.id);
+    for (let i = 0; i < sources.length; i++) {
+      pending.push([observer.id, sources[i]!]);
+    }
   };
   append(entry);
   while (pending.length) {
@@ -2260,7 +2382,7 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
     inUnlinkedList: false,
     disposed: false,
     owner: null,
-    deps: [],
+    stagedDeps: null,
     dep0: -1,
     dep1: -1,
     depsCount: 0,
@@ -2273,6 +2395,7 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
     seenDeps: null,
     retire: retireEffectOnReset,
     sourceRetirementVersion: 0,
+    topologyInvalidated: false,
     run: () => {
       if (
         entry.disposed ||
@@ -2327,14 +2450,16 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
           const prevRunning = x.isRunningEffect,
             prevCursor = x.activeCursor,
             prevChanged = x.activeTopologyChanged;
-          if (prevEntry?.kind === 2) prevEntry.pausedCursor = prevCursor;
+          if (prevEntry) prevEntry.pausedCursor = prevCursor;
           if (effectOwner) x.currentOwner = effectOwner;
           x.ownerDepth++;
           x.isRunningEffect = true;
           x.activeObserverId = id;
           x.activeEntry = entry;
           x.activeCursor = 0;
-          x.activeTopologyChanged = !entry.initialized;
+          x.activeTopologyChanged =
+            !entry.initialized || entry.sourceRetirementVersion !== x.sourceRetirementVersion;
+          entry.topologyInvalidated = false;
           entry.seenDeps = null;
           entry.initialized = true;
           let callbacks: Array<() => void> | undefined;
@@ -2370,16 +2495,19 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
                 try {
                   if (!entry.disposed) commitTrackingFast(c, x, id, entry);
                 } finally {
+                  releaseStagedDeps(x, entry);
                   x.activeObserverId = prevObs;
                   x.activeEntry = prevEntry;
                   x.activeCursor = prevCursor;
-                  x.activeTopologyChanged = prevChanged;
+                  x.activeTopologyChanged = prevChanged || Boolean(prevEntry?.topologyInvalidated);
+                  if (prevEntry) prevEntry.topologyInvalidated = false;
                   x.currentOwner = prevOwner;
                   x.isRunningEffect = prevRunning;
                   x.observerStack.pop();
                   entry.retiredDependencies = null;
                 }
               } else {
+                releaseStagedDeps(x, entry);
                 entry.retiredDependencies = null;
               }
             } finally {
@@ -2538,7 +2666,8 @@ export function effect(
     entry.dep0 = -1;
     entry.dep1 = -1;
     entry.depsCount = 0;
-    if (entry.deps.length > 0) entry.deps.length = 0;
+    entry.stagedDeps = null;
+    entry.topologyInvalidated = false;
     if (entry.id < 0) {
       entry.id = allocateReactiveNode(core, KIND_EFFECT);
     }
@@ -2829,6 +2958,7 @@ export function resetReactiveSystem(): void {
   ctx.statesCap = 0;
   ctx.effectPool.length = 0;
   ctx.unlinkedEffects.length = 0;
+  ctx.stagedDepsPool.length = 0;
   // Detach the old subscriptions before invoking user code. A finalizer may
   // start a fresh request or recursively reset; neither joins this old batch.
   const finalizers = reactiveResetFinalizers.get(core);
