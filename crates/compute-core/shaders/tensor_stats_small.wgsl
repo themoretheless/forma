@@ -81,7 +81,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
                 case 1u: {
                     let half = half_shift(x, extrema.y);
                     var bits = 0xff800000u;
-                    if !product_overflows(abs(half), 2.0) { bits = bitcast<u32>(half * 2.0 - log(sum)); }
+                    if !product_overflows(half, 2.0) { bits = bitcast<u32>(half * 2.0 - log(sum)); }
                     output[destination] = bits;
                 }
                 case 2u: {

@@ -43,7 +43,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 case 0u: { bits = bitcast<u32>(shifted_exp(x, summary.x) / summary.y); }
                 case 1u: {
                     let half = half_shift(x, summary.x);
-                    if product_overflows(abs(half), 2.0) { bits = 0xff800000u; }
+                    if product_overflows(half, 2.0) { bits = 0xff800000u; }
                     else { bits = bitcast<u32>(half * 2.0 - log(summary.y)); }
                 }
                 case 2u: { bits = bitcast<u32>(summary.x + log(summary.y)); }

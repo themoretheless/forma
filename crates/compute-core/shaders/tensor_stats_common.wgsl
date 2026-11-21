@@ -3,8 +3,8 @@ const MAX_F32: f32 = 3.4028234663852886e38;
 // Detect IEEE round-to-nearest multiplication overflow using the exact 48-bit
 // significand product. Never ask the floating-point backend to form infinity.
 fn product_overflows(a: f32, b: f32) -> bool {
-    let ab = bitcast<u32>(a);
-    let bb = bitcast<u32>(b);
+    let ab = bitcast<u32>(a) & 0x7fffffffu;
+    let bb = bitcast<u32>(b) & 0x7fffffffu;
     let exponent_sum = ((ab >> 23u) & 255u) + ((bb >> 23u) & 255u);
     if exponent_sum < 380u { return false; }
     if exponent_sum > 381u { return true; }
@@ -30,7 +30,7 @@ fn half_shift(x: f32, maximum: f32) -> f32 {
 }
 fn shifted_exp(x: f32, maximum: f32) -> f32 {
     let half = half_shift(x, maximum);
-    if product_overflows(abs(half), 2.0) { return 0.0; }
+    if product_overflows(half, 2.0) { return 0.0; }
     return exp(half * 2.0);
 }
 

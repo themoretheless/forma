@@ -137,19 +137,49 @@ mod tests {
     #[test]
     fn packed_statistics_specializations_validate() {
         for (name, source) in [
-            ("small", super::small()),
-            ("reduce", super::reduce()),
-            ("finish", super::finish()),
-            ("output", super::output()),
+            ("low_small", super::small()),
+            ("low_reduce", super::reduce()),
+            ("low_finish", super::finish()),
+            ("low_output", super::output()),
+            (
+                "f32_small",
+                crate::shaders::TENSOR_STATS_SMALL_WGSL.to_owned(),
+            ),
+            (
+                "f32_reduce",
+                crate::shaders::TENSOR_STATS_REDUCE_WGSL.to_owned(),
+            ),
+            (
+                "f32_finish",
+                crate::shaders::TENSOR_STATS_FINISH_WGSL.to_owned(),
+            ),
+            (
+                "f32_output",
+                crate::shaders::TENSOR_STATS_OUTPUT_WGSL.to_owned(),
+            ),
         ] {
             let module = naga::front::wgsl::parse_str(&source)
                 .unwrap_or_else(|e| panic!("{name}: {}", e.emit_to_string(&source)));
-            naga::valid::Validator::new(
+            let info = naga::valid::Validator::new(
                 naga::valid::ValidationFlags::all(),
                 naga::valid::Capabilities::all(),
             )
             .validate(&module)
             .unwrap_or_else(|e| panic!("{name}: {e:?}"));
+            let hlsl = naga::back::hlsl::write_string(
+                &module,
+                &info,
+                &naga::back::hlsl::Options {
+                    shader_model: naga::back::hlsl::ShaderModel::V5_1,
+                    ..Default::default()
+                },
+                &naga::back::hlsl::PipelineOptions::default(),
+            )
+            .unwrap_or_else(|e| panic!("{name} HLSL SM 5.1: {e}"));
+            assert!(
+                !hlsl.contains("asuint(abs("),
+                "{name} emitted FXC-unsafe asuint(abs(...))"
+            );
         }
     }
 }
