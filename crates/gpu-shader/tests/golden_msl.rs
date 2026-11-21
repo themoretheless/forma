@@ -83,7 +83,8 @@ fn every_repository_shader_translates_as_recorded() {
             .to_string_lossy()
             .replace('\\', "/");
         let name = relative.replace('/', "__").replace(".wgsl", ".msl.txt");
-        let actual = translate(&std::fs::read_to_string(file).unwrap());
+        let source = std::fs::read_to_string(file).unwrap().replace("\r\n", "\n");
+        let actual = translate(&source);
         writeln!(index, "{relative} -> {name}").unwrap();
         let path = golden.join(&name);
         if bless {
@@ -112,4 +113,11 @@ fn every_repository_shader_translates_as_recorded() {
         differing.is_empty(),
         "translation changed for: {differing:#?}"
     );
+}
+
+#[test]
+fn crlf_shader_checkout_normalizes_to_identical_msl() {
+    let lf = "@compute @workgroup_size(1)\nfn main() {\n    let x = 1u;\n    _ = x;\n}\n";
+    let crlf = lf.replace('\n', "\r\n");
+    assert_eq!(translate(&crlf.replace("\r\n", "\n")), translate(lf));
 }

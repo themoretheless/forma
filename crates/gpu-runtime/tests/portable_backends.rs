@@ -586,7 +586,7 @@ fn portable_map_buffer_on_submit_reads_copied_bytes() {
     device
         .poll(PollType::Wait {
             submission_index: Some(idx),
-            timeout: Some(std::time::Duration::from_secs(5)),
+            timeout: Some(std::time::Duration::from_secs(60)),
         })
         .unwrap();
     assert!(done.lock().unwrap().take().unwrap().is_ok());

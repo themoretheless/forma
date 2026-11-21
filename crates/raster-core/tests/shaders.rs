@@ -213,7 +213,9 @@ fn generated_ts_matches_the_wgsl_sources() {
     let generated = raster_core::codegen::generate_ts_sources();
     assert!(!generated.is_empty());
     if path.exists() {
-        let on_disk = std::fs::read_to_string(&path).unwrap();
+        let on_disk = std::fs::read_to_string(&path)
+            .unwrap()
+            .replace("\r\n", "\n");
         assert_eq!(
             on_disk,
             generated,
@@ -229,7 +231,9 @@ fn generated_variant_goldens_match_the_rust_variants() {
     let generated = raster_core::codegen::generate_variant_goldens_ts();
     assert!(!generated.is_empty());
     if path.exists() {
-        let on_disk = std::fs::read_to_string(&path).unwrap();
+        let on_disk = std::fs::read_to_string(&path)
+            .unwrap()
+            .replace("\r\n", "\n");
         assert_eq!(
             on_disk,
             generated,
@@ -254,7 +258,9 @@ fn generated_layouts_match_the_layout_table() {
         let generated = generate();
         assert!(!generated.is_empty());
         if path.exists() {
-            let on_disk = std::fs::read_to_string(&path).unwrap();
+            let on_disk = std::fs::read_to_string(&path)
+                .unwrap()
+                .replace("\r\n", "\n");
             assert_eq!(
                 on_disk,
                 generated,

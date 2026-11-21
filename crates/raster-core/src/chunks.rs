@@ -151,14 +151,15 @@ fn chunk_text(marker: &str) -> Cow<'static, str> {
 /// unchanged (borrowed) when no markers are present, so shaders without
 /// chunks cost nothing.
 pub fn expand_chunks(source: &str) -> Cow<'_, str> {
-    if !source.contains("@chunk") {
+    if !source.contains("@chunk") && !source.contains('\r') {
         return Cow::Borrowed(source);
     }
     let mut out = String::with_capacity(source.len() + 256);
-    for (index, line) in source.split('\n').enumerate() {
+    for (index, raw_line) in source.split('\n').enumerate() {
         if index > 0 {
             out.push('\n');
         }
+        let line = raw_line.strip_suffix('\r').unwrap_or(raw_line);
         let trimmed = line.trim();
         match trimmed.strip_prefix("// @chunk ") {
             Some(marker) => out.push_str(&chunk_text(marker)),
@@ -199,5 +200,21 @@ mod tests {
     #[should_panic(expected = "unknown @chunk marker")]
     fn unknown_markers_panic() {
         expand_chunks("// @chunk nope");
+    }
+
+    #[test]
+    fn crlf_inputs_expand_with_lf_newlines() {
+        let with_marker = "head\r\n  // @chunk section_clip\r\ntail\r\n";
+        let expanded = expand_chunks(with_marker);
+        assert!(!expanded.contains('\r'));
+        assert_eq!(
+            expanded.as_ref(),
+            format!("head\n{}\ntail\n", SECTION_CLIP).as_str()
+        );
+
+        let plain_crlf = "a\r\nb\r\n";
+        let normalized = expand_chunks(plain_crlf);
+        assert!(!normalized.contains('\r'));
+        assert_eq!(normalized.as_ref(), "a\nb\n");
     }
 }

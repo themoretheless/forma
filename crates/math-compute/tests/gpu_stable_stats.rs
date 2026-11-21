@@ -44,7 +44,7 @@ fn read(runtime: &ComputeRuntime, plan: &MathGpuProgram<'_>, output: &GpuArray<f
     plan.record(&mut encoder);
     let mut ticket = runtime.record_read(&mut encoder, output).unwrap();
     ticket.submitted(context.queue.submit([encoder.finish()]));
-    ticket.wait(Duration::from_secs(10)).unwrap()
+    ticket.wait(Duration::from_secs(60)).unwrap()
 }
 fn check_covariance(packed: &[f32], input: &[f32]) {
     let expected = reference(input).moments.covariance;

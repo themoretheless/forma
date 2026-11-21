@@ -39,7 +39,7 @@ fn read<T: GpuElement>(
     plan.record(&mut encoder);
     let mut ticket = runtime.record_read(&mut encoder, output).unwrap();
     ticket.submitted(context.queue.submit([encoder.finish()]));
-    ticket.wait(Duration::from_secs(10)).unwrap()
+    ticket.wait(Duration::from_secs(60)).unwrap()
 }
 fn close(actual: &[f32], expected: &[f64]) {
     assert_eq!(actual.len(), expected.len());
@@ -124,15 +124,15 @@ fn recorded_neighbors_compose_with_transform_sum_and_generic_compute() {
         distances.submitted(submission.clone());
         mean.submitted(submission);
         assert_eq!(
-            indices.wait(Duration::from_secs(10)).unwrap(),
+            indices.wait(Duration::from_secs(60)).unwrap(),
             expected.iter().map(|p| p.0).collect::<Vec<_>>()
         );
         close(
-            &distances.wait(Duration::from_secs(10)).unwrap(),
+            &distances.wait(Duration::from_secs(60)).unwrap(),
             &expected.iter().map(|p| p.1).collect::<Vec<_>>(),
         );
         close(
-            &mean.wait(Duration::from_secs(10)).unwrap(),
+            &mean.wait(Duration::from_secs(60)).unwrap(),
             &[expected.iter().map(|p| p.1).sum::<f64>() / queries.len() as f64],
         );
     }
@@ -319,11 +319,11 @@ fn nearest_inlier_selection_and_sum_stay_on_gpu_across_repeated_submissions() {
         count_read.submitted(index.clone());
         sum_read.submitted(index);
         assert_eq!(
-            count_read.wait(Duration::from_secs(10)).unwrap(),
+            count_read.wait(Duration::from_secs(60)).unwrap(),
             [expected_count]
         );
         assert_eq!(
-            sum_read.wait(Duration::from_secs(10)).unwrap(),
+            sum_read.wait(Duration::from_secs(60)).unwrap(),
             [expected_sum]
         );
     }

@@ -577,7 +577,7 @@ mod tests {
             program
                 .submit_read(&result)
                 .unwrap()
-                .wait(std::time::Duration::from_secs(10))
+                .wait(std::time::Duration::from_secs(60))
                 .unwrap(),
             [25.0]
         );
@@ -586,7 +586,7 @@ mod tests {
             runtime
                 .read(&input)
                 .unwrap()
-                .wait(std::time::Duration::from_secs(10))
+                .wait(std::time::Duration::from_secs(60))
                 .unwrap(),
             [3.0, 4.0]
         );

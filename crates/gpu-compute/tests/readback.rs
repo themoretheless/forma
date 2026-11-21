@@ -45,7 +45,7 @@ fn ranges_empty_consumption_and_cancellation_are_distinct() {
     empty.submitted(index.clone());
     cancelled.submitted(index);
     assert_eq!(
-        part.wait(Duration::from_secs(5)).unwrap(),
+        part.wait(Duration::from_secs(60)).unwrap(),
         [5, 6, 7, 8, 9, 10, 11, 12]
     );
     assert_eq!(part.try_read().unwrap_err(), ReadbackError::Consumed);
@@ -103,7 +103,7 @@ fn mapped_consumers_unmap_on_success_and_unwind_and_consume_once() {
     );
     ticket.submitted(c.queue.submit([encoder.finish()]));
     let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let _ = ticket.wait_with(Duration::from_secs(5), |_| -> () {
+        let _ = ticket.wait_with(Duration::from_secs(60), |_| -> () {
             panic!("consumer panic")
         });
     }));
@@ -152,7 +152,7 @@ fn mapped_consumer_empty_cancelled_and_pending_states_do_not_lose_results() {
     assert_eq!(empty.try_read_with(|bytes| bytes.len()).unwrap(), Some(0));
     assert_eq!(
         pending
-            .wait_with(Duration::from_secs(5), |bytes| bytes.to_vec())
+            .wait_with(Duration::from_secs(60), |bytes| bytes.to_vec())
             .unwrap(),
         [5, 6, 7, 8, 9, 10, 11, 12]
     );

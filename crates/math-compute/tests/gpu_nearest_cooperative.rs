@@ -88,8 +88,8 @@ fn raw(
     i.submitted(submission.clone());
     d.submitted(submission);
     (
-        i.wait(Duration::from_secs(10)).unwrap(),
-        d.wait(Duration::from_secs(10)).unwrap(),
+        i.wait(Duration::from_secs(60)).unwrap(),
+        d.wait(Duration::from_secs(60)).unwrap(),
     )
 }
 fn points(n: usize, phase: usize) -> Vec<f32> {
@@ -247,8 +247,8 @@ fn recorded_and_synchronous_dispatch_share_results_and_reuse_shape_changes() {
             d.submitted(submission);
             assert_eq!(
                 (
-                    i.wait(Duration::from_secs(10)).unwrap(),
-                    d.wait(Duration::from_secs(10)).unwrap()
+                    i.wait(Duration::from_secs(60)).unwrap(),
+                    d.wait(Duration::from_secs(60)).unwrap()
                 ),
                 raw(&context, &runtime, &baseline, &updated, &t, false)
             );

@@ -39,7 +39,7 @@ fn main() {
         let path = path();
         if check {
             match std::fs::read_to_string(&path) {
-                Ok(on_disk) if on_disk == generate() => {
+                Ok(on_disk) if on_disk.replace("\r\n", "\n") == generate() => {
                     println!("wgsl_export: {label}: {} is up to date", path.display());
                 }
                 Ok(_) => {

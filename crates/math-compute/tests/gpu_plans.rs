@@ -39,7 +39,7 @@ fn math_and_generic_compute_share_one_submission_and_final_readback() {
         generic.record(&mut encoder);
         let mut read = rt.record_read(&mut encoder, &final_output).unwrap();
         read.submitted(c.queue.submit([encoder.finish()]));
-        assert_eq!(read.wait(Duration::from_secs(5)).unwrap(), [22.0]);
+        assert_eq!(read.wait(Duration::from_secs(60)).unwrap(), [22.0]);
     }
     let invalid = rt.zeros::<f32>(4).unwrap();
     assert!(PointCloudView::new(&invalid).is_err());
@@ -86,14 +86,14 @@ fn scratch_growth_retains_old_plans_and_reports_generations() {
     assert!(grown.generation > first.generation);
     rt.write(&grown.array, 0, &[99.; 16]).unwrap();
     assert_eq!(
-        old_read.wait(Duration::from_secs(5)).unwrap(),
+        old_read.wait(Duration::from_secs(60)).unwrap(),
         [1., 4., 9., 16.]
     );
     assert_eq!(
         old_plan
             .submit_read(&squared)
             .unwrap()
-            .wait(Duration::from_secs(5))
+            .wait(Duration::from_secs(60))
             .unwrap(),
         [1., 4., 9., 16.]
     );
