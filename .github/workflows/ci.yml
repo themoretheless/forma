@@ -47,6 +47,10 @@ jobs:
             target
           key: crates-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
           restore-keys: crates-${{ runner.os }}-${{ runner.arch }}-
+      - name: Serialize software WARP GPU tests on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "RUST_TEST_THREADS=1" >> "$GITHUB_ENV"
       - name: Workspace crates
         run: cargo test --locked -p gpu-shader -p gpu-runtime -p raster-core -p math-core -p tensor-core -p compute-core -p compute-cuda -p memory-budget -p swap-store -p svet-graph -p svet-reconcile -p svet-gpu-arena -p forma-build -p forma-mcp --features tensor-core/conformance
       - name: wasm32 shader and portable runtime check

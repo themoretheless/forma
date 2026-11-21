@@ -47,6 +47,7 @@ pub(crate) fn create_shader_module(
         return ShaderModule::invalid_with_module(module, reason);
     }
 
+    let _dx12_guard = super::lock_dx12_if(portable.backend == Backend::Dx12);
     let scope = portable.push_inner_scope(ErrorFilter::Validation);
     portable
         .portable_shader_compilations
@@ -195,6 +196,7 @@ pub(crate) fn create_compute_pipeline(
         report_invalid("compute pipeline missing portable shader module".to_string());
         return ComputePipeline::invalid(desc.module);
     };
+    let _dx12_guard = super::lock_dx12_if(portable.backend == Backend::Dx12);
     let scope = portable.push_inner_scope(ErrorFilter::Validation);
     let raw = portable
         .device
@@ -298,6 +300,7 @@ pub(crate) fn create_render_pipeline(
         })
         .collect();
 
+    let _dx12_guard = super::lock_dx12_if(portable.backend == Backend::Dx12);
     let scope = portable.push_inner_scope(ErrorFilter::Validation);
     let raw = portable
         .device

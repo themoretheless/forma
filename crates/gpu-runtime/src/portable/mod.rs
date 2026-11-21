@@ -19,6 +19,15 @@ use std::future::Future;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+pub(crate) fn dx12_driver_lock() -> &'static Mutex<()> {
+    static DX12_DRIVER_LOCK: std::sync::OnceLock<Mutex<()>> = std::sync::OnceLock::new();
+    DX12_DRIVER_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+pub(crate) fn lock_dx12_if(enabled: bool) -> Option<std::sync::MutexGuard<'static, ()>> {
+    enabled.then(|| dx12_driver_lock().lock().unwrap_or_else(|e| e.into_inner()))
+}
+
 /// Runtime handle wrapping an `upstream_wgpu` device/queue for portable backends.
 pub(crate) struct PortableDevice {
     pub(crate) backend: crate::Backend,
@@ -29,6 +38,18 @@ pub(crate) struct PortableDevice {
     pub(crate) portable_shader_compilations: Arc<AtomicUsize>,
     pub(crate) next_submission: AtomicU64,
     pub(crate) submissions: Mutex<BTreeMap<u64, upstream_wgpu::SubmissionIndex>>,
+}
+
+impl Drop for PortableDevice {
+    fn drop(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.backend == crate::Backend::Dx12 {
+            let _dx12_guard = lock_dx12_if(true);
+            let _ = self
+                .device
+                .poll(upstream_wgpu::PollType::wait_indefinitely());
+        }
+    }
 }
 
 impl PortableDevice {
@@ -56,8 +77,11 @@ impl PortableDevice {
             trace: upstream_wgpu::Trace::Off,
         };
 
-        let (device, queue) = block_on_native(adapter.request_device(&wgpu_desc))
-            .map_err(|err| RequestDeviceError(err.to_string()))?;
+        let (device, queue) = {
+            let _dx12_guard = lock_dx12_if(adapter_info.backend == crate::Backend::Dx12);
+            block_on_native(adapter.request_device(&wgpu_desc))
+                .map_err(|err| RequestDeviceError(err.to_string()))?
+        };
 
         Self::finish_init(
             adapter_info,
@@ -198,6 +222,7 @@ impl PortableDevice {
     }
 
     pub(crate) fn destroy(&self) {
+        let _dx12_guard = lock_dx12_if(self.backend == crate::Backend::Dx12);
         self.device.destroy();
     }
 
@@ -246,6 +271,26 @@ pub(crate) fn create_wgpu_instance(
     }
     if enable_noop {
         wgpu_backends |= upstream_wgpu::Backends::NOOP;
+    }
+    let keep_dx12 = !enable_noop && effective_backends.contains(Backends::DX12);
+    let _dx12_guard = lock_dx12_if(keep_dx12);
+    #[cfg(target_os = "windows")]
+    if keep_dx12 {
+        static DX12_KEEPALIVE: std::sync::OnceLock<upstream_wgpu::Instance> =
+            std::sync::OnceLock::new();
+        let _ = DX12_KEEPALIVE.get_or_init(|| {
+            upstream_wgpu::Instance::new(upstream_wgpu::InstanceDescriptor {
+                backends: upstream_wgpu::Backends::DX12,
+                flags: convert::to_wgpu_instance_flags(desc.flags),
+                memory_budget_thresholds: upstream_wgpu::MemoryBudgetThresholds::default(),
+                backend_options: upstream_wgpu::BackendOptions {
+                    dx12: upstream_wgpu::Dx12BackendOptions::from_env_or_default(),
+                    gl: upstream_wgpu::GlBackendOptions::from_env_or_default(),
+                    noop: upstream_wgpu::NoopBackendOptions::default(),
+                },
+                display: None,
+            })
+        });
     }
     let noop_opts = upstream_wgpu::NoopBackendOptions {
         enable: enable_noop,
@@ -304,6 +349,8 @@ pub(crate) fn enumerate_portable_adapters_sync(
     instance: &upstream_wgpu::Instance,
     backends: upstream_wgpu::Backends,
 ) -> Vec<upstream_wgpu::Adapter> {
+    #[cfg(target_os = "windows")]
+    let _dx12_guard = lock_dx12_if(true);
     block_on_native(instance.enumerate_adapters(backends))
 }
 
@@ -313,6 +360,8 @@ pub(crate) fn request_portable_adapter_sync(
     options: &RequestAdapterOptions<'_, '_>,
     compatible_surface: Option<&upstream_wgpu::Surface<'_>>,
 ) -> Result<upstream_wgpu::Adapter, String> {
+    #[cfg(target_os = "windows")]
+    let _dx12_guard = lock_dx12_if(true);
     let wgpu_opts = upstream_wgpu::RequestAdapterOptions {
         power_preference: convert::to_wgpu_power_preference(options.power_preference),
         force_fallback_adapter: options.force_fallback_adapter,
