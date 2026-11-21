@@ -159,6 +159,25 @@ fn constant_only_empty_and_scalar_expressions_have_defined_results() {
     let y = g.constant(1.25).unwrap();
     let y = g.affine(&y, 2.0, 0.5).unwrap();
     let k = g.compile(&c, &[x, y]).unwrap();
+    let module = naga::front::wgsl::parse_str(k.source()).unwrap();
+    let info = naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::empty(),
+    )
+    .validate(&module)
+    .unwrap();
+    let hlsl = naga::back::hlsl::write_string(
+        &module,
+        &info,
+        &naga::back::hlsl::Options {
+            shader_model: naga::back::hlsl::ShaderModel::V5_1,
+            ..Default::default()
+        },
+        &naga::back::hlsl::PipelineOptions::default(),
+    )
+    .unwrap();
+    assert!(!hlsl.contains("-0.0"), "{hlsl}");
+    assert!(hlsl.contains("asfloat("), "{hlsl}");
     for n in [0, 1, 259] {
         let mut p = rt.program();
         let out = p.fused(&k, &[], n).unwrap();

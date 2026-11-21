@@ -258,7 +258,7 @@ impl FusionGraph {
                     let position = used_inputs.binary_search(&slot).unwrap();
                     format!("input{slot}[i * params.step{position}]")
                 }
-                Node::Constant(bits) => format!("bitcast<f32>({bits}u)"),
+                Node::Constant(bits) => f32_bits(bits),
                 Node::Unary(op, a) => {
                     operations += 1;
                     unary(op, &names[a])
@@ -270,8 +270,10 @@ impl FusionGraph {
                 Node::Affine(a, scale, offset) => {
                     operations += 1;
                     format!(
-                        "({} * bitcast<f32>({scale}u)) + bitcast<f32>({offset}u)",
-                        names[a]
+                        "({} * {}) + {}",
+                        names[a],
+                        f32_bits(scale),
+                        f32_bits(offset)
                     )
                 }
                 Node::Compare(op, a, b) => {
@@ -317,6 +319,14 @@ impl FusionGraph {
             outputs: outputs.len(),
             operations,
         })
+    }
+}
+fn f32_bits(bits: u32) -> String {
+    // Prevent Naga const-eval and FXC from turning `-0.0` or subnormals into float literals.
+    if (bits & 0x7f80_0000) == 0 && bits != 0 {
+        format!("bitcast<f32>({bits}u ^ params._pad0)")
+    } else {
+        format!("bitcast<f32>({bits}u)")
     }
 }
 fn unary(op: UnaryOp, a: &str) -> String {
