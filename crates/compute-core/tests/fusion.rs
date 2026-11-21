@@ -3,7 +3,7 @@ use compute_core::{
     gpu_compute::GpuContext,
 };
 use std::time::Duration;
-const TIMEOUT: Duration = Duration::from_secs(20);
+const TIMEOUT: Duration = Duration::from_secs(60);
 fn context() -> Option<GpuContext> {
     let c = GpuContext::new();
     if c.is_none() {

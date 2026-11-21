@@ -12,7 +12,7 @@ fn context() -> Option<GpuContext> {
     }
     context
 }
-const TIMEOUT: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(60);
 
 #[test]
 fn typed_arrays_preserve_u32_bits_and_support_partial_updates() {

@@ -101,7 +101,7 @@ fn readback<R>(
     let mut ticket =
         gpu_compute::ByteReadback::copy_buffer(device, &mut encoder, buffer, 0, size as u64)?;
     ticket.submitted(queue.submit([encoder.finish()]));
-    ticket.wait_with(std::time::Duration::from_secs(30), consume)
+    ticket.wait_with(std::time::Duration::from_secs(60), consume)
 }
 
 pub fn try_read_f32(

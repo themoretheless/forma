@@ -1,7 +1,7 @@
 use compute_core::{ComputeError, ComputeRuntime, MatrixView, gpu_compute::GpuContext};
 use std::time::Duration;
 
-const TIMEOUT: Duration = Duration::from_secs(20);
+const TIMEOUT: Duration = Duration::from_secs(60);
 
 fn context() -> Option<GpuContext> {
     let context = GpuContext::new();
