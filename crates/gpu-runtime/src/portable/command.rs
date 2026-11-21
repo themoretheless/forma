@@ -291,18 +291,11 @@ pub(crate) fn submit<I: IntoIterator<Item = CommandBuffer>>(
     command_buffers: I,
     _error_sink: Option<crate::CommandErrorSink>,
 ) -> SubmissionIndex {
-    let mut wgpu_buffers = Vec::new();
-    let mut callbacks = Vec::new();
-    for cb in command_buffers {
-        if let Some((raw, mut cbs)) = cb.take_portable() {
-            wgpu_buffers.push(raw);
-            callbacks.append(&mut cbs);
-        }
-    }
+    let wgpu_buffers: Vec<upstream_wgpu::CommandBuffer> = command_buffers
+        .into_iter()
+        .filter_map(CommandBuffer::take_portable)
+        .collect();
     let idx = portable.queue.submit(wgpu_buffers);
-    for cb in callbacks {
-        cb();
-    }
     portable.record_submission(idx)
 }
 

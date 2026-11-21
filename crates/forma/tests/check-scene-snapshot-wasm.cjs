@@ -6,20 +6,31 @@ assert(process.argv[2]&&process.argv[3]);const dir=resolve(process.argv[2]);
 const {Runtime,text_metrics,shaped_text_metrics}=require(resolve(dir,'forma.js'));
 const report={node:process.version,cases:[],wasmSha256:createHash('sha256').update(readFileSync(resolve(dir,'forma_bg.wasm'))).digest('hex')};
 function check(name,run){try{run();report.cases.push({name,status:'passed'});}catch(error){report.cases.push({name,status:'failed',error:String(error.stack??error)});}}
+function controlState(artifact,index){
+ const control=artifact.controls[index];
+ if(control.state)return control.state;
+ const merged={...(artifact.state??{}),...(control.set??{})};
+ for(const key of control.unset??[])delete merged[key];
+ return merged;
+}
 check('Custom visual template reads props.__state through transferred snapshot',()=>{
  const files={'App.ui':"component App { use 'Caption.ui'; state caption: String = 'initial'; Column { Caption {} } }",'Caption.ui':"component Caption { width:100; height:30; Rectangle { Text { text: props.__state.caption; } } }"};
  const json=Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',JSON.stringify({caption:'from-state'}));
- const artifact=JSON.parse(json);assert.equal(artifact.controls.length,1);assert(artifact.templates.includes('from-state'));
- assert.equal(artifact.controls[0].state.caption.value,'from-state');
+ const artifact=JSON.parse(json);assert.equal(artifact.protocol,'forma-scene-artifact/2');assert.equal(artifact.controls.length,1);assert(artifact.templates.includes('from-state'));
+ assert.equal(controlState(artifact,0).caption.value,'from-state');
  const runtime=new Runtime();try{runtime.load_scene_artifact(json);assert.equal(runtime.control_count(),1);}finally{runtime.free();}
 });
 for(const layout of ['Column','Frame'])check(`${layout} For snapshots preserve root collection and distinct owned item values`,()=>{
  const files={'App.ui':"component App { state items: List = []; Column { for item in state.items key item.id { TextInput { width:100; height:30; value <-> item.title; } } } }".replace('Column {',layout+' {')};
  const state={items:[{id:'a',title:'Alpha'},{id:'b',title:'Beta'}]};
  const json=Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',JSON.stringify(state));const artifact=JSON.parse(json);
+ assert.equal(artifact.protocol,'forma-scene-artifact/2');
  assert.equal(artifact.controls.length,2);
+ assert.equal(artifact.controls[1].set.item.value.title.value,'Beta');
+ assert.equal('items' in (artifact.controls[1].set??{}),false);
  for(const [i,title] of ['Alpha','Beta'].entries()){
-  assert.equal(artifact.controls[i].state.item.value.title.value,title);assert.equal(artifact.controls[i].state.items.value.length,2);
+  const resolved=controlState(artifact,i);
+  assert.equal(resolved.item.value.title.value,title);assert.equal(resolved.items.value.length,2);
  }
  const runtime=new Runtime();try{runtime.load_scene_artifact(json);assert.equal(runtime.control_count(),2);assert.equal(runtime.text_value(0),'Alpha');assert.equal(runtime.text_value(1),'Beta');}finally{runtime.free();}
 });
@@ -74,7 +85,7 @@ check('Live disabled TextInput binding locks and unlocks without reload',()=>{
 check('Nested layout keeps control snapshots and live writes with unrelated payload',()=>{
  let body="TextInput { key:'editor'; width:100; height:32; value <-> state.query; }";for(let i=0;i<24;i++)body=`Column { width:200; height:100; ${body} }`;
  const files=JSON.stringify({'App.ui':`component App { state query: String = 'seed'; ${body} }`});const state=JSON.stringify({payload:Array.from({length:256},(_,i)=>({data:`payload-${i}`}))});
- const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(files,'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(artifact.controls[0].state.payload.value.length,256);
+ const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(files,'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(controlState(artifact,0).payload.value.length,256);
  const view=new Runtime();try{
   view.load_ui_files_json(files,'App.ui',state);assert(view.focus_control(0));view.text_key('End',false,false);view.text_insert('-nested');assert(view.sync_ui_bindings());const model=JSON.parse(view.ui_state_json());assert.equal(model.query,'seed-nested');assert.equal(model.payload.length,256);assert.equal(model.payload[255].data,'payload-255');assert.equal(view.sync_ui_bindings(),false);
  }finally{view.free();}
@@ -82,7 +93,7 @@ check('Nested layout keeps control snapshots and live writes with unrelated payl
 check('Large resolved List property retains contract type validation',()=>{
  const files={'App.ui':"component App { state payload: List = []; Column { width:200; height:100; Card { payload:state.payload; } } }",'Card.ui':"component Card { prop payload: List = []; width:100; height:32; Rectangle { background:#123456; PointerArea { clicked -> events.clicked(); } } }"};
  const state=JSON.stringify({payload:Array.from({length:256},(_,i)=>({data:`payload-${i}`}))});
- const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(artifact.controls[0].state.payload.value.length,256);
+ const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(controlState(artifact,0).payload.value.length,256);
  const view=new Runtime();try{
   view.load_ui_files_json(JSON.stringify(files),'App.ui',state);assert.equal(view.control_count(),1);const before=view.ui_state_json(),revision=view.layout_revision();
   const invalid={...files,'App.ui':files['App.ui'].replace('payload:state.payload',"payload:'wrong-type'")};

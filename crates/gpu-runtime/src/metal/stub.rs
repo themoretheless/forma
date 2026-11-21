@@ -154,6 +154,6 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(any(test, feature = "test-hooks"))]
+    #[cfg(feature = "test-hooks")]
     pub(crate) fn inject_device_loss_for_test(&self, _message: String) {}
 }

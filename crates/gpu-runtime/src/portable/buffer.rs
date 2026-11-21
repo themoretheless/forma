@@ -305,6 +305,47 @@ pub(crate) fn write_buffer(
     device.queue.write_buffer(&portable.raw, offset, data);
 }
 
+fn finish_map_callback(
+    buf_inner: Arc<BufferInner>,
+    port: Arc<PortableBuffer>,
+    offset: u64,
+    end: u64,
+    mode: MapMode,
+    callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
+) -> impl FnOnce(Result<(), upstream_wgpu::BufferAsyncError>) + Send + 'static {
+    move |res| match res {
+        Ok(()) => {
+            match mode {
+                MapMode::Read => {
+                    let ok = {
+                        if let Ok(view) = port.raw.slice(offset..end).get_mapped_range() {
+                            port.copy_into_backing(offset as usize, &view);
+                            true
+                        } else {
+                            false
+                        }
+                    };
+                    port.raw.unmap();
+                    if !ok {
+                        callback(Err(BufferAsyncError));
+                        return;
+                    }
+                    buf_inner.mapped_ready.store(true, Ordering::Release);
+                }
+                MapMode::Write => {
+                    *port
+                        .mapped_write_range
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner()) = Some(offset..end);
+                    buf_inner.mapped_ready.store(true, Ordering::Release);
+                }
+            }
+            callback(Ok(()));
+        }
+        Err(_) => callback(Err(BufferAsyncError)),
+    }
+}
+
 pub(crate) fn map_async(
     inner: &Arc<BufferInner>,
     portable: &Arc<PortableBuffer>,
@@ -313,47 +354,33 @@ pub(crate) fn map_async(
     mode: MapMode,
     callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
 ) {
-    let end = match offset.checked_add(size) {
-        Some(e) if e <= inner.size => e,
-        _ => {
-            callback(Err(BufferAsyncError));
-            return;
-        }
+    let Some(end) = offset.checked_add(size).filter(|&e| e <= inner.size) else {
+        callback(Err(BufferAsyncError));
+        return;
     };
-    let port = portable.clone();
-    let buf_inner = inner.clone();
     portable.raw.slice(offset..end).map_async(
         convert::to_wgpu_map_mode(mode),
-        move |res| match res {
-            Ok(()) => {
-                match mode {
-                    MapMode::Read => {
-                        let ok = {
-                            if let Ok(view) = port.raw.slice(offset..end).get_mapped_range() {
-                                port.copy_into_backing(offset as usize, &view);
-                                true
-                            } else {
-                                false
-                            }
-                        };
-                        port.raw.unmap();
-                        if !ok {
-                            callback(Err(BufferAsyncError));
-                            return;
-                        }
-                        buf_inner.mapped_ready.store(true, Ordering::Release);
-                    }
-                    MapMode::Write => {
-                        *port
-                            .mapped_write_range
-                            .lock()
-                            .unwrap_or_else(|e| e.into_inner()) = Some(offset..end);
-                        buf_inner.mapped_ready.store(true, Ordering::Release);
-                    }
-                }
-                callback(Ok(()));
-            }
-            Err(_) => callback(Err(BufferAsyncError)),
-        },
+        finish_map_callback(inner.clone(), portable.clone(), offset, end, mode, callback),
+    );
+}
+
+pub(crate) fn map_buffer_on_submit(
+    encoder: &upstream_wgpu::CommandEncoder,
+    inner: &Arc<BufferInner>,
+    portable: &Arc<PortableBuffer>,
+    offset: u64,
+    size: u64,
+    mode: MapMode,
+    callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
+) {
+    let Some(end) = offset.checked_add(size).filter(|&e| e <= inner.size) else {
+        callback(Err(BufferAsyncError));
+        return;
+    };
+    encoder.map_buffer_on_submit(
+        &portable.raw,
+        convert::to_wgpu_map_mode(mode),
+        offset..end,
+        finish_map_callback(inner.clone(), portable.clone(), offset, end, mode, callback),
     );
 }

@@ -552,3 +552,51 @@ fn cuda_adapters_remain_empty_and_env_backend_selection_works() {
         )
     );
 }
+
+#[test]
+fn portable_map_buffer_on_submit_reads_copied_bytes() {
+    let Some((_, device, queue)) = portable_hardware_device() else {
+        return;
+    };
+
+    let source = device.create_buffer(&BufferDescriptor {
+        label: Some("portable map_on_submit source"),
+        size: 8,
+        usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let readback = device.create_buffer(&BufferDescriptor {
+        label: Some("portable map_on_submit readback"),
+        size: 8,
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    let expected = [17u32, u32::MAX];
+    let payload: Vec<u8> = expected.iter().flat_map(|v| v.to_le_bytes()).collect();
+    queue.write_buffer(&source, 0, &payload);
+
+    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor::default());
+    encoder.copy_buffer_to_buffer(&source, 0, &readback, 0, 8);
+    let done = Arc::new(Mutex::new(None));
+    let done_tx = done.clone();
+    encoder.map_buffer_on_submit(&readback, MapMode::Read, ..8, move |res| {
+        *done_tx.lock().unwrap() = Some(res);
+    });
+    let idx = queue.submit([encoder.finish()]);
+    device
+        .poll(PollType::Wait {
+            submission_index: Some(idx),
+            timeout: Some(std::time::Duration::from_secs(5)),
+        })
+        .unwrap();
+    assert!(done.lock().unwrap().take().unwrap().is_ok());
+
+    let mapped = readback.slice(..).get_mapped_range();
+    let actual: Vec<u32> = mapped
+        .chunks_exact(4)
+        .map(|c| u32::from_le_bytes(c.try_into().unwrap()))
+        .collect();
+    assert_eq!(actual, expected);
+    drop(mapped);
+    readback.unmap();
+}

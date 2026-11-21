@@ -145,8 +145,9 @@ test('runSandboxedDesignBinary strips parent environment and confines writes to 
         std::fs::write("inside.txt", "ok").unwrap();
       }`,
     );
-    await exec('rustc', ['--edition=2021', 'probe.rs', '-o', 'probe'], { cwd: workDir });
-    await runSandboxedDesignBinary(await realpath(path.join(workDir, 'probe')), workDir);
+    const probeBin = process.platform === 'win32' ? 'probe.exe' : 'probe';
+    await exec('rustc', ['--edition=2021', 'probe.rs', '-o', probeBin], { cwd: workDir });
+    await runSandboxedDesignBinary(await realpath(path.join(workDir, probeBin)), workDir);
     assert.equal(await readFile(path.join(workDir, 'inside.txt'), 'utf8'), 'ok');
 
     if (process.platform === 'darwin' && existsSync('/usr/bin/sandbox-exec')) {

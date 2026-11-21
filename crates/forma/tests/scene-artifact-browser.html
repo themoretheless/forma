@@ -5,6 +5,13 @@
 import init, { Button, Runtime, text_metrics, shaped_text_metrics } from './forma.js';
 const report={status:'running',userAgent:navigator.userAgent,cases:[]};
 const equal=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);};
+function controlState(artifact,index){
+ const control=artifact.controls[index];
+ if(control.state)return control.state;
+ const merged={...(artifact.state??{}),...(control.set??{})};
+ for(const key of control.unset??[])delete merged[key];
+ return merged;
+}
 async function check(name,fn){try{await fn();report.cases.push({name,status:'passed'});}catch(error){report.cases.push({name,status:'failed',error:String(error.stack??error)});}}
 let runtime;
 try{
@@ -44,7 +51,7 @@ try{
  });
  await check('browser custom template reads transferred props.__state and updates visible text',()=>{
   const files={'App.ui':"component App { use 'Caption.ui'; state caption: String = 'initial'; Column { width:360; height:200; Caption {} } }",'Caption.ui':"component Caption { width:200; height:40; Rectangle { Text { text:props.__state.caption; } } }"};
-  const compile=caption=>Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',JSON.stringify({caption}));const first=compile('Browser state'),artifact=JSON.parse(first);equal(artifact.controls[0].state.caption.value,'Browser state');if(!artifact.templates.includes('Browser state'))throw Error('Captured state missing from template');
+  const compile=caption=>Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',JSON.stringify({caption}));const first=compile('Browser state'),artifact=JSON.parse(first);equal(controlState(artifact,0).caption.value,'Browser state');if(!artifact.templates.includes('Browser state'))throw Error('Captured state missing from template');
   const view=new Runtime();try{view.load_scene_artifact(first);const before=view.pixels(360,200,1).slice();view.load_scene_artifact(compile('Updated'));const after=view.pixels(360,200,1);if(!after.some((value,index)=>value!==before[index]))throw Error('Custom template state did not change visible frame');}finally{view.free();}
  });
  for(const chained of [false,true])await check(`WASM idle and reload reorder preserve ${chained?'chained':'single'} alias input`,()=>{
@@ -92,7 +99,7 @@ await check('Nested layout keeps control snapshots and live writes with unrelate
  const assert=Object.assign(value=>{if(!value)throw Error('Assertion failed');},{equal});
  let body="TextInput { key:'editor'; width:100; height:32; value <-> state.query; }";for(let i=0;i<24;i++)body=`Column { width:200; height:100; ${body} }`;
  const files=JSON.stringify({'App.ui':`component App { state query: String = 'seed'; ${body} }`});const state=JSON.stringify({payload:Array.from({length:256},(_,i)=>({data:`payload-${i}`}))});
- const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(files,'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(artifact.controls[0].state.payload.value.length,256);
+ const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(files,'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(controlState(artifact,0).payload.value.length,256);
  const view=new Runtime();try{
   view.load_ui_files_json(files,'App.ui',state);assert(view.focus_control(0));view.text_key('End',false,false);view.text_insert('-nested');assert(view.sync_ui_bindings());const model=JSON.parse(view.ui_state_json());assert.equal(model.query,'seed-nested');assert.equal(model.payload.length,256);assert.equal(model.payload[255].data,'payload-255');assert.equal(view.sync_ui_bindings(),false);
   const pixels=view.pixels(240,120,1);const figure=document.createElement('figure'),caption=document.createElement('figcaption'),canvas=document.createElement('canvas');caption.textContent=`24 nested layouts: ${model.query}; payload records: ${model.payload.length}`;canvas.width=240;canvas.height=120;canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels),240,120),0,0);figure.append(caption,canvas);document.querySelector('#report').before(figure);
@@ -102,7 +109,7 @@ await check('Large resolved List property retains contract type validation',()=>
  const assert=Object.assign(value=>{if(!value)throw Error('Assertion failed');},{equal});
  const files={'App.ui':"component App { state payload: List = []; Column { width:200; height:100; Card { payload:state.payload; } } }",'Card.ui':"component Card { prop payload: List = []; width:100; height:32; Rectangle { background:#123456; PointerArea { clicked -> events.clicked(); } } }"};
  const state=JSON.stringify({payload:Array.from({length:256},(_,i)=>({data:`payload-${i}`}))});
- const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(artifact.controls[0].state.payload.value.length,256);
+ const artifact=JSON.parse(Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',state));assert.equal(artifact.controls.length,1);assert.equal(controlState(artifact,0).payload.value.length,256);
  const view=new Runtime();try{
   view.load_ui_files_json(JSON.stringify(files),'App.ui',state);assert.equal(view.control_count(),1);const before=view.ui_state_json(),revision=view.layout_revision();
   const invalid={...files,'App.ui':files['App.ui'].replace('payload:state.payload',"payload:'wrong-type'")};

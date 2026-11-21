@@ -375,7 +375,7 @@ pub struct Adapter {
 }
 
 impl Adapter {
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(crate) fn expect_metal(&self) -> &MetalDevice {
         match &self.inner {
             AdapterInner::Metal(metal) => metal,

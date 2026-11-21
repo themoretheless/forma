@@ -55,7 +55,7 @@ impl std::fmt::Debug for Device {
 }
 
 impl Device {
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(crate) fn expect_metal(&self) -> &MetalDevice {
         match &self.backend {
             BackendDevice::Metal(metal) => metal,
@@ -621,17 +621,14 @@ impl Device {
                 let encoder = portable.device.create_command_encoder(
                     &upstream_wgpu::CommandEncoderDescriptor { label: desc.label },
                 );
-                crate::EncoderBackend::Portable {
-                    encoder,
-                    on_submit_callbacks: Mutex::new(Vec::new()),
-                }
+                crate::EncoderBackend::Portable { encoder }
             }
             BackendDevice::Metal(metal) => {
                 #[cfg(any(target_os = "macos", target_os = "ios"))]
                 {
                     let ops = metal.take_cmd_ops();
                     crate::EncoderBackend::Metal {
-                        device: metal.clone(),
+                        device: Box::new(metal.clone()),
                         ops,
                         on_submit_callbacks: Mutex::new(Vec::new()),
                     }

@@ -73,37 +73,41 @@ impl CommandEncoder {
         crate::dispatch_error(&self.error_stack, &self.uncaptured_error_handler, err);
     }
 
-    pub fn map_buffer_on_submit<S, F>(
-        &self,
-        buffer: &Buffer,
-        _mode: MapMode,
-        _bounds: S,
-        callback: F,
-    ) where
+    pub fn map_buffer_on_submit<S, F>(&self, buffer: &Buffer, mode: MapMode, bounds: S, callback: F)
+    where
         S: RangeBounds<BufferAddress>,
         F: FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     {
-        let buf = buffer.clone();
-        let cb: Box<dyn FnOnce() + Send> = Box::new(move || {
-            buf.inner.mapped_ready.store(true, Ordering::Release);
-            callback(Ok(()));
-        });
         match &self.backend {
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             EncoderBackend::Metal {
                 on_submit_callbacks,
                 ..
             } => {
+                let _ = (mode, bounds);
+                let buf = buffer.clone();
+                let cb: Box<dyn FnOnce() + Send> = Box::new(move || {
+                    buf.inner.mapped_ready.store(true, Ordering::Release);
+                    callback(Ok(()));
+                });
                 if let Ok(mut cbs) = on_submit_callbacks.lock() {
                     cbs.push(cb);
                 }
             }
-            EncoderBackend::Portable {
-                on_submit_callbacks,
-                ..
-            } => {
-                if let Ok(mut cbs) = on_submit_callbacks.lock() {
-                    cbs.push(cb);
+            EncoderBackend::Portable { encoder } => {
+                let slice = buffer.slice(bounds);
+                if let Some(portable) = &buffer.inner.portable {
+                    crate::portable::buffer::map_buffer_on_submit(
+                        encoder,
+                        &buffer.inner,
+                        portable,
+                        slice.offset,
+                        slice.size,
+                        mode,
+                        callback,
+                    );
+                } else {
+                    callback(Err(BufferAsyncError));
                 }
             }
         }
@@ -489,13 +493,9 @@ impl CommandEncoder {
                     on_submit_callbacks: on_submit_callbacks.into_inner().unwrap_or_default(),
                 },
             },
-            EncoderBackend::Portable {
-                encoder,
-                on_submit_callbacks,
-            } => CommandBuffer {
+            EncoderBackend::Portable { encoder } => CommandBuffer {
                 backend: CommandBufferBackend::Portable {
                     buffer: Some(encoder.finish()),
-                    on_submit_callbacks: on_submit_callbacks.into_inner().unwrap_or_default(),
                 },
             },
         }

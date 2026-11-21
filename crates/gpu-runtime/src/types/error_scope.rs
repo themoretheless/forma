@@ -120,9 +120,9 @@ pub(super) struct ScopeServiceState {
     pub(super) waiting: Vec<std::sync::Weak<Mutex<ErrorScopeValue>>>,
     pub(super) running: bool,
     pub(super) epoch: u64,
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(super) native_completions: usize,
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(super) starts: usize,
 }
 
@@ -176,7 +176,7 @@ impl ScopeCompletionService {
         }
         self.1.notify_all();
     }
-    #[cfg(any(test, target_os = "macos", target_os = "ios"))]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub(crate) fn native_completed(&self) {
         #[cfg(test)]
         {
@@ -187,7 +187,7 @@ impl ScopeCompletionService {
         }
         self.notify();
     }
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(crate) fn native_notifications(&self) -> usize {
         self.0.lock().unwrap().native_completions
     }
@@ -200,7 +200,7 @@ impl ScopeCompletionService {
                 false
             } else {
                 state.running = true;
-                #[cfg(test)]
+                #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
                 {
                     state.starts += 1;
                 }
@@ -265,7 +265,7 @@ impl ScopeCompletionService {
             });
         }
     }
-    #[cfg(test)]
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
     pub(crate) fn stats(&self) -> (bool, usize, usize, usize) {
         let state = self.0.lock().unwrap();
         (

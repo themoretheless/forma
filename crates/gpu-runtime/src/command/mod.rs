@@ -21,6 +21,7 @@ use gpu_shader::back::msl::{
 };
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeBounds};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
@@ -312,18 +313,18 @@ pub(crate) enum RecordedOp {
     },
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) type SubmitCallback = Box<dyn FnOnce() + Send>;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) enum EncoderBackend {
     Metal {
-        device: MetalDevice,
+        device: Box<MetalDevice>,
         ops: Vec<RecordedOp>,
         on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
     },
     Portable {
         encoder: upstream_wgpu::CommandEncoder,
-        on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
     },
 }
 
@@ -331,7 +332,6 @@ pub(crate) enum EncoderBackend {
 pub(crate) enum EncoderBackend {
     Portable {
         encoder: upstream_wgpu::CommandEncoder,
-        on_submit_callbacks: Mutex<Vec<SubmitCallback>>,
     },
 }
 
@@ -343,7 +343,6 @@ pub(crate) enum CommandBufferBackend {
     },
     Portable {
         buffer: Option<upstream_wgpu::CommandBuffer>,
-        on_submit_callbacks: Vec<SubmitCallback>,
     },
 }
 
@@ -351,7 +350,6 @@ pub(crate) enum CommandBufferBackend {
 pub(crate) enum CommandBufferBackend {
     Portable {
         buffer: Option<upstream_wgpu::CommandBuffer>,
-        on_submit_callbacks: Vec<SubmitCallback>,
     },
 }
 
@@ -392,18 +390,9 @@ impl CommandBuffer {
         }
     }
 
-    pub(crate) fn take_portable(
-        mut self,
-    ) -> Option<(upstream_wgpu::CommandBuffer, Vec<SubmitCallback>)> {
+    pub(crate) fn take_portable(mut self) -> Option<upstream_wgpu::CommandBuffer> {
         match &mut self.backend {
-            CommandBufferBackend::Portable {
-                buffer,
-                on_submit_callbacks,
-            } => {
-                let buf = buffer.take()?;
-                let cbs = std::mem::take(on_submit_callbacks);
-                Some((buf, cbs))
-            }
+            CommandBufferBackend::Portable { buffer } => buffer.take(),
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             CommandBufferBackend::Metal { .. } => None,
         }

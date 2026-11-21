@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn block_on_ready<T>(fut: impl Future<Output = T>) -> T {
     let mut pinned = std::pin::pin!(fut);
     let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
