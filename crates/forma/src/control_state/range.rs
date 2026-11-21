@@ -99,7 +99,6 @@ impl RangeModel {
         } else {
             self.min + index * self.step
         };
-        self.set_value(target)
-            .expect("validated range produces finite values")
+        self.set_value(target).unwrap_or(false)
     }
 }

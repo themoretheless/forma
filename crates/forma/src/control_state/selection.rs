@@ -26,13 +26,16 @@ impl SingleSelection {
     pub fn selected(&self) -> Option<usize> {
         self.selected
     }
+    fn select_known(&mut self, id: usize) -> bool {
+        let changed = self.selected != Some(id);
+        self.selected = Some(id);
+        changed
+    }
     pub fn select(&mut self, id: usize) -> Result<bool, ModelError> {
         if !self.items.contains(&id) {
             return Err(ModelError::UnknownItem(id));
         }
-        let changed = self.selected != Some(id);
-        self.selected = Some(id);
-        Ok(changed)
+        Ok(self.select_known(id))
     }
     pub fn clear(&mut self) -> bool {
         self.selected.take().is_some()
@@ -71,20 +74,20 @@ impl SingleSelection {
                 }
             }
         };
-        self.select(self.items[index])
-            .expect("index belongs to selection")
+        let id = self.items[index];
+        self.select_known(id)
     }
     pub fn first(&mut self) -> bool {
         self.items
             .first()
             .copied()
-            .is_some_and(|id| self.select(id).unwrap())
+            .is_some_and(|id| self.select_known(id))
     }
     pub fn last(&mut self) -> bool {
         self.items
             .last()
             .copied()
-            .is_some_and(|id| self.select(id).unwrap())
+            .is_some_and(|id| self.select_known(id))
     }
 }
 pub type RadioGroup = SingleSelection;

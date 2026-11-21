@@ -21,7 +21,7 @@ function classifyLayer(file: string): LayerName {
   ) {
     return 'wasm';
   }
-  if (file === 'reactivity.ts' || file === 'reactivity-entry.ts') {
+  if (file === 'reactivity.ts' || file.startsWith('reactivity-')) {
     return 'reactivity';
   }
   if (
@@ -36,7 +36,10 @@ function classifyLayer(file: string): LayerName {
       'ssr-runtime-entry.ts',
       'server.ts',
       'stream.ts',
-    ].includes(file)
+    ].includes(file) ||
+    file.startsWith('dom-') ||
+    file.startsWith('advanced-') ||
+    file.startsWith('ssr-')
   ) {
     return 'dom';
   }
@@ -136,6 +139,16 @@ describe('engine module layering and decomposition', () => {
   it('keeps decomposed orchestrators within complexity bounds', () => {
     expect(measureFunctionLines('forma.ts', 'instantiateForma')).toBeLessThanOrEqual(220);
     expect(measureFunctionLines('gpu-scene3d.ts', 'createCanvas3D')).toBeLessThanOrEqual(240);
+    expect(measureFunctionLines('reactivity-core.ts', 'computed')).toBeLessThanOrEqual(130);
+    expect(measureFunctionLines('dom-core.ts', 'bindProp')).toBeLessThanOrEqual(100);
+    expect(measureFunctionLines('dom-core.ts', 'insertChild')).toBeLessThanOrEqual(160);
+    expect(measureFunctionLines('dom-model.ts', 'bindModel')).toBeLessThanOrEqual(130);
+    expect(measureFunctionLines('dom-for.ts', 'For')).toBeLessThanOrEqual(160);
+    expect(measureFunctionLines('advanced-resource.ts', 'createResource')).toBeLessThanOrEqual(130);
+    expect(measureFunctionLines('advanced-router.ts', 'createRouter')).toBeLessThanOrEqual(150);
+    expect(measureFunctionLines('forma-expr-parser.ts', 'evalAstNode')).toBeLessThanOrEqual(140);
+    expect(measureFunctionLines('forma-reactive.ts', 'createForm')).toBeLessThanOrEqual(130);
+    expect(measureFunctionLines('ssr-runtime.ts', 'createSsrRuntime')).toBeLessThanOrEqual(280);
     const gpuLines = readFileSync(join(engineDir, 'gpu.ts'), 'utf8').split('\n').length;
     expect(gpuLines).toBeLessThanOrEqual(800);
   });

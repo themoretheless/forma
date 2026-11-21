@@ -257,7 +257,7 @@ npm run dev
 Результат — `public/vector-pkg/forma.js` и `public/vector-pkg/forma_bg.wasm`.
 Открыть `/vector.html`. wasm-bindgen CLI должен быть версии 0.2.130, как зависимость ядра.
 
-Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; ttf-parser только читает шрифт. Лицензия шрифта — assets/UFL.txt (Ubuntu Bold — та же, см. assets/bold). Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.
+Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; `skrifa` (`FontFace`) читает таблицы и контуры шрифта. Лицензия шрифта — assets/UFL.txt (Ubuntu Bold — та же, см. assets/bold). Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.
 # Свойства компонента
 
 В `examples/Button.component.ui` значения по умолчанию объявлены в начале
@@ -369,8 +369,8 @@ platform clipboard tools already used by the standalone host. Automated tests
 inject a clipboard and never read or replace the user's system clipboard.
 
 Simple text and shaped metrics use bundled Ubuntu/NotoSansSC/NotoEmoji faces.
-`text::ShapedGlyph::font_index` identifies0/1/2; `text::font_face(index)` returns
-the immutable matching face (fallback weight400). A real fallback glyph has
+`text::ShapedGlyph::font_index` identifies 0..=6; `text::font_face(index)` returns
+the immutable matching [`text::FontFace`] (`Face` alias, fallback weight 400). A real fallback glyph has
 its face-local glyph_id; glyph_id0 denotes synthetic unsupported text. Rust
 callers constructing ShapedGlyph must initialize the new font_index field.
 Colour/ZWJ emoji and full shaping are not qualified by scalar-font tests.

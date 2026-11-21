@@ -437,3 +437,80 @@ fn datetime_step_days_is_constant_time_and_accurate_across_million_days() {
         assert_eq!(fast, step, "mismatch after delta {delta}");
     }
 }
+
+#[test]
+fn datetime_weekday_and_calendar_grid_handle_extreme_years_and_out_of_range_months() {
+    let _ = DateTimeModel::weekday(2024, 0, 1);
+    let _ = DateTimeModel::weekday(2024, 13, 1);
+    let _ = DateTimeModel::weekday(i32::MIN, 1, 1);
+    let _ = DateTimeModel::weekday(i32::MAX, 12, 31);
+    let mut dt = DateTimeModel::new(i32::MAX, 12, 1, 0, 0).unwrap();
+    dt.step_days(i32::MAX);
+    assert_eq!(dt.calendar_grid().iter().filter(|&&d| d > 0).count(), 31);
+}
+
+#[test]
+fn data_table_virtual_list_and_command_palette_reject_invalid_columns_and_extreme_bounds() {
+    assert_eq!(
+        DataTableModel::new(
+            vec![TableColumn {
+                id: "bad".into(),
+                width: 100.,
+                min_width: 200.,
+                max_width: 50.,
+            }],
+            vec![],
+            20.,
+            40.,
+        ),
+        Err(ModelError::InvalidRange)
+    );
+    assert_eq!(
+        DataTableModel::new(
+            vec![TableColumn {
+                id: "nan".into(),
+                width: f64::NAN,
+                min_width: 10.,
+                max_width: 100.,
+            }],
+            vec![],
+            20.,
+            40.,
+        ),
+        Err(ModelError::NonFiniteValue)
+    );
+    let table = DataTableModel::new(
+        vec![TableColumn {
+            id: "ok".into(),
+            width: 500.,
+            min_width: 40.,
+            max_width: 120.,
+        }],
+        vec![vec!["a".into()], vec!["b".into()]],
+        20.,
+        40.,
+    )
+    .unwrap();
+    assert_eq!(table.column_width(0), Some(120.));
+    assert_eq!(table.virtual_window(usize::MAX), 0..2);
+
+    let vlist = VirtualListModel::new(4, 20., 40., usize::MAX).unwrap();
+    assert_eq!(vlist.visible_range(), 0..4);
+
+    let mut palette = CommandPaletteModel::new(vec![
+        CommandItem {
+            id: "a".into(),
+            title: "Alpha".into(),
+            category: "Nav".into(),
+            shortcut: String::new(),
+        },
+        CommandItem {
+            id: "b".into(),
+            title: "Beta".into(),
+            category: "Nav".into(),
+            shortcut: String::new(),
+        },
+    ]);
+    assert_eq!(palette.move_selection(1).map(|c| c.id.as_str()), Some("b"));
+    assert!(palette.move_selection(isize::MAX).is_some());
+}

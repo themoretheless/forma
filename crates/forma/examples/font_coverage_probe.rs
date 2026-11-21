@@ -1,5 +1,5 @@
 //! Verify bundled fallback font provenance/outline capability before renderer integration.
-use ttf_parser::{Face, OutlineBuilder, Tag};
+use forma::text::{FontFace, OutlineBuilder};
 #[derive(Default)]
 struct OutlineCount(usize);
 impl OutlineBuilder for OutlineCount {
@@ -31,8 +31,8 @@ fn main() {
             "🙂🦀❤☀",
         ),
     ] {
-        let mut face = Face::parse(bytes, 0).expect("valid bundled font");
-        assert!(face.set_variation(Tag::from_bytes(b"wght"), 400.).is_some());
+        let mut face = FontFace::parse(bytes, 0).expect("valid bundled font");
+        assert!(face.set_variation(*b"wght", 400.).is_some());
         let mut glyphs = Vec::new();
         for ch in chars.chars() {
             let id = face.glyph_index(ch).expect("sample glyph covered");

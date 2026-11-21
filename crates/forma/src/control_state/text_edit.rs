@@ -152,19 +152,17 @@ pub(super) fn word_edge_dictionary(value: &str, at: usize, forward: bool, count:
 
 pub(super) fn grapheme_edge(value: &str, at: usize, forward: bool, strict: bool) -> usize {
     let mut cursor = unicode_segmentation::GraphemeCursor::new(at, value.len(), true);
-    if !strict && cursor.is_boundary(value, 0).expect("complete UTF-8 string") {
+    if !strict && matches!(cursor.is_boundary(value, 0), Ok(true)) {
         return at;
     }
     if forward {
         cursor
             .next_boundary(value, 0)
-            .expect("complete UTF-8 string")
+            .ok()
+            .flatten()
             .unwrap_or(value.len())
     } else {
-        cursor
-            .prev_boundary(value, 0)
-            .expect("complete UTF-8 string")
-            .unwrap_or(0)
+        cursor.prev_boundary(value, 0).ok().flatten().unwrap_or(0)
     }
 }
 
@@ -216,23 +214,27 @@ impl TextEdit {
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }
+    fn set_selection_unchecked(&mut self, anchor: usize, caret: usize) -> bool {
+        debug_assert!(self.value().is_char_boundary(anchor));
+        debug_assert!(self.value().is_char_boundary(caret));
+        let changed = self.anchor() != anchor || self.caret() != caret;
+        self.current.anchor = anchor;
+        self.current.caret = caret;
+        changed
+    }
     pub fn set_selection(&mut self, anchor: usize, caret: usize) -> Result<bool, ModelError> {
         for offset in [anchor, caret] {
             if !self.value().is_char_boundary(offset) {
                 return Err(ModelError::InvalidTextBoundary(offset));
             }
         }
-        let changed = self.anchor() != anchor || self.caret() != caret;
-        self.current.anchor = anchor;
-        self.current.caret = caret;
-        Ok(changed)
+        Ok(self.set_selection_unchecked(anchor, caret))
     }
     pub fn select_all(&mut self) -> bool {
-        self.set_selection(0, self.value().len()).unwrap()
+        self.set_selection_unchecked(0, self.value().len())
     }
     fn move_to(&mut self, caret: usize, extend: bool) -> bool {
-        self.set_selection(if extend { self.anchor() } else { caret }, caret)
-            .unwrap()
+        self.set_selection_unchecked(if extend { self.anchor() } else { caret }, caret)
     }
     pub fn home(&mut self, extend: bool) -> bool {
         self.move_to(0, extend)
@@ -491,7 +493,7 @@ impl TextEdit {
     fn replace(&mut self, range: Range<usize>, text: &str) -> bool {
         let caret = range.start + text.len();
         if &self.value()[range.clone()] == text {
-            return self.set_selection(caret, caret).unwrap();
+            return self.set_selection_unchecked(caret, caret);
         }
         if self.undo.len() == 100 {
             self.undo.remove(0);

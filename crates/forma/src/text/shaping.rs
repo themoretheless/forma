@@ -60,18 +60,7 @@ pub(super) fn match_standard_ligature(rest: &str) -> Option<(usize, char)> {
 }
 
 pub(super) fn kern_pair_units(face: &Face<'_>, left: GlyphId, right: GlyphId) -> f32 {
-    let Some(kern) = face.tables().kern else {
-        return 0.;
-    };
-    let mut total = 0i32;
-    for subtable in kern.subtables {
-        if subtable.horizontal && !subtable.variable {
-            if let Some(val) = subtable.glyphs_kerning(left, right) {
-                total += i32::from(val);
-            }
-        }
-    }
-    total as f32
+    face.kern_pair_units(left, right)
 }
 
 #[inline]

@@ -209,6 +209,8 @@ jobs:
         run: node -e "for(const p of ['public/vector-pkg/forma.js','public/vector-pkg/forma_bg.wasm'])require('node:fs').accessSync(p)"
       - run: npm run format:check
       - run: npm run lint
+      - name: Studio JavaScript @ts-check (tsc --noEmit)
+        run: npm --prefix packages/svet ci && npm run typecheck
       - run: npm test
       - run: npm run build
       - run: npm run package:release
@@ -261,5 +263,3 @@ jobs:
         env:
           SVET_REBUILT_WASM: ${{ runner.temp }}/svet-wasm-provenance/wasm32-unknown-unknown/release/svet_wasm.wasm
         run: npm run test:package
-      - name: Studio JavaScript @ts-check (tsc --noEmit)
-        run: node ../scripts/typecheck.mjs

@@ -530,9 +530,7 @@ fn static_font_candidates_raster_comparison() {
         let a = std::fs::read(root.join(source)).unwrap();
         let b = std::fs::read(candidate_root.join(candidate)).unwrap();
         let mut original = Face::parse(&a, 0).unwrap();
-        original
-            .set_variation(ttf_parser::Tag::from_bytes(b"wght"), 400.)
-            .unwrap();
+        original.set_variation(*b"wght", 400.).unwrap();
         let derived = Face::parse(&b, 0).unwrap();
         for size in [9_f32, 14., 24., 48., 96.] {
             for offset in [0_f32, 0.25, 0.5, 0.75] {

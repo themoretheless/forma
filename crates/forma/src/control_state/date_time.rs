@@ -48,13 +48,10 @@ impl DateTimeModel {
         }
     }
 
-    /// Day of week (`0 = Monday .. 6 = Sunday`) via Sakamoto's algorithm.
+    /// Day of week (`0 = Monday .. 6 = Sunday`).
     pub fn weekday(year: i32, month: u8, day: u8) -> u8 {
-        let t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
-        let y = if month < 3 { year - 1 } else { year };
-        let sun0 = (y + y / 4 - y / 100 + y / 400 + t[(month - 1) as usize] + i32::from(day))
-            .rem_euclid(7) as u8;
-        (sun0 + 6) % 7
+        // 1970-01-01 (`days_from_civil == 0`) was a Thursday (`3` in 0=Monday..6=Sunday).
+        (days_from_civil(i64::from(year), month.clamp(1, 12), day.max(1)) + 3).rem_euclid(7) as u8
     }
 
     pub fn format_iso(&self) -> String {

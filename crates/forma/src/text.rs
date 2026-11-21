@@ -1,16 +1,16 @@
 //! Small shared outline-text rasterizer and complex-script shaper, used unchanged by native and Web/WASM.
 //!
-//! `ttf-parser` reads the font and supplies vector contours. Curve flattening,
+//! `skrifa` reads the font tables and supplies vector contours. Curve flattening,
 //! winding fill, antialiasing, complex-script shaping (`shape_text`: standard ligatures,
 //! OpenType kerning, combining diacritics, BiDi/RTL run reordering, and fallback glyph
 //! chains) and compositing below are our own.
 
 use std::sync::OnceLock;
-use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 mod arabic;
 mod bidi;
 mod color_emoji;
+mod face;
 mod fonts;
 mod linebreak;
 mod metrics;
@@ -28,6 +28,7 @@ pub(crate) use bidi::{
 };
 #[doc(hidden)]
 pub use color_emoji::{colr_cpal_layers, is_color_emoji_scalar};
+pub use face::{Face, FontFace, GlyphId, OutlineBuilder};
 pub use fonts::*;
 pub use metrics::*;
 #[doc(hidden)]

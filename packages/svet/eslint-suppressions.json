@@ -42,14 +42,6 @@
       "count": 3
     }
   },
-  "src/engine/advanced.ts": {
-    "no-control-regex": {
-      "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
   "src/engine/devtools.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
@@ -59,14 +51,8 @@
     }
   },
   "src/engine/dom.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 34
-    },
-    "no-control-regex": {
-      "count": 1
-    },
     "no-unsafe-finally": {
-      "count": 2
+      "count": 1
     }
   },
   "src/engine/forma-actions.ts": {
@@ -79,28 +65,12 @@
       "count": 4
     }
   },
-  "src/engine/forma-expr.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 24
-    },
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
   "src/engine/forma-instance.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 31
     },
     "@typescript-eslint/no-unsafe-function-type": {
       "count": 6
-    }
-  },
-  "src/engine/forma-reactive.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "src/engine/forma-render.ts": {
@@ -157,28 +127,15 @@
       "count": 1
     }
   },
-  "src/engine/reactivity.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 30
-    },
-    "no-unsafe-finally": {
-      "count": 1
-    }
-  },
   "src/engine/resumable.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 4
     },
     "no-control-regex": {
       "count": 1
     },
     "no-unsafe-finally": {
       "count": 1
-    }
-  },
-  "src/engine/ssr-runtime.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
     }
   },
   "src/engine/stream.ts": {

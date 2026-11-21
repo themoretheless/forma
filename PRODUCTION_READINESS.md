@@ -1,9 +1,13 @@
 # Production readiness — рабочий аудит
 
 Цель: подготовить Forma и Studio к надёжной эксплуатации и воспроизводимому
-выпуску. Статус: **не завершено**. Зелёные unit-тесты не доказывают готовность
-всего продукта. Функциональные ограничения языка/runtime описаны в LANGUAGE,
-BINDINGS и карте покрытия; их совместимость с выпуском ещё требует аудита.
+выпуску. Статус (`2026-11-21`): **квалификация RC `0.3.8` завершена** (`npm run gate`
+`30/30`, все 35 строк [инвентаризации](docs/refactor/INVENTORY.md) закрыты в `done`,
+`cargo-deny` без обходных исключений по `quick-xml`/`ttf-parser`, 8-job матрица CI).
+Явные аппаратные и нагрузочные границы (физический CUDA GPU, мобильные устройства,
+информационные `zbus` на Linux AT-SPI, переснятие таймингов на idle-хосте `load < 1`)
+зафиксированы в [матрице возможностей](docs/CAPABILITY_MATRIX.md) и
+[базовой линии](docs/refactor/BASELINE.md).
 
 ## Проверяемые требования
 
@@ -1696,3 +1700,26 @@ rebind/роста, не установившегося кадра — не ме�
 mesa-vulkan-drivers и запускает их на каждом PR (раньше — только вручную на Metal).
 lavapipe ≠ Metal/дискретный GPU: числа времени не переносятся, аллокации wgpu-hal зависят
 от backend.
+
+## Закрытие Wave 7B и квалификация Release Candidate `0.3.8` (`2026-11-21`)
+
+- **Цепочка поставок и безопасность (`Cargo.lock`, `deny.toml`, `control_state`):**
+  `crates/forma/src/text/face.rs` переведён с `ttf-parser` на `skrifa 0.44.0`, `wayland-scanner`
+  обновлён до `0.31.11` (`quick-xml 0.41.0`), сужены фичи `winit`; из `deny.toml` сняты
+  `RUSTSEC-2026-0194`, `-0195` и `-0192` (остаются лишь информационные `RUSTSEC-2026-0370..-0372`
+  для `zbus 5.19` на Linux AT-SPI). В `crates/forma/src/control_state/*` исправлены 4 дефекта
+  переполнения/`clamp`/`NaN` (`F-17`, `19/19` тестов) и убраны нетестовые `.unwrap()`/`.expect()`.
+- **Декомпозиция движка Svet и CI:** крупные модули `packages/svet/src/engine/` (`reactivity`,
+  `dom`, `advanced`, `forma-expr`, `ssr-runtime`) разнесены по слоистым подмодулям, исправлен
+  `createForm` (`S-21`), в `tests/engine-layering.test.ts` закреплены потолки сложности, вычищено
+  >100 подавлений в `packages/svet/eslint-suppressions.json` (`0` добавлено), а в
+  `.github/workflows/ci.yml` проверка `npm run typecheck` (`119` модулей `// @ts-check`) перенесена
+  в job `studio`.
+- **Покрытие, бенчмарки и матрица возможностей:** полное покрытие `llvm-cov` всех 19 Rust-крейтов
+  (`100 777 / 121 977` строк = `82,62 %`), V8-покрытие Svet TS (`82,02 %` по `1 560` тестам),
+  Studio JS (`89,62 %` по исходникам) и все 9 последовательных бенчмарков хоста (при `vm.loadavg`
+  `5.96–17.68`) зафиксированы в [BASELINE.md](docs/refactor/BASELINE.md); все 35 строк
+  [INVENTORY.md](docs/refactor/INVENTORY.md) закрыты в `done`, детальная классификация
+  `implemented / validated / partial / unsupported` с командами воспроизведения опубликована в
+  [CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md), история изменений — в
+  [BUGS.md](docs/refactor/BUGS.md) и [MIGRATIONS.md](docs/refactor/MIGRATIONS.md#39-цепочка-поставок-skrifa-защита-границ-control_state-декомпозиция-ядра-svet-и-выпуск-rc).

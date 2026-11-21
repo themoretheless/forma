@@ -725,3 +725,17 @@
   - `math-core`: удалены оставшиеся `#[allow(...)]` (`device.rs`, `linalg.rs`), а крупные модули `spatial/{rotation,primitives,boxes}.rs` разбиты на `aabb`, `dual_quat`, `frustum`, `obb`, `plane`, `quat`, `ray`.
   - `tensor-core`: `host_tensor/{normalization,attention,activation}.rs` разбиты на `activation`, `attention`, `channel_norm`, `normalization`, `rope`, `softmax` (`<= 178` строк на модуль реализации); в `convolution.rs` выделен `pool1d_shape`.
   - `math-compute`: общий wire-слой и CPU-свёртки выделены в `f32_kernels::wire`; все 11 CUDA-синхронизаций объединены в единую потоко-локальную `CudaSession` с `u32::try_from` вместо усечений; `compute-mlx` тесты дедуплицированы через `tests/support/`.
+
+## 39. Цепочка поставок (`skrifa`), защита границ `control_state`, декомпозиция ядра Svet и выпуск RC
+
+- **Цепочка поставок шрифтов и XML (`crates/forma`, `Cargo.lock`, `deny.toml`):**
+  - В `crates/forma/src/text/face.rs` разбор таблиц шрифтов и контуров переведён с неподдерживаемого `ttf-parser 0.25.1` на `skrifa 0.44.0`; `wayland-scanner` обновлён до `0.31.11` (`quick-xml 0.41.0`), а фичи `winit` сужены до `wayland-csd-adwaita-notitle`, что полностью устранило `ttf-parser` из дерева зависимостей и сняло исключения `RUSTSEC-2026-0194`, `RUSTSEC-2026-0195` и `RUSTSEC-2026-0192` из `deny.toml`.
+- **Защита границ `crates/forma/src/control_state/*` (`F-17`):**
+  - Исправлены 4 дефекта переполнения и `clamp`/`NaN` в `date_time.rs`, `data_table.rs`, `virtual_list.rs` и `command_palette.rs` (`19/19` unit-тестов в `control_state/tests.rs`); в производственном коде `control_state/*` не осталось нетестовых `.unwrap()`, `.expect()` и `unreachable!()`.
+- **Декомпозиция движка Svet, `createForm` (`S-21`) и чистка ESLint:**
+  - Крупные модули `packages/svet/src/engine/` разбиты по подмодулям: `reactivity-{context,owner,tracking,core,store}.ts` (+ barrel `reactivity.ts`), `dom-{events,attributes,model,core,for}.ts` (+ `dom.ts`), `advanced-{context,resource,router}.ts` (+ barrel `advanced.ts`), `forma-expr-{parser,canonical}.ts` (+ barrel `forma-expr.ts`) и `ssr-stream-channel.ts`; в `dom-for.ts` устранена утечка WASM-узла при исключении в `render()`.
+  - В `packages/svet/src/engine/forma-reactive.ts` (`createForm`) добавлено структурное сравнение с базовым снимком для объектных/массивных полей и отмена незавершённых `AbortController` через `onCleanup` (`tests/forma-form-bugs.test.ts`, `S-21`).
+  - Закреплены слои и потолки сложности функций в `packages/svet/tests/engine-layering.test.ts`; устранено более 100 устаревших подавлений в `packages/svet/eslint-suppressions.json` (`0` добавлено, `npm run lint` с `0` предупреждений и ошибок).
+- **CI, матрица возможностей и закрытие RC `0.3.8`:**
+  - Проверка Studio JSDoc `// @ts-check` (`npm --prefix packages/svet ci && npm run typecheck`) размещена в job `studio` файла `.github/workflows/ci.yml` после `npm run lint`, где присутствуют корневые `node_modules` и собранный WASM.
+  - Опубликована сводная матрица [CAPABILITY_MATRIX.md](../CAPABILITY_MATRIX.md), закрыты все строки [INVENTORY.md](INVENTORY.md) и снято полное покрытие 19 крейтов + TS/JS в [BASELINE.md](BASELINE.md).

@@ -64,13 +64,16 @@ impl TreeModel {
         }
         ids
     }
+    fn select_known(&mut self, id: usize) -> bool {
+        let changed = self.selected != Some(id);
+        self.selected = Some(id);
+        changed
+    }
     pub fn select(&mut self, id: usize) -> Result<bool, ModelError> {
         if !self.visible_ids().contains(&id) {
             return Err(ModelError::UnknownItem(id));
         }
-        let changed = self.selected != Some(id);
-        self.selected = Some(id);
-        Ok(changed)
+        Ok(self.select_known(id))
     }
     pub fn set_expanded(&mut self, id: usize, expanded: bool) -> Result<bool, ModelError> {
         if !self.parents.contains_key(&id) {
@@ -100,7 +103,11 @@ impl TreeModel {
         self.set_expanded(id, !self.is_expanded(id))
     }
     pub fn move_by(&mut self, delta: isize) -> bool {
-        let mut selection = SingleSelection::new(self.visible_ids(), self.selected).unwrap();
+        let visible = self.visible_ids();
+        let selected = self.selected.filter(|id| visible.contains(id));
+        let Ok(mut selection) = SingleSelection::new(visible, selected) else {
+            return false;
+        };
         let changed = selection.move_by(delta, false);
         self.selected = selection.selected();
         changed
@@ -109,13 +116,13 @@ impl TreeModel {
         self.visible_ids()
             .first()
             .copied()
-            .is_some_and(|id| self.select(id).unwrap())
+            .is_some_and(|id| self.select_known(id))
     }
     pub fn last(&mut self) -> bool {
         self.visible_ids()
             .last()
             .copied()
-            .is_some_and(|id| self.select(id).unwrap())
+            .is_some_and(|id| self.select_known(id))
     }
     pub fn right(&mut self) -> bool {
         let Some(id) = self.selected else {
@@ -125,23 +132,24 @@ impl TreeModel {
             return false;
         }
         if !self.is_expanded(id) {
-            return self.set_expanded(id, true).unwrap();
+            return self.set_expanded(id, true).unwrap_or(false);
         }
-        let child = self
-            .items
-            .iter()
-            .find(|item| item.parent == Some(id))
-            .unwrap()
-            .id;
-        self.select(child).unwrap()
+        let Some(child) = self.items.iter().find(|item| item.parent == Some(id)) else {
+            return false;
+        };
+        self.select_known(child.id)
     }
     pub fn left(&mut self) -> bool {
         let Some(id) = self.selected else {
             return false;
         };
         if self.is_expanded(id) {
-            return self.set_expanded(id, false).unwrap();
+            return self.set_expanded(id, false).unwrap_or(false);
         }
-        self.parents[&id].is_some_and(|parent| self.select(parent).unwrap())
+        self.parents
+            .get(&id)
+            .copied()
+            .flatten()
+            .is_some_and(|parent| self.select_known(parent))
     }
 }

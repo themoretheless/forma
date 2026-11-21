@@ -10,7 +10,7 @@ native = ["dep:winit", "dep:softbuffer"]
 
 [dependencies]
 forma = { path = "../.." }
-winit = { version = "0.30", optional = true }
+winit = { version = "0.30", optional = true, default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita-notitle"] }
 softbuffer = { version = "0.4", optional = true }
 
 [build-dependencies]

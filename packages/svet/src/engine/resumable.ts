@@ -18,6 +18,7 @@ import {
   resetReactiveSystem,
   runWithIsolatedContext,
   signal,
+  type ReadonlySignal,
   type Signal,
 } from './reactivity.ts';
 import { getWasmCore, withWasmCore } from './wasm-bridge.ts';
@@ -218,7 +219,9 @@ export interface ResumableSnapshot {
 /**
  * Serializes a named map of signals into a compact, XSS-safe JSON snapshot for SSR HTML injection.
  */
-export function serializeState(signals: Record<string, Signal<any>>): string {
+export function serializeState(
+  signals: Record<string, Pick<ReadonlySignal<unknown>, 'peek'>>,
+): string {
   const payload: ResumableSnapshot = {
     signals: Object.create(null),
     timestamp: Date.now(),

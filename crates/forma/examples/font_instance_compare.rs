@@ -1,5 +1,5 @@
 //! Exhaustive fixed-weight outline/advance comparison; not a full raster/sequence gate.
-use ttf_parser::{Face, GlyphId, OutlineBuilder, Tag};
+use forma::text::{FontFace, GlyphId, OutlineBuilder};
 #[derive(Default)]
 struct Outline(Vec<(u8, [f32; 6])>);
 impl OutlineBuilder for Outline {
@@ -31,17 +31,15 @@ fn main() {
     ] {
         let original_bytes = std::fs::read(root.join(original)).unwrap();
         let derived_bytes = std::fs::read(candidate_root.join(derived)).unwrap();
-        let mut old = Face::parse(&original_bytes, 0).unwrap();
-        assert!(old.set_variation(Tag::from_bytes(b"wght"), 400.).is_some());
-        let new = Face::parse(&derived_bytes, 0).unwrap();
+        let mut old = FontFace::parse(&original_bytes, 0).unwrap();
+        assert!(old.set_variation(*b"wght", 400.).is_some());
+        let new = FontFace::parse(&derived_bytes, 0).unwrap();
         assert_eq!(old.number_of_glyphs(), new.number_of_glyphs());
         let ratio = old.units_per_em() as f32 / new.units_per_em() as f32;
         let mut points = std::collections::BTreeSet::new();
-        for table in old.tables().cmap.unwrap().subtables {
-            table.codepoints(|ch| {
-                points.insert(ch);
-            });
-        }
+        old.codepoints(|ch| {
+            points.insert(ch);
+        });
         for &code in &points {
             if let Some(ch) = char::from_u32(code) {
                 assert_eq!(old.glyph_index(ch), new.glyph_index(ch), "cmap {code}");

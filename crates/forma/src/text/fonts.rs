@@ -121,7 +121,7 @@ pub(super) fn font_bytes(index: u8) -> Option<&'static [u8]> {
 pub(super) fn glyph_face(index: u8) -> &'static Face<'static> {
     fn parsed(bytes: &'static [u8]) -> Face<'static> {
         let mut face = Face::parse(bytes, 0).expect("embedded fallback font");
-        face.set_variation(ttf_parser::Tag::from_bytes(b"wght"), 400.);
+        face.set_variation(*b"wght", 400.);
         face
     }
     match index {

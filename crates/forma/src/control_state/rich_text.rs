@@ -88,7 +88,9 @@ impl RichTextModel {
                     continue;
                 }
             }
-            let ch = body[i..].chars().next().unwrap();
+            let Some(ch) = body[i..].chars().next() else {
+                break;
+            };
             plain.push(ch);
             i += ch.len_utf8();
         }

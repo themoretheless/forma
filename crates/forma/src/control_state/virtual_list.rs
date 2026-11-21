@@ -62,7 +62,10 @@ impl VirtualListModel {
         let first = (self.scroll_y / self.item_height).floor().max(0.0) as usize;
         let visible = (self.viewport_height / self.item_height).ceil().max(1.0) as usize;
         let start = first.saturating_sub(self.overscan).min(self.item_count);
-        let end = (first + visible + self.overscan).min(self.item_count);
+        let end = first
+            .saturating_add(visible)
+            .saturating_add(self.overscan)
+            .min(self.item_count);
         start..end
     }
 

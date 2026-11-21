@@ -39,7 +39,13 @@ impl CommandPaletteModel {
         let q = query.to_lowercase();
         let c = candidate.to_lowercase();
         if let Some(pos) = c.find(&q) {
-            return Some(1000 - (pos as i32) * 5 - (c.len() as i32));
+            let pos_i32 = i32::try_from(pos).unwrap_or(i32::MAX);
+            let len_i32 = i32::try_from(c.len()).unwrap_or(i32::MAX);
+            return Some(
+                1000i32
+                    .saturating_sub(pos_i32.saturating_mul(5))
+                    .saturating_sub(len_i32),
+            );
         }
         let mut score = 0i32;
         let mut c_chars = c.chars();
@@ -47,10 +53,10 @@ impl CommandPaletteModel {
             loop {
                 match c_chars.next() {
                     Some(cc) if cc == qc => {
-                        score += 10;
+                        score = score.saturating_add(10);
                         break;
                     }
-                    Some(_) => score -= 1,
+                    Some(_) => score = score.saturating_sub(1),
                     None => return None,
                 }
             }
@@ -94,8 +100,8 @@ impl CommandPaletteModel {
         if self.filtered.is_empty() {
             return None;
         }
-        let len = self.filtered.len() as isize;
-        self.selected = (self.selected as isize + delta).rem_euclid(len) as usize;
+        let len = self.filtered.len() as i128;
+        self.selected = (self.selected as i128 + delta as i128).rem_euclid(len) as usize;
         self.active_command()
     }
 

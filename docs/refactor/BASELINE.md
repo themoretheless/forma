@@ -90,9 +90,19 @@ Studio `src/`: нет. `packages/svet/src/engine`: один, `gpu.ts` ↔ `gpu-r
 
 ## Ещё не измерено
 
-Покрытие Rust (`cargo llvm-cov` не установлен) и Svet (нет провайдера покрытия vitest), счётчики
-clippy по линтам, длина и сложность каждой функции, `cargo udeps`, `knip`, времена сборки,
-`npm run bench` и бенч-примеры на свободной машине, устройство CUDA.
+Покрытие Rust (`xcrun llvm-cov` по всем 19 крейтам воркспейса), TS-ядра Svet (`NODE_V8_COVERAGE` + sourcemaps)
+и Studio JS (`node --test --experimental-test-coverage`), счётчики Clippy-ratchet (`0` нарушений),
+пределы длины функций (`tests/engine-layering.test.ts` / `test/module-graph.test.js`) и все 9
+последовательных бенчмарков хоста измерены в разделе `2026-11-21` (Wave 7B) ниже.
+
+Открытыми вне локального Apple Silicon хоста остаются:
+
+- Исполнение ядер на физическом устройстве NVIDIA CUDA (тесты `compute-cuda` и `gpu_runtime::cuda`
+  проходят в host-isolated режиме с динамической проверкой драйвера).
+- Переснятие абсолютных времён всех 9 бенчмарков в truly-idle сессии (`vm.loadavg < 1.0`): на
+  момент снятия среза `2026-11-21` фоновые десктопные процессы давали `vm.loadavg` от `5.96` до `17.68`.
+- Глобальные `cargo udeps` / `knip` не заведены (частично заменены проверкой достижимости в
+  `test/module-graph.test.js` и контролем мёртвого кода на 4 таргетах в `clippy-ratchet`).
 
 ## Стоимость больших форм: аллокации и память (2026-11-14)
 
@@ -324,3 +334,93 @@ v0.3.8 (692 / 2704 / 8548 без правки, 2004 / 7846 / 23896 на ренд
   - `webkit 27.2`: startup `p50 = 9.00 мс` / `p95 = 9.60 мс`, interaction `p50 = 2.00 мс` / `p95 = 8.00 мс`, frameUpdate `p50 = 2.00 мс` / `p95 = 5.00 мс`, `nodesAfterTeardown = 0`.
   - `firefox 159.0`: startup `p50 = 9.00 мс` / `p95 = 11.00 мс`, interaction `p50 = 2.00 мс` / `p95 = 6.05 мс`, frameUpdate `p50 = 1.00 мс` / `p95 = 3.00 мс`, `frameInterval p50 = 8.34 мс`, `nodesAfterTeardown = 0`.
 - **Резидентный WebGPU-бенчмарк (`resident-app-bench-2026-11-20.json`, Apple `metal-3` не-fallback адаптер):** `18` проверенных строк, `1 080` кадров, `6` нагрузок (`2 400` и `38 400` вершин: mapped `medianP50 = 2.00–4.20 мс`, resident `medianP50 = 2.70–3.65 мс`), `2` контрольных прогона, `0` long tasks, геометрия и пиксельные хэши идентичны во всех парах.
+
+## Измерения Wave 7B и финального среза RC (2026-11-21)
+
+Снято на `Apple M4 Max` (16 ядер), macOS 26.7, `rustc 1.97.1`, `node v22.23.5` в состоянии Wave 7B (`skrifa 0.44.0`, защита границ `control_state`, декомпозиция ядра Svet).
+
+### 1. Покрытие всех 19 библиотечных крейтов воркспейса (`xcrun llvm-cov`)
+
+Каждый прогон использовал единый профиль компиляции без смешения feature-флагов и без расхождений объектных файлов (`--ignore-filename-regex="(/rustc/|/cargo/registry/|/tests/|examples/|benches/)"`). Для `forma`, `gpu-runtime` и `gpu-kit` дополнительно пройдены `#[ignore]` Metal GPU-тесты (`COMPUTE_REQUIRE_GPU=1`).
+
+| Крейт | Строк покрыто / всего | Строки % | Регионы % | Функции % | Условия прогона |
+|---|---:|---:|---:|---:|---|
+| `compute-core` | 8 543 / 8 923 | 95,74 % | 90,37 % | 93,69 % | Metal / `--lib --tests` |
+| `compute-mlx` | 5 157 / 5 427 | 95,02 % | 90,28 % | 96,02 % | Apple MLX runtime (`COMPUTE_REQUIRE_MLX=1`) |
+| `math-compute` | 2 376 / 2 538 | 93,62 % | 88,29 % | 89,96 % | `--features gpu,tensor,tensor-wgsl` |
+| `svet-reconcile` | 72 / 77 | 93,51 % | 95,27 % | 87,50 % | `--lib --tests` |
+| `svet-graph` | 742 / 802 | 92,52 % | 92,55 % | 89,29 % | `--lib --tests` |
+| `raster-core` | 2 098 / 2 280 | 92,02 % | 89,98 % | 82,98 % | Metal / `--lib --tests` |
+| `tensor-core` | 6 354 / 6 990 | 90,90 % | 85,55 % | 96,66 % | `--features conformance` |
+| `memory-budget` | 769 / 864 | 89,00 % | 87,99 % | 87,26 % | `--lib --tests` |
+| `forma` | 39 990 / 45 805 | 87,30 % | 87,12 % | 83,60 % | `--features native,gpu` + `--ignored` GPU |
+| `forma-mcp` | 712 / 819 | 86,94 % | 84,21 % | 90,54 % | `--lib --tests` + `stdio_bridge` |
+| `math-core` | 3 700 / 4 313 | 85,79 % | 89,04 % | 86,36 % | `--lib --tests` |
+| `swap-store` | 1 295 / 1 533 | 84,47 % | 83,54 % | 84,26 % | `--lib --tests` (без `#[ignore]` 147s тайминга) |
+| `gpu-shader` | 5 399 / 6 733 | 80,19 % | 78,90 % | 78,83 % | `--lib --tests` (WGSL/MSL/SPV/HLSL/GLSL + validator) |
+| `gpu-compute` | 1 484 / 1 853 | 80,09 % | 79,48 % | 78,50 % | `COMPUTE_REQUIRE_GPU=1 COMPUTE_REQUIRE_TIMESTAMPS=1` |
+| `svet-gpu-arena` | 593 / 756 | 78,44 % | 73,94 % | 83,67 % | `--lib --tests` |
+| `gpu-kit` | 3 638 / 4 807 | 75,68 % | 79,11 % | 75,08 % | `--lib --tests` + `--ignored` Metal |
+| `gpu-runtime` | 8 668 / 11 588 | 74,80 % | 76,43 % | 73,25 % | Metal + `--ignored` error/device-loss + `portable_backends` |
+| `forma-build` | 2 296 / 3 616 | 63,50 % | 65,37 % | 60,51 % | `--lib --tests` (CLI `main.rs` 0 %) |
+| `compute-cuda` | 6 891 / 12 253 | 56,24 % | 62,58 % | 58,37 % | только host-тесты (на хосте нет CUDA GPU) |
+| **Итого (все 19 крейтов)** | **100 777 / 121 977** | **82,62 %** | — | — | все библиотечные крейты воркспейса |
+| **Итого (18 крейтов без `compute-cuda`)** | **93 886 / 109 724** | **85,57 %** | — | — | без device-ветки CUDA |
+
+### 2. Покрытие TypeScript/JavaScript (Svet и Studio)
+
+- **Svet TS engine (`packages/svet/src/engine/*.ts`, исключая сгенерированный `wasm-binary.ts`):**
+  `15 912 / 19 399` исполняемых строк (**`82,02 %`**) через `NODE_V8_COVERAGE` и sourcemaps на `npm test` (`127` файлов, `1 560` тестов passed). Примечание: `compiler.ts` учитывается как `0 / 746`, так как компилятор в тестах преимущественно прогоняется поверх собранного `dist/package/compiler.js`.
+- **Studio JS (`node --test --experimental-test-coverage` по `test/*.test.js`):**
+  - С фильтром исходников (`src/**`, `protocol/**`, `dev-server/**`, `design-data-runner.js`, `form-project.js`, `rust-runner.js`, `vector-runner.js`): **строки `89,62 %`**, **ветви `88,19 %`**, **функции `89,79 %`** (рост с базовых `85,92 % / 87,02 % / 85,30 %` на `2026-11-13`).
+  - Без фильтра (все загруженные файлы, включая `test/*.test.js`): **строки `70,91 %`**, **ветви `88,78 %`**, **функции `81,58 %`**.
+
+### 3. Все 9 последовательных бенчмарков хоста (Wave 7B, `2026-11-21`)
+
+Запуски выполнялись строго по одному. Внешняя фоновая нагрузка десктопа составляла `vm.loadavg` **`5.96`–`17.68`** на 16 ядрах (не idle `load < 1.0`).
+
+1. **Транспортная фикстура (`scripts/transport-fixture.mjs`, `vm.loadavg { 6.31 8.64 9.49 }`):** `count=1` `361` Б / `6 861` Б, `8` `2 510` / `54 946`, `32` `9 900` / `219 752`, `96` `29 612` / `659 240`, `256` `79 048` Б / `1 758 116` Б.
+2. **Фазы загрузки runtime (`runtime_load_phases 8 32 96 256`, `vm.loadavg { 5.96 8.53 9.45 }`):**
+
+| Контролов | `full_from_sources` | `cold_from_scene_ir` | `reconcile_scene_ir_paint_only` | `reconcile_scene_ir_1_edit` | `gpu_transport_new_model` | `gpu_transport_reconciled_1_edit` |
+|---:|---:|---:|---:|---:|---:|---:|
+| 8 | 14,23 мкс / 43 алл. | 1,83 мкс / 59 алл. | 1,59 мкс / 50 алл. | 1,51 мкс / 50 алл. | 38,87 мкс / 522,6 КБ | 4,96 мкс / 58,6 КБ |
+| 32 | 48,25 мкс / 121 алл. | 5,35 мкс / 181 алл. | 4,79 мкс / 170 алл. | 5,19 мкс / 170 алл. | 166,29 мкс / 2,05 МБ | 10,07 мкс / 129,3 КБ |
+| 96 | 144,72 мкс / 319 алл. | 14,53 мкс / 503 алл. | 12,56 мкс / 490 алл. | 12,47 мкс / 490 алл. | 417,47 мкс / 6,20 МБ | 22,87 мкс / 317,8 КБ |
+| 256 | 383,02 мкс / 802 алл. | 32,44 мкс / 1304 алл. | 32,47 мкс / 1290 алл. | 32,02 мкс / 1290 алл. | 1 166,18 мкс / 16,65 МБ | 55,53 мкс / 789,4 КБ |
+
+3. **CPU-растр (`multicontrol_perf 8 32 96 256`, `640×360 @1.25x`, `vm.loadavg { 6.50 8.30 9.31 }`):**
+   - `8`: 1-й кадр `1,97 мс` (`208` алл. / `2,74 МБ`), тёплый `11,12 мкс` (`0` алл.), анимация `236,5 мкс` (`0` алл.), retained `2 449 950 Б`, RSS `6 242 304 Б`.
+   - `32`: 1-й кадр `3,81 мс` (`806` алл. / `4,74 МБ`), тёплый `11,03 мкс` (`0` алл.), анимация `423,1 мкс` (`0` алл.), retained `3 565 109 Б`, RSS `8 781 824 Б`.
+   - `96`: 1-й кадр `3,76 мс` (`878` алл. / `4,85 МБ`), тёплый `11,13 мкс` (`0` алл.), анимация `432,1 мкс` (`0` алл.), retained `3 791 825 Б`, RSS `9 486 336 Б`.
+   - `256`: 1-й кадр `3,84 мс` (`878` алл. / `4,86 МБ`), тёплый `11,05 мкс` (`0` алл.), анимация `445,0 мкс` (`0` алл.), retained `4 151 937 Б`, RSS `10 207 232 Б`.
+4. **GPU-сцена (`gpu_scene_bench`, Metal Apple M4 Max, `200` кадров, `vm.loadavg { 6.27 8.19 9.26 }`):** `0` аллокаций подготовки сцены, `buffer_allocations=0`, `geometry_uploads=0`, `paint_bytes/frame=12` во всех точках:
+   - `8`: CPU `0,925 / 1,291 мс`, GPU `0,701 / 0,986 мс`
+   - `32`: CPU `1,032 / 1,334 мс`, GPU `0,834 / 1,035 мс`
+   - `96`: CPU `1,140 / 1,309 мс`, GPU `0,936 / 1,065 мс`
+   - `256`: CPU `1,581 / 1,884 мс`, GPU `1,359 / 1,637 мс`
+5. **Живое OS-окно (`window_bench`, Metal `1280×800 @2x`, `256` контролов, `20 с`, `vm.loadavg { 8.68 8.93 9.47 }`):**
+   - `2 398` present (`119,90 present/s`), `0` non-present/occlusion, `3,91 %` одного ядра CPU; `input_to_present_ms` `p50 = 8,31 мс`, `p95 = 9,14 мс`, `p99 = 9,44 мс`.
+   - Плато памяти (5 / 10 / 15 / 20 с): RSS `99 827 712 → 99 844 096 → 99 860 480 → 99 893 248 Б` (`before = 100 139 008`), `rust_live_bytes = 2 405 952 Б`, `owned_gpu_buffer_bytes = 442 432 Б` (`5` буферов), `geometry_uploads = 0`, `resource_cache = 1 068 Б`.
+6. **Компилятор (`compiler-bench.mjs`, `vm.loadavg { 17.68 11.59 9.60 }`):** медиана **`0,511 мс`** (`0.5106535 мс`, 7 батчей по 500 компиляций).
+7. **Сессионный компилятор (`compiler-session-bench.mjs`, `vm.loadavg { 16.19 11.47 9.58 }`):**
+   - `1` контрол: one-shot `0,482 мс` vs session `0,197 мс`
+   - `64` контрола: one-shot `4,093 мс` vs session `2,627 мс`
+   - `256` контролов: one-shot `14,389 мс` vs session `11,947 мс`
+8. **Инструменты Studio (`studio-tools-bench.mjs`, `vm.loadavg { 15.37 11.38 9.56 }`):** `tree_collapsed = 0,00018 мс`, `tree_expanded = 0,460 мс`, `fold_nested = 0,170 мс`, `fold_flat = 0,380 мс`.
+9. **Масштабирование реактивного графа Svet (`bench:scaling`, `vm.loadavg { 14.94 11.35 9.56 }`):** рост на элемент с `1 000` до `64 000` узлов остаётся `O(1)` (`0.5x`–`1.4x` по всем 9 строкам; на `64 000`: rerun `64` нс/чтение, fan-out записи `235` нс/эффект, удаление `164` нс/эффект).
+
+#### Воспроизведение 9 замеров на свободном хосте (`vm.loadavg < 1.0`)
+
+```bash
+sysctl vm.loadavg && \
+node scripts/transport-fixture.mjs .forma/perf/template-load 1,8,32,96,256 && \
+FORMA_TRANSPORT_DIR=.forma/perf/template-load cargo run --offline --release -p forma --example runtime_load_phases -- 8 32 96 256 && \
+cargo run --offline --release -p forma --example multicontrol_perf -- 8 32 96 256 && \
+FORMA_BENCH_CONTROLS=8,32,96,256 FORMA_BENCH_FRAMES=200 cargo run --offline --release -p forma --features gpu --example gpu_scene_bench && \
+cargo run --offline --release -p forma --features native --example window_bench -- .forma/perf/window-256/scene.ui .forma/perf/window-256/Button.ui 1280 800 20 && \
+node scripts/compiler-bench.mjs .forma/perf/gate/compiler && \
+node scripts/compiler-session-bench.mjs .forma/perf/gate/compiler-session && \
+node scripts/studio-tools-bench.mjs .forma/perf/gate/studio-tools && \
+npm --prefix packages/svet run bench:scaling
+```

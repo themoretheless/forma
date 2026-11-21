@@ -17,16 +17,12 @@ version = 2
 yanked = "deny"
 # Each entry is a known finding that is accepted for now, with the reason; see docs/refactor/BUGS.md.
 ignore = [
-    # quick-xml 0.39 reaches us only through wayland-scanner, which parses the Wayland protocol
-    # files shipped with the crates at build time: no untrusted XML is involved.
-    { id = "RUSTSEC-2026-0194", reason = "build-time parser of trusted protocol XML (wayland-scanner)" },
-    { id = "RUSTSEC-2026-0195", reason = "build-time parser of trusted protocol XML (wayland-scanner)" },
-    # A direct dependency of forma for font parsing; the advisory offers no upgrade.
-    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, no upgrade available" },
-    # Pulled in by the Linux accessibility stack (accesskit over zbus); no upgrade available.
-    { id = "RUSTSEC-2026-0370", reason = "zvariant unmaintained, transitive via accesskit on Linux" },
-    { id = "RUSTSEC-2026-0371", reason = "zbus_names unmaintained, transitive via accesskit on Linux" },
-    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive unmaintained, transitive via accesskit on Linux" },
+    # Informational crate consolidation: merged into zbus 6.0 (zbus#2043). Pulled in only on Linux
+    # via accesskit_winit 0.34.2 -> accesskit_unix 0.24.1 -> atspi 0.29.0 -> zbus 5.19.0; cannot be
+    # disabled without disabling Linux AT-SPI accessibility until upstream migrates to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "merged into zbus 6.0 (zbus#2043); awaiting upstream accesskit_unix/atspi migration off zbus 5.19" },
+    { id = "RUSTSEC-2026-0371", reason = "merged into zbus 6.0 (zbus#2043); awaiting upstream accesskit_unix/atspi migration off zbus 5.19" },
+    { id = "RUSTSEC-2026-0372", reason = "merged into zbus 6.0 (zbus#2043); awaiting upstream accesskit_unix/atspi migration off zbus 5.19" },
 ]
 
 [licenses]

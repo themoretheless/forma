@@ -38,7 +38,7 @@ pub struct DataTableModel {
 
 impl DataTableModel {
     pub fn new(
-        columns: Vec<TableColumn>,
+        mut columns: Vec<TableColumn>,
         rows: Vec<Vec<String>>,
         row_height: f64,
         viewport_height: f64,
@@ -49,6 +49,15 @@ impl DataTableModel {
             || viewport_height < 0.0
         {
             return Err(ModelError::NonFiniteValue);
+        }
+        for col in &mut columns {
+            if !col.width.is_finite() || !col.min_width.is_finite() || !col.max_width.is_finite() {
+                return Err(ModelError::NonFiniteValue);
+            }
+            if col.min_width < 0.0 || col.min_width > col.max_width {
+                return Err(ModelError::InvalidRange);
+            }
+            col.width = col.width.clamp(col.min_width, col.max_width);
         }
         let mut model = Self {
             columns,
@@ -77,33 +86,26 @@ impl DataTableModel {
                         .any(|cell| cell.to_lowercase().contains(&query))
             })
             .collect();
-        if let Some(col) = self.sort_column {
-            if self.sort_direction != SortDirection::None {
-                let mut keyed: Vec<(usize, Option<f64>, &str)> = indices
-                    .iter()
-                    .map(|&r| {
-                        let cell = self.rows[r].get(col).map(String::as_str).unwrap_or("");
-                        (r, cell.parse::<f64>().ok(), cell)
-                    })
-                    .collect();
-                match self.sort_direction {
-                    SortDirection::Ascending => {
-                        keyed.sort_by(|(_, na, ca), (_, nb, cb)| match (na, nb) {
-                            (Some(na), Some(nb)) => na.total_cmp(nb),
-                            _ => ca.cmp(cb),
-                        });
-                    }
-                    SortDirection::Descending => {
-                        keyed.sort_by(|(_, na, ca), (_, nb, cb)| match (na, nb) {
-                            (Some(na), Some(nb)) => nb.total_cmp(na),
-                            _ => cb.cmp(ca),
-                        });
-                    }
-                    SortDirection::None => unreachable!(),
-                }
-                for (dst, (r, _, _)) in indices.iter_mut().zip(keyed) {
-                    *dst = r;
-                }
+        if let (Some(col), SortDirection::Ascending | SortDirection::Descending) =
+            (self.sort_column, self.sort_direction)
+        {
+            let ascending = self.sort_direction == SortDirection::Ascending;
+            let mut keyed: Vec<(usize, Option<f64>, &str)> = indices
+                .iter()
+                .map(|&r| {
+                    let cell = self.rows[r].get(col).map(String::as_str).unwrap_or("");
+                    (r, cell.parse::<f64>().ok(), cell)
+                })
+                .collect();
+            keyed.sort_by(|(_, na, ca), (_, nb, cb)| {
+                let ord = match (na, nb) {
+                    (Some(na), Some(nb)) => na.total_cmp(nb),
+                    _ => ca.cmp(cb),
+                };
+                if ascending { ord } else { ord.reverse() }
+            });
+            for (dst, (r, _, _)) in indices.iter_mut().zip(keyed) {
+                *dst = r;
             }
         }
         self.visible_rows = indices;
@@ -257,7 +259,10 @@ impl DataTableModel {
         let first = (self.scroll_y / self.row_height).floor().max(0.0) as usize;
         let count = (self.viewport_height / self.row_height).ceil().max(1.0) as usize;
         let start = first.saturating_sub(overscan).min(self.visible_rows.len());
-        let end = (first + count + overscan).min(self.visible_rows.len());
+        let end = first
+            .saturating_add(count)
+            .saturating_add(overscan)
+            .min(self.visible_rows.len());
         start..end
     }
 }
