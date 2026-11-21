@@ -66,13 +66,35 @@ impl ComputeRuntime {
         Ok(())
     }
     fn f64_kernel(&self, mode: u32, op: u32) -> Result<&Kernel> {
-        let is_transcendental = mode == 0 && (5..=8).contains(&op);
-        let slot = usize::from(is_transcendental);
+        let slot = if mode == 0 {
+            match op {
+                5 => 1,
+                6 => 2,
+                7 | 8 => 3,
+                _ => 0,
+            }
+        } else {
+            0
+        };
         if let Some(kernel) = self.binary64[slot].get() {
             return Ok(kernel);
         }
-        let (label, source) = if !is_transcendental {
-            (
+        let wrap_unary = |preamble: String, expr: &str| {
+            format!(
+                "{preamble}\n{}\n\
+                 @compute @workgroup_size(WG)\n\
+                 fn main(@builtin(global_invocation_id) id: vec3<u32>, @builtin(num_workgroups) groups: vec3<u32>) {{\n\
+                     let count = f64_meta[2]; let ar = f64_meta[3]; let ao = f64_meta[5];\n\
+                     for (var i = id.x; i < count; i += groups.x * WG) {{\n\
+                         let a = f64_a[d64_index(i, 10u, ar, ao)];\n\
+                         f64_output[i] = {expr};\n\
+                     }}\n\
+                 }}",
+                include_str!("index.wgsl"),
+            )
+        };
+        let (label, source) = match slot {
+            0 => (
                 "software binary64 tensor",
                 format!(
                     "{}\n{}\n{}",
@@ -80,29 +102,19 @@ impl ComputeRuntime {
                     include_str!("index.wgsl"),
                     include_str!("tensor.wgsl")
                 ),
-            )
-        } else {
-            (
-                "software binary64 transcendental",
-                format!(
-                    "{}\n{}\n{}\n\
-                     @compute @workgroup_size(WG)\n\
-                     fn main(@builtin(global_invocation_id) id: vec3<u32>, @builtin(num_workgroups) groups: vec3<u32>) {{\n\
-                         let count = f64_meta[2]; let ar = f64_meta[3]; let ao = f64_meta[5];\n\
-                         for (var i = id.x; i < count; i += groups.x * WG) {{\n\
-                             let a = f64_a[d64_index(i, 10u, ar, ao)];\n\
-                             switch f64_meta[1] {{\n\
-                                 case 5u: {{ f64_output[i] = d64_exp(a); }}\n\
-                                 case 6u: {{ f64_output[i] = d64_log(a); }}\n\
-                                 default: {{ f64_output[i] = d64_sincos(a, f64_meta[1] == 8u); }}\n\
-                             }}\n\
-                         }}\n\
-                     }}",
-                    super::ARITHMETIC_WGSL,
-                    super::TRANSCENDENTAL_WGSL,
-                    include_str!("index.wgsl"),
-                ),
-            )
+            ),
+            1 => (
+                "software binary64 exp",
+                wrap_unary(super::exp_wgsl(), "d64_exp(a)"),
+            ),
+            2 => (
+                "software binary64 log",
+                wrap_unary(super::log_wgsl(), "d64_log(a)"),
+            ),
+            _ => (
+                "software binary64 sincos",
+                wrap_unary(super::sincos_wgsl(), "d64_sincos(a, f64_meta[1] == 8u)"),
+            ),
         };
         let kernel = Kernel::new(
             &self.device,

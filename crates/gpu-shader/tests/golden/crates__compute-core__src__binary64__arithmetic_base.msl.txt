@@ -1,0 +1,310 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+using D64 = uint2;
+
+struct D64Parts {
+    uint2 sig;
+    int exponent;
+    uint _pad_0;
+};
+
+constant uint2 D64_ONE = uint2(0x00000000u, 0x3ff00000u);
+
+bool d64_zero(uint2 a);
+bool d64_nan(uint2 a);
+bool d64_inf(uint2 a);
+uint2 d64_qnan();
+uint2 d64_quiet(uint2 a);
+uint2 d64_neg(uint2 a);
+uint2 d64_abs(uint2 a);
+bool w64_lt(uint2 a, uint2 b);
+uint2 w64_add(uint2 a, uint2 b);
+uint2 w64_sub(uint2 a, uint2 b);
+uint2 w64_shl(uint2 a, uint n);
+uint2 w64_shr(uint2 a, uint n);
+uint2 w64_jam(uint2 a, uint n);
+uint w64_bit(uint2 a, uint n);
+D64Parts d64_parts(uint2 a);
+uint2 d64_pack(uint sign, int exponent_in, uint2 sig_in);
+uint2 d64_add(uint2 a, uint2 b);
+uint2 d64_sub(uint2 a, uint2 b);
+uint2 w32_mul(uint a, uint b);
+uint2 d64_mul(uint2 a, uint2 b);
+bool d64_eq(uint2 a, uint2 b);
+bool d64_lt(uint2 a, uint2 b);
+
+bool d64_zero(uint2 a) {
+ return (a.x | (a.y & 0x7fffffffu)) == 0u; }
+
+bool d64_nan(uint2 a) {
+ return (a.y & 0x7ff00000u) == 0x7ff00000u && ((a.y & 0xfffffu) | a.x) != 0u; }
+
+bool d64_inf(uint2 a) {
+ return (a.y & 0x7fffffffu) == 0x7ff00000u && a.x == 0u; }
+
+uint2 d64_qnan() {
+ return uint2(0u, 0x7ff80000u); }
+
+uint2 d64_quiet(uint2 a) {
+ return uint2(a.x, a.y | 0x80000u); }
+
+uint2 d64_neg(uint2 a) {
+ return uint2(a.x, a.y ^ 0x80000000u); }
+
+uint2 d64_abs(uint2 a) {
+ return uint2(a.x, a.y & 0x7fffffffu); }
+
+bool w64_lt(uint2 a, uint2 b) {
+ return a.y < b.y || (a.y == b.y && a.x < b.x); }
+
+uint2 w64_add(uint2 a, uint2 b) {
+
+    const auto lo = a.x + b.x;
+    return uint2(lo, a.y + b.y + uint(lo < a.x));
+}
+
+uint2 w64_sub(uint2 a, uint2 b) {
+ return uint2(a.x - b.x, a.y - b.y - uint(a.x < b.x)); }
+
+uint2 w64_shl(uint2 a, uint n) {
+
+    const auto s = n & 31u;
+    const auto inv = (32u - s) & 31u;
+    const auto lo = select(a.x << s, 0u, n >= 32u);
+    const auto hi_small = select((a.y << s) | (a.x >> inv), a.y, s == 0u);
+    const auto hi = select(select(hi_small, a.x << s, n >= 32u), 0u, n >= 64u);
+    return uint2(lo, hi);
+}
+
+uint2 w64_shr(uint2 a, uint n) {
+
+    const auto s = n & 31u;
+    const auto inv = (32u - s) & 31u;
+    const auto lo_small = select((a.x >> s) | (a.y << inv), a.x, s == 0u);
+    const auto lo = select(select(lo_small, a.y >> s, n >= 32u), 0u, n >= 64u);
+    const auto hi = select(a.y >> s, 0u, n >= 32u);
+    return uint2(lo, hi);
+}
+
+uint2 w64_jam(uint2 a, uint n) {
+
+    const auto shifted = w64_shr(a, n);
+    return uint2(shifted.x | uint(any(w64_shl(shifted, n) != a)), shifted.y);
+}
+
+uint w64_bit(uint2 a, uint n) {
+
+    const auto word = select(a.x, a.y, n >= 32u);
+    return select((word >> (n & 31u)) & 1u, 0u, n >= 64u);
+}
+
+D64Parts d64_parts(uint2 a) {
+
+    const auto field = (a.y >> 20u) & 0x7ffu;
+    const auto sig = uint2(a.x, a.y & 0xfffffu);
+    auto out_sig = uint2(sig.x, sig.y | 0x100000u);
+    auto out_exp = int(field) - 1023;
+    if (field == 0u) {
+        const auto shift = select(clz(max(sig.x, 1u)) + 21u, clz(max(sig.y, 1u)) - 11u, sig.y != 0u);
+        out_sig = w64_shl(sig, shift);
+        out_exp = -1022 - int(shift);
+    }
+    return D64Parts{out_sig, out_exp};
+}
+
+uint2 d64_pack(uint sign, int exponent_in, uint2 sig_in) {
+
+    auto exponent = exponent_in;
+    auto sig = sig_in;
+    if (exponent < -1022) {
+        sig = w64_jam(sig, uint(-1022 - exponent));
+        exponent = -1022;
+    }
+    const auto tail = sig.x & 7u;
+    auto rounded = w64_shr(sig, 3u);
+    if (tail > 4u || (tail == 4u && (rounded.x & 1u) != 0u)) {
+        rounded = w64_add(rounded, uint2(1u, 0u));
+    }
+    if ((rounded.y & 0x200000u) != 0u) {
+        rounded = w64_shr(rounded, 1u);
+        exponent += 1;
+    }
+    auto field = 0u;
+    if ((rounded.y & 0x100000u) != 0u) { field = uint(exponent + 1023) << 20u; }
+    const auto finite = uint2(rounded.x, sign | field | (rounded.y & 0xfffffu));
+    return select(finite, uint2(0u, sign | 0x7ff00000u), exponent > 1023);
+}
+
+uint2 d64_add(uint2 a, uint2 b) {
+
+    auto result = uint2(0u);
+    auto done = false;
+    if (d64_nan(a)) { result = d64_quiet(a); done = true; }
+    else if (d64_nan(b)) { result = d64_quiet(b); done = true; }
+    else if (d64_inf(a)) {
+        result = a;
+        if (d64_inf(b) && ((a.y ^ b.y) & 0x80000000u) != 0u) { result = d64_qnan(); }
+        done = true;
+    } else if (d64_inf(b)) { result = b; done = true; }
+    else if (d64_zero(a) && d64_zero(b)) { result = uint2(0u, a.y & b.y & 0x80000000u); done = true; }
+    else if (d64_zero(a)) { result = b; done = true; }
+    else if (d64_zero(b)) { result = a; done = true; }
+    if (!done) {
+        auto large = a;
+        auto small = b;
+        if (w64_lt(d64_abs(a), d64_abs(b))) { large = b; small = a; }
+        const auto p = d64_parts(large);
+        const auto q = d64_parts(small);
+        auto exponent = p.exponent;
+        const auto sign = large.y & 0x80000000u;
+        const auto x = w64_shl(p.sig, 3u);
+        const auto y = w64_jam(w64_shl(q.sig, 3u), uint(p.exponent - q.exponent));
+        uint2 sig = {};
+        auto zero_cancel = false;
+        if (((large.y ^ small.y) & 0x80000000u) == 0u) {
+            sig = w64_add(x, y);
+            if ((sig.y & 0x1000000u) != 0u) { sig = w64_jam(sig, 1u); exponent += 1; }
+        } else {
+            sig = w64_sub(x, y);
+            if (all(sig == uint2(0u))) {
+                zero_cancel = true;
+            } else {
+                const auto shift = select(clz(max(sig.x, 1u)) + 24u, clz(max(sig.y, 1u)) - 8u, sig.y != 0u);
+                sig = w64_shl(sig, shift);
+                exponent -= int(shift);
+            }
+        }
+        if (!zero_cancel) {
+            result = d64_pack(sign, exponent, sig);
+        }
+    }
+    return result;
+}
+
+uint2 d64_sub(uint2 a, uint2 b) {
+ return d64_add(a, d64_neg(b)); }
+
+uint2 w32_mul(uint a, uint b) {
+
+    const auto a0 = a & 65535u; const auto a1 = a >> 16u;
+    const auto b0 = b & 65535u; const auto b1 = b >> 16u;
+    const auto p0 = a0 * b0; const auto p1 = a0 * b1; const auto p2 = a1 * b0; const auto p3 = a1 * b1;
+    const auto mid = (p0 >> 16u) + (p1 & 65535u) + (p2 & 65535u);
+    return uint2((p0 & 65535u) | (mid << 16u), p3 + (p1 >> 16u) + (p2 >> 16u) + (mid >> 16u));
+}
+
+uint2 d64_mul(uint2 a, uint2 b) {
+
+    const auto sign = (a.y ^ b.y) & 0x80000000u;
+    auto result = uint2(0u, sign);
+    auto done = false;
+    if (d64_nan(a)) { result = d64_quiet(a); done = true; }
+    else if (d64_nan(b)) { result = d64_quiet(b); done = true; }
+    else if (d64_inf(a) || d64_inf(b)) {
+        result = select(uint2(0u, sign | 0x7ff00000u), d64_qnan(), d64_zero(a) || d64_zero(b));
+        done = true;
+    } else if (d64_zero(a) || d64_zero(b)) {
+        done = true;
+    }
+    if (!done) {
+        const auto p = d64_parts(a);
+        const auto q = d64_parts(b);
+        const auto ll = w32_mul(p.sig.x, q.sig.x);
+        const auto lh = w32_mul(p.sig.x, q.sig.y);
+        const auto hl = w32_mul(p.sig.y, q.sig.x);
+        const auto hh = w32_mul(p.sig.y, q.sig.y);
+        const auto mid = w64_add(w64_add(uint2(ll.y, 0u), lh), hl);
+        const auto top = w64_add(uint2(mid.y, 0u), hh);
+        const auto high = (top.y >> 9u) & 1u;
+        const auto s = 17u + high;
+        const auto sticky = uint((ll.x | (mid.x & ((1u << s) - 1u))) != 0u);
+        const auto sig = uint2(((mid.x >> s) | (top.x << (32u - s))) | sticky, (top.x >> s) | (top.y << (32u - s)));
+        result = d64_pack(sign, p.exponent + q.exponent + int(high), sig);
+    }
+    return result;
+}
+
+bool d64_eq(uint2 a, uint2 b) {
+
+    return !d64_nan(a) && !d64_nan(b) && (all(a == b) || (d64_zero(a) && d64_zero(b)));
+}
+
+bool d64_lt(uint2 a, uint2 b) {
+
+    const auto sa = a.y >> 31u;
+    const auto sb = b.y >> 31u;
+    const auto invalid = d64_nan(a) || d64_nan(b) || (d64_zero(a) && d64_zero(b));
+    const auto ord = select(select(w64_lt(a, b), w64_lt(d64_abs(b), d64_abs(a)), sa != 0u), sa != 0u, sa != sb);
+    return !invalid && ord;
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

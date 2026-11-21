@@ -118,14 +118,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
                 workgroupBarrier();
                 let next_denominator = previous_weight + scratch[0].x;
                 if channel < params[7] {
-                    var cached: array<f32, KEYS>;
                     var next_scale = value_scale;
                     if previous_weight == 0.0 { next_scale = 0.0; }
                     for (var item = 0u; item < KEYS; item++) {
-                        cached[item] = 0.0;
                         if weights[item] > 0.0 {
-                            cached[item] = value[vbase + (start + item) * params[22] + channel * params[23]];
-                            next_scale = max(next_scale, abs(cached[item]));
+                            next_scale = max(next_scale, abs(value[vbase + (start + item) * params[22] + channel * params[23]]));
                         }
                     }
                     if next_scale > 0.0 {
@@ -135,7 +132,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
                                 * unit_ratio(value_scale, next_scale);
                         }
                         for (var item = 0u; item < KEYS; item++) {
-                            normalized += (weights[item] / next_denominator) * unit_ratio(cached[item], next_scale);
+                            if weights[item] > 0.0 {
+                                let entry = value[vbase + (start + item) * params[22] + channel * params[23]];
+                                normalized += (weights[item] / next_denominator) * unit_ratio(entry, next_scale);
+                            }
                         }
                         normalized = clamp(normalized, -1.0, 1.0);
                     } else {

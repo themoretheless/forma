@@ -1,1 +1,1 @@
-PARSE ERROR WGSL parse error at 2:17: unknown type `D64`
+PARSE ERROR WGSL parse error at 3:17: unknown type `D64`

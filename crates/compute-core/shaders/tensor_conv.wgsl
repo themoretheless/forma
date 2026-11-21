@@ -13,15 +13,20 @@ fn main(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_id) l
     var index = group.x;
     loop {
         if index >= params[0] { break; }
-        var spatial: array<u32, 3>;
+        var s0 = 0u;
+        var s1 = 0u;
+        var s2 = 0u;
         var remaining = index;
         var axis = params[2];
         loop {
             if axis == 0u { break; }
             axis -= 1u;
             let p = 15u + axis * 8u;
-            spatial[axis] = remaining % params[p + 1u];
+            let coord = remaining % params[p + 1u];
             remaining /= params[p + 1u];
+            if axis == 0u { s0 = coord; }
+            else if axis == 1u { s1 = coord; }
+            else { s2 = coord; }
         }
         let channel = remaining % params[3];
         let batch = remaining / params[3];
@@ -42,7 +47,10 @@ fn main(@builtin(workgroup_id) group: vec3<u32>, @builtin(local_invocation_id) l
                 let p = 15u + axis * 8u;
                 let k = kernel % params[p + 2u];
                 kernel /= params[p + 2u];
-                let padded = spatial[axis] * params[p + 3u] + k * params[p + 4u];
+                var coord = s0;
+                if axis == 1u { coord = s1; }
+                else if axis == 2u { coord = s2; }
+                let padded = coord * params[p + 3u] + k * params[p + 4u];
                 if padded < params[p + 5u] || padded - params[p + 5u] >= params[p] {
                     valid = false;
                 } else {

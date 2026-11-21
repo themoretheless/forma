@@ -40,19 +40,19 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
         if channel < params[2] {
             var result = 0.0;
             if denominator > 0.0 {
-                var cached: array<f32, WG>;
                 var scale = 0.0;
                 for (var part = 0u; part < params[1]; part++) {
-                    cached[part] = 0.0;
                     if weights[part] > 0.0 {
-                        cached[part] = values[(row * params[1] + part) * params[2] + channel];
-                        scale = max(scale, abs(cached[part]));
+                        scale = max(scale, abs(values[(row * params[1] + part) * params[2] + channel]));
                     }
                 }
                 if scale > 0.0 {
                     var normalized = 0.0;
                     for (var part = 0u; part < params[1]; part++) {
-                        normalized += (weights[part] / denominator) * unit_ratio(cached[part], scale);
+                        if weights[part] > 0.0 {
+                            let entry = values[(row * params[1] + part) * params[2] + channel];
+                            normalized += (weights[part] / denominator) * unit_ratio(entry, scale);
+                        }
                     }
                     result = clamp(normalized, -1.0, 1.0) * scale;
                 }

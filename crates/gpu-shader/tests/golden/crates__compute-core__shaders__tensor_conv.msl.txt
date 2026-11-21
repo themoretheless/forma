@@ -73,7 +73,9 @@ kernel void _wgpu_entry_main(uint3 group [[threadgroup_position_in_grid]], uint3
     while (true) {
 
         if (index >= params[0]) { break; }
-        _wgpu_arr<uint, 3> spatial = {};
+        auto s0 = 0u;
+        auto s1 = 0u;
+        auto s2 = 0u;
         auto remaining = index;
         auto axis = params[2];
         while (true) {
@@ -81,8 +83,11 @@ kernel void _wgpu_entry_main(uint3 group [[threadgroup_position_in_grid]], uint3
             if (axis == 0u) { break; }
             axis -= 1u;
             const auto p = 15u + axis * 8u;
-            spatial[axis] = remaining % params[p + 1u];
+            const auto _wgpu_ident_coord = remaining % params[p + 1u];
             remaining /= params[p + 1u];
+            if (axis == 0u) { s0 = _wgpu_ident_coord; }
+            else if (axis == 1u) { s1 = _wgpu_ident_coord; }
+            else { s2 = _wgpu_ident_coord; }
         }
         const auto channel = remaining % params[3];
         const auto batch = remaining / params[3];
@@ -105,7 +110,10 @@ kernel void _wgpu_entry_main(uint3 group [[threadgroup_position_in_grid]], uint3
                 const auto p = 15u + axis * 8u;
                 const auto k = _wgpu_ident_kernel % params[p + 2u];
                 _wgpu_ident_kernel /= params[p + 2u];
-                const auto padded = spatial[axis] * params[p + 3u] + k * params[p + 4u];
+                auto _wgpu_ident_coord = s0;
+                if (axis == 1u) { _wgpu_ident_coord = s1; }
+                else if (axis == 2u) { _wgpu_ident_coord = s2; }
+                const auto padded = _wgpu_ident_coord * params[p + 3u] + k * params[p + 4u];
                 if (padded < params[p + 5u] || padded - params[p + 5u] >= params[p]) {
                     valid = false;
                 } else {

@@ -1,9 +1,13 @@
 #![cfg(not(target_arch = "wasm32"))]
 use compute_core::{
     Binding, Kernel,
-    binary64::{ARITHMETIC_WGSL, TRANSCENDENTAL_WGSL},
-    gpu_compute::GpuContext,
-    storage_u32, try_read_u32,
+    binary64::{
+        ARITHMETIC_BASE_WGSL, ARITHMETIC_WGSL, TRANSCENDENTAL_WGSL, div_wgsl, exp_wgsl, log_wgsl,
+        sincos_wgsl, sqrt_wgsl,
+    },
+    gpu_compute::{GpuContext, u32_le_bytes},
+    try_read_u32,
+    wgpu::{BufferDescriptor, BufferUsages},
 };
 const ENTRY: &str = r#"
 @group(0) @binding(0) var<storage,read> input_a: array<D64>;
@@ -12,25 +16,91 @@ const ENTRY: &str = r#"
 @group(0) @binding(3) var<storage,read> params: array<u32>;
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let i=id.x;
-    if i>=arrayLength(&input_a) { return; }
-    let a=input_a[i]; let b=input_b[i];
-    switch params[0] {
-        case 0u: { output[i]=d64_add(a,b); }
-        case 1u: { output[i]=d64_sub(a,b); }
-        case 2u: { output[i]=d64_mul(a,b); }
-        case 3u: { output[i]=d64_div(a,b); }
-        case 4u: { output[i]=d64_sqrt(a); }
-        case 5u: { output[i]=D64(u32(d64_eq(a,b)),u32(d64_lt(a,b))); }
-        case 6u: { output[i]=d64_exp(a); }
-        case 7u: { output[i]=d64_log(a); }
-        case 8u, 9u: { output[i]=d64_sincos(a,params[0]==9u); }
-        default: { output[i]=a; }
+    let i = id.x;
+    if i < arrayLength(&input_a) {
+        let a = input_a[i];
+        let b = input_b[i];
+        let op = params[0];
+        if op == 0u { output[i] = d64_add(a, b); }
+        else if op == 1u { output[i] = d64_sub(a, b); }
+        else if op == 2u { output[i] = d64_mul(a, b); }
+        else if op == 3u { output[i] = d64_div(a, b); }
+        else if op == 4u { output[i] = d64_sqrt(a); }
+        else if op == 5u { output[i] = D64(u32(d64_eq(a, b)), u32(d64_lt(a, b))); }
+        else if op == 6u { output[i] = d64_exp(a); }
+        else if op == 7u { output[i] = d64_log(a); }
+        else if op == 8u || op == 9u { output[i] = d64_sincos(a, op == 9u); }
+        else { output[i] = a; }
     }
 }
 "#;
 fn source() -> String {
     format!("{ARITHMETIC_WGSL}\n{TRANSCENDENTAL_WGSL}\n{ENTRY}")
+}
+fn wrap_op_entry(preamble: &str, body: &str) -> String {
+    format!(
+        "{preamble}\n\
+         @group(0) @binding(0) var<storage, read> input_a: array<D64>;\n\
+         @group(0) @binding(1) var<storage, read> input_b: array<D64>;\n\
+         @group(0) @binding(2) var<storage, read_write> output: array<D64>;\n\
+         @group(0) @binding(3) var<storage, read> params: array<u32>;\n\
+         @compute @workgroup_size(256)\n\
+         fn main(@builtin(global_invocation_id) id: vec3<u32>) {{\n\
+             let i = id.x;\n\
+             if i < params[1] {{\n\
+                 let a = input_a[i];\n\
+                 let b = input_b[i];\n\
+                 {body}\n\
+             }}\n\
+         }}"
+    )
+}
+fn op_kernel_specs() -> [(&'static str, String); 6] {
+    [
+        (
+            "integer binary64 base arithmetic",
+            wrap_op_entry(
+                ARITHMETIC_BASE_WGSL,
+                "let op = params[0];\n\
+                 if op == 0u { output[i] = d64_add(a, b); }\n\
+                 else if op == 1u { output[i] = d64_sub(a, b); }\n\
+                 else if op == 2u { output[i] = d64_mul(a, b); }\n\
+                 else if op == 5u { output[i] = D64(u32(d64_eq(a, b)), u32(d64_lt(a, b))); }\n\
+                 else { output[i] = a; }",
+            ),
+        ),
+        (
+            "integer binary64 div",
+            wrap_op_entry(&div_wgsl(), "output[i] = d64_div(a, b);"),
+        ),
+        (
+            "integer binary64 sqrt",
+            wrap_op_entry(&sqrt_wgsl(), "output[i] = d64_sqrt(a);"),
+        ),
+        (
+            "integer binary64 exp",
+            wrap_op_entry(&exp_wgsl(), "output[i] = d64_exp(a);"),
+        ),
+        (
+            "integer binary64 log",
+            wrap_op_entry(&log_wgsl(), "output[i] = d64_log(a);"),
+        ),
+        (
+            "integer binary64 sincos",
+            wrap_op_entry(
+                &sincos_wgsl(),
+                "output[i] = d64_sincos(a, params[0] == 9u);",
+            ),
+        ),
+    ]
+}
+fn attach_diagnostics(device: &compute_core::wgpu::Device) {
+    device.on_uncaptured_error(std::sync::Arc::new(|err| {
+        eprintln!("binary64 uncaptured error: {err}");
+    }));
+    device.set_device_lost_callback(|reason, msg| {
+        eprintln!("binary64 device lost ({reason:?}): {msg}");
+    });
 }
 fn compile_op_kernel(device: &compute_core::wgpu::Device, label: &str, wgsl: &str) -> Kernel {
     Kernel::new(
@@ -47,19 +117,50 @@ fn compile_op_kernel(device: &compute_core::wgpu::Device, label: &str, wgsl: &st
     )
     .unwrap()
 }
-#[test]
-fn binary64_wgsl_validates_without_float_arithmetic() {
-    let module = naga::front::wgsl::parse_str(&source()).unwrap();
-    naga::valid::Validator::new(
+fn validate_wgsl_and_hlsl_sm51(label: &str, wgsl: &str) {
+    let module = naga::front::wgsl::parse_str(wgsl)
+        .unwrap_or_else(|err| panic!("{label} WGSL parse failed: {err}"));
+    let info = naga::valid::Validator::new(
         naga::valid::ValidationFlags::all(),
         naga::valid::Capabilities::empty(),
     )
     .validate(&module)
-    .unwrap();
-    assert!(!ARITHMETIC_WGSL.contains("f32"));
-    assert!(!ARITHMETIC_WGSL.contains("f16"));
-    assert!(!TRANSCENDENTAL_WGSL.contains("f32"));
-    assert!(!TRANSCENDENTAL_WGSL.contains("f16"));
+    .unwrap_or_else(|err| panic!("{label} WGSL validation failed: {err:?}"));
+    let hlsl = naga::back::hlsl::write_string(
+        &module,
+        &info,
+        &naga::back::hlsl::Options {
+            shader_model: naga::back::hlsl::ShaderModel::V5_1,
+            ..Default::default()
+        },
+        &naga::back::hlsl::PipelineOptions::default(),
+    )
+    .unwrap_or_else(|err| panic!("{label} HLSL SM 5.1 emit failed: {err}"));
+    assert!(
+        !hlsl.contains("switch("),
+        "{label} emitted switch() in SM 5.1 HLSL"
+    );
+}
+#[test]
+fn binary64_wgsl_validates_without_float_arithmetic() {
+    validate_wgsl_and_hlsl_sm51("binary64 full", &source());
+    for (label, wgsl) in op_kernel_specs() {
+        validate_wgsl_and_hlsl_sm51(label, &wgsl);
+    }
+    let tensor_core = format!(
+        "{ARITHMETIC_WGSL}\n{}\n{}",
+        include_str!("../src/binary64/index.wgsl"),
+        include_str!("../src/binary64/tensor.wgsl"),
+    );
+    validate_wgsl_and_hlsl_sm51("software binary64 tensor", &tensor_core);
+    for (name, text) in [
+        ("ARITHMETIC_BASE_WGSL", ARITHMETIC_BASE_WGSL),
+        ("ARITHMETIC_WGSL", ARITHMETIC_WGSL),
+        ("TRANSCENDENTAL_WGSL", TRANSCENDENTAL_WGSL),
+    ] {
+        assert!(!text.contains("f32"), "{name} contains f32");
+        assert!(!text.contains("f16"), "{name} contains f16");
+    }
 }
 fn random(state: &mut u64) -> u64 {
     *state ^= *state << 13;
@@ -125,54 +226,36 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
         eprintln!("SKIP binary64: no GPU");
         return;
     };
+    attach_diagnostics(&gpu.device);
     eprintln!("binary64 device: {:?}", gpu.backend_report());
     let cases = cases();
-    let wrap_entry = |preamble: &str, body: &str| {
-        format!(
-            "{preamble}\n\
-             @group(0) @binding(0) var<storage,read> input_a: array<D64>;\n\
-             @group(0) @binding(1) var<storage,read> input_b: array<D64>;\n\
-             @group(0) @binding(2) var<storage,read_write> output: array<D64>;\n\
-             @group(0) @binding(3) var<storage,read> params: array<u32>;\n\
-             @compute @workgroup_size(256)\n\
-             fn main(@builtin(global_invocation_id) id: vec3<u32>) {{\n\
-                 let i = id.x;\n\
-                 if i >= arrayLength(&input_a) {{ return; }}\n\
-                 let a = input_a[i]; let b = input_b[i];\n\
-                 {body}\n\
-             }}"
-        )
+    let specs = op_kernel_specs();
+    let mut kernels: [Option<Kernel>; 6] = std::array::from_fn(|_| None);
+    let slot_for = |op: u32| -> usize {
+        match op {
+            0 | 1 | 2 | 5 => 0,
+            3 => 1,
+            4 => 2,
+            6 => 3,
+            7 => 4,
+            _ => 5,
+        }
     };
-    let arith = compile_op_kernel(
-        &gpu.device,
-        "integer binary64 arithmetic",
-        &wrap_entry(
-            ARITHMETIC_WGSL,
-            "switch params[0] {\n\
-                case 0u: { output[i] = d64_add(a, b); }\n\
-                case 1u: { output[i] = d64_sub(a, b); }\n\
-                case 2u: { output[i] = d64_mul(a, b); }\n\
-                case 3u: { output[i] = d64_div(a, b); }\n\
-                case 4u: { output[i] = d64_sqrt(a); }\n\
-                case 5u: { output[i] = D64(u32(d64_eq(a, b)), u32(d64_lt(a, b))); }\n\
-                default: { output[i] = a; }\n\
-            }",
-        ),
-    );
-    let transc = format!("{ARITHMETIC_WGSL}\n{TRANSCENDENTAL_WGSL}");
-    let transc_kernel = compile_op_kernel(
-        &gpu.device,
-        "integer binary64 transcendental",
-        &wrap_entry(
-            &transc,
-            "switch params[0] {\n\
-                case 6u: { output[i] = d64_exp(a); }\n\
-                case 7u: { output[i] = d64_log(a); }\n\
-                default: { output[i] = d64_sincos(a, params[0] == 9u); }\n\
-            }",
-        ),
-    );
     const CHUNK: usize = 4_096;
+    let usage = BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::COPY_SRC;
+    let chunk_bytes = (CHUNK * 8) as u64;
+    let create_storage = |label: &'static str, size: u64| {
+        gpu.device.create_buffer(&BufferDescriptor {
+            label: Some(label),
+            size,
+            usage,
+            mapped_at_creation: false,
+        })
+    };
+    let a_buf = create_storage("binary64 a", chunk_bytes);
+    let b_buf = create_storage("binary64 b", chunk_bytes);
+    let out_buf = create_storage("binary64 out", chunk_bytes);
+    let params_buf = create_storage("binary64 params", 8);
     for (chunk_idx, chunk) in cases.chunks(CHUNK).enumerate() {
         let words = |right: bool| {
             chunk
@@ -183,19 +266,25 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
                 })
                 .collect::<Vec<_>>()
         };
-        let a = storage_u32(&gpu.device, &gpu.queue, &words(false)).unwrap();
-        let b = storage_u32(&gpu.device, &gpu.queue, &words(true)).unwrap();
-        let out = storage_u32(&gpu.device, &gpu.queue, &vec![0; chunk.len() * 2]).unwrap();
+        gpu.queue
+            .write_buffer(&a_buf, 0, &u32_le_bytes(&words(false)));
+        gpu.queue
+            .write_buffer(&b_buf, 0, &u32_le_bytes(&words(true)));
         for op in 0..10 {
-            let params = storage_u32(&gpu.device, &gpu.queue, &[op]).unwrap();
-            let kernel = if op < 6 { &arith } else { &transc_kernel };
+            let slot = slot_for(op);
+            let kernel = kernels[slot].get_or_insert_with(|| {
+                let (label, ref wgsl) = specs[slot];
+                compile_op_kernel(&gpu.device, label, wgsl)
+            });
+            gpu.queue
+                .write_buffer(&params_buf, 0, &u32_le_bytes(&[op, chunk.len() as u32]));
             kernel.dispatch(
                 &gpu.device,
                 &gpu.queue,
-                &[&a, &b, &out, &params],
+                &[&a_buf, &b_buf, &out_buf, &params_buf],
                 chunk.len() as u32,
             );
-            let result = try_read_u32(&gpu.device, &gpu.queue, &out, chunk.len() * 2).unwrap();
+            let result = try_read_u32(&gpu.device, &gpu.queue, &out_buf, chunk.len() * 2).unwrap();
             for (local_i, (&(a, b), actual)) in chunk
                 .iter()
                 .zip(result.as_chunks::<2>().0.iter())
@@ -267,6 +356,7 @@ fn native_gpu_software_binary64_tensor_contract() {
         eprintln!("SKIP binary64 tensors: no GPU");
         return;
     };
+    attach_diagnostics(&gpu.device);
     let runtime = compute_core::ComputeRuntime::new(&gpu).unwrap();
     tensor_core::conformance::check_f64_backend(&runtime).unwrap();
 }
