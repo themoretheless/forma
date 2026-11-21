@@ -1,6 +1,7 @@
 // Binary64 words are (low, high). Arithmetic uses only integer WGSL operations.
 // Round to nearest, ties to even. No exception flags or dynamic rounding mode.
 alias D64 = vec2<u32>;
+const D64_ONE: D64 = D64(0x00000000u, 0x3ff00000u);
 fn d64_zero(a: D64) -> bool { return (a.x | (a.y & 0x7fffffffu)) == 0u; }
 fn d64_nan(a: D64) -> bool { return (a.y & 0x7ff00000u) == 0x7ff00000u && ((a.y & 0xfffffu) | a.x) != 0u; }
 fn d64_inf(a: D64) -> bool { return (a.y & 0x7fffffffu) == 0x7ff00000u && a.x == 0u; }
@@ -39,18 +40,12 @@ struct D64Parts { sig: D64, exponent: i32 }
 // Call only for finite, nonzero inputs. Normalized leading bit is bit 52.
 fn d64_parts(a: D64) -> D64Parts {
     let field = (a.y >> 20u) & 0x7ffu;
-    var sig = D64(a.x, a.y & 0xfffffu);
-    var exponent = i32(field) - 1023;
-    if field != 0u { sig.y |= 0x100000u; }
-    else {
-        exponent = -1022;
-        loop {
-            if (sig.y & 0x100000u) != 0u { break; }
-            sig = w64_shl(sig,1u);
-            exponent -= 1;
-        }
+    let sig = D64(a.x, a.y & 0xfffffu);
+    if field != 0u {
+        return D64Parts(D64(sig.x, sig.y | 0x100000u), i32(field) - 1023);
     }
-    return D64Parts(sig, exponent);
+    let shift = select(countLeadingZeros(sig.x) + 21u, countLeadingZeros(sig.y) - 11u, sig.y != 0u);
+    return D64Parts(w64_shl(sig, shift), -1022 - i32(shift));
 }
 // sig has a leading bit at 55 and three low guard/round/sticky bits.
 fn d64_pack(sign: u32, exponent_in: i32, sig_in: D64) -> D64 {
@@ -101,15 +96,20 @@ fn d64_add(a: D64, b: D64) -> D64 {
     } else {
         sig = w64_sub(x,y);
         if all(sig == D64(0u)) { return D64(0u); }
-        loop {
-            if (sig.y & 0x800000u) != 0u { break; }
-            sig=w64_shl(sig,1u);
-            exponent-=1;
-        }
+        let shift = select(countLeadingZeros(sig.x) + 24u, countLeadingZeros(sig.y) - 8u, sig.y != 0u);
+        sig = w64_shl(sig, shift);
+        exponent -= i32(shift);
     }
     return d64_pack(sign,exponent,sig);
 }
 fn d64_sub(a: D64, b: D64) -> D64 { return d64_add(a,d64_neg(b)); }
+fn w32_mul(a: u32, b: u32) -> D64 {
+    let a0 = a & 65535u; let a1 = a >> 16u;
+    let b0 = b & 65535u; let b1 = b >> 16u;
+    let p0 = a0 * b0; let p1 = a0 * b1; let p2 = a1 * b0; let p3 = a1 * b1;
+    let mid = (p0 >> 16u) + (p1 & 65535u) + (p2 & 65535u);
+    return D64((p0 & 65535u) | (mid << 16u), p3 + (p1 >> 16u) + (p2 >> 16u) + (mid >> 16u));
+}
 fn d64_mul(a: D64, b: D64) -> D64 {
     if d64_nan(a) { return d64_quiet(a); }
     if d64_nan(b) { return d64_quiet(b); }
@@ -121,28 +121,17 @@ fn d64_mul(a: D64, b: D64) -> D64 {
     if d64_zero(a) || d64_zero(b) { return D64(0u,sign); }
     let p = d64_parts(a);
     let q = d64_parts(b);
-    let x = array<u32,4>(p.sig.x & 65535u,p.sig.x >> 16u,p.sig.y & 65535u,p.sig.y >> 16u);
-    let y = array<u32,4>(q.sig.x & 65535u,q.sig.x >> 16u,q.sig.y & 65535u,q.sig.y >> 16u);
-    var product: array<u32,8>;
-    for (var i=0u;i<4u;i+=1u) {
-        var carry=0u;
-        for (var j=0u;j<4u;j+=1u) {
-            let term=x[i]*y[j]+product[i+j]+carry;
-            product[i+j]=term & 65535u;
-            carry=term >> 16u;
-        }
-        product[i+4u]=carry;
-    }
-    let high = (product[6] >> 9u) & 1u;
-    let shift = 49u + high;
-    var sig = D64(0u);
-    for (var i=0u;i<56u;i+=1u) {
-        let pos=i+shift;
-        let bit=(product[pos/16u] >> (pos%16u)) & 1u;
-        sig |= w64_shl(D64(bit,0u),i);
-    }
-    for (var i=0u;i<shift;i+=1u) { sig.x |= (product[i/16u] >> (i%16u)) & 1u; }
-    return d64_pack(sign,p.exponent+q.exponent+i32(high),sig);
+    let ll = w32_mul(p.sig.x, q.sig.x);
+    let lh = w32_mul(p.sig.x, q.sig.y);
+    let hl = w32_mul(p.sig.y, q.sig.x);
+    let hh = w32_mul(p.sig.y, q.sig.y);
+    let mid = w64_add(w64_add(D64(ll.y, 0u), lh), hl);
+    let top = w64_add(D64(mid.y, 0u), hh);
+    let high = (top.y >> 9u) & 1u;
+    let s = 17u + high;
+    let sticky = u32((ll.x | (mid.x & ((1u << s) - 1u))) != 0u);
+    let sig = D64(((mid.x >> s) | (top.x << (32u - s))) | sticky, (top.x >> s) | (top.y << (32u - s)));
+    return d64_pack(sign, p.exponent + q.exponent + i32(high), sig);
 }
 fn d64_div(a: D64, b: D64) -> D64 {
     if d64_nan(a) { return d64_quiet(a); }

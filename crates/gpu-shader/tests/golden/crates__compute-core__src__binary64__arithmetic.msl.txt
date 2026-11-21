@@ -69,6 +69,8 @@ struct D64Parts {
     uint _pad_0;
 };
 
+constant uint2 D64_ONE = uint2(0x00000000u, 0x3ff00000u);
+
 bool d64_zero(uint2 a);
 bool d64_nan(uint2 a);
 bool d64_inf(uint2 a);
@@ -87,6 +89,7 @@ D64Parts d64_parts(uint2 a);
 uint2 d64_pack(uint sign, int exponent_in, uint2 sig_in);
 uint2 d64_add(uint2 a, uint2 b);
 uint2 d64_sub(uint2 a, uint2 b);
+uint2 w32_mul(uint a, uint b);
 uint2 d64_mul(uint2 a, uint2 b);
 uint2 d64_div(uint2 a, uint2 b);
 uint2 d64_sqrt(uint2 a);
@@ -158,19 +161,12 @@ uint w64_bit(uint2 a, uint n) {
 D64Parts d64_parts(uint2 a) {
 
     const auto field = (a.y >> 20u) & 0x7ffu;
-    auto sig = uint2(a.x, a.y & 0xfffffu);
-    auto exponent = int(field) - 1023;
-    if (field != 0u) { sig.y |= 0x100000u; }
-    else {
-        exponent = -1022;
-        while (true) {
-
-            if ((sig.y & 0x100000u) != 0u) { break; }
-            sig = w64_shl(sig, 1u);
-            exponent -= 1;
-        }
+    const auto sig = uint2(a.x, a.y & 0xfffffu);
+    if (field != 0u) {
+        return D64Parts{uint2(sig.x, sig.y | 0x100000u), int(field) - 1023};
     }
-    return D64Parts{sig, exponent};
+    const auto shift = select(clz(sig.x) + 21u, clz(sig.y) - 11u, sig.y != 0u);
+    return D64Parts{w64_shl(sig, shift), -1022 - int(shift)};
 }
 
 uint2 d64_pack(uint sign, int exponent_in, uint2 sig_in) {
@@ -224,18 +220,24 @@ uint2 d64_add(uint2 a, uint2 b) {
     } else {
         sig = w64_sub(x, y);
         if (all(sig == uint2(0u))) { return uint2(0u); }
-        while (true) {
-
-            if ((sig.y & 0x800000u) != 0u) { break; }
-            sig=w64_shl(sig, 1u);
-            exponent-=1;
-        }
+        const auto shift = select(clz(sig.x) + 24u, clz(sig.y) - 8u, sig.y != 0u);
+        sig = w64_shl(sig, shift);
+        exponent -= int(shift);
     }
     return d64_pack(sign, exponent, sig);
 }
 
 uint2 d64_sub(uint2 a, uint2 b) {
  return d64_add(a, d64_neg(b)); }
+
+uint2 w32_mul(uint a, uint b) {
+
+    const auto a0 = a & 65535u; const auto a1 = a >> 16u;
+    const auto b0 = b & 65535u; const auto b1 = b >> 16u;
+    const auto p0 = a0 * b0; const auto p1 = a0 * b1; const auto p2 = a1 * b0; const auto p3 = a1 * b1;
+    const auto mid = (p0 >> 16u) + (p1 & 65535u) + (p2 & 65535u);
+    return uint2((p0 & 65535u) | (mid << 16u), p3 + (p1 >> 16u) + (p2 >> 16u) + (mid >> 16u));
+}
 
 uint2 d64_mul(uint2 a, uint2 b) {
 
@@ -249,28 +251,17 @@ uint2 d64_mul(uint2 a, uint2 b) {
     if (d64_zero(a) || d64_zero(b)) { return uint2(0u, sign); }
     const auto p = d64_parts(a);
     const auto q = d64_parts(b);
-    const auto x = _wgpu_arr<uint, 4>{{ p.sig.x & 65535u, p.sig.x >> 16u, p.sig.y & 65535u, p.sig.y >> 16u }};
-    const auto y = _wgpu_arr<uint, 4>{{ q.sig.x & 65535u, q.sig.x >> 16u, q.sig.y & 65535u, q.sig.y >> 16u }};
-    _wgpu_arr<uint, 8> product = {};
-    for (auto i = 0u; i<4u; i+=1u) {
-        auto carry = 0u;
-        for (auto j = 0u; j<4u; j+=1u) {
-            const auto term = x[i]*y[j]+product[i+j]+carry;
-            product[i+j]=term & 65535u;
-            carry=term >> 16u;
-        }
-        product[i+4u]=carry;
-    }
-    const auto high = (product[6] >> 9u) & 1u;
-    const auto shift = 49u + high;
-    auto sig = uint2(0u);
-    for (auto i = 0u; i<56u; i+=1u) {
-        const auto pos = i+shift;
-        const auto bit = (product[pos/16u] >> (pos%16u)) & 1u;
-        sig |= w64_shl(uint2(bit, 0u), i);
-    }
-    for (auto i = 0u; i<shift; i+=1u) { sig.x |= (product[i/16u] >> (i%16u)) & 1u; }
-    return d64_pack(sign, p.exponent+q.exponent+int(high), sig);
+    const auto ll = w32_mul(p.sig.x, q.sig.x);
+    const auto lh = w32_mul(p.sig.x, q.sig.y);
+    const auto hl = w32_mul(p.sig.y, q.sig.x);
+    const auto hh = w32_mul(p.sig.y, q.sig.y);
+    const auto mid = w64_add(w64_add(uint2(ll.y, 0u), lh), hl);
+    const auto top = w64_add(uint2(mid.y, 0u), hh);
+    const auto high = (top.y >> 9u) & 1u;
+    const auto s = 17u + high;
+    const auto sticky = uint((ll.x | (mid.x & ((1u << s) - 1u))) != 0u);
+    const auto sig = uint2(((mid.x >> s) | (top.x << (32u - s))) | sticky, (top.x >> s) | (top.y << (32u - s)));
+    return d64_pack(sign, p.exponent + q.exponent + int(high), sig);
 }
 
 uint2 d64_div(uint2 a, uint2 b) {

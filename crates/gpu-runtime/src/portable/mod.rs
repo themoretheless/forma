@@ -256,8 +256,9 @@ pub(crate) fn create_wgpu_instance(
         flags: convert::to_wgpu_instance_flags(desc.flags),
         memory_budget_thresholds: upstream_wgpu::MemoryBudgetThresholds::default(),
         backend_options: upstream_wgpu::BackendOptions {
+            dx12: upstream_wgpu::Dx12BackendOptions::from_env_or_default(),
+            gl: upstream_wgpu::GlBackendOptions::from_env_or_default(),
             noop: noop_opts,
-            ..Default::default()
         },
         display: None,
     })

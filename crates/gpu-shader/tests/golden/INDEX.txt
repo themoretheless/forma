@@ -89,6 +89,7 @@ crates/compute-core/shaders/zip_mul.wgsl -> crates__compute-core__shaders__zip_m
 crates/compute-core/shaders/zip_mul4.wgsl -> crates__compute-core__shaders__zip_mul4.msl.txt
 crates/compute-core/src/binary64/arithmetic.wgsl -> crates__compute-core__src__binary64__arithmetic.msl.txt
 crates/compute-core/src/binary64/constants.wgsl -> crates__compute-core__src__binary64__constants.msl.txt
+crates/compute-core/src/binary64/index.wgsl -> crates__compute-core__src__binary64__index.msl.txt
 crates/compute-core/src/binary64/tensor.wgsl -> crates__compute-core__src__binary64__tensor.msl.txt
 crates/compute-core/src/binary64/transcendental.wgsl -> crates__compute-core__src__binary64__transcendental.msl.txt
 crates/forma/src/vector.wgsl -> crates__forma__src__vector.msl.txt

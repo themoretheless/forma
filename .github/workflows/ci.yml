@@ -209,8 +209,8 @@ jobs:
         run: node -e "for(const p of ['public/vector-pkg/forma.js','public/vector-pkg/forma_bg.wasm'])require('node:fs').accessSync(p)"
       - run: npm run format:check
       - run: npm run lint
-      - name: Studio JavaScript @ts-check (tsc --noEmit)
-        run: npm --prefix packages/svet ci && npm run typecheck
+      - name: Build Svet package and run Studio JavaScript @ts-check (tsc --noEmit)
+        run: npm --prefix packages/svet ci && npm --prefix packages/svet run build:package && npm run typecheck
       - run: npm test
       - run: npm run build
       - run: npm run package:release

@@ -1,17 +1,4 @@
-@group(0) @binding(0) var<storage,read> f64_a: array<D64>;
-@group(0) @binding(1) var<storage,read> f64_b: array<D64>;
-@group(0) @binding(2) var<storage,read_write> f64_output: array<D64>;
-@group(0) @binding(3) var<storage,read> f64_meta: array<u32>;
-const WG: u32 = 256;
 var<workgroup> f64_shared: array<D64,256>;
-fn d64_index(linear:u32, start:u32, rank:u32, offset:u32)->u32 {
-    var remaining=linear; var address=offset;
-    for(var axis=rank;axis>0u;axis-=1u) {
-        let n=f64_meta[start+axis-1u];
-        address+=(remaining%n)*f64_meta[start+rank+axis-1u]; remaining/=n;
-    }
-    return address;
-}
 fn d64_min(a:D64,b:D64)->D64 {
     if d64_nan(a) { return d64_quiet(a); }
     if d64_nan(b) { return d64_quiet(b); }
@@ -41,10 +28,6 @@ fn d64_unary(a:D64,op:u32)->D64 {
         case 2u: { return d64_mul(a,a); }
         case 3u: { return d64_sqrt(a); }
         case 4u: { return d64_div(D64_ONE,a); }
-        case 5u: { return d64_exp(a); }
-        case 6u: { return d64_log(a); }
-        case 7u: { return d64_sincos(a,false); }
-        case 8u: { return d64_sincos(a,true); }
         default: { return a; }
     }
 }

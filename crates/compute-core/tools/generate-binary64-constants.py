@@ -15,10 +15,10 @@ with localcontext() as ctx:
   return total
  pi=16*atan(Decimal(1)/5)-4*atan(Decimal(1)/239)
  fixed=int(2/pi*Decimal(2)**1280)
- limbs=[(fixed>>(16*i))&65535 for i in range(80)]
+ words=[(fixed>>(32*i))&0xffffffff for i in range(40)]
  ln2=Decimal(2).ln(); high=struct.unpack('<d',struct.pack('<Q',0x3fe62e42fee00000))[0]
- constants='\n'.join(f'const {name}: D64 = {d(value)};' for name,value in [('D64_ONE',1),('D64_HALF',.5),('D64_TWO',2),('D64_LN2',ln2),('D64_LN2_HI',high),('D64_LN2_LO',ln2-Decimal(high)),('D64_PIO2',pi/2),('D64_PIO2_LO',pi/2-Decimal(float(pi/2))),('D64_SQRT2',Decimal(2).sqrt())])
- constants+='\nconst D64_TWO_OVER_PI: array<u32,80> = array<u32,80>('+','.join(f'{v}u' for v in limbs)+');\n'
+ constants='\n'.join(f'const {name}: D64 = {d(value)};' for name,value in [('D64_HALF',.5),('D64_TWO',2),('D64_LN2',ln2),('D64_LN2_HI',high),('D64_LN2_LO',ln2-Decimal(high)),('D64_PIO2',pi/2),('D64_PIO2_LO',pi/2-Decimal(float(pi/2))),('D64_SQRT2',Decimal(2).sqrt())])
+ constants+='\nfn d64_two_over_pi_word(index:u32)->u32 {\n switch index {\n'+''.join(f'  case {i}u: {{ return 0x{w:08x}u; }}\n' for i,w in enumerate(words))+'  default: { return 0u; }\n }\n}\n'
  def poly(name, coeffs):
   return f'fn {name}(x:D64)->D64 {{\n var value={d(coeffs[-1])};\n'+''.join(f' value=d64_add({d(c)},d64_mul(x,value));\n' for c in reversed(coeffs[:-1]))+' return value;\n}\n'
  constants+=poly('d64_exp_poly',[Decimal(1)/math.factorial(i) for i in range(21)])

@@ -65,19 +65,45 @@ impl ComputeRuntime {
         self.check(&tensor.words)?;
         Ok(())
     }
-    fn f64_kernel(&self) -> Result<&Kernel> {
-        if let Some(kernel) = self.binary64.get() {
+    fn f64_kernel(&self, mode: u32, op: u32) -> Result<&Kernel> {
+        let (slot, label, expr) = match (mode, op) {
+            (0, 5) => (1, "software binary64 exp", Some("d64_exp(a)")),
+            (0, 6) => (2, "software binary64 log", Some("d64_log(a)")),
+            (0, 7 | 8) => (
+                3,
+                "software binary64 sincos",
+                Some("d64_sincos(a, f64_meta[1] == 8u)"),
+            ),
+            _ => (0, "software binary64 tensor", None),
+        };
+        if let Some(kernel) = self.binary64[slot].get() {
             return Ok(kernel);
         }
-        let source = format!(
-            "{}\n{}\n{}",
-            super::ARITHMETIC_WGSL,
-            super::TRANSCENDENTAL_WGSL,
-            include_str!("tensor.wgsl")
-        );
+        let source = match expr {
+            None => format!(
+                "{}\n{}\n{}",
+                super::ARITHMETIC_WGSL,
+                include_str!("index.wgsl"),
+                include_str!("tensor.wgsl")
+            ),
+            Some(call) => format!(
+                "{}\n{}\n{}\n\
+                 @compute @workgroup_size(WG)\n\
+                 fn main(@builtin(global_invocation_id) id: vec3<u32>, @builtin(num_workgroups) groups: vec3<u32>) {{\n\
+                     let count = f64_meta[2]; let ar = f64_meta[3]; let ao = f64_meta[5];\n\
+                     for (var i = id.x; i < count; i += groups.x * WG) {{\n\
+                         let a = f64_a[d64_index(i, 10u, ar, ao)];\n\
+                         f64_output[i] = {call};\n\
+                     }}\n\
+                 }}",
+                super::ARITHMETIC_WGSL,
+                super::TRANSCENDENTAL_WGSL,
+                include_str!("index.wgsl"),
+            ),
+        };
         let kernel = Kernel::new(
             &self.device,
-            "software binary64 tensor",
+            label,
             &source,
             "main",
             &[
@@ -87,8 +113,8 @@ impl ComputeRuntime {
                 Binding::StorageRead,
             ],
         )?;
-        let _ = self.binary64.set(kernel);
-        Ok(self.binary64.get().expect("binary64 initialized"))
+        let _ = self.binary64[slot].set(kernel);
+        Ok(self.binary64[slot].get().expect("binary64 initialized"))
     }
     fn dispatch_f64(
         &self,
@@ -123,7 +149,7 @@ impl ComputeRuntime {
             }
         }
         let meta = self.upload(&metadata)?;
-        let kernel = self.f64_kernel()?;
+        let kernel = self.f64_kernel(mode, op)?;
         let groups = if mode == 2 {
             index(out.shape().numel())?
         } else {

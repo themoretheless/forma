@@ -28,7 +28,7 @@ pub struct ComputeRuntime {
     pub(crate) tensor_conv: [OnceLock<Kernel>; 3],
     dot: OnceLock<crate::FusedSumKernel>,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) binary64: OnceLock<Kernel>,
+    pub(crate) binary64: [OnceLock<Kernel>; 4],
     pub(crate) scan: crate::scan::ScanKernels,
     pub(crate) selection: crate::selection::SelectionKernels,
 }
@@ -85,7 +85,7 @@ impl ComputeRuntime {
             tensor_low_attention: std::array::from_fn(|_| OnceLock::new()),
             dot: OnceLock::new(),
             #[cfg(not(target_arch = "wasm32"))]
-            binary64: OnceLock::new(),
+            binary64: std::array::from_fn(|_| OnceLock::new()),
             scan: crate::scan::ScanKernels::new(device)?,
             selection: crate::selection::SelectionKernels::new(device)?,
         })

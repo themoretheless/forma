@@ -37,54 +37,68 @@ fn d64_log(value:D64)->D64 {
     let k=d64_from_i32(exponent);
     return d64_add(d64_mul(k,D64_LN2_HI),d64_add(small,d64_mul(k,D64_LN2_LO)));
 }
+fn w32_shr_pair(lo:u32, hi:u32, s:u32)->u32 {
+    if s==0u { return lo; }
+    return (lo>>s)|(hi<<(32u-s));
+}
+fn w32_shl_pair(hi:u32, lo:u32, s:u32)->u32 {
+    if s==0u { return hi; }
+    return (hi<<s)|(lo>>(32u-s));
+}
+fn d64_mul_sig_word(sig:D64, w:u32, carry:D64)->vec3<u32> {
+    let lo=w32_mul(sig.x,w);
+    let hi=w32_mul(sig.y,w);
+    let t0=w64_add(D64(lo.x,0u),D64(carry.x,0u));
+    let carry_out=w64_add(w64_add(D64(lo.y,0u),hi),D64(carry.y+t0.y,0u));
+    return vec3<u32>(t0.x,carry_out.x,carry_out.y);
+}
 struct D64Angle { value: D64, quadrant:u32 }
 fn d64_angle(absolute:D64)->D64Angle {
     if d64_lt(absolute,D64_HALF) { return D64Angle(absolute,0u); }
     let p=d64_parts(absolute);
-    let mant=array<u32,4>(p.sig.x & 65535u,p.sig.x >> 16u,p.sig.y & 65535u,p.sig.y >> 16u);
-    var product:array<u32,84>;
-    for(var i=0u;i<4u;i+=1u) {
-        var carry=0u;
-        for(var j=0u;j<80u;j+=1u) {
-            let term=mant[i]*D64_TWO_OVER_PI[j]+product[i+j]+carry;
-            product[i+j]=term & 65535u; carry=term>>16u;
-        }
-        product[i+80u]=carry;
-    }
     let point=u32(1332-p.exponent);
-    var quadrant=((product[point/16u] >> (point%16u)) & 1u) | (((product[(point+1u)/16u] >> ((point+1u)%16u)) & 1u)<<1u);
-    let negative=((product[(point-1u)/16u] >> ((point-1u)%16u)) & 1u)!=0u;
-    // Retain the fractional numerator, then complement within its exact width
-    // when choosing the nearest multiple of pi/2.
-    for(var i=0u;i<84u;i+=1u) {
-        if i>point/16u { product[i]=0u; }
-        else if i==point/16u { product[i]&=(1u << (point%16u))-1u; }
-    }
+    let pw=point/32u;
+    let pb=point%32u;
+    let s_m6=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-6u),D64(0u));
+    let s_m5=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-5u),D64(s_m6.y,s_m6.z));
+    let s_m4=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-4u),D64(s_m5.y,s_m5.z));
+    let s_m3=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-3u),D64(s_m4.y,s_m4.z));
+    let s_m2=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-2u),D64(s_m3.y,s_m3.z));
+    let s_m1=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-1u),D64(s_m2.y,s_m2.z));
+    let s_0=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw),D64(s_m1.y,s_m1.z));
+    let s_p1=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw+1u),D64(s_0.y,s_0.z));
+    var quadrant=w32_shr_pair(s_0.x,s_p1.x,pb)&3u;
+    var f3=w32_shr_pair(s_m1.x,s_0.x,pb);
+    var f2=w32_shr_pair(s_m2.x,s_m1.x,pb);
+    var f1=w32_shr_pair(s_m3.x,s_m2.x,pb);
+    var f0=w32_shr_pair(s_m4.x,s_m3.x,pb);
+    let negative=(f3&0x80000000u)!=0u;
     if negative {
         quadrant=(quadrant+1u)&3u;
-        var borrow=0u;
-        for(var i=0u;i<84u;i+=1u) {
-            var digit=0u;
-            if i==point/16u { digit=1u << (point%16u); }
-            let sub=product[i]+borrow;
-            product[i]=(digit-sub)&65535u;
-            borrow=u32(digit<sub);
-        }
+        f0=(~f0)+1u;
+        let c0=u32(f0==0u);
+        f1=(~f1)+c0;
+        let c1=u32(f1==0u && c0!=0u);
+        f2=(~f2)+c1;
+        let c2=u32(f2==0u && c1!=0u);
+        f3=(~f3)+c2;
     }
-    var leading=i32(point)-1;
-    loop {
-        if leading<0 { return D64Angle(D64(0u),quadrant); }
-        if ((product[u32(leading)/16u] >> (u32(leading)%16u)) & 1u)!=0u { break; }
-        leading-=1;
-    }
-    var sig=D64(0u);
-    for(var i=0u;i<56u;i+=1u) {
-        sig=w64_shl(sig,1u);
-        let pos=leading-i32(i);
-        if pos>=0 { sig.x |= (product[u32(pos)/16u] >> (u32(pos)%16u)) & 1u; }
-    }
-    for(var i=0;i<leading-55;i+=1) { sig.x |= (product[u32(i)/16u] >> (u32(i)%16u)) & 1u; }
-    let fraction=d64_pack(select(0u,0x80000000u,negative),leading-i32(point),sig);
+    if (f3|f2|f1|f0)==0u { return D64Angle(D64(0u),quadrant); }
+    var lz=0u;
+    var w_top=f3;
+    var w_mid=f2;
+    var w_low=f1;
+    var rem32=f0;
+    if w_top==0u { lz+=32u; w_top=w_mid; w_mid=w_low; w_low=rem32; rem32=0u; }
+    if w_top==0u { lz+=32u; w_top=w_mid; w_mid=w_low; w_low=0u; }
+    if w_top==0u { lz+=32u; w_top=w_mid; w_mid=0u; }
+    let bit_lz=countLeadingZeros(w_top);
+    lz+=bit_lz;
+    let hi32=w32_shl_pair(w_top,w_mid,bit_lz);
+    let lo32=w32_shl_pair(w_mid,w_low,bit_lz);
+    let tail=(w_low<<bit_lz)|rem32;
+    let sig=D64(((lo32>>8u)|(hi32<<24u))|u32(((lo32&255u)|tail)!=0u),hi32>>8u);
+    let fraction=d64_pack(select(0u,0x80000000u,negative),-1-i32(lz),sig);
     let reduced=d64_add(d64_mul(fraction,D64_PIO2),d64_mul(fraction,D64_PIO2_LO));
     return D64Angle(reduced,quadrant);
 }
