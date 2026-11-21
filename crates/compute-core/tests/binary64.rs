@@ -112,8 +112,11 @@ fn cases() -> Vec<(f64, f64)> {
     }
     cases
 }
+static GPU_SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
+    let _guard = GPU_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let Some(gpu) = GpuContext::new() else {
         assert!(
             std::env::var_os("COMPUTE_REQUIRE_GPU").is_none(),
@@ -124,18 +127,6 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
     };
     eprintln!("binary64 device: {:?}", gpu.backend_report());
     let cases = cases();
-    let words = |right: bool| {
-        cases
-            .iter()
-            .flat_map(|&(a, b)| {
-                let bits = if right { b.to_bits() } else { a.to_bits() };
-                [bits as u32, (bits >> 32) as u32]
-            })
-            .collect::<Vec<_>>()
-    };
-    let a = storage_u32(&gpu.device, &gpu.queue, &words(false)).unwrap();
-    let b = storage_u32(&gpu.device, &gpu.queue, &words(true)).unwrap();
-    let out = storage_u32(&gpu.device, &gpu.queue, &vec![0; cases.len() * 2]).unwrap();
     let wrap_entry = |preamble: &str, body: &str| {
         format!(
             "{preamble}\n\
@@ -169,87 +160,97 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
         ),
     );
     let transc = format!("{ARITHMETIC_WGSL}\n{TRANSCENDENTAL_WGSL}");
-    let exp_kernel = compile_op_kernel(
+    let transc_kernel = compile_op_kernel(
         &gpu.device,
-        "integer binary64 exp",
-        &wrap_entry(&transc, "output[i] = d64_exp(a);"),
+        "integer binary64 transcendental",
+        &wrap_entry(
+            &transc,
+            "switch params[0] {\n\
+                case 6u: { output[i] = d64_exp(a); }\n\
+                case 7u: { output[i] = d64_log(a); }\n\
+                default: { output[i] = d64_sincos(a, params[0] == 9u); }\n\
+            }",
+        ),
     );
-    let log_kernel = compile_op_kernel(
-        &gpu.device,
-        "integer binary64 log",
-        &wrap_entry(&transc, "output[i] = d64_log(a);"),
-    );
-    let sincos_kernel = compile_op_kernel(
-        &gpu.device,
-        "integer binary64 sincos",
-        &wrap_entry(&transc, "output[i] = d64_sincos(a, params[0] == 9u);"),
-    );
-    for op in 0..10 {
-        let params = storage_u32(&gpu.device, &gpu.queue, &[op]).unwrap();
-        let kernel = match op {
-            0..=5 => &arith,
-            6 => &exp_kernel,
-            7 => &log_kernel,
-            _ => &sincos_kernel,
+    const CHUNK: usize = 4_096;
+    for (chunk_idx, chunk) in cases.chunks(CHUNK).enumerate() {
+        let words = |right: bool| {
+            chunk
+                .iter()
+                .flat_map(|&(a, b)| {
+                    let bits = if right { b.to_bits() } else { a.to_bits() };
+                    [bits as u32, (bits >> 32) as u32]
+                })
+                .collect::<Vec<_>>()
         };
-        kernel.dispatch(
-            &gpu.device,
-            &gpu.queue,
-            &[&a, &b, &out, &params],
-            cases.len() as u32,
-        );
-        let result = try_read_u32(&gpu.device, &gpu.queue, &out, cases.len() * 2).unwrap();
-        for (i, (&(a, b), actual)) in cases
-            .iter()
-            .zip(result.as_chunks::<2>().0.iter())
-            .enumerate()
-        {
-            if op == 5 {
-                assert_eq!(
-                    *actual,
-                    [u32::from(a == b), u32::from(a < b)],
-                    "comparison {i} {a:?} {b:?}"
-                );
-                continue;
-            }
-            let expected = match op {
-                0 => a + b,
-                1 => a - b,
-                2 => a * b,
-                3 => a / b,
-                4 => a.sqrt(),
-                6 => a.exp(),
-                7 => a.ln(),
-                8 => a.sin(),
-                9 => a.cos(),
-                _ => unreachable!(),
-            };
-            let bits = u64::from(actual[0]) | (u64::from(actual[1]) << 32);
-            if expected.is_nan() {
-                assert!(
-                    f64::from_bits(bits).is_nan(),
-                    "op={op} case={i} expected NaN"
-                );
-            } else if op >= 6 && expected.is_finite() {
-                let got = f64::from_bits(bits);
-                let tolerance = if op >= 8 {
-                    4e-15
-                } else {
-                    8e-15 * expected.abs() + f64::from_bits(4)
+        let a = storage_u32(&gpu.device, &gpu.queue, &words(false)).unwrap();
+        let b = storage_u32(&gpu.device, &gpu.queue, &words(true)).unwrap();
+        let out = storage_u32(&gpu.device, &gpu.queue, &vec![0; chunk.len() * 2]).unwrap();
+        for op in 0..10 {
+            let params = storage_u32(&gpu.device, &gpu.queue, &[op]).unwrap();
+            let kernel = if op < 6 { &arith } else { &transc_kernel };
+            kernel.dispatch(
+                &gpu.device,
+                &gpu.queue,
+                &[&a, &b, &out, &params],
+                chunk.len() as u32,
+            );
+            let result = try_read_u32(&gpu.device, &gpu.queue, &out, chunk.len() * 2).unwrap();
+            for (local_i, (&(a, b), actual)) in chunk
+                .iter()
+                .zip(result.as_chunks::<2>().0.iter())
+                .enumerate()
+            {
+                let i = chunk_idx * CHUNK + local_i;
+                if op == 5 {
+                    assert_eq!(
+                        *actual,
+                        [u32::from(a == b), u32::from(a < b)],
+                        "comparison {i} {a:?} {b:?}"
+                    );
+                    continue;
+                }
+                let expected = match op {
+                    0 => a + b,
+                    1 => a - b,
+                    2 => a * b,
+                    3 => a / b,
+                    4 => a.sqrt(),
+                    6 => a.exp(),
+                    7 => a.ln(),
+                    8 => a.sin(),
+                    9 => a.cos(),
+                    _ => unreachable!(),
                 };
-                assert!(
-                    got.is_finite() && (got - expected).abs() <= tolerance,
-                    "op={op} case={i} a={a:?} got={got:?} expected={expected:?}"
-                );
-            } else {
-                assert_eq!(
-                    bits,
-                    expected.to_bits(),
-                    "op={op} case={i} a={a:?} b={b:?} got={:?} want={expected:?}",
-                    f64::from_bits(bits)
-                );
+                let bits = u64::from(actual[0]) | (u64::from(actual[1]) << 32);
+                if expected.is_nan() {
+                    assert!(
+                        f64::from_bits(bits).is_nan(),
+                        "op={op} case={i} expected NaN"
+                    );
+                } else if op >= 6 && expected.is_finite() {
+                    let got = f64::from_bits(bits);
+                    let tolerance = if op >= 8 {
+                        4e-15
+                    } else {
+                        8e-15 * expected.abs() + f64::from_bits(4)
+                    };
+                    assert!(
+                        got.is_finite() && (got - expected).abs() <= tolerance,
+                        "op={op} case={i} a={a:?} got={got:?} expected={expected:?}"
+                    );
+                } else {
+                    assert_eq!(
+                        bits,
+                        expected.to_bits(),
+                        "op={op} case={i} a={a:?} b={b:?} got={:?} want={expected:?}",
+                        f64::from_bits(bits)
+                    );
+                }
             }
         }
+    }
+    for op in 0..10 {
         eprintln!(
             "binary64 op={op}: {} {} comparisons passed",
             cases.len(),
@@ -260,6 +261,7 @@ fn native_gpu_binary64_matches_cpu_bits_for_basic_arithmetic() {
 
 #[test]
 fn native_gpu_software_binary64_tensor_contract() {
+    let _guard = GPU_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let Some(gpu) = GpuContext::new() else {
         assert!(std::env::var_os("COMPUTE_REQUIRE_GPU").is_none());
         eprintln!("SKIP binary64 tensors: no GPU");

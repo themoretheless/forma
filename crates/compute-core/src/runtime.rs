@@ -28,7 +28,7 @@ pub struct ComputeRuntime {
     pub(crate) tensor_conv: [OnceLock<Kernel>; 3],
     dot: OnceLock<crate::FusedSumKernel>,
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) binary64: [OnceLock<Kernel>; 4],
+    pub(crate) binary64: [OnceLock<Kernel>; 2],
     pub(crate) scan: crate::scan::ScanKernels,
     pub(crate) selection: crate::selection::SelectionKernels,
 }

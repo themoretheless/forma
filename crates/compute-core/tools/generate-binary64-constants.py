@@ -20,7 +20,14 @@ with localcontext() as ctx:
  constants='\n'.join(f'const {name}: D64 = {d(value)};' for name,value in [('D64_HALF',.5),('D64_TWO',2),('D64_LN2',ln2),('D64_LN2_HI',high),('D64_LN2_LO',ln2-Decimal(high)),('D64_PIO2',pi/2),('D64_PIO2_LO',pi/2-Decimal(float(pi/2))),('D64_SQRT2',Decimal(2).sqrt())])
  constants+='\nfn d64_two_over_pi_word(index:u32)->u32 {\n switch index {\n'+''.join(f'  case {i}u: {{ return 0x{w:08x}u; }}\n' for i,w in enumerate(words))+'  default: { return 0u; }\n }\n}\n'
  def poly(name, coeffs):
-  return f'fn {name}(x:D64)->D64 {{\n var value={d(coeffs[-1])};\n'+''.join(f' value=d64_add({d(c)},d64_mul(x,value));\n' for c in reversed(coeffs[:-1]))+' return value;\n}\n'
+  rev=list(reversed(coeffs[:-1]))
+  cases=''.join(f'  case {i}u: {{ return {d(c)}; }}\n' for i,c in enumerate(rev[:-1]))
+  return (
+   f'fn {name}_coeff(index:u32)->D64 {{\n switch index {{\n{cases}  default: {{ return {d(rev[-1])}; }}\n }}\n}}\n'
+   f'fn {name}(x:D64)->D64 {{\n var value={d(coeffs[-1])};\n'
+   f' for(var i=0u;i<{len(rev)}u;i+=1u) {{\n  value=d64_add({name}_coeff(i),d64_mul(x,value));\n }}\n'
+   f' return value;\n}}\n'
+  )
  constants+=poly('d64_exp_poly',[Decimal(1)/math.factorial(i) for i in range(21)])
  constants+=poly('d64_log_poly',[Decimal(1)/Decimal(2*i+1) for i in range(14)])
  constants+=poly('d64_sin_poly',[Decimal((-1)**i)/math.factorial(2*i+1) for i in range(10)])

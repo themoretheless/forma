@@ -59,19 +59,18 @@ fn d64_angle(absolute:D64)->D64Angle {
     let point=u32(1332-p.exponent);
     let pw=point/32u;
     let pb=point%32u;
-    let s_m6=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-6u),D64(0u));
-    let s_m5=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-5u),D64(s_m6.y,s_m6.z));
-    let s_m4=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-4u),D64(s_m5.y,s_m5.z));
-    let s_m3=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-3u),D64(s_m4.y,s_m4.z));
-    let s_m2=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-2u),D64(s_m3.y,s_m3.z));
-    let s_m1=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-1u),D64(s_m2.y,s_m2.z));
-    let s_0=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw),D64(s_m1.y,s_m1.z));
-    let s_p1=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw+1u),D64(s_0.y,s_0.z));
-    var quadrant=w32_shr_pair(s_0.x,s_p1.x,pb)&3u;
-    var f3=w32_shr_pair(s_m1.x,s_0.x,pb);
-    var f2=w32_shr_pair(s_m2.x,s_m1.x,pb);
-    var f1=w32_shr_pair(s_m3.x,s_m2.x,pb);
-    var f0=w32_shr_pair(s_m4.x,s_m3.x,pb);
+    var carry=D64(0u);
+    var w_m4=0u; var w_m3=0u; var w_m2=0u; var w_m1=0u; var w_0=0u; var w_p1=0u;
+    for(var k=0u;k<8u;k+=1u) {
+        let step=d64_mul_sig_word(p.sig,d64_two_over_pi_word(pw-6u+k),carry);
+        carry=D64(step.y,step.z);
+        w_m4=w_m3; w_m3=w_m2; w_m2=w_m1; w_m1=w_0; w_0=w_p1; w_p1=step.x;
+    }
+    var quadrant=w32_shr_pair(w_0,w_p1,pb)&3u;
+    var f3=w32_shr_pair(w_m1,w_0,pb);
+    var f2=w32_shr_pair(w_m2,w_m1,pb);
+    var f1=w32_shr_pair(w_m3,w_m2,pb);
+    var f0=w32_shr_pair(w_m4,w_m3,pb);
     let negative=(f3&0x80000000u)!=0u;
     if negative {
         quadrant=(quadrant+1u)&3u;

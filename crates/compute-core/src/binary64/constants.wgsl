@@ -52,71 +52,99 @@ fn d64_two_over_pi_word(index:u32)->u32 {
   default: { return 0u; }
  }
 }
+fn d64_exp_poly_coeff(index:u32)->D64 {
+ switch index {
+  case 0u: { return D64(0x46814157u,0x3c62f49bu); }
+  case 1u: { return D64(0x63b97d97u,0x3ca68278u); }
+  case 2u: { return D64(0x7030ad4au,0x3ce952c7u); }
+  case 3u: { return D64(0xe733b81fu,0x3d2ae7f3u); }
+  case 4u: { return D64(0xe733b81fu,0x3d6ae7f3u); }
+  case 5u: { return D64(0xa8c07c9du,0x3da93974u); }
+  case 6u: { return D64(0x13a86d09u,0x3de61246u); }
+  case 7u: { return D64(0xeff8d898u,0x3e21eed8u); }
+  case 8u: { return D64(0x67f544e4u,0x3e5ae645u); }
+  case 9u: { return D64(0xb7789f5cu,0x3e927e4fu); }
+  case 10u: { return D64(0xa556c734u,0x3ec71de3u); }
+  case 11u: { return D64(0x1a01a01au,0x3efa01a0u); }
+  case 12u: { return D64(0x1a01a01au,0x3f2a01a0u); }
+  case 13u: { return D64(0x16c16c17u,0x3f56c16cu); }
+  case 14u: { return D64(0x11111111u,0x3f811111u); }
+  case 15u: { return D64(0x55555555u,0x3fa55555u); }
+  case 16u: { return D64(0x55555555u,0x3fc55555u); }
+  case 17u: { return D64(0x00000000u,0x3fe00000u); }
+  case 18u: { return D64(0x00000000u,0x3ff00000u); }
+  default: { return D64(0x00000000u,0x3ff00000u); }
+ }
+}
 fn d64_exp_poly(x:D64)->D64 {
  var value=D64(0xa4020225u,0x3c1e542bu);
- value=d64_add(D64(0x46814157u,0x3c62f49bu),d64_mul(x,value));
- value=d64_add(D64(0x63b97d97u,0x3ca68278u),d64_mul(x,value));
- value=d64_add(D64(0x7030ad4au,0x3ce952c7u),d64_mul(x,value));
- value=d64_add(D64(0xe733b81fu,0x3d2ae7f3u),d64_mul(x,value));
- value=d64_add(D64(0xe733b81fu,0x3d6ae7f3u),d64_mul(x,value));
- value=d64_add(D64(0xa8c07c9du,0x3da93974u),d64_mul(x,value));
- value=d64_add(D64(0x13a86d09u,0x3de61246u),d64_mul(x,value));
- value=d64_add(D64(0xeff8d898u,0x3e21eed8u),d64_mul(x,value));
- value=d64_add(D64(0x67f544e4u,0x3e5ae645u),d64_mul(x,value));
- value=d64_add(D64(0xb7789f5cu,0x3e927e4fu),d64_mul(x,value));
- value=d64_add(D64(0xa556c734u,0x3ec71de3u),d64_mul(x,value));
- value=d64_add(D64(0x1a01a01au,0x3efa01a0u),d64_mul(x,value));
- value=d64_add(D64(0x1a01a01au,0x3f2a01a0u),d64_mul(x,value));
- value=d64_add(D64(0x16c16c17u,0x3f56c16cu),d64_mul(x,value));
- value=d64_add(D64(0x11111111u,0x3f811111u),d64_mul(x,value));
- value=d64_add(D64(0x55555555u,0x3fa55555u),d64_mul(x,value));
- value=d64_add(D64(0x55555555u,0x3fc55555u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3fe00000u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3ff00000u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3ff00000u),d64_mul(x,value));
+ for(var i=0u;i<20u;i+=1u) {
+  value=d64_add(d64_exp_poly_coeff(i),d64_mul(x,value));
+ }
  return value;
+}
+fn d64_log_poly_coeff(index:u32)->D64 {
+ switch index {
+  case 0u: { return D64(0x47ae147bu,0x3fa47ae1u); }
+  case 1u: { return D64(0x590b2164u,0x3fa642c8u); }
+  case 2u: { return D64(0x18618618u,0x3fa86186u); }
+  case 3u: { return D64(0xbca1af28u,0x3faaf286u); }
+  case 4u: { return D64(0x1e1e1e1eu,0x3fae1e1eu); }
+  case 5u: { return D64(0x11111111u,0x3fb11111u); }
+  case 6u: { return D64(0x13b13b14u,0x3fb3b13bu); }
+  case 7u: { return D64(0x745d1746u,0x3fb745d1u); }
+  case 8u: { return D64(0x1c71c71cu,0x3fbc71c7u); }
+  case 9u: { return D64(0x92492492u,0x3fc24924u); }
+  case 10u: { return D64(0x9999999au,0x3fc99999u); }
+  case 11u: { return D64(0x55555555u,0x3fd55555u); }
+  default: { return D64(0x00000000u,0x3ff00000u); }
+ }
 }
 fn d64_log_poly(x:D64)->D64 {
  var value=D64(0xbda12f68u,0x3fa2f684u);
- value=d64_add(D64(0x47ae147bu,0x3fa47ae1u),d64_mul(x,value));
- value=d64_add(D64(0x590b2164u,0x3fa642c8u),d64_mul(x,value));
- value=d64_add(D64(0x18618618u,0x3fa86186u),d64_mul(x,value));
- value=d64_add(D64(0xbca1af28u,0x3faaf286u),d64_mul(x,value));
- value=d64_add(D64(0x1e1e1e1eu,0x3fae1e1eu),d64_mul(x,value));
- value=d64_add(D64(0x11111111u,0x3fb11111u),d64_mul(x,value));
- value=d64_add(D64(0x13b13b14u,0x3fb3b13bu),d64_mul(x,value));
- value=d64_add(D64(0x745d1746u,0x3fb745d1u),d64_mul(x,value));
- value=d64_add(D64(0x1c71c71cu,0x3fbc71c7u),d64_mul(x,value));
- value=d64_add(D64(0x92492492u,0x3fc24924u),d64_mul(x,value));
- value=d64_add(D64(0x9999999au,0x3fc99999u),d64_mul(x,value));
- value=d64_add(D64(0x55555555u,0x3fd55555u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3ff00000u),d64_mul(x,value));
+ for(var i=0u;i<13u;i+=1u) {
+  value=d64_add(d64_log_poly_coeff(i),d64_mul(x,value));
+ }
  return value;
+}
+fn d64_sin_poly_coeff(index:u32)->D64 {
+ switch index {
+  case 0u: { return D64(0x7030ad4au,0x3ce952c7u); }
+  case 1u: { return D64(0xe733b81fu,0xbd6ae7f3u); }
+  case 2u: { return D64(0x13a86d09u,0x3de61246u); }
+  case 3u: { return D64(0x67f544e4u,0xbe5ae645u); }
+  case 4u: { return D64(0xa556c734u,0x3ec71de3u); }
+  case 5u: { return D64(0x1a01a01au,0xbf2a01a0u); }
+  case 6u: { return D64(0x11111111u,0x3f811111u); }
+  case 7u: { return D64(0x55555555u,0xbfc55555u); }
+  default: { return D64(0x00000000u,0x3ff00000u); }
+ }
 }
 fn d64_sin_poly(x:D64)->D64 {
  var value=D64(0x46814157u,0xbc62f49bu);
- value=d64_add(D64(0x7030ad4au,0x3ce952c7u),d64_mul(x,value));
- value=d64_add(D64(0xe733b81fu,0xbd6ae7f3u),d64_mul(x,value));
- value=d64_add(D64(0x13a86d09u,0x3de61246u),d64_mul(x,value));
- value=d64_add(D64(0x67f544e4u,0xbe5ae645u),d64_mul(x,value));
- value=d64_add(D64(0xa556c734u,0x3ec71de3u),d64_mul(x,value));
- value=d64_add(D64(0x1a01a01au,0xbf2a01a0u),d64_mul(x,value));
- value=d64_add(D64(0x11111111u,0x3f811111u),d64_mul(x,value));
- value=d64_add(D64(0x55555555u,0xbfc55555u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3ff00000u),d64_mul(x,value));
+ for(var i=0u;i<9u;i+=1u) {
+  value=d64_add(d64_sin_poly_coeff(i),d64_mul(x,value));
+ }
  return value;
+}
+fn d64_cos_poly_coeff(index:u32)->D64 {
+ switch index {
+  case 0u: { return D64(0x63b97d97u,0xbca68278u); }
+  case 1u: { return D64(0xe733b81fu,0x3d2ae7f3u); }
+  case 2u: { return D64(0xa8c07c9du,0xbda93974u); }
+  case 3u: { return D64(0xeff8d898u,0x3e21eed8u); }
+  case 4u: { return D64(0xb7789f5cu,0xbe927e4fu); }
+  case 5u: { return D64(0x1a01a01au,0x3efa01a0u); }
+  case 6u: { return D64(0x16c16c17u,0xbf56c16cu); }
+  case 7u: { return D64(0x55555555u,0x3fa55555u); }
+  case 8u: { return D64(0x00000000u,0xbfe00000u); }
+  default: { return D64(0x00000000u,0x3ff00000u); }
+ }
 }
 fn d64_cos_poly(x:D64)->D64 {
  var value=D64(0xa4020225u,0x3c1e542bu);
- value=d64_add(D64(0x63b97d97u,0xbca68278u),d64_mul(x,value));
- value=d64_add(D64(0xe733b81fu,0x3d2ae7f3u),d64_mul(x,value));
- value=d64_add(D64(0xa8c07c9du,0xbda93974u),d64_mul(x,value));
- value=d64_add(D64(0xeff8d898u,0x3e21eed8u),d64_mul(x,value));
- value=d64_add(D64(0xb7789f5cu,0xbe927e4fu),d64_mul(x,value));
- value=d64_add(D64(0x1a01a01au,0x3efa01a0u),d64_mul(x,value));
- value=d64_add(D64(0x16c16c17u,0xbf56c16cu),d64_mul(x,value));
- value=d64_add(D64(0x55555555u,0x3fa55555u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0xbfe00000u),d64_mul(x,value));
- value=d64_add(D64(0x00000000u,0x3ff00000u),d64_mul(x,value));
+ for(var i=0u;i<10u;i+=1u) {
+  value=d64_add(d64_cos_poly_coeff(i),d64_mul(x,value));
+ }
  return value;
 }
