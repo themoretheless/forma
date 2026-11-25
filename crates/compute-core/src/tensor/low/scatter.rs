@@ -206,7 +206,10 @@ impl ComputeProgram<'_> {
         let mut metadata =
             scatter_metadata(indices.layout(), &update_layout, output, axis, op, groups)?;
         metadata.push(updates.dtype() as u32);
-        let kernel = &self.runtime.low_kernels()?.scatter[usize::from(packed)];
+        let kernel = self
+            .runtime
+            .low_kernels()?
+            .scatter(self.runtime.device(), packed)?;
         self.index_dispatch(
             kernel,
             &metadata,

@@ -86,7 +86,7 @@ impl ComputeProgram<'_> {
                 groups,
             )?;
             prepared.index_dispatch(
-                &kernels.apply[kind::<T>()],
+                kernels.apply(self.runtime.device(), kind::<T>())?,
                 &metadata,
                 &[
                     indices.values().buffer(),
@@ -116,7 +116,7 @@ impl ComputeProgram<'_> {
         if op == ScatterOp::Replace {
             let reset_groups = self.index_groups(axis_length.div_ceil(256));
             self.index_dispatch(
-                &kernels.reset,
+                kernels.reset(self.runtime.device())?,
                 &[axis_length, reset_groups],
                 &[owners.buffer()],
                 reset_groups,
@@ -139,7 +139,7 @@ impl ComputeProgram<'_> {
                 metadata.extend([checked_index(dim)?, checked_index(stride)?]);
             }
             self.index_dispatch(
-                &kernels.owners,
+                kernels.owners(self.runtime.device())?,
                 &metadata,
                 &[indices.values().buffer(), owners.buffer()],
                 groups,

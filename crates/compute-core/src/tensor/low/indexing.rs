@@ -44,7 +44,7 @@ impl ComputeProgram<'_> {
         let mut meta = compare_metadata(&av, &bv, output.layout(), op, groups)?;
         meta.push(a.dtype() as u32);
         self.index_dispatch(
-            &self.runtime.low_kernels()?.compare,
+            self.runtime.low_kernels()?.compare(self.runtime.device())?,
             &meta,
             &[
                 a.packed_words().buffer(),
@@ -102,7 +102,7 @@ impl ComputeProgram<'_> {
         let bv = b.layout().broadcast_to(shape)?;
         let meta = select_metadata(&mv, &av, &bv, output.layout(), groups)?;
         self.index_dispatch(
-            &self.runtime.low_kernels()?.select,
+            self.runtime.low_kernels()?.select(self.runtime.device())?,
             &meta,
             &[
                 mask.values().buffer(),
@@ -184,7 +184,7 @@ impl ComputeProgram<'_> {
                 groups,
             )?;
             prepared.index_dispatch(
-                &self.runtime.low_kernels()?.gather,
+                self.runtime.low_kernels()?.gather(self.runtime.device())?,
                 &meta,
                 &[
                     input.packed_words().buffer(),
@@ -260,7 +260,7 @@ impl ComputeProgram<'_> {
         for (&dim, &stride) in input.shape().dims().iter().zip(input.layout().strides()) {
             meta.extend([checked_index(dim)?, checked_index(stride)?]);
         }
-        let kernel = &self.runtime.low_kernels()?.compact;
+        let kernel = self.runtime.low_kernels()?.compact(self.runtime.device())?;
         scan.append_to(&mut prepared.batch);
         prepared.index_dispatch(
             kernel,

@@ -106,7 +106,10 @@ impl ComputeProgram<'_> {
                 checked_index(bv.strides()[axis])?,
             ]);
         }
-        let kernel = &self.runtime.low_kernels()?.arithmetic;
+        let kernel = self
+            .runtime
+            .low_kernels()?
+            .arithmetic(self.runtime.device())?;
         self.index_dispatch(
             kernel,
             &meta,

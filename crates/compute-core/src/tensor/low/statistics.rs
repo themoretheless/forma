@@ -3,29 +3,22 @@
 use super::{GpuLowTensor, GpuTensor, Result};
 use crate::tensor::normalization::{Operation, StatsKernels};
 use crate::{ComputeProgram, ComputeRuntime, KernelError};
+use std::borrow::Cow;
 use tensor_core::{Moments, Shape, normalization_shape, statistics_shape, validate_epsilon};
 
 impl ComputeRuntime {
     fn low_stats_kernels(&self) -> std::result::Result<&StatsKernels, KernelError> {
-        if let Some(kernels) = self.tensor_low_stats.get() {
-            return Ok(kernels);
-        }
-        let sources = [
-            super::statistics_sources::small(),
-            super::statistics_sources::reduce(),
-            super::statistics_sources::finish(),
-            super::statistics_sources::output(),
-        ];
-        let kernels = StatsKernels::new(
-            self.device(),
-            [&sources[0], &sources[1], &sources[2], &sources[3]],
-            8,
-        )?;
-        let _ = self.tensor_low_stats.set(kernels);
-        Ok(self
-            .tensor_low_stats
-            .get()
-            .expect("low statistics kernels initialized"))
+        Ok(self.tensor_low_stats.get_or_init(|| {
+            StatsKernels::new(
+                [
+                    || Cow::Owned(super::statistics_sources::small()),
+                    || Cow::Owned(super::statistics_sources::reduce()),
+                    || Cow::Owned(super::statistics_sources::finish()),
+                    || Cow::Owned(super::statistics_sources::output()),
+                ],
+                8,
+            )
+        }))
     }
 }
 impl ComputeProgram<'_> {

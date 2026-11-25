@@ -70,7 +70,7 @@ impl<'a> ComputeProgram<'a> {
         let count_offset = checked_index(invalid_count.layout().offset())?;
         let kernels = self.runtime.tensor_index_kernels()?;
         self.index_dispatch(
-            &kernels.count_reset,
+            kernels.count_reset(self.runtime.device())?,
             &[count_offset],
             &[invalid_count.values().buffer()],
             1,
@@ -95,7 +95,7 @@ impl<'a> ComputeProgram<'a> {
                 meta.extend([checked_index(dim)?, checked_index(stride)?]);
             }
             self.index_dispatch(
-                &kernels.index_count,
+                kernels.index_count(self.runtime.device())?,
                 &meta,
                 &[indices.values().buffer(), invalid_count.values().buffer()],
                 groups,
@@ -125,7 +125,10 @@ impl<'a> ComputeProgram<'a> {
         for (&dim, &stride) in input.shape().dims().iter().zip(input.layout().strides()) {
             metadata.extend([checked_index(dim)?, checked_index(stride)?]);
         }
-        let kernel = &self.runtime.tensor_index_kernels()?.copy[kind::<T>()];
+        let kernel = self
+            .runtime
+            .tensor_index_kernels()?
+            .copy(self.runtime.device(), kind::<T>())?;
         self.index_dispatch(
             kernel,
             &metadata,
@@ -193,7 +196,10 @@ impl<'a> ComputeProgram<'a> {
         }
         let groups = self.index_groups(count.div_ceil(256));
         let metadata = compare_metadata(&av, &bv, output.layout(), op, groups)?;
-        let kernel = &self.runtime.tensor_index_kernels()?.compare[kind::<T>()];
+        let kernel = self
+            .runtime
+            .tensor_index_kernels()?
+            .compare(self.runtime.device(), kind::<T>())?;
         self.index_dispatch(
             kernel,
             &metadata,
@@ -252,7 +258,10 @@ impl<'a> ComputeProgram<'a> {
         }
         let groups = self.index_groups(count.div_ceil(256));
         let metadata = select_metadata(&mv, &av, &bv, output.layout(), groups)?;
-        let kernel = &self.runtime.tensor_index_kernels()?.select[kind::<T>()];
+        let kernel = self
+            .runtime
+            .tensor_index_kernels()?
+            .select(self.runtime.device(), kind::<T>())?;
         self.index_dispatch(
             kernel,
             &metadata,

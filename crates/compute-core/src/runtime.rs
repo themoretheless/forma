@@ -4,19 +4,32 @@ use crate::{
 };
 use std::sync::{Arc, OnceLock};
 
+pub(crate) fn lazy_kernel(
+    slot: &OnceLock<Kernel>,
+    build: impl FnOnce() -> Result<Kernel, crate::KernelError>,
+) -> Result<&Kernel, crate::KernelError> {
+    if let Some(kernel) = slot.get() {
+        return Ok(kernel);
+    }
+    let kernel = build()?;
+    let _ = slot.set(kernel);
+    Ok(slot.get().expect("lazy kernel was initialized"))
+}
+
 /// Typed array runtime sharing an existing GPU device and queue. Pipelines are
-/// compiled once. Arrays are tied to this runtime; cloned arrays share storage.
+/// compiled lazily on first use. Arrays are tied to this runtime; cloned arrays
+/// share storage.
 pub struct ComputeRuntime {
     context: GpuContext,
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
     pub(crate) owner: Arc<()>,
-    pub(crate) affine: Kernel,
-    pub(crate) unary: Kernel,
-    pub(crate) binary: Kernel,
-    pub(crate) compare: Kernel,
+    affine: OnceLock<Kernel>,
+    unary: OnceLock<Kernel>,
+    binary: OnceLock<Kernel>,
+    compare: OnceLock<Kernel>,
     pub(crate) matmul: crate::matrix::MatmulKernels,
-    pub(crate) sum: Kernel,
+    sum: OnceLock<Kernel>,
     pub(crate) tensor: OnceLock<crate::tensor::TensorKernels>,
     pub(crate) tensor_index: OnceLock<crate::tensor::TensorIndexKernels>,
     pub(crate) tensor_scatter: OnceLock<crate::tensor::TensorScatterKernels>,
@@ -35,45 +48,17 @@ pub struct ComputeRuntime {
 
 impl ComputeRuntime {
     pub fn new(context: &GpuContext) -> Result<Self, ComputeError> {
-        let device = &context.device;
-        let unary = [
-            Binding::Uniform,
-            Binding::StorageRead,
-            Binding::StorageReadWrite,
-        ];
         Ok(Self {
             context: context.clone(),
-            device: device.clone(),
+            device: context.device.clone(),
             queue: context.queue.clone(),
             owner: Arc::new(()),
-            unary: Kernel::new(device, "array unary", shaders::UNARY_WGSL, "main", &unary)?,
-            affine: Kernel::new(device, "array affine", shaders::AFFINE_WGSL, "main", &unary)?,
-            binary: Kernel::new(
-                device,
-                "array binary",
-                shaders::BINARY_WGSL,
-                "main",
-                &[
-                    Binding::Uniform,
-                    Binding::StorageRead,
-                    Binding::StorageRead,
-                    Binding::StorageReadWrite,
-                ],
-            )?,
-            compare: Kernel::new(
-                device,
-                "array compare",
-                shaders::COMPARE_WGSL,
-                "main",
-                &[
-                    Binding::Uniform,
-                    Binding::StorageRead,
-                    Binding::StorageRead,
-                    Binding::StorageReadWrite,
-                ],
-            )?,
-            matmul: crate::matrix::MatmulKernels::new(device)?,
-            sum: Kernel::new(device, "array sum", shaders::BLOCK_SUM_WGSL, "main", &unary)?,
+            unary: OnceLock::new(),
+            affine: OnceLock::new(),
+            binary: OnceLock::new(),
+            compare: OnceLock::new(),
+            matmul: crate::matrix::MatmulKernels::new(),
+            sum: OnceLock::new(),
             tensor: OnceLock::new(),
             tensor_index: OnceLock::new(),
             tensor_scatter: OnceLock::new(),
@@ -86,9 +71,91 @@ impl ComputeRuntime {
             dot: OnceLock::new(),
             #[cfg(not(target_arch = "wasm32"))]
             binary64: std::array::from_fn(|_| OnceLock::new()),
-            scan: crate::scan::ScanKernels::new(device)?,
-            selection: crate::selection::SelectionKernels::new(device)?,
+            scan: crate::scan::ScanKernels::new(),
+            selection: crate::selection::SelectionKernels::new(),
         })
+    }
+
+    pub(crate) fn affine_kernel(&self) -> Result<&Kernel, ComputeError> {
+        Ok(lazy_kernel(&self.affine, || {
+            Kernel::new(
+                &self.device,
+                "array affine",
+                shaders::AFFINE_WGSL,
+                "main",
+                &[
+                    Binding::Uniform,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })?)
+    }
+
+    pub(crate) fn unary_kernel(&self) -> Result<&Kernel, ComputeError> {
+        Ok(lazy_kernel(&self.unary, || {
+            Kernel::new(
+                &self.device,
+                "array unary",
+                shaders::UNARY_WGSL,
+                "main",
+                &[
+                    Binding::Uniform,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })?)
+    }
+
+    pub(crate) fn binary_kernel(&self) -> Result<&Kernel, ComputeError> {
+        Ok(lazy_kernel(&self.binary, || {
+            Kernel::new(
+                &self.device,
+                "array binary",
+                shaders::BINARY_WGSL,
+                "main",
+                &[
+                    Binding::Uniform,
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })?)
+    }
+
+    pub(crate) fn compare_kernel(&self) -> Result<&Kernel, ComputeError> {
+        Ok(lazy_kernel(&self.compare, || {
+            Kernel::new(
+                &self.device,
+                "array compare",
+                shaders::COMPARE_WGSL,
+                "main",
+                &[
+                    Binding::Uniform,
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })?)
+    }
+
+    pub(crate) fn sum_kernel(&self) -> Result<&Kernel, ComputeError> {
+        Ok(lazy_kernel(&self.sum, || {
+            Kernel::new(
+                &self.device,
+                "array sum",
+                shaders::BLOCK_SUM_WGSL,
+                "main",
+                &[
+                    Binding::Uniform,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })?)
     }
 
     /// Allocates zero-initialized storage without constructing or uploading a

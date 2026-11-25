@@ -63,7 +63,7 @@ impl ComputeProgram<'_> {
             rows,
             length,
             options,
-            &self.runtime.low_kernels()?.scan,
+            self.runtime.low_kernels()?.scan(self.runtime.device())?,
             &load_meta,
         )?;
         if !direct {

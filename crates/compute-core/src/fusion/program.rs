@@ -204,7 +204,7 @@ impl<'a> ComputeProgram<'a> {
             Some(Reduction::with_output(
                 self.runtime.device(),
                 self.runtime.queue(),
-                &self.runtime.sum,
+                self.runtime.sum_kernel()?,
                 partials.buffer(),
                 groups,
                 output.buffer(),

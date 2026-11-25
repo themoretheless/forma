@@ -110,7 +110,7 @@ impl<'a> Reduction<'a> {
         Self::with_schedule(
             runtime.device(),
             runtime.queue(),
-            &runtime.sum,
+            runtime.sum_kernel()?,
             input,
             count,
             destination,

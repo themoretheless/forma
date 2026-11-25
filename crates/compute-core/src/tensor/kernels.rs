@@ -1,62 +1,97 @@
+use crate::runtime::lazy_kernel;
 use crate::{Binding, ComputeRuntime, Kernel, KernelError};
+use std::sync::OnceLock;
 
 pub(crate) struct TensorKernels {
-    pub elementwise: Kernel,
-    pub sum: Kernel,
-    pub reduce: [Kernel; 2],
-    pub matmul: Kernel,
+    elementwise: OnceLock<Kernel>,
+    sum: OnceLock<Kernel>,
+    reduce: [OnceLock<Kernel>; 2],
+    matmul: OnceLock<Kernel>,
 }
+
+const UNARY_BINDINGS: [Binding; 3] = [
+    Binding::StorageRead,
+    Binding::StorageRead,
+    Binding::StorageReadWrite,
+];
+const BINARY_BINDINGS: [Binding; 4] = [
+    Binding::StorageRead,
+    Binding::StorageRead,
+    Binding::StorageRead,
+    Binding::StorageReadWrite,
+];
+
 impl TensorKernels {
-    fn new(device: &crate::wgpu::Device) -> Result<Self, KernelError> {
-        let binary = [
-            Binding::StorageRead,
-            Binding::StorageRead,
-            Binding::StorageRead,
-            Binding::StorageReadWrite,
-        ];
-        let unary = [
-            Binding::StorageRead,
-            Binding::StorageRead,
-            Binding::StorageReadWrite,
-        ];
-        Ok(Self {
-            elementwise: Kernel::new(
+    fn new() -> Self {
+        Self {
+            elementwise: OnceLock::new(),
+            sum: OnceLock::new(),
+            reduce: std::array::from_fn(|_| OnceLock::new()),
+            matmul: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn elementwise(&self, device: &crate::wgpu::Device) -> Result<&Kernel, KernelError> {
+        lazy_kernel(&self.elementwise, || {
+            Kernel::new(
                 device,
                 "strided tensor elementwise",
                 crate::shaders::TENSOR_ELEMENTWISE_WGSL,
                 "main",
-                &binary,
-            )?,
-            sum: Kernel::new(
+                &BINARY_BINDINGS,
+            )
+        })
+    }
+
+    pub(crate) fn sum(&self, device: &crate::wgpu::Device) -> Result<&Kernel, KernelError> {
+        lazy_kernel(&self.sum, || {
+            Kernel::new(
                 device,
                 "strided f32 tensor sum",
                 crate::shaders::TENSOR_SUM_WGSL,
                 "main",
-                &unary,
-            )?,
-            reduce: [
+                &UNARY_BINDINGS,
+            )
+        })
+    }
+
+    pub(crate) fn reduce(
+        &self,
+        device: &crate::wgpu::Device,
+        kind: usize,
+    ) -> Result<&Kernel, KernelError> {
+        if kind == 0 {
+            lazy_kernel(&self.reduce[0], || {
                 Kernel::new(
                     device,
                     "strided f32 tensor reduction",
                     crate::shaders::TENSOR_REDUCE_WGSL,
                     "main",
-                    &unary,
-                )?,
+                    &UNARY_BINDINGS,
+                )
+            })
+        } else {
+            lazy_kernel(&self.reduce[1], || {
                 Kernel::new(
                     device,
                     "strided u32 tensor reduction",
                     &uint_reduction_source(),
                     "main",
-                    &unary,
-                )?,
-            ],
-            matmul: Kernel::new(
+                    &UNARY_BINDINGS,
+                )
+            })
+        }
+    }
+
+    pub(crate) fn matmul(&self, device: &crate::wgpu::Device) -> Result<&Kernel, KernelError> {
+        lazy_kernel(&self.matmul, || {
+            Kernel::new(
                 device,
                 "strided batched tensor matmul",
                 crate::shaders::TENSOR_MATMUL_WGSL,
                 "main",
-                &binary,
-            )?,
+                &BINARY_BINDINGS,
+            )
         })
     }
 }
@@ -76,12 +111,7 @@ fn uint_reduction_source() -> String {
 
 impl ComputeRuntime {
     pub(crate) fn tensor_kernels(&self) -> Result<&TensorKernels, KernelError> {
-        if let Some(kernels) = self.tensor.get() {
-            return Ok(kernels);
-        }
-        let kernels = TensorKernels::new(self.device())?;
-        let _ = self.tensor.set(kernels);
-        Ok(self.tensor.get().expect("tensor kernels initialized"))
+        Ok(self.tensor.get_or_init(TensorKernels::new))
     }
 }
 

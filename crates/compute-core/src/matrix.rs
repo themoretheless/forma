@@ -141,11 +141,12 @@ impl ComputeProgram<'_> {
             return Ok(());
         }
         let (kernel, dispatches) = self.runtime.matmul.select(
+            self.runtime.device(),
             self.runtime.context().backend,
             a.rows,
             a.columns,
             b.columns,
-        );
+        )?;
         let groups = dispatches
             .min(
                 self.runtime

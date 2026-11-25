@@ -1,20 +1,29 @@
+use crate::runtime::lazy_kernel;
 use crate::{
     Binding, ComputeBatch, ComputeError, ComputeProgram, ComputeRuntime, GpuArray, Kernel, shaders,
     uniform_f32, wgpu,
 };
+use std::sync::OnceLock;
 
 pub(crate) struct ScanKernels {
-    blocks: Kernel,
-    add: Kernel,
+    blocks: OnceLock<Kernel>,
+    add: OnceLock<Kernel>,
 }
 
 /// Must match ITEMS in scan_blocks4.wgsl; each lane scans four adjacent scalars.
 const ITEMS_PER_LANE: u32 = 4;
 
 impl ScanKernels {
-    pub(crate) fn new(device: &wgpu::Device) -> Result<Self, crate::KernelError> {
-        Ok(Self {
-            blocks: Kernel::new(
+    pub(crate) fn new() -> Self {
+        Self {
+            blocks: OnceLock::new(),
+            add: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn blocks(&self, device: &wgpu::Device) -> Result<&Kernel, crate::KernelError> {
+        lazy_kernel(&self.blocks, || {
+            Kernel::new(
                 device,
                 "exclusive scan blocks",
                 shaders::SCAN_BLOCKS4_WGSL,
@@ -25,8 +34,13 @@ impl ScanKernels {
                     Binding::StorageReadWrite,
                     Binding::StorageReadWrite,
                 ],
-            )?,
-            add: Kernel::new(
+            )
+        })
+    }
+
+    pub(crate) fn add(&self, device: &wgpu::Device) -> Result<&Kernel, crate::KernelError> {
+        lazy_kernel(&self.add, || {
+            Kernel::new(
                 device,
                 "exclusive scan offsets",
                 shaders::SCAN_ADD_WGSL,
@@ -36,7 +50,7 @@ impl ScanKernels {
                     Binding::StorageRead,
                     Binding::StorageReadWrite,
                 ],
-            )?,
+            )
         })
     }
 }
@@ -75,7 +89,9 @@ impl<'a> ScanPlan<'a> {
         if blocks > 1 {
             let offsets = runtime.zeros::<u32>(blocks as usize)?;
             self.level(runtime, &totals, &offsets, false)?;
-            let add = &runtime.scan.add;
+            let add = runtime.scan.add(&runtime.device)?;
+            let blocks_per_group =
+                runtime.scan.blocks(&runtime.device)?.workgroup_size() * ITEMS_PER_LANE;
             let groups = add.workgroup_count(input.len).min(65535);
             let params = uniform_f32(
                 &runtime.device,
@@ -83,7 +99,7 @@ impl<'a> ScanPlan<'a> {
                 &[
                     f32::from_bits(input.len),
                     f32::from_bits(groups),
-                    f32::from_bits(runtime.scan.blocks.workgroup_size() * ITEMS_PER_LANE),
+                    f32::from_bits(blocks_per_group),
                     0.0,
                 ],
             )?;
@@ -103,7 +119,7 @@ impl<'a> ScanPlan<'a> {
         output: &GpuArray<u32>,
         normalize: bool,
     ) -> Result<GpuArray<u32>, ComputeError> {
-        let kernel = &runtime.scan.blocks;
+        let kernel = runtime.scan.blocks(&runtime.device)?;
         let blocks = input.len.div_ceil(kernel.workgroup_size() * ITEMS_PER_LANE);
         let groups = blocks.min(65535);
         let totals = runtime.zeros::<u32>(blocks as usize)?;
@@ -135,7 +151,7 @@ impl<'a> ScanPlan<'a> {
         let mut plan = Self {
             steps: Vec::with_capacity(4),
         };
-        let kernel = &runtime.scan.blocks;
+        let kernel = runtime.scan.blocks(&runtime.device)?;
         let block_size = kernel.workgroup_size() * ITEMS_PER_LANE;
         let blocks = input.len.div_ceil(block_size);
         let block_offsets = runtime.zeros::<u32>(blocks.max(1) as usize)?;

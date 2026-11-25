@@ -1,9 +1,11 @@
+use crate::runtime::lazy_kernel;
 use crate::{Binding, ComputeRuntime, Kernel, KernelError, shaders, wgpu};
+use std::sync::OnceLock;
 
 pub(crate) struct TensorScatterKernels {
-    pub reset: Kernel,
-    pub owners: Kernel,
-    pub apply: [Kernel; 2],
+    reset: OnceLock<Kernel>,
+    owners: OnceLock<Kernel>,
+    apply: [OnceLock<Kernel>; 2],
 }
 
 fn uint_source() -> String {
@@ -16,54 +18,71 @@ fn uint_source() -> String {
 }
 
 impl TensorScatterKernels {
-    fn new(device: &wgpu::Device) -> Result<Self, KernelError> {
-        use Binding::{StorageRead as R, StorageReadWrite as W};
-        Ok(Self {
-            reset: Kernel::new(
+    fn new() -> Self {
+        Self {
+            reset: OnceLock::new(),
+            owners: OnceLock::new(),
+            apply: std::array::from_fn(|_| OnceLock::new()),
+        }
+    }
+
+    pub(crate) fn reset(&self, device: &wgpu::Device) -> Result<&Kernel, KernelError> {
+        lazy_kernel(&self.reset, || {
+            Kernel::new(
                 device,
                 "reset scatter owners",
                 shaders::TENSOR_SCATTER_RESET_WGSL,
                 "main",
-                &[R, W],
-            )?,
-            owners: Kernel::new(
+                &[Binding::StorageRead, Binding::StorageReadWrite],
+            )
+        })
+    }
+
+    pub(crate) fn owners(&self, device: &wgpu::Device) -> Result<&Kernel, KernelError> {
+        lazy_kernel(&self.owners, || {
+            Kernel::new(
                 device,
                 "choose last scatter index",
                 shaders::TENSOR_SCATTER_OWNERS_WGSL,
                 "main",
-                &[R, R, W],
-            )?,
-            apply: [
+                &[
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })
+    }
+
+    pub(crate) fn apply(&self, device: &wgpu::Device, kind: usize) -> Result<&Kernel, KernelError> {
+        use Binding::{StorageRead as R, StorageReadWrite as W};
+        if kind == 0 {
+            lazy_kernel(&self.apply[0], || {
                 Kernel::new(
                     device,
                     "scatter f32 updates",
                     shaders::TENSOR_SCATTER_WGSL,
                     "main",
                     &[R, R, R, R, W],
-                )?,
+                )
+            })
+        } else {
+            lazy_kernel(&self.apply[1], || {
                 Kernel::new(
                     device,
                     "scatter u32 updates",
                     &uint_source(),
                     "main",
                     &[R, R, R, R, W],
-                )?,
-            ],
-        })
+                )
+            })
+        }
     }
 }
 
 impl ComputeRuntime {
     pub(crate) fn tensor_scatter_kernels(&self) -> Result<&TensorScatterKernels, KernelError> {
-        if let Some(kernels) = self.tensor_scatter.get() {
-            return Ok(kernels);
-        }
-        let kernels = TensorScatterKernels::new(self.device())?;
-        let _ = self.tensor_scatter.set(kernels);
-        Ok(self
-            .tensor_scatter
-            .get()
-            .expect("scatter kernels initialized"))
+        Ok(self.tensor_scatter.get_or_init(TensorScatterKernels::new))
     }
 }
 

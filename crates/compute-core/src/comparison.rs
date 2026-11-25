@@ -39,7 +39,7 @@ impl ComputeProgram<'_> {
         if len == 0 {
             return Ok(());
         }
-        let kernel = &self.runtime.compare;
+        let kernel = self.runtime.compare_kernel()?;
         let params = self.uniform_params(&[
             f32::from_bits(len as u32),
             f32::from_bits(op as u32),

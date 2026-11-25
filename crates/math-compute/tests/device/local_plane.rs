@@ -1,5 +1,4 @@
 //! Device parity tests moved from `math-core`.
-#![cfg(feature = "gpu")]
 use math_core::*;
 
 fn plane_points(nx: usize, ny: usize) -> Vec<V3> {

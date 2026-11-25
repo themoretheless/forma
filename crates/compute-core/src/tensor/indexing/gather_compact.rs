@@ -64,7 +64,7 @@ impl<'a> ComputeProgram<'a> {
                 groups,
             )?;
             prepared.index_dispatch(
-                &kernels.gather[kind::<T>()],
+                kernels.gather(self.runtime.device(), kind::<T>())?,
                 &meta,
                 &[
                     input.values().buffer(),
@@ -137,7 +137,10 @@ impl<'a> ComputeProgram<'a> {
         for (&dim, &stride) in input.shape().dims().iter().zip(input.layout().strides()) {
             meta.extend([checked_index(dim)?, checked_index(stride)?]);
         }
-        let kernel = &self.runtime.tensor_index_kernels()?.compact[kind::<T>()];
+        let kernel = self
+            .runtime
+            .tensor_index_kernels()?
+            .compact(self.runtime.device(), kind::<T>())?;
         // All fallible preparation stays in this temporary program.
         scan.append_to(&mut prepared.batch);
         prepared.index_dispatch(

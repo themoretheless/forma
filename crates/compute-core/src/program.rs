@@ -74,7 +74,7 @@ impl<'a> ComputeProgram<'a> {
         if input.is_empty() {
             return Ok(());
         }
-        let kernel = &self.runtime.affine;
+        let kernel = self.runtime.affine_kernel()?;
         let params = self.uniform_params(&[f32::from_bits(input.len), scale, offset, 0.0])?;
         let bindings = kernel.create_bind_group(
             &self.runtime.device,
@@ -109,7 +109,7 @@ impl<'a> ComputeProgram<'a> {
         if input.is_empty() {
             return Ok(());
         }
-        let kernel = &self.runtime.unary;
+        let kernel = self.runtime.unary_kernel()?;
         let params = self.uniform_params(&[
             f32::from_bits(input.len),
             f32::from_bits(op as u32),
@@ -179,7 +179,7 @@ impl<'a> ComputeProgram<'a> {
         if len == 0 {
             return Ok(());
         }
-        let kernel = &self.runtime.binary;
+        let kernel = self.runtime.binary_kernel()?;
         let params = self.uniform_params(&[
             f32::from_bits(len as u32),
             f32::from_bits(op as u32),

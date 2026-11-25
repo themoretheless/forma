@@ -6,47 +6,21 @@ use crate::{
     BindingResource, ComputePipeline, ComputePipelineDescriptor, Error, ErrorFilter, Extent3d,
     PipelineLayout, PipelineLayoutDescriptor, QuerySet, QuerySetDescriptor, RenderPipeline,
     RenderPipelineDescriptor, Sampler, SamplerDescriptor, ShaderModule, TexelCopyBufferLayout,
-    TexelCopyTextureInfo, Texture, TextureDescriptor, TextureViewDescriptor, validation_error,
+    TexelCopyTextureInfo, Texture, TextureDescriptor, TextureViewDescriptor,
 };
 use gpu_shader as naga;
 use gpu_shader::ShaderStage;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-pub(crate) fn validate_backend_shader(
-    backend: Backend,
-    module: &naga::Module,
-    info: &naga::valid::ModuleInfo,
-) -> Result<(), String> {
-    match backend {
-        Backend::Vulkan => {
-            naga::back::spv::write_vec(module, info, &Default::default(), &Default::default())
-                .map(|_| ())
-        }
-        Backend::Dx12 => {
-            naga::back::hlsl::write_string(module, info, &Default::default(), &Default::default())
-                .map(|_| ())
-        }
-        Backend::Gl => {
-            naga::back::glsl::write_all_entry_points(module, info, &Default::default()).map(|_| ())
-        }
-        Backend::Metal | Backend::BrowserWebGpu | Backend::Noop | Backend::Cuda => Ok(()),
-    }
-}
-
 pub(crate) fn create_shader_module(
     portable: &PortableDevice,
     label: crate::Label<'_>,
     wgsl_src: &str,
     module: Arc<naga::Module>,
-    info: &naga::valid::ModuleInfo,
+    _info: &naga::valid::ModuleInfo,
     record_error: &dyn Fn(Error),
 ) -> ShaderModule {
-    if let Err(reason) = validate_backend_shader(portable.backend, &module, info) {
-        record_error(validation_error(reason.clone()));
-        return ShaderModule::invalid_with_module(module, reason);
-    }
-
     let _dx12_guard = super::lock_dx12_if(portable.backend == Backend::Dx12);
     let scope = portable.push_inner_scope(ErrorFilter::Validation);
     portable

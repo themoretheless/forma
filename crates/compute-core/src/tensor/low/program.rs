@@ -108,7 +108,7 @@ impl ComputeProgram<'_> {
             meta.extend([checked_index(dim)?, checked_index(stride)?]);
         }
         self.index_dispatch(
-            &self.runtime.low_kernels()?.pack,
+            self.runtime.low_kernels()?.pack(self.runtime.device())?,
             &meta,
             &[source, output.packed_words().buffer()],
             groups,
@@ -147,7 +147,7 @@ impl ComputeProgram<'_> {
             meta.extend([checked_index(dim)?, checked_index(stride)?]);
         }
         self.index_dispatch(
-            &self.runtime.low_kernels()?.unpack,
+            self.runtime.low_kernels()?.unpack(self.runtime.device())?,
             &meta,
             &[input.packed_words().buffer(), output.values().buffer()],
             groups,
@@ -197,7 +197,7 @@ impl ComputeProgram<'_> {
         }
         meta[15] = a.dtype() as u32;
         self.index_dispatch(
-            &self.runtime.low_kernels()?.matmul,
+            self.runtime.low_kernels()?.matmul(self.runtime.device())?,
             &meta,
             &[
                 a.packed_words().buffer(),

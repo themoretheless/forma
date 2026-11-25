@@ -199,7 +199,7 @@ impl ComputeProgram<'_> {
         } else {
             None
         };
-        let kernel = &self.runtime.low_kernels()?.reduce;
+        let kernel = self.runtime.low_kernels()?.reduce(self.runtime.device())?;
         let mut prepared = self.runtime.program();
         prepared.index_dispatch(
             kernel,

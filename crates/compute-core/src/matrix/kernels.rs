@@ -1,10 +1,12 @@
+use crate::runtime::lazy_kernel;
 use crate::{Binding, Kernel, KernelError, shaders, wgpu};
+use std::sync::OnceLock;
 
 pub(crate) struct MatmulKernels {
-    tiled: Kernel,
-    aligned: Kernel,
-    direct: Kernel,
-    dot: Kernel,
+    tiled: OnceLock<Kernel>,
+    aligned: OnceLock<Kernel>,
+    direct: OnceLock<Kernel>,
+    dot: OnceLock<Kernel>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,58 +41,79 @@ fn strategy(backend: wgpu::Backend, rows: u32, inner: u32, columns: u32) -> Stra
 }
 
 impl MatmulKernels {
-    pub(crate) fn new(device: &wgpu::Device) -> Result<Self, KernelError> {
+    pub(crate) fn new() -> Self {
+        Self {
+            tiled: OnceLock::new(),
+            aligned: OnceLock::new(),
+            direct: OnceLock::new(),
+            dot: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn select(
+        &self,
+        device: &wgpu::Device,
+        backend: wgpu::Backend,
+        rows: u32,
+        inner: u32,
+        columns: u32,
+    ) -> Result<(&Kernel, u32), KernelError> {
         let bindings = [
             Binding::Uniform,
             Binding::StorageRead,
             Binding::StorageRead,
             Binding::StorageReadWrite,
         ];
-        Ok(Self {
-            tiled: Kernel::new(
-                device,
-                "general tiled matrix product",
-                shaders::MATMUL_WGSL,
-                "main",
-                &bindings,
-            )?,
-            aligned: Kernel::new(
-                device,
-                "aligned vector matrix product",
-                shaders::MATMUL_ALIGNED_WGSL,
-                "main",
-                &bindings,
-            )?,
-            direct: Kernel::new(
-                device,
-                "direct matrix product",
-                shaders::MATMUL_DIRECT_WGSL,
-                "main",
-                &bindings,
-            )?,
-            dot: Kernel::new(
-                device,
-                "cooperative matrix inner reduction",
-                shaders::MATMUL_DOT_WGSL,
-                "main",
-                &bindings,
-            )?,
+        Ok(match strategy(backend, rows, inner, columns) {
+            Strategy::Tiled => (
+                lazy_kernel(&self.tiled, || {
+                    Kernel::new(
+                        device,
+                        "general tiled matrix product",
+                        shaders::MATMUL_WGSL,
+                        "main",
+                        &bindings,
+                    )
+                })?,
+                rows.div_ceil(32) * columns.div_ceil(32),
+            ),
+            Strategy::Aligned => (
+                lazy_kernel(&self.aligned, || {
+                    Kernel::new(
+                        device,
+                        "aligned vector matrix product",
+                        shaders::MATMUL_ALIGNED_WGSL,
+                        "main",
+                        &bindings,
+                    )
+                })?,
+                (rows / 32) * (columns / 32),
+            ),
+            Strategy::Direct => {
+                let kernel = lazy_kernel(&self.direct, || {
+                    Kernel::new(
+                        device,
+                        "direct matrix product",
+                        shaders::MATMUL_DIRECT_WGSL,
+                        "main",
+                        &bindings,
+                    )
+                })?;
+                (kernel, kernel.workgroup_count(rows * columns))
+            }
+            Strategy::Dot => (
+                lazy_kernel(&self.dot, || {
+                    Kernel::new(
+                        device,
+                        "cooperative matrix inner reduction",
+                        shaders::MATMUL_DOT_WGSL,
+                        "main",
+                        &bindings,
+                    )
+                })?,
+                rows * columns,
+            ),
         })
-    }
-
-    pub(crate) fn select(
-        &self,
-        backend: wgpu::Backend,
-        rows: u32,
-        inner: u32,
-        columns: u32,
-    ) -> (&Kernel, u32) {
-        match strategy(backend, rows, inner, columns) {
-            Strategy::Tiled => (&self.tiled, rows.div_ceil(32) * columns.div_ceil(32)),
-            Strategy::Aligned => (&self.aligned, (rows / 32) * (columns / 32)),
-            Strategy::Direct => (&self.direct, self.direct.workgroup_count(rows * columns)),
-            Strategy::Dot => (&self.dot, rows * columns),
-        }
     }
 }
 

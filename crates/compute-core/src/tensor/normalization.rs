@@ -1,59 +1,62 @@
 //! Stable arbitrary-axis statistics. Only per-group summaries and bounded
 //! reduction partials are allocated; operands stay in their original layout.
 use super::{GpuTensor, TensorComputeError, checked_index};
+use crate::runtime::lazy_kernel;
 use crate::{Binding, ComputeProgram, ComputeRuntime, GpuArray, Kernel, KernelError};
+use std::borrow::Cow;
+use std::sync::OnceLock;
 use tensor_core::{Moments, Shape, normalization_shape, statistics_shape, validate_epsilon};
 
 type Result<T> = std::result::Result<T, TensorComputeError>;
 
 pub(crate) struct StatsKernels {
-    small: Kernel,
-    reduce: Kernel,
-    finish: Kernel,
-    output: Kernel,
+    small: OnceLock<Kernel>,
+    reduce: OnceLock<Kernel>,
+    finish: OnceLock<Kernel>,
+    output: OnceLock<Kernel>,
+    sources: [fn() -> Cow<'static, str>; 4],
     summary_words: usize,
 }
 impl ComputeRuntime {
     fn tensor_stats_kernels(&self) -> std::result::Result<&StatsKernels, KernelError> {
-        if let Some(kernels) = self.tensor_stats.get() {
-            return Ok(kernels);
-        }
-        let kernels = StatsKernels::new(
-            self.device(),
-            [
-                crate::shaders::TENSOR_STATS_SMALL_WGSL,
-                crate::shaders::TENSOR_STATS_REDUCE_WGSL,
-                crate::shaders::TENSOR_STATS_FINISH_WGSL,
-                crate::shaders::TENSOR_STATS_OUTPUT_WGSL,
-            ],
-            4,
-        )?;
-        let _ = self.tensor_stats.set(kernels);
-        Ok(self
-            .tensor_stats
-            .get()
-            .expect("statistics kernels initialized"))
+        Ok(self.tensor_stats.get_or_init(|| {
+            StatsKernels::new(
+                [
+                    || Cow::Borrowed(crate::shaders::TENSOR_STATS_SMALL_WGSL),
+                    || Cow::Borrowed(crate::shaders::TENSOR_STATS_REDUCE_WGSL),
+                    || Cow::Borrowed(crate::shaders::TENSOR_STATS_FINISH_WGSL),
+                    || Cow::Borrowed(crate::shaders::TENSOR_STATS_OUTPUT_WGSL),
+                ],
+                4,
+            )
+        }))
     }
 }
 
 impl StatsKernels {
     pub(in crate::tensor) fn new(
-        device: &crate::wgpu::Device,
-        sources: [&str; 4],
+        sources: [fn() -> Cow<'static, str>; 4],
         summary_words: usize,
-    ) -> std::result::Result<Self, KernelError> {
-        let four = [
-            Binding::StorageRead,
-            Binding::StorageRead,
-            Binding::StorageRead,
-            Binding::StorageReadWrite,
-        ];
-        Ok(Self {
+    ) -> Self {
+        Self {
+            small: OnceLock::new(),
+            reduce: OnceLock::new(),
+            finish: OnceLock::new(),
+            output: OnceLock::new(),
+            sources,
             summary_words,
-            small: Kernel::new(
+        }
+    }
+
+    pub(crate) fn small(
+        &self,
+        device: &crate::wgpu::Device,
+    ) -> std::result::Result<&Kernel, KernelError> {
+        lazy_kernel(&self.small, || {
+            Kernel::new(
                 device,
                 "small tensor statistics groups",
-                sources[0],
+                self.sources[0]().as_ref(),
                 "main",
                 &[
                     Binding::StorageRead,
@@ -61,25 +64,59 @@ impl StatsKernels {
                     Binding::StorageReadWrite,
                     Binding::StorageReadWrite,
                 ],
-            )?,
-            reduce: Kernel::new(
+            )
+        })
+    }
+
+    pub(crate) fn reduce(
+        &self,
+        device: &crate::wgpu::Device,
+    ) -> std::result::Result<&Kernel, KernelError> {
+        lazy_kernel(&self.reduce, || {
+            Kernel::new(
                 device,
                 "scaled tensor statistics partials",
-                sources[1],
+                self.sources[1]().as_ref(),
                 "main",
-                &four,
-            )?,
-            finish: Kernel::new(
+                &[
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })
+    }
+
+    pub(crate) fn finish(
+        &self,
+        device: &crate::wgpu::Device,
+    ) -> std::result::Result<&Kernel, KernelError> {
+        lazy_kernel(&self.finish, || {
+            Kernel::new(
                 device,
                 "scaled tensor statistics summaries",
-                sources[2],
+                self.sources[2]().as_ref(),
                 "main",
-                &four,
-            )?,
-            output: Kernel::new(
+                &[
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageRead,
+                    Binding::StorageReadWrite,
+                ],
+            )
+        })
+    }
+
+    pub(crate) fn output(
+        &self,
+        device: &crate::wgpu::Device,
+    ) -> std::result::Result<&Kernel, KernelError> {
+        lazy_kernel(&self.output, || {
+            Kernel::new(
                 device,
                 "stable tensor normalization output",
-                sources[3],
+                self.sources[3]().as_ref(),
                 "main",
                 &[
                     Binding::StorageRead,
@@ -88,7 +125,7 @@ impl StatsKernels {
                     Binding::StorageReadWrite,
                     Binding::StorageReadWrite,
                 ],
-            )?,
+            )
         })
     }
 }
@@ -331,7 +368,7 @@ impl<'a> ComputeProgram<'a> {
         if (2..=256).contains(&red_count) {
             metadata[7] = op as u32;
             prepared.index_dispatch(
-                &kernels.small,
+                kernels.small(self.runtime.device())?,
                 &metadata,
                 &[
                     input,
@@ -353,18 +390,20 @@ impl<'a> ComputeProgram<'a> {
                 Operation::Softmax | Operation::LogSoftmax | Operation::LogSumExp => &[0, 1],
                 Operation::Moments | Operation::LayerNorm => &[0, 2, 3],
             };
+            let reduce = kernels.reduce(self.runtime.device())?;
+            let finish = kernels.finish(self.runtime.device())?;
             for &stage in stages {
                 metadata[7] = stage;
                 let next: GpuArray<f32> =
                     self.runtime.zeros(rows as usize * kernels.summary_words)?;
                 prepared.index_dispatch(
-                    &kernels.reduce,
+                    reduce,
                     &metadata,
                     &[input, summary.buffer(), partials.buffer()],
                     groups,
                 )?;
                 prepared.index_dispatch(
-                    &kernels.finish,
+                    finish,
                     &metadata,
                     &[partials.buffer(), summary.buffer(), next.buffer()],
                     metadata[12],
@@ -375,7 +414,7 @@ impl<'a> ComputeProgram<'a> {
         metadata[7] = op as u32;
         metadata[12] = self.index_groups(metadata[11].div_ceil(256));
         prepared.index_dispatch(
-            &kernels.output,
+            kernels.output(self.runtime.device())?,
             &metadata,
             &[
                 input,

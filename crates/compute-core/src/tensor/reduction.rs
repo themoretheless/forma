@@ -166,9 +166,9 @@ impl ComputeProgram<'_> {
         let metadata = self.runtime.upload(&meta)?;
         let kernels = self.runtime.tensor_kernels()?;
         let kernel = if specialized_sum {
-            &kernels.sum
+            kernels.sum(self.runtime.device())?
         } else {
-            &kernels.reduce[kind::<T>()]
+            kernels.reduce(self.runtime.device(), kind::<T>())?
         };
         let bindings = kernel.create_bind_group(
             self.runtime.device(),

@@ -68,3 +68,63 @@ rust-version = "1.92"
 [profile.release]
 codegen-units = 1
 lto = "fat"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.test.package."*"]
+debug = false
+
+[profile.dev.package.naga]
+opt-level = 2
+
+[profile.dev.package.gpu-shader]
+opt-level = 2
+
+[profile.dev.package.wgpu-core]
+opt-level = 2
+
+[profile.dev.package.wgpu-hal]
+opt-level = 2
+
+[profile.dev.package.wgpu-types]
+opt-level = 2
+
+[profile.dev.package.spirv]
+opt-level = 2
+
+[profile.dev.package.skrifa]
+opt-level = 2
+
+[profile.dev.package.read-fonts]
+opt-level = 2
+
+[profile.test.package.naga]
+opt-level = 2
+
+[profile.test.package.gpu-shader]
+opt-level = 2
+
+[profile.test.package.wgpu-core]
+opt-level = 2
+
+[profile.test.package.wgpu-hal]
+opt-level = 2
+
+[profile.test.package.wgpu-types]
+opt-level = 2
+
+[profile.test.package.spirv]
+opt-level = 2
+
+[profile.test.package.skrifa]
+opt-level = 2
+
+[profile.test.package.read-fonts]
+opt-level = 2

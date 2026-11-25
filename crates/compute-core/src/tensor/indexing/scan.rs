@@ -87,7 +87,10 @@ impl<'a> ComputeProgram<'a> {
         length: u32,
         options: ScanOptions,
     ) -> Result<()> {
-        let kernel = &self.runtime.tensor_index_kernels()?.scan_blocks[kind::<T>()];
+        let kernel = self
+            .runtime
+            .tensor_index_kernels()?
+            .scan_blocks(self.runtime.device(), kind::<T>())?;
         self.scan_rows_loaded(
             input.values().buffer(),
             output,
@@ -142,7 +145,10 @@ impl<'a> ComputeProgram<'a> {
             )?;
             let count = rows * length;
             let groups = self.index_groups(count.div_ceil(256));
-            let add = &self.runtime.tensor_index_kernels()?.scan_add[kind::<T>()];
+            let add = self
+                .runtime
+                .tensor_index_kernels()?
+                .scan_add(self.runtime.device(), kind::<T>())?;
             self.index_dispatch(
                 add,
                 &[count, length, blocks, groups, u32::from(options.reverse)],

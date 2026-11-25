@@ -134,7 +134,10 @@ impl ComputeProgram<'_> {
             ]);
         }
         let metadata = self.runtime.upload(&meta)?;
-        let kernel = &self.runtime.tensor_kernels()?.elementwise;
+        let kernel = self
+            .runtime
+            .tensor_kernels()?
+            .elementwise(self.runtime.device())?;
         let bindings = kernel.create_bind_group(
             self.runtime.device(),
             &[
@@ -198,7 +201,10 @@ impl ComputeProgram<'_> {
             return Ok(());
         }
         let metadata = self.runtime.upload(&meta)?;
-        let kernel = &self.runtime.tensor_kernels()?.matmul;
+        let kernel = self
+            .runtime
+            .tensor_kernels()?
+            .matmul(self.runtime.device())?;
         let bindings = kernel.create_bind_group(
             self.runtime.device(),
             &[

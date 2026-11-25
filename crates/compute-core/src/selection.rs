@@ -1,5 +1,7 @@
+use crate::runtime::lazy_kernel;
 use crate::scan::ScanPlan;
 use crate::{Binding, ComputeError, ComputeProgram, GpuArray, Kernel, shaders, uniform_f32, wgpu};
+use std::sync::OnceLock;
 
 /// Stable selection with a GPU-resident logical length. After its producing
 /// program executes, `values()[..count()[0]]` contains selected values in input
@@ -28,13 +30,19 @@ impl CompactedArray {
 }
 
 pub(crate) struct SelectionKernels {
-    scatter: Kernel,
+    scatter: OnceLock<Kernel>,
 }
 
 impl SelectionKernels {
-    pub(crate) fn new(device: &wgpu::Device) -> Result<Self, crate::KernelError> {
-        Ok(Self {
-            scatter: Kernel::new(
+    pub(crate) fn new() -> Self {
+        Self {
+            scatter: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn scatter(&self, device: &wgpu::Device) -> Result<&Kernel, crate::KernelError> {
+        lazy_kernel(&self.scatter, || {
+            Kernel::new(
                 device,
                 "stable compact scatter",
                 shaders::COMPACT_SCATTER_LOCAL_WGSL,
@@ -48,7 +56,7 @@ impl SelectionKernels {
                     Binding::StorageReadWrite,
                     Binding::StorageReadWrite,
                 ],
-            )?,
+            )
         })
     }
 }
@@ -116,7 +124,7 @@ impl ComputeProgram<'_> {
         }
         let offsets = self.runtime.zeros(input.len())?;
         let (scan, block_offsets, block_size) = ScanPlan::local(self.runtime, keep, &offsets)?;
-        let scatter = &self.runtime.selection.scatter;
+        let scatter = self.runtime.selection.scatter(&self.runtime.device)?;
         let groups = scatter.workgroup_count(input.len).clamp(1, 65535);
         let params = uniform_f32(
             &self.runtime.device,
